@@ -1,0 +1,218 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+    Search, Filter, MoreVertical, Shield, ShieldAlert,
+    CheckCircle, XCircle, Trash2, UserCog, ChevronLeft, ChevronRight
+} from "lucide-react";
+import { updateUserRole, toggleUserBan } from "@/lib/actions/user-actions";
+import { cn } from "@/lib/utils";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useTransition } from "react";
+
+interface UsersTableProps {
+    users: any[];
+    metadata: {
+        total: number;
+        page: number;
+        totalPages: number;
+    };
+}
+
+export default function UsersTable({ users, metadata }: UsersTableProps) {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const [isPending, startTransition] = useTransition();
+
+    const updateFilter = (newParams: Record<string, string | number | null>) => {
+        const params = new URLSearchParams(searchParams.toString());
+        Object.entries(newParams).forEach(([key, value]) => {
+            if (value === null || value === "ALL") params.delete(key);
+            else params.set(key, String(value));
+        });
+        if (!newParams.page) params.delete("page"); // Reset page on filter change
+
+        startTransition(() => {
+            router.push(`/dashboard/admin/users?${params.toString()}`);
+        });
+    };
+
+    const handleRoleChange = async (userId: string, newRole: "ADMIN" | "VENDEDOR" | "USER") => {
+        if (!confirm(`¿Estás seguro de cambiar el rol a ${newRole}?`)) return;
+        const res = await updateUserRole(userId, newRole);
+        if (!res.success) alert(res.error);
+        else router.refresh();
+    };
+
+    const handleDelete = async (userId: string) => {
+        if (!confirm("¿ESTÁS SEGURO? Esta acción eliminará permanentemente al usuario.")) return;
+        const res = await toggleUserBan(userId, true);
+        if (!res.success) alert(res.error);
+        else router.refresh();
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-wrap gap-2">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Buscar..."
+                            defaultValue={searchParams.get("search") || ""}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                const timeout = setTimeout(() => updateFilter({ search: val, page: 1 }), 500);
+                                return () => clearTimeout(timeout);
+                            }}
+                            className="pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm w-64 focus:ring-2 focus:ring-brand-500 outline-none"
+                        />
+                    </div>
+                    <select
+                        defaultValue={searchParams.get("role") || "ALL"}
+                        onChange={(e) => updateFilter({ role: e.target.value, page: 1 })}
+                        className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                    >
+                        <option value="ALL">Todos los Roles</option>
+                        <option value="USER">Usuarios</option>
+                        <option value="VENDEDOR">Vendedores</option>
+                        <option value="ADMIN">Admins</option>
+                    </select>
+                    <select
+                        defaultValue={searchParams.get("kyc") || "ALL"}
+                        onChange={(e) => updateFilter({ kyc: e.target.value, page: 1 })}
+                        className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                    >
+                        <option value="ALL">Estado KYC</option>
+                        <option value="PENDIENTE">Pendiente</option>
+                        <option value="EN_REVISION">En Revisión</option>
+                        <option value="VERIFICADO">Verificado</option>
+                    </select>
+                </div>
+            </div>
+
+            <div className={cn(
+                "bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-opacity",
+                isPending && "opacity-50"
+            )}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                            <tr>
+                                <th className="px-6 py-3">Usuario</th>
+                                <th className="px-6 py-3">Rol</th>
+                                <th className="px-6 py-3">KYC</th>
+                                <th className="px-6 py-3">Registro</th>
+                                <th className="px-6 py-3 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {users.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
+                                        No se encontraron usuarios.
+                                    </td>
+                                </tr>
+                            ) : (
+                                users.map((user) => (
+                                    <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-600 flex items-center justify-center font-bold text-xs">
+                                                    {user.nombre[0].toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div className="font-medium text-slate-900 dark:text-white">{user.nombre}</div>
+                                                    <div className="text-xs text-slate-500">{user.email}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={cn(
+                                                "px-2 py-1 rounded text-xs font-bold uppercase",
+                                                user.rol === 'ADMIN' ? 'bg-purple-100 text-purple-600' :
+                                                    user.rol === 'VENDEDOR' ? 'bg-blue-100 text-blue-600' :
+                                                        'bg-slate-100 text-slate-600'
+                                            )}>
+                                                {user.rol}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={cn(
+                                                "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold",
+                                                user.kycStatus === 'VERIFICADO' ? 'bg-emerald-100 text-emerald-600' :
+                                                    user.kycStatus === 'RECHAZADO' ? 'bg-rose-100 text-rose-600' :
+                                                        'bg-amber-100 text-amber-600'
+                                            )}>
+                                                {user.kycStatus === 'VERIFICADO' && <CheckCircle className="w-3 h-3" />}
+                                                {user.kycStatus === 'RECHAZADO' && <XCircle className="w-3 h-3" />}
+                                                {user.kycStatus === 'PENDIENTE' && <Shield className="w-3 h-3" />}
+                                                {user.kycStatus === 'EN_REVISION' && <ShieldAlert className="w-3 h-3" />}
+                                                {String(user.kycStatus).replace('_', ' ')}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-500 text-xs">
+                                            {new Date(user.createdAt).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                                                    <MoreVertical className="w-4 h-4 text-slate-500" />
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, "ADMIN")}>
+                                                        <Shield className="w-4 h-4 mr-2" /> Hacer Admin
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, "VENDEDOR")}>
+                                                        <UserCog className="w-4 h-4 mr-2" /> Hacer Vendedor
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, "USER")}>
+                                                        <UserCog className="w-4 h-4 mr-2" /> Hacer Usuario
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem className="text-rose-600" onClick={() => handleDelete(user.id)}>
+                                                        <Trash2 className="w-4 h-4 mr-2" /> Eliminar
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                    <p className="text-xs text-slate-500">
+                        Página {metadata.page} de {metadata.totalPages} ({metadata.total} usuarios)
+                    </p>
+                    <div className="flex gap-2">
+                        <button
+                            disabled={metadata.page <= 1 || isPending}
+                            onClick={() => updateFilter({ page: metadata.page - 1 })}
+                            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                            disabled={metadata.page >= metadata.totalPages || isPending}
+                            onClick={() => updateFilter({ page: metadata.page + 1 })}
+                            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

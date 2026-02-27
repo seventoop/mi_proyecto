@@ -1,0 +1,123 @@
+STDOUT:
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+
+STDERR:
+
+Error: Prisma schema validation - (validate wasm)
+Error code: P1012
+[1;91merror[0m: [1mNative type Text is not supported for sqlite connector.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:45[0m
+[1;94m   | [0m
+[1;94m44 | [0m  slug             String?         @unique
+[1;94m45 | [0m  descripcion      String?         [1;91m@db.Text[0m
+[1;94m   | [0m
+[1;91merror[0m: [1mField "galeria" in model "Proyecto" can't be a list. The current connector does not support lists of primitive types.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:50[0m
+[1;94m   | [0m
+[1;94m49 | [0m  imagenPortada    String?
+[1;94m50 | [0m  [1;91mgaleria          String[]        // array de URLs[0m
+[1;94m51 | [0m  documentos       String[]        // array de URLs
+[1;94m   | [0m
+[1;91merror[0m: [1mField "documentos" in model "Proyecto" can't be a list. The current connector does not support lists of primitive types.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:51[0m
+[1;94m   | [0m
+[1;94m50 | [0m  galeria          String[]        // array de URLs
+[1;94m51 | [0m  [1;91mdocumentos       String[]        // array de URLs[0m
+[1;94m52 | [0m  masterplanSVG    String?         @db.Text
+[1;94m   | [0m
+[1;91merror[0m: [1mNative type Text is not supported for sqlite connector.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:52[0m
+[1;94m   | [0m
+[1;94m51 | [0m  documentos       String[]        // array de URLs
+[1;94m52 | [0m  masterplanSVG    String?         [1;91m@db.Text[0m
+[1;94m   | [0m
+[1;91merror[0m: [1mError validating field `masterplanConfig` in model `Proyecto`: Field `masterplanConfig` in model `Proyecto` can't be of type Json. The current connector does not support the Json type.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:53[0m
+[1;94m   | [0m
+[1;94m52 | [0m  masterplanSVG    String?         @db.Text
+[1;94m53 | [0m  [1;91mmasterplanConfig Json?           // configuración JSON del masterplan[0m
+[1;94m54 | [0m  createdAt        DateTime        @default(now())
+[1;94m   | [0m
+[1;91merror[0m: [1mError validating field `coordenadas` in model `Manzana`: Field `coordenadas` in model `Manzana` can't be of type Json. The current connector does not support the Json type.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:86[0m
+[1;94m   | [0m
+[1;94m85 | [0m  nombre      String
+[1;94m86 | [0m  [1;91mcoordenadas Json?    // coordenadas para SVG del masterplan[0m
+[1;94m87 | [0m  createdAt   DateTime @default(now())
+[1;94m   | [0m
+[1;91merror[0m: [1mError validating field `financiacion` in model `Unidad`: Field `financiacion` in model `Unidad` can't be of type Json. The current connector does not support the Json type.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:109[0m
+[1;94m   | [0m
+[1;94m108 | [0m  moneda                String       @default("USD")
+[1;94m109 | [0m  [1;91mfinanciacion          Json?        // { cuotas, anticipo, tasaInteres, ... }[0m
+[1;94m110 | [0m  estado                String @default("DISPONIBLE")
+[1;94m   | [0m
+[1;91merror[0m: [1mError validating field `coordenadasMasterplan` in model `Unidad`: Field `coordenadasMasterplan` in model `Unidad` can't be of type Json. The current connector does not support the Json type.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:111[0m
+[1;94m   | [0m
+[1;94m110 | [0m  estado                String @default("DISPONIBLE")
+[1;94m111 | [0m  [1;91mcoordenadasMasterplan Json?        // { x, y, width, height, path, ... }[0m
+[1;94m112 | [0m  imagenes              String[]     // array de URLs
+[1;94m   | [0m
+[1;91merror[0m: [1mField "imagenes" in model "Unidad" can't be a list. The current connector does not support lists of primitive types.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:112[0m
+[1;94m   | [0m
+[1;94m111 | [0m  coordenadasMasterplan Json?        // { x, y, width, height, path, ... }
+[1;94m112 | [0m  [1;91mimagenes              String[]     // array de URLs[0m
+[1;94m113 | [0m  tour360Url            String?
+[1;94m   | [0m
+[1;91merror[0m: [1mField "unidadInteres" in model "Lead" can't be a list. The current connector does not support lists of primitive types.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:136[0m
+[1;94m   | [0m
+[1;94m135 | [0m  proyectoId     String?
+[1;94m136 | [0m  [1;91munidadInteres  String[]    // array de IDs de unidades de interés[0m
+[1;94m137 | [0m  estado         String  @default("NUEVO")
+[1;94m   | [0m
+[1;91merror[0m: [1mError validating field `notas` in model `Lead`: Field `notas` in model `Lead` can't be of type Json. The current connector does not support the Json type.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:142[0m
+[1;94m   | [0m
+[1;94m141 | [0m  campana        String?
+[1;94m142 | [0m  [1;91mnotas          Json[]      // [{ fecha, texto, userId }][0m
+[1;94m143 | [0m  createdAt      DateTime    @default(now())
+[1;94m   | [0m
+[1;91merror[0m: [1mError validating field `notas` in model `Lead`: Field `notas` in model `Lead` can't be of type Json[]. The current connector does not support the Json List type.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:142[0m
+[1;94m   | [0m
+[1;94m141 | [0m  campana        String?
+[1;94m142 | [0m  [1;91mnotas          Json[]      // [{ fecha, texto, userId }][0m
+[1;94m143 | [0m  createdAt      DateTime    @default(now())
+[1;94m   | [0m
+[1;91merror[0m: [1mField "notas" in model "Lead" can't be a list. The current connector does not support lists of primitive types.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:142[0m
+[1;94m   | [0m
+[1;94m141 | [0m  campana        String?
+[1;94m142 | [0m  [1;91mnotas          Json[]      // [{ fecha, texto, userId }][0m
+[1;94m143 | [0m  createdAt      DateTime    @default(now())
+[1;94m   | [0m
+[1;91merror[0m: [1mNative type Text is not supported for sqlite connector.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:231[0m
+[1;94m   | [0m
+[1;94m230 | [0m  estadoNuevo     String
+[1;94m231 | [0m  motivo          String?  [1;91m@db.Text[0m
+[1;94m   | [0m
+[1;91merror[0m: [1mError validating field `escenas` in model `Tour360`: Field `escenas` in model `Tour360` can't be of type Json. The current connector does not support the Json type.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:246[0m
+[1;94m   | [0m
+[1;94m245 | [0m  nombre      String
+[1;94m246 | [0m  [1;91mescenas     Json     // Array of scenes with hotspots[0m
+[1;94m247 | [0m  createdAt   DateTime @default(now())
+[1;94m   | [0m
+[1;91merror[0m: [1mError validating field `proyecto` in model `Tarea`: The relation field `proyecto` on model `Tarea` is missing an opposite relation field on the model `Proyecto`. Either run `prisma format` or add it manually.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:198[0m
+[1;94m   | [0m
+[1;94m197 | [0m  usuario  User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+[1;94m198 | [0m  [1;91mproyecto Proyecto? @relation(fields: [proyectoId], references: [id], onDelete: SetNull)[0m
+[1;94m199 | [0m
+[1;94m   | [0m
+
+Validation Error Count: 16
+[Context: validate]
+
+Prisma CLI Version : 5.22.0

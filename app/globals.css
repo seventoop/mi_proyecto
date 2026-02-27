@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #F8FAFC;
+  --foreground: #3D4A5C;
+  --card: #FFFFFF;
+  --card-foreground: #3D4A5C;
+  --popover: #FFFFFF;
+  --popover-foreground: #3D4A5C;
+  --primary: #F97316;
+  --primary-foreground: #FFFFFF;
+  --secondary: #64748B;
+  --secondary-foreground: #F8FAFC;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #FFC107;
+  --accent-foreground: #0A0A0A;
+  --destructive: #EF4444;
+  --destructive-foreground: #F8FAFC;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #F97316;
+  --radius: 0.75rem;
+
+  --brand-orange: #F97316;
+  --brand-orange-dark: #EA6C0A;
+  --brand-gray: #3D4A5C;
+  --brand-yellow: #FFC107;
+  --brand-black: #0A0A0A;
+  --brand-surface: #F8FAFC;
+  --brand-muted: #64748B;
+}
+
+.dark {
+  --background: #24263A;
+  --foreground: #F8FAFC;
+  --card: #2B2D42;
+  --card-foreground: #F8FAFC;
+  --popover: #24263A;
+  --popover-foreground: #F8FAFC;
+  --primary: #F97316;
+  --primary-foreground: #FFFFFF;
+  --secondary: #3D4A5C;
+  --secondary-foreground: #F8FAFC;
+  --muted: #32344A;
+  --muted-foreground: #94A3B8;
+  --accent: #FFC107;
+  --accent-foreground: #24263A;
+  --destructive: #7F1D1D;
+  --destructive-foreground: #F8FAFC;
+  --border: #334155;
+  --input: #334155;
+  --ring: #F97316;
+}
+
+@layer base {
+  * {
+    @apply border-slate-200 dark:border-slate-800/50;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/80 dark:bg-[#111116]/80 backdrop-blur-sm border border-white/20 dark:border-white/10;
+  }
+
+  .glass-card {
+    @apply glass rounded-2xl shadow-lg hover:shadow-glow transition-all duration-200;
+  }
+
+  .gradient-brand {
+    background: linear-gradient(to right, var(--brand-orange), var(--brand-orange-dark));
+  }
+
+  .gradient-text {
+    background: linear-gradient(to right, var(--brand-orange), var(--brand-yellow), var(--brand-orange-dark));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .status-disponible {
+    background-color: color-mix(in srgb, var(--brand-orange) 10%, transparent);
+    color: var(--brand-orange-dark);
+    font-weight: 700;
+  }
+
+  .status-reservado {
+    background-color: color-mix(in srgb, var(--brand-yellow) 10%, transparent);
+    color: var(--brand-black);
+    font-weight: 700;
+  }
+
+  .status-vendido {
+    background-color: color-mix(in srgb, var(--brand-gray) 10%, transparent);
+    color: var(--brand-gray);
+    font-weight: 700;
+  }
+
+  .status-bloqueado {
+    @apply bg-slate-100 text-slate-500;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .shadow-soft {
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1), 0 4px 15px -5px rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-glow-soft {
+    box-shadow: 0 0 20px -5px color-mix(in srgb, var(--brand-orange) 20%, transparent);
+  }
+}
+
+/* Vertical text for banner branding */
+.vertical-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400 dark:bg-slate-500;
+}
