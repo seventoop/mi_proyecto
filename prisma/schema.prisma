@@ -142,6 +142,7 @@ model Proyecto {
   tareas               Tarea[]
   testimonios          Testimonio[]
   tours                Tour360[]
+  banners              Banner[]
 
   @@index([estado])
   @@index([createdAt])
@@ -195,6 +196,10 @@ model Inversion {
   inversor         User     @relation("InversorInversion", fields: [inversorId], references: [id], onDelete: Cascade)
   proyecto         Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
+  @@index([proyectoId])
+  @@index([inversorId])
+  @@index([estado])
+  @@index([fechaInversion])
   @@map("inversiones")
 }
 
@@ -347,6 +352,10 @@ model Oportunidad {
   proyecto            Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
   unidad              Unidad?   @relation(fields: [unidadId], references: [id])
 
+  @@index([proyectoId])
+  @@index([etapa])
+  @@index([createdAt])
+  @@index([leadId, etapa])
   @@map("oportunidades")
 }
 
@@ -366,6 +375,11 @@ model Tarea {
   proyecto         Proyecto? @relation(fields: [proyectoId], references: [id])
   usuario          User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
+  @@index([leadId])
+  @@index([estado])
+  @@index([fechaVencimiento])
+  @@index([usuarioId])
+  @@index([usuarioId, estado])
   @@map("tareas")
 }
 
@@ -476,8 +490,13 @@ model Banner {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   creadoPor   User?     @relation("BannerCreador", fields: [creadoPorId], references: [id])
+  proyecto    Proyecto? @relation(fields: [proyectoId], references: [id])
+  proyectoId  String?
   pago        Pago?
 
+  @@index([proyectoId])
+  @@index([estado])
+  @@index([createdAt])
   @@map("banners")
 }
 
@@ -497,6 +516,9 @@ model Testimonio {
   updatedAt     DateTime  @updatedAt
   proyecto      Proyecto? @relation(fields: [proyectoId], references: [id])
 
+  @@index([estado])
+  @@index([createdAt])
+  @@index([proyectoId])
   @@map("testimonios")
 }
 
@@ -536,6 +558,9 @@ model Pago {
 
   @@index([usuarioId])
   @@index([proyectoId])
+  @@index([estado])
+  @@index([tipo])
+  @@index([createdAt])
   @@map("pagos")
 }
 

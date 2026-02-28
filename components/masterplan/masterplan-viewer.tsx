@@ -18,7 +18,6 @@ import MasterplanSidePanel from "./masterplan-side-panel";
 import MasterplanFilters from "./masterplan-filters";
 import MasterplanComparator from "./masterplan-comparator";
 import { getProjectBlueprintData } from "@/lib/actions/unidades";
-import { getPusherClient, CHANNELS, EVENTS } from "@/lib/pusher";
 
 // ─── Status colors ───
 const STATUS_COLORS: Record<string, string> = {
@@ -193,22 +192,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
         fetchProjectUnits();
     }, [proyectoId, setUnits]);
 
-    // 2. Implementation of Real-time sync via Pusher
-    useEffect(() => {
-        const pusher = getPusherClient();
-        const channel = pusher.subscribe(CHANNELS.UNIDADES);
-
-        channel.bind(EVENTS.UNIDAD_STATUS_CHANGED, (data: { id: string; estado: MasterplanUnit["estado"]; proyectoId?: string }) => {
-            // Only update if it belongs to this project
-            if (!data.proyectoId || data.proyectoId === proyectoId) {
-                updateUnitState(data.id, { estado: data.estado });
-            }
-        });
-
-        return () => {
-            pusher.unsubscribe(CHANNELS.UNIDADES);
-        };
-    }, [proyectoId, updateUnitState]);
+    // 2. Real-time sync is now handled globally by RealtimeUnitsHandler in the dashboard layout.
 
     const handleUnitHover = useCallback((e: React.MouseEvent, unit: MasterplanUnit) => {
         const rect = containerRef.current?.getBoundingClientRect();
