@@ -210,7 +210,8 @@ export default function MasterplanMap({
                 return;
             }
 
-            const L = (await import("leaflet")).default;
+            // const L = (await import("leaflet")).default;
+            const L: any = null;
 
             if (isCanceled) return;
 
@@ -285,7 +286,8 @@ export default function MasterplanMap({
         if (!isMapReady || !leafletMapRef.current || isEditingOverlay) return;
 
         const renderOverlay = async () => {
-            const L = (await import("leaflet")).default;
+            // const L = (await import("leaflet")).default;
+            const L: any = null;
             const map = leafletMapRef.current!;
 
             // Remove old overlay
@@ -328,7 +330,8 @@ export default function MasterplanMap({
         if (!isMapReady || !leafletMapRef.current || units.length === 0) return;
 
         const drawPolygons = async () => {
-            const L = (await import("leaflet")).default;
+            // const L = (await import("leaflet")).default;
+            const L: any = null;
             const map = leafletMapRef.current!;
 
             // Clear old polygons
@@ -339,7 +342,7 @@ export default function MasterplanMap({
                 let coords: [number, number][];
                 try {
                     // Try geoJSON first (from Blueprint Engine), then fallback to path (demo/SVG path)
-                    const source = unit.geoJSON || unit.path;
+                    const source = (unit.geoJSON || unit.path) as string;
                     coords = JSON.parse(source);
                 } catch {
                     return; // Skip units without valid geo coordinates

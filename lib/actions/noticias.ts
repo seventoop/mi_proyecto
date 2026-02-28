@@ -2,6 +2,25 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { idSchema } from "@/lib/validations";
+
+// ─── Schemas ───
+
+const noticiaCreateSchema = z.object({
+    titulo: z.string().min(5, "Título demasiado corto").max(200),
+    slug: z.string().min(3).max(200),
+    excerpt: z.string().max(500).optional(),
+    contenido: z.string().min(10, "Contenido demasiado corto"),
+    categoria: z.string().default("GENERAL"),
+    imagenUrl: z.string().url("URL de imagen inválida").optional().or(z.literal("")),
+    destacada: z.boolean().default(false),
+    autorId: idSchema,
+});
+
+const noticiaUpdateSchema = noticiaCreateSchema.partial();
+
+// ─── Queries ───
 
 export async function getNoticias(params: {
     page?: number;
@@ -56,6 +75,8 @@ export async function getNoticias(params: {
 
 export async function getNoticiaBySlug(slug: string) {
     try {
+        if (!slug) return { success: false, error: "Slug requerido" };
+
         const noticia = await prisma.noticia.findUnique({
             where: { slug },
             include: {
@@ -70,17 +91,16 @@ export async function getNoticiaBySlug(slug: string) {
     }
 }
 
-export async function createNoticia(data: {
-    titulo: string;
-    slug: string;
-    excerpt: string;
-    contenido: string;
-    categoria: string;
-    imagenUrl?: string;
-    destacada?: boolean;
-    autorId: string;
-}) {
+// ─── Mutations ───
+
+export async function createNoticia(input: unknown) {
     try {
+        const parsed = noticiaCreateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
+
         const noticia = await prisma.noticia.create({
             data: {
                 ...data,
@@ -95,8 +115,17 @@ export async function createNoticia(data: {
     }
 }
 
-export async function updateNoticia(id: string, data: any) {
+export async function updateNoticia(id: string, input: unknown) {
     try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de noticia inválido" };
+
+        const parsed = noticiaUpdateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
+
         await prisma.noticia.update({
             where: { id },
             data
@@ -110,6 +139,9 @@ export async function updateNoticia(id: string, data: any) {
 
 export async function deleteNoticia(id: string) {
     try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de noticia inválido" };
+
         await prisma.noticia.delete({ where: { id } });
         revalidatePath("/blog");
         return { success: true };

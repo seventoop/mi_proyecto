@@ -130,7 +130,6 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
                 <MasterplanViewer
                     proyectoId={project.id}
                     modo="public"
-                    initialUnits={mappedUnits.length > 0 ? mappedUnits : undefined}
                 />
             </div>
         </div>

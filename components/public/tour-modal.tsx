@@ -9,7 +9,7 @@ interface TourModalProps {
     tours: {
         id: string;
         nombre: string;
-        escenas: any; // Type as any because Json from Prisma
+        scenes: any[];
     }[];
 }
 
@@ -48,7 +48,7 @@ export default function TourModal({ tours }: TourModalProps) {
 
                     {isOpen && (
                         <TourViewer
-                            scenes={selectedTour.escenas as Scene[]}
+                            scenes={selectedTour.scenes as Scene[]}
                             className="w-full h-full rounded-none"
                             autoRotate={true}
                         />

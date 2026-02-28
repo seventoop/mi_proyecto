@@ -3,12 +3,38 @@
 import OpenAI from "openai";
 import prisma from "@/lib/db";
 import { getSystemConfig } from "./configuration";
+import { z } from "zod";
+import { idSchema } from "@/lib/validations";
+
+// ─── Schemas ───
+
+const leadMessageSchema = z.object({
+    telefono: z.string().min(5, "Teléfono demasiado corto"),
+    mensaje: z.string().min(1, "Mensaje requerido"),
+    nombre: z.string().optional(),
+    email: z.string().email().optional().or(z.literal("")),
+    proyectoId: idSchema.optional(),
+});
+
+const joinCommunitySchema = z.object({
+    nombre: z.string().min(2, "Nombre requerido"),
+    telefono: z.string().min(5, "Teléfono requerido"),
+});
+
+const improveDescriptionSchema = z.object({
+    descripcionActual: z.string().min(1, "Descripción actual requerida"),
+    ubicacion: z.string().min(1, "Ubicación requerida"),
+    tipo: z.string().min(1, "Tipo requerido"),
+});
 
 /**
  * Generates a suggestion for the salesperson (Copilot Mode)
  */
 export async function getAICopilotSuggestion(leadId: string) {
     try {
+        const idParsed = idSchema.safeParse(leadId);
+        if (!idParsed.success) return { success: false, error: "ID de lead inválido" };
+
         const lead = await prisma.lead.findUnique({
             where: { id: leadId },
             include: {
@@ -81,14 +107,12 @@ Usa el nombre del lead para personalizar.
 /**
  * Processes an incoming message from WhatsApp (Pilot Mode / Auto-Qualification)
  */
-export async function processIncomingLeadMessage(data: {
-    telefono: string;
-    mensaje: string;
-    nombre?: string;
-    email?: string;
-    proyectoId?: string;
-}) {
+export async function processIncomingLeadMessage(input: unknown) {
     try {
+        const parsed = leadMessageSchema.safeParse(input);
+        if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        const data = parsed.data;
+
         // 1. Find or Create Lead
         let lead = await prisma.lead.findFirst({
             where: { telefono: data.telefono },
@@ -96,15 +120,19 @@ export async function processIncomingLeadMessage(data: {
         });
 
         if (!lead) {
+            if (data.mensaje.trim().length < 4) {
+                return { success: false, error: "Mensaje demasiado corto" };
+            }
+
             lead = await prisma.lead.create({
                 data: {
                     telefono: data.telefono,
                     nombre: data.nombre || "Nuevo Lead WhatsApp",
-                    email: data.email,
+                    email: data.email || null,
                     mensaje: data.mensaje,
-                    proyectoId: data.proyectoId,
+                    proyectoId: data.proyectoId || null,
                     origen: "WHATSAPP",
-                    automationStatus: "PILOT"
+                    automationStatus: "PILOT" as any
                 },
                 include: { proyecto: true }
             });
@@ -127,7 +155,7 @@ export async function processIncomingLeadMessage(data: {
         // 3. Determine if we should auto-respond (Pilot Mode)
         const globalAutomationRes = await getSystemConfig("DEFAULT_AUTOMATION_LEVEL");
         const isPilotGlobal = globalAutomationRes.value === "PILOT";
-        const isPilotLead = lead.automationStatus === "PILOT";
+        const isPilotLead = (lead as any).automationStatus === "PILOT";
 
         if (!isPilotGlobal && !isPilotLead) {
             return { success: true, message: "Modo Manual/Copilot: Registrado sin auto-respuesta.", leadId: lead.id };
@@ -203,13 +231,13 @@ JSON Schema:
         });
 
         // 7. Handle VIP Invitation & Community
-        if (result.inviteVip && lead.communityType !== 'VIP') {
+        if (result.inviteVip && (lead as any).communityType !== 'VIP') {
             const vipInvite = "\n\n*Invitación Exclusiva:* He notado que eres un inversor serio. Te invito a nuestra Comunidad VIP donde compartimos oportunidades de pozo únicas. ¿Te gustaría sumarte?";
             result.response += vipInvite;
 
             await prisma.lead.update({
                 where: { id: lead.id },
-                data: { communityType: 'VIP' }
+                data: { communityType: 'VIP' as any }
             });
         }
 
@@ -243,9 +271,12 @@ async function sendWhatsAppMessage(to: string, message: string) {
     }
 }
 
-export async function joinOpenCommunity(formData: { nombre: string; telefono: string }) {
+export async function joinOpenCommunity(input: unknown) {
     try {
-        // Since telefono is not a unique field in Prisma, we use findFirst + update/create
+        const parsed = joinCommunitySchema.safeParse(input);
+        if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        const formData = parsed.data;
+
         let lead = await prisma.lead.findFirst({
             where: { telefono: formData.telefono }
         });
@@ -255,7 +286,7 @@ export async function joinOpenCommunity(formData: { nombre: string; telefono: st
                 where: { id: lead.id },
                 data: {
                     nombre: formData.nombre,
-                    communityType: 'OPEN',
+                    communityType: 'OPEN' as any,
                     origen: 'LANDING_COMMUNITY'
                 }
             });
@@ -264,9 +295,9 @@ export async function joinOpenCommunity(formData: { nombre: string; telefono: st
                 data: {
                     nombre: formData.nombre,
                     telefono: formData.telefono,
-                    communityType: 'OPEN',
+                    communityType: 'OPEN' as any,
                     origen: 'LANDING_COMMUNITY',
-                    automationStatus: 'PILOT'
+                    automationStatus: 'PILOT' as any
                 }
             });
         }
@@ -292,12 +323,12 @@ export async function joinOpenCommunity(formData: { nombre: string; telefono: st
 /**
  * Professionalizes a project description using AI
  */
-export async function improveProjectDescription(data: {
-    descripcionActual: string;
-    ubicacion: string;
-    tipo: string;
-}) {
+export async function improveProjectDescription(input: unknown) {
     try {
+        const parsed = improveDescriptionSchema.safeParse(input);
+        if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        const data = parsed.data;
+
         const configRes = await getSystemConfig("OPENAI_API_KEY");
         const apiKey = configRes.value || process.env.OPENAI_API_KEY;
 

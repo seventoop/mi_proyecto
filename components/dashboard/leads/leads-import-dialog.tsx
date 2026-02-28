@@ -14,7 +14,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileUp, Loader2, AlertCircle, CheckCircle } from "lucide-react";
-import Papa from "papaparse";
 import { toast } from "sonner";
 import { bulkCreateLeads } from "@/lib/actions/leads";
 import { useRouter } from "next/navigation";
@@ -40,10 +39,11 @@ export function LeadsImportDialog({ children }: LeadsImportDialogProps) {
         }
     };
 
-    const handleParse = () => {
+    const handleParse = async () => {
         if (!file) return;
 
         setIsLoading(true);
+        const Papa = (await import("papaparse")).default;
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
@@ -79,12 +79,13 @@ export function LeadsImportDialog({ children }: LeadsImportDialogProps) {
         const res = await bulkCreateLeads(parsedData);
         setIsLoading(false);
 
-        if (res.success) {
-            setStats({ count: res.count!, errors: res.errors! });
-            toast.success(`Importación completada: ${res.count} leads credos.`);
+        if (res.success && (res as any).data) {
+            const data = (res as any).data;
+            setStats({ count: data.count, errors: data.errors || [] });
+            toast.success(`Importación completada: ${data.count} leads creados.`);
             router.refresh();
-        } else {
-            toast.error(res.error);
+        } else if ('error' in res) {
+            toast.error(res.error || "Error en la importación");
         }
     };
 

@@ -11,8 +11,24 @@ const leadSchema = z.object({
     origen: z.string().optional().default("WEB"),
 });
 
+import { getClientIp, checkRateLimit } from "@/lib/rate-limit";
+
 export async function POST(req: Request) {
     try {
+        // Rate Limiting: Max 10 leads per 10 minutes per IP
+        const ip = getClientIp(req);
+        const { allowed } = checkRateLimit(ip, {
+            limit: 10,
+            windowMs: 10 * 60 * 1000,
+            keyPrefix: "public_lead_"
+        });
+
+        if (!allowed) {
+            return NextResponse.json(
+                { error: "Demasiadas solicitudes. Intente de nuevo en 10 minutos." },
+                { status: 429 }
+            );
+        }
         const body = await req.json();
         const validation = leadSchema.safeParse(body);
 

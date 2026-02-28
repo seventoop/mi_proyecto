@@ -2,15 +2,29 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import TourCreator from "@/components/tour360/tour-creator";
-import { Scene } from "@/components/tour360/tour-viewer";
+import TourCreator, { Scene } from "@/components/tour360/tour-creator";
 import { Loader2, Plus, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 interface Tour {
     id: string;
     nombre: string;
-    escenas: Scene[];
+    scenes?: any[];
+}
+
+function dbScenestoCreatorScenes(tour: Tour): Scene[] {
+    if (tour.scenes && tour.scenes.length > 0) {
+        return tour.scenes.map((s: any) => ({
+            id: s.id, title: s.title, imageUrl: s.imageUrl, isDefault: s.isDefault,
+            category: s.category?.toLowerCase() || 'raw',
+            hotspots: (s.hotspots || []).map((h: any) => ({
+                id: h.id, type: h.type?.toLowerCase() || 'info', pitch: h.pitch, yaw: h.yaw,
+                text: h.text || '', unidadId: h.unidadId || '', targetSceneId: h.targetSceneId,
+            })),
+            polygons: [], floatingLabels: [],
+        }));
+    }
+    return [];
 }
 
 export default function TourPage() {
@@ -28,9 +42,11 @@ export default function TourPage() {
 
     const fetchTours = async () => {
         try {
-            const res = await fetch(`/api/tours?proyectoId=${params.id}`);
-            const data = await res.json();
-            setTours(data);
+            const { getProjectTours } = await import("@/lib/actions/tours");
+            const res = await getProjectTours(params.id as string);
+            if (res.success && res.data) {
+                setTours(res.data);
+            }
         } catch (error) {
             console.error("Failed to fetch tours", error);
         } finally {
@@ -48,7 +64,7 @@ export default function TourPage() {
                 body: JSON.stringify({
                     proyectoId: params.id,
                     nombre: newTourName,
-                    escenas: [],
+                    scenes: [],
                 }),
             });
             const newTour = await res.json();
@@ -69,7 +85,7 @@ export default function TourPage() {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    escenas: scenes,
+                    scenes: scenes,
                 }),
             });
             const updatedTour = await res.json();
@@ -119,7 +135,7 @@ export default function TourPage() {
                 <TourCreator
                     proyectoId={params.id as string}
                     tourId={selectedTour.id}
-                    initialScenes={(selectedTour.escenas as Scene[]) || []}
+                    initialScenes={dbScenestoCreatorScenes(selectedTour)}
                     onSave={handleSaveScenes}
                     onDelete={handleDeleteTour}
                 />
@@ -176,20 +192,23 @@ export default function TourPage() {
                         onClick={() => setSelectedTour(tour)}
                         className="group relative aspect-video bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500/50 transition-all hover:shadow-xl"
                     >
-                        {tour.escenas && (tour.escenas as any).length > 0 ? (
-                            <img
-                                src={(tour.escenas as any)[0].imageUrl}
-                                alt={tour.nombre}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-50 dark:bg-slate-900">
-                                <span className="text-sm">Sin escenas</span>
-                            </div>
-                        )}
+                        {(() => {
+                            const scenes = dbScenestoCreatorScenes(tour);
+                            return scenes.length > 0 ? (
+                                <img
+                                    src={scenes[0].imageUrl}
+                                    alt={tour.nombre}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-50 dark:bg-slate-900">
+                                    <span className="text-sm">Sin escenas</span>
+                                </div>
+                            );
+                        })()}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
                             <h3 className="text-white font-bold text-lg">{tour.nombre}</h3>
-                            <p className="text-white/60 text-xs">{(tour.escenas as any).length || 0} escenas</p>
+                            <p className="text-white/60 text-xs">{(tour.scenes || []).length} escenas</p>
                         </div>
                     </div>
                 ))}

@@ -1,4 +1,4 @@
-import { Proyecto, Inversion } from "@prisma/client";
+import { Proyecto } from "@prisma/client";
 
 /**
  * Investment Logic Engine - Seventoop
@@ -34,8 +34,10 @@ export function calculateInvestmentProjection(
 }
 
 export function getFundingProgress(proyecto: Proyecto) {
-    if (!proyecto.metaM2Objetivo || proyecto.metaM2Objetivo === 0) return 0;
-    const progress = (proyecto.m2VendidosInversores / proyecto.metaM2Objetivo) * 100;
+    const meta = Number(proyecto.metaM2Objetivo || 0);
+    if (meta === 0) return 0;
+    const vendidos = Number(proyecto.m2VendidosInversores);
+    const progress = (vendidos / meta) * 100;
     return Math.min(100, Math.round(progress));
 }
 

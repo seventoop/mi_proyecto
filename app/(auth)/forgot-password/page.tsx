@@ -1,3 +1,4 @@
+"use client";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Mail, Loader2 } from "lucide-react";

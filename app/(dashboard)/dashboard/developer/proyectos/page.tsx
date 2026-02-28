@@ -61,20 +61,18 @@ export default async function ProyectosPage() {
     });
 
     // Fetch developer KYC status using raw query to bypass Prisma Client sync issues
-    const users: any[] = await prisma.$queryRaw`
-        SELECT "kycStatus", "riskLevel", "demoEndsAt", "demoUsed" 
-        FROM users 
-        WHERE id = ${userId}
-    `;
-    const user = users[0];
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { kycStatus: true, riskLevel: true, demoEndsAt: true, demoUsed: true }
+    });
     const kycStatus = user?.kycStatus;
 
     return (
         <div className="space-y-6">
             <KycDemoStatusCard
-                kycStatus={kycStatus || "PENDIENTE"}
-                demoEndsAt={(user as any)?.demoEndsAt}
-                demoUsed={(user as any)?.demoUsed || false}
+                kycStatus={(kycStatus as any) || "PENDIENTE"}
+                demoEndsAt={user?.demoEndsAt || null}
+                demoUsed={user?.demoUsed || false}
             />
             <ProjectsListClient
                 projects={processedProyectos}

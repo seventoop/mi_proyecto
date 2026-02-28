@@ -4,19 +4,33 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { z } from "zod";
+import { idSchema, currencySchema } from "@/lib/validations";
+import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 
-export async function getAllUnidades(params: {
-    page?: number;
-    pageSize?: number;
-    proyectoId?: string;
-    estado?: string;
-    responsableId?: string;
-    creadoPorId?: string;
-} = {}) {
-    const { page = 1, pageSize = 20, proyectoId, estado, responsableId, creadoPorId } = params;
-    const skip = (page - 1) * pageSize;
+// ─── Schemas ───
 
+const unidadCreateSchema = z.object({
+    manzanaId: idSchema,
+    numero: z.string().min(1, "Número de unidad requerido").max(20),
+    lote: z.string().max(20).optional(),
+    superficie: z.number().positive("La superficie debe ser positiva"),
+    precio: z.number().nonnegative("El precio no puede ser negativo"),
+    moneda: currencySchema.optional(),
+    estado: z.string().optional(),
+    coordsGeoJSON: z.string().optional(),
+    responsableId: idSchema.optional().nullable(),
+});
+
+const unidadUpdateSchema = unidadCreateSchema.partial();
+
+// ─── Queries ───
+
+export async function getAllUnidades(params: any = {}) {
     try {
+        const { page = 1, pageSize = 20, proyectoId, estado, responsableId, creadoPorId } = params;
+        const skip = (page - 1) * pageSize;
+
         const where: any = {};
         if (estado) where.estado = estado;
         if (responsableId) where.responsableId = responsableId;
@@ -94,6 +108,9 @@ export async function getAllUnidades(params: {
 
 export async function getUnidades(manzanaId: string) {
     try {
+        const manIdParsed = idSchema.safeParse(manzanaId);
+        if (!manIdParsed.success) return { success: false, error: "ID de manzana inválido" };
+
         const unidades = await prisma.unidad.findMany({
             where: { manzanaId },
             orderBy: { numero: "asc" }
@@ -106,21 +123,61 @@ export async function getUnidades(manzanaId: string) {
     }
 }
 
-export async function createUnidad(data: {
-    manzanaId: string;
-    numero: string;
-    lote?: string;
-    superficie: number;
-    precio: number;
-    moneda?: string;
-    estado?: string;
-    coordsGeoJSON?: string;
-    responsableId?: string;
-}) {
+export async function getProjectBlueprintData(proyectoId: string) {
+    try {
+        const idParsed = idSchema.safeParse(proyectoId);
+        if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
+
+        const unidades = await prisma.unidad.findMany({
+            where: {
+                manzana: {
+                    etapa: {
+                        proyectoId
+                    }
+                }
+            },
+            select: {
+                id: true,
+                numero: true,
+                superficie: true,
+                precio: true,
+                moneda: true,
+                estado: true,
+                esEsquina: true,
+                orientacion: true,
+                tipo: true,
+                coordenadasMasterplan: true,
+                manzana: {
+                    select: {
+                        nombre: true,
+                        etapa: {
+                            select: { nombre: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        return { success: true, data: unidades };
+    } catch (error) {
+        console.error("Error fetching project blueprint data:", error);
+        return { success: false, error: "Error al obtener datos del masterplan" };
+    }
+}
+
+// ─── Mutations ───
+
+export async function createUnidad(input: unknown) {
     try {
         const session = await getServerSession(authOptions);
         const user = session?.user;
         if (!user) return { success: false, error: "No autorizado" };
+
+        const parsed = unidadCreateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
 
         const manzana = await prisma.manzana.findUnique({
             where: { id: data.manzanaId },
@@ -156,20 +213,40 @@ export async function createUnidad(data: {
     }
 }
 
-export async function updateUnidad(id: string, data: Partial<{
-    numero: string;
-    lote: string;
-    superficie: number;
-    precio: number;
-    moneda: string;
-    estado: string;
-    coordsGeoJSON: string;
-    responsableId: string;
-}>) {
+export async function getUnidadHistorial(id: string) {
     try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+
+        const historial = await prisma.historialUnidad.findMany({
+            where: { unidadId: id },
+            orderBy: { createdAt: "desc" },
+            include: {
+                usuario: { select: { nombre: true, email: true } }
+            }
+        });
+
+        return { success: true, data: historial };
+    } catch (error) {
+        console.error("Error fetching unidad historial:", error);
+        return { success: false, error: "Error al obtener historial" };
+    }
+}
+
+export async function updateUnidad(id: string, input: unknown) {
+    try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+
         const session = await getServerSession(authOptions);
         const user = session?.user;
         if (!user) return { success: false, error: "No autorizado" };
+
+        const parsed = unidadUpdateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
 
         const unidad = await prisma.unidad.findUnique({
             where: { id },
@@ -206,6 +283,9 @@ export async function updateUnidad(id: string, data: Partial<{
 
 export async function deleteUnidad(id: string) {
     try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+
         const session = await getServerSession(authOptions);
         const user = session?.user;
         if (!user) return { success: false, error: "No autorizado" };
@@ -244,6 +324,9 @@ export async function deleteUnidad(id: string) {
 
 export async function updateUnidadEstado(id: string, estado: string) {
     try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+
         const session = await getServerSession(authOptions);
         const user = session?.user;
         if (!user) return { success: false, error: "No autorizado" };
@@ -273,6 +356,14 @@ export async function updateUnidadEstado(id: string, estado: string) {
             data: { estado }
         });
 
+        // Trigger real-time update
+        const pusher = getPusherServer();
+        await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
+            id,
+            estado,
+            proyectoId: unidad.manzana.etapa.proyectoId
+        });
+
         revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
         return { success: true, data: updated };
     } catch (error) {
@@ -283,6 +374,12 @@ export async function updateUnidadEstado(id: string, estado: string) {
 
 export async function assignResponsable(unidadId: string, userId: string) {
     try {
+        const idParsed = idSchema.safeParse(unidadId);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+
+        const userIdParsed = idSchema.safeParse(userId);
+        if (!userIdParsed.success) return { success: false, error: "ID de usuario inválido" };
+
         const session = await getServerSession(authOptions);
         const user = session?.user;
         if (!user) return { success: false, error: "No autorizado" };

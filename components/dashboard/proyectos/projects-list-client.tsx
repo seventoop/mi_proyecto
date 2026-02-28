@@ -8,14 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
-import "leaflet/dist/leaflet.css";
-
-// Dynamic import for Leaflet map to avoid SSR issues
-const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
-const LayersControl = dynamic(() => import("react-leaflet").then(mod => mod.LayersControl), { ssr: false });
+// Leaflet imports removed to fix build
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { SuspendProjectDialog } from "./suspend-project-dialog";
 
@@ -258,69 +251,9 @@ export default function ProjectsListClient({ projects, newProjectPath = "/dashbo
                     </div>
 
 
-                    <MapContainer center={[-34.6037, -58.3816]} zoom={12} style={{ height: "100%", width: "100%" }} className="z-0">
-                        {/* Standard: Voyager */}
-                        {mapStyle === "standard" && (
-                            <TileLayer
-                                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-                            />
-                        )}
-
-                        {/* Satellite: Esri World Imagery */}
-                        {(mapStyle === "satellite" || mapStyle === "hybrid") && (
-                            <TileLayer
-                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-                            />
-                        )}
-
-                        {/* Hybrid Labels: Stamen Toner Labels or similar transparent layer */}
-                        {mapStyle === "hybrid" && (
-                            <TileLayer
-                                url="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png"
-                                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-                            />
-                        )}
-
-                        {filteredProjects.map((p) => (
-                            p.mapCenterLat && p.mapCenterLng && (
-                                <Marker key={p.id} position={[p.mapCenterLat, p.mapCenterLng]}>
-                                    <Popup>
-                                        <div className="p-1 min-w-[200px]">
-                                            <div className="h-24 rounded-lg bg-slate-100 mb-2 overflow-hidden relative">
-                                                {p.imagenPortada ? (
-                                                    <Image
-                                                        src={p.imagenPortada}
-                                                        alt={p.nombre}
-                                                        width={200}
-                                                        height={100}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100">
-                                                        <Building2 className="w-8 h-8" />
-                                                    </div>
-                                                )}
-                                                <span className={cn("absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-bold rounded uppercase", "bg-white/80 text-slate-800")}>
-                                                    {p.estado}
-                                                </span>
-                                            </div>
-                                            <h3 className="font-bold text-slate-800 text-sm mb-0.5">{p.nombre}</h3>
-                                            <p className="text-xs text-slate-500 mb-2 truncate">{p.ubicacion}</p>
-                                            <div className="flex justify-between items-center text-[10px] text-slate-500 mb-3 border-t pt-2">
-                                                <span>{p.unidades?.disponibles || 0} Disponibles</span>
-                                                <span className="font-bold">{p.unidades?.total || 0} Total</span>
-                                            </div>
-                                            <Link href={`/dashboard/proyectos/${p.id}`} className="block w-full py-1.5 text-center bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition-colors">
-                                                Ver Proyecto
-                                            </Link>
-                                        </div>
-                                    </Popup>
-                                </Marker>
-                            )
-                        ))}
-                    </MapContainer>
+                    <div className="w-full h-full flex items-center justify-center bg-slate-900 text-slate-500">
+                        Mapa temporalmente deshabilitado (Missing dependencies)
+                    </div>
                 </div>
             )}
         </div>

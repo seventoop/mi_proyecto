@@ -2,21 +2,22 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleGuardError } from "@/lib/guards";
+import { z } from "zod";
+
+// ─── Queries ───
 
 export async function getSettings() {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
+        const userData = await prisma.user.findUnique({
+            where: { id: user.id },
             select: { configuracion: true }
         });
 
         // Parse JSON or return default
-        const config = user?.configuracion ? JSON.parse(user.configuracion) : {
+        const config = userData?.configuracion ? JSON.parse(userData.configuracion) : {
             notifications: {
                 emailLeads: true,
                 emailReservas: true,
@@ -33,18 +34,23 @@ export async function getSettings() {
 
         return { success: true, data: config };
     } catch (error) {
-        console.error("Error fetching settings:", error);
-        return { success: false, error: "Error al obtener configuración" };
+        return handleGuardError(error);
     }
 }
 
-export async function updateSettings(newSettings: any) {
+// ─── Mutations ───
+
+export async function updateSettings(newSettings: unknown) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
+
+        // Validation for generic settings object
+        if (typeof newSettings !== "object" || newSettings === null) {
+            return { success: false, error: "Configuración inválida" };
+        }
 
         await prisma.user.update({
-            where: { id: session.user.id },
+            where: { id: user.id },
             data: {
                 configuracion: JSON.stringify(newSettings),
                 updatedAt: new Date()
@@ -52,9 +58,9 @@ export async function updateSettings(newSettings: any) {
         });
 
         revalidatePath("/dashboard/developer/configuracion");
+        revalidatePath("/dashboard/configuracion");
         return { success: true };
     } catch (error) {
-        console.error("Error updating settings:", error);
-        return { success: false, error: "Error al actualizar configuración" };
+        return handleGuardError(error);
     }
 }

@@ -20,12 +20,15 @@ export default function PlatformSettingsForm({ initialConfig }: PlatformSettings
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await Promise.all([
-                updateSystemConfig("siteName", config.siteName),
-                updateSystemConfig("contactEmail", config.contactEmail),
-                updateSystemConfig("maintenanceMode", config.maintenanceMode)
-            ]);
-            toast.success("Configuración de plataforma actualizada");
+            const res = await (updateSystemConfig as any).updateBulk ?
+                (updateSystemConfig as any).updateBulk(config) :
+                await import("@/lib/actions/configuration").then(m => m.updateBulkSystemConfig(config));
+
+            if (res.success) {
+                toast.success("Configuración de plataforma actualizada");
+            } else {
+                toast.error(res.error || "Error al guardar la configuración");
+            }
         } catch (error) {
             toast.error("Error al guardar la configuración");
         } finally {

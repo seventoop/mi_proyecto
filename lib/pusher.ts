@@ -46,4 +46,11 @@ export const EVENTS = {
     RESERVA_CANCELLED: "reserva:cancelled",
     RESERVA_CONVERTED: "reserva:converted",
     UNIDAD_STATUS_CHANGED: "unidad:status-changed",
+    NOTIFICATION_NEW: "notification:new",
+    USER_UPDATED: "user:updated",
 } as const;
+
+export const PUSHER_CHANNELS = {
+    getUserChannel: (userId: string) => `private-user-${userId}`,
+    getProjectChannel: (projectId: string) => `private-project-${projectId}`,
+};

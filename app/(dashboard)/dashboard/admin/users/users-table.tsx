@@ -47,14 +47,14 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
     const handleRoleChange = async (userId: string, newRole: "ADMIN" | "VENDEDOR" | "USER") => {
         if (!confirm(`¿Estás seguro de cambiar el rol a ${newRole}?`)) return;
         const res = await updateUserRole(userId, newRole);
-        if (!res.success) alert(res.error);
+        if (!res.success) alert("error" in res ? String(res.error) : "Error");
         else router.refresh();
     };
 
     const handleDelete = async (userId: string) => {
         if (!confirm("¿ESTÁS SEGURO? Esta acción eliminará permanentemente al usuario.")) return;
         const res = await toggleUserBan(userId, true);
-        if (!res.success) alert(res.error);
+        if (!res.success) alert("error" in res ? String(res.error) : "Error");
         else router.refresh();
     };
 

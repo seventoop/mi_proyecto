@@ -29,7 +29,7 @@ export default function DeleteAccountSection() {
                 // Force logout and redirect to home
                 await signOut({ callbackUrl: "/" });
             } else {
-                toast.error(res.error || "Ocurrió un error al eliminar la cuenta");
+                toast.error("error" in res ? String(res.error) : "Ocurrió un error al eliminar la cuenta");
                 setIsDeleting(false);
             }
         } catch (error) {

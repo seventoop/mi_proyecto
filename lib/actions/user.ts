@@ -2,17 +2,12 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleGuardError } from "@/lib/guards";
 
 export async function deleteUserAccount() {
     try {
-        const session = await getServerSession(authOptions);
-        const userId = session?.user?.id;
-
-        if (!userId) {
-            return { success: false, error: "No autorizado" };
-        }
+        const user = await requireAuth();
+        const userId = user.id;
 
         // Delete the user. Cascades handle associated data:
         // - documentacion (onDelete: Cascade)
@@ -29,9 +24,9 @@ export async function deleteUserAccount() {
             where: { id: userId }
         });
 
+        // Optional: sign out logic usually handled in frontend after this returns success
         return { success: true };
     } catch (error) {
-        console.error("Error deleting user account:", error);
-        return { success: false, error: "Error al eliminar la cuenta" };
+        return handleGuardError(error);
     }
 }

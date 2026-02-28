@@ -32,7 +32,11 @@ export default async function AdminDashboard() {
     ];
 
     // Fetch Enriched Admin Dashboard Data
-    const { financials, queues, recentUsers } = await getAdminDashboardData();
+    const adminRes = await getAdminDashboardData();
+    if ('error' in adminRes) {
+        return <div className="p-8 text-rose-500 font-bold">Error: {adminRes.error}</div>;
+    }
+    const { financials, queues, recentUsers } = adminRes.data;
 
     return (
         <div className="space-y-8 pb-12 animate-fade-in">

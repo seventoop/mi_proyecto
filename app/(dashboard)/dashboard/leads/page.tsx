@@ -28,7 +28,7 @@ export default async function LeadsPage() {
                     <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
                 </div>
             }>
-                <LeadsTable leads={res.success ? res.data || [] : []} />
+                <LeadsTable leads={res.success && res.data ? res.data.leads : []} />
             </Suspense>
         </div>
     );

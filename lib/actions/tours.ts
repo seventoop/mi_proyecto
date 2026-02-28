@@ -2,107 +2,250 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { z } from "zod";
+
+// ─── Schemas ───
+
+const hotspotSchema = z.object({
+    id: z.string().optional(),
+    unidadId: z.string().min(1, "unidadId requerido para hotspot"),
+    type: z.enum(["INFO", "SCENE", "LINK", "UNIT"]),
+    pitch: z.number(),
+    yaw: z.number(),
+    text: z.string().optional().nullable(),
+    targetSceneId: z.string().optional().nullable(),
+});
+
+const sceneSchema = z.object({
+    id: z.string().optional(),
+    title: z.string().min(1, "Título de escena requerido"),
+    imageUrl: z.string().url("URL de imagen inválida"),
+    isDefault: z.boolean().default(false),
+    order: z.number().default(0),
+    category: z.enum(["RAW", "RENDERED"]).default("RAW"),
+    hotspots: z.array(hotspotSchema).default([]),
+});
+
+const createTourSchema = z.object({
+    proyectoId: z.string().min(1, "proyectoId requerido"),
+    nombre: z.string().min(1, "Nombre requerido").max(200),
+    unidadId: z.string().optional().nullable(),
+    scenes: z.array(sceneSchema).min(1, "Al menos una escena es requerida"),
+});
+
+const updateTourSchema = createTourSchema.extend({
+    id: z.string().min(1),
+});
+
+// ─── Queries ───
 
 export async function getProjectTours(proyectoId: string) {
     try {
+        await requireAuth();
+
         const tours = await prisma.tour360.findMany({
             where: { proyectoId },
-            orderBy: { updatedAt: "desc" }
+            include: {
+                scenes: {
+                    include: {
+                        hotspots: {
+                            include: {
+                                unidad: {
+                                    select: {
+                                        id: true,
+                                        numero: true,
+                                        estado: true,
+                                        precio: true,
+                                        moneda: true,
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    orderBy: { order: "asc" }
+                }
+            },
+            orderBy: { updatedAt: "desc" },
         });
         return { success: true, data: tours };
     } catch (error) {
-        console.error("Error fetching tours:", error);
-        return { success: false, error: "Error al obtener tours" };
+        return handleGuardError(error);
     }
 }
 
-export async function createTour(data: {
-    proyectoId: string;
-    nombre: string;
-    escenas: string; // JSON string
-    unidadId?: string;
-}) {
+export async function getPublicTour(tourId: string) {
     try {
-        const tour = await prisma.tour360.create({
-            data: {
-                proyectoId: data.proyectoId,
-                nombre: data.nombre,
-                escenas: data.escenas,
-                unidadId: data.unidadId,
-                estado: "PENDIENTE"
+        const tour = await prisma.tour360.findUnique({
+            where: { id: tourId },
+            include: {
+                proyecto: { select: { estado: true } },
+                scenes: {
+                    include: {
+                        hotspots: {
+                            include: {
+                                unidad: {
+                                    select: {
+                                        id: true,
+                                        numero: true,
+                                        estado: true,
+                                        precio: true,
+                                        moneda: true,
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    orderBy: { order: "asc" }
+                }
             }
         });
-        revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
+
+        if (!tour) return { success: false, error: "Tour no encontrado" };
+
+        // Security requirement: Only published projects
+        if ((tour as any).proyecto.estado !== "PUBLICADO") {
+            return { success: false, error: "Este tour no está disponible públicamente" };
+        }
+
         return { success: true, data: tour };
     } catch (error) {
-        console.error("Error creating tour:", error);
-        return { success: false, error: "Error al crear tour" };
+        return { success: false, error: "Error al cargar el tour" };
     }
 }
 
-export async function updateTour(id: string, data: {
-    nombre?: string;
-    escenas?: string;
-}) {
+export async function createTour(input: any) {
+    return upsertTour(input);
+}
+
+export async function updateTour(id: string, input: any) {
+    return upsertTour({ ...input, id });
+}
+
+// ─── Mutations ───
+
+export async function upsertTour(input: unknown) {
     try {
-        const tour = await prisma.tour360.update({
-            where: { id },
-            data: {
-                ...data,
-                estado: "PENDIENTE" // Reset status on edit? Or keep it? Usually reset to require re-approval.
+        const parsed = createTourSchema.partial({ proyectoId: true }).safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+
+        const data = parsed.data as any;
+        const tourId = (input as any).id;
+
+        let proyectoId = data.proyectoId;
+
+        if (tourId) {
+            const existing = await prisma.tour360.findUnique({ where: { id: tourId }, select: { proyectoId: true } });
+            if (!existing) return { success: false, error: "Tour no encontrado" };
+            proyectoId = existing.proyectoId;
+        }
+
+        if (!proyectoId) return { success: false, error: "Proyecto ID requerido" };
+        await requireProjectOwnership(proyectoId);
+
+        // Perform complex sync in transaction
+        const result = await prisma.$transaction(async (tx: any) => {
+            // 1. Upsert Main Tour
+            const tour = tourId
+                ? await tx.tour360.update({
+                    where: { id: tourId },
+                    data: { nombre: data.nombre, unidadId: data.unidadId, estado: "PENDIENTE" }
+                })
+                : await tx.tour360.create({
+                    data: { proyectoId, nombre: data.nombre, unidadId: data.unidadId }
+                });
+
+            // 2. Sync Scenes
+            if (tourId) {
+                // For updates, we simplify by clearing and recreating
+                await tx.tourScene.deleteMany({ where: { tourId: tour.id } });
             }
+
+            for (const scene of data.scenes) {
+                const createdScene = await tx.tourScene.create({
+                    data: {
+                        tourId: tour.id,
+                        title: scene.title,
+                        imageUrl: scene.imageUrl,
+                        isDefault: scene.isDefault,
+                        order: scene.order,
+                        category: scene.category,
+                    }
+                });
+
+                // 3. Create Hotspots
+                if (scene.hotspots && scene.hotspots.length > 0) {
+                    await tx.hotspot.createMany({
+                        data: scene.hotspots.map((hs: any) => ({
+                            sceneId: createdScene.id,
+                            unidadId: hs.unidadId,
+                            type: hs.type,
+                            pitch: hs.pitch,
+                            yaw: hs.yaw,
+                            text: hs.text,
+                            targetSceneId: hs.targetSceneId,
+                        }))
+                    });
+                }
+            }
+
+            return tour;
         });
-        revalidatePath(`/dashboard/proyectos/${tour.proyectoId}`);
-        return { success: true, data: tour };
+
+        revalidatePath(`/dashboard/proyectos/${proyectoId}`);
+        return { success: true, data: result };
     } catch (error) {
-        console.error("Error updating tour:", error);
-        return { success: false, error: "Error al actualizar tour" };
+        console.error("Tour Upsert Error:", error);
+        return handleGuardError(error);
     }
 }
 
 export async function deleteTour(id: string) {
     try {
-        const tour = await prisma.tour360.delete({
-            where: { id }
+        const existing = await prisma.tour360.findUnique({
+            where: { id },
+            select: { proyectoId: true },
         });
-        revalidatePath(`/dashboard/proyectos/${tour.proyectoId}`);
+        if (!existing) return { success: false, error: "Tour no encontrado" };
+
+        await requireProjectOwnership(existing.proyectoId);
+
+        await prisma.tour360.delete({ where: { id } });
+
+        revalidatePath(`/dashboard/proyectos/${existing.proyectoId}`);
         return { success: true };
     } catch (error) {
-        console.error("Error deleting tour:", error);
-        return { success: false, error: "Error al eliminar tour" };
+        return handleGuardError(error);
     }
 }
 
+// Moderation
 export async function approveTour(id: string) {
     try {
+        await requireRole("ADMIN");
         const tour = await prisma.tour360.update({
             where: { id },
-            data: {
-                estado: "APROBADO",
-                notasAdmin: null
-            }
+            data: { estado: "APROBADO", notasAdmin: null },
         });
         revalidatePath(`/dashboard/proyectos/${tour.proyectoId}`);
         return { success: true, data: tour };
     } catch (error) {
-        console.error("Error approving tour:", error);
-        return { success: false, error: "Error al aprobar tour" };
+        return handleGuardError(error);
     }
 }
 
 export async function rejectTour(id: string, reason: string) {
     try {
+        await requireRole("ADMIN");
         const tour = await prisma.tour360.update({
             where: { id },
-            data: {
-                estado: "RECHAZADO",
-                notasAdmin: reason
-            }
+            data: { estado: "RECHAZADO", notasAdmin: reason.trim() },
         });
         revalidatePath(`/dashboard/proyectos/${tour.proyectoId}`);
         return { success: true, data: tour };
     } catch (error) {
-        console.error("Error rejecting tour:", error);
-        return { success: false, error: "Error al rechazar tour" };
+        return handleGuardError(error);
     }
 }

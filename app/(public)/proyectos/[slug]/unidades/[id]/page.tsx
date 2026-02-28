@@ -20,7 +20,15 @@ type UnitWithRelations = Prisma.UnidadGetPayload<{
                 }
             }
         },
-        tours: true,
+        tours: {
+            include: {
+                scenes: {
+                    include: {
+                        hotspots: true
+                    }
+                }
+            }
+        },
     }
 }>;
 
@@ -37,7 +45,15 @@ async function getUnit(id: string): Promise<UnitWithRelations | null> {
                     }
                 }
             },
-            tours: true,
+            tours: {
+                include: {
+                    scenes: {
+                        include: {
+                            hotspots: true
+                        }
+                    }
+                }
+            },
         },
     });
     return unit as UnitWithRelations | null;
@@ -93,7 +109,7 @@ export default async function UnitDetailPage({ params }: { params: { slug: strin
                         </p>
                     </div>
                     {unit.tours && unit.tours.length > 0 && (
-                        <TourModal tours={unit.tours} />
+                        <TourModal tours={unit.tours as any} />
                     )}
                 </div>
             </div>

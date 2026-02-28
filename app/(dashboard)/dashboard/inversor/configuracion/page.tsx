@@ -12,7 +12,7 @@ export default function InvestorConfigPage() {
 
     useEffect(() => {
         if (session?.user) {
-            getUserConfig(session.user.id).then(res => {
+            getUserConfig().then(res => {
                 if (res.success) setUserConfig(res.data);
                 setLoading(false);
             });

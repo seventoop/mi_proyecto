@@ -1,95 +1,113 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
 
 // ─── GET /api/reservas — List with filters ───
 export async function GET(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
-    const estado = searchParams.get("estado");
-    const proyecto = searchParams.get("proyecto");
-    const vendedor = searchParams.get("vendedor");
-    const estadoPago = searchParams.get("estadoPago");
-    const search = searchParams.get("search");
+    try {
+        const user = await requireAuth();
 
-    const where: any = {};
-    if (estado) where.estado = estado;
-    if (estadoPago) where.estadoPago = estadoPago;
-    if (vendedor) where.vendedorId = vendedor;
-    if (proyecto) {
-        where.unidad = { manzana: { etapa: { proyectoId: proyecto } } };
-    }
-    if (search) {
-        where.OR = [
-            { lead: { nombre: { contains: search, mode: "insensitive" } } },
-            { unidad: { numero: { contains: search, mode: "insensitive" } } },
-        ];
-    }
+        const { searchParams } = new URL(req.url);
+        const estado = searchParams.get("estado");
+        const proyecto = searchParams.get("proyecto");
+        const vendedor = searchParams.get("vendedor");
+        const estadoPago = searchParams.get("estadoPago");
+        const search = searchParams.get("search");
 
-    const reservas = await prisma.reserva.findMany({
-        where,
-        include: {
-            unidad: {
-                include: {
-                    manzana: {
-                        include: {
-                            etapa: {
-                                include: { proyecto: { select: { id: true, nombre: true } } },
+        const where: any = {};
+
+        // Authorization: Admin sees all, others see their own or their project's
+        if (user.role !== "ADMIN") {
+            where.OR = [
+                { vendedorId: user.id },
+                { unidad: { manzana: { etapa: { proyecto: { creadoPorId: user.id } } } } }
+            ];
+        }
+
+        if (estado) where.estado = estado;
+        if (estadoPago) where.estadoPago = estadoPago;
+        if (vendedor) where.vendedorId = vendedor;
+        if (proyecto) {
+            where.unidad = {
+                ...where.unidad,
+                manzana: { etapa: { proyectoId: proyecto } }
+            };
+        }
+        if (search) {
+            where.AND = [
+                ...(where.AND || []),
+                {
+                    OR: [
+                        { lead: { nombre: { contains: search, mode: "insensitive" } } },
+                        { unidad: { numero: { contains: search, mode: "insensitive" } } },
+                    ]
+                }
+            ];
+        }
+
+        const reservas = await prisma.reserva.findMany({
+            where,
+            include: {
+                unidad: {
+                    include: {
+                        manzana: {
+                            include: {
+                                etapa: {
+                                    include: { proyecto: { select: { id: true, nombre: true } } },
+                                },
                             },
                         },
                     },
                 },
+                lead: { select: { id: true, nombre: true, email: true, telefono: true } },
+                vendedor: { select: { id: true, nombre: true } },
             },
-            lead: { select: { id: true, nombre: true, email: true, telefono: true } },
-            vendedor: { select: { id: true, nombre: true } },
-        },
-        orderBy: { createdAt: "desc" },
-    });
+            orderBy: { createdAt: "desc" },
+        });
 
-    // Map for table consumption
-    const rows = reservas.map((r) => ({
-        id: r.id,
-        unidadId: r.unidadId,
-        unidadNumero: r.unidad.numero,
-        proyectoNombre: r.unidad.manzana.etapa.proyecto.nombre,
-        proyectoId: r.unidad.manzana.etapa.proyecto.id,
-        clienteNombre: r.lead.nombre,
-        clienteEmail: r.lead.email,
-        clienteTelefono: r.lead.telefono,
-        vendedorNombre: r.vendedor.nombre,
-        vendedorId: r.vendedorId,
-        leadId: r.leadId,
-        fechaInicio: r.fechaInicio.toISOString(),
-        fechaVencimiento: r.fechaVencimiento.toISOString(),
-        montoSena: r.montoSena,
-        estadoPago: r.estadoPago,
-        estado: r.estado,
-        documentoGenerado: r.documentoGenerado,
-        createdAt: r.createdAt.toISOString(),
-    }));
+        // Map for table consumption
+        const rows = reservas.map((r) => ({
+            id: r.id,
+            unidadId: r.unidadId,
+            unidadNumero: r.unidad.numero,
+            proyectoNombre: r.unidad.manzana.etapa.proyecto.nombre,
+            proyectoId: r.unidad.manzana.etapa.proyecto.id,
+            clienteNombre: r.lead.nombre,
+            clienteEmail: r.lead.email,
+            clienteTelefono: r.lead.telefono,
+            vendedorNombre: r.vendedor.nombre,
+            vendedorId: r.vendedorId,
+            leadId: r.leadId,
+            fechaInicio: r.fechaInicio.toISOString(),
+            fechaVencimiento: r.fechaVencimiento.toISOString(),
+            montoSena: r.montoSena,
+            estadoPago: r.estadoPago,
+            estado: r.estado,
+            documentoGenerado: r.documentoGenerado,
+            createdAt: r.createdAt.toISOString(),
+        }));
 
-    return NextResponse.json(rows);
+        return NextResponse.json(rows);
+    } catch (error) {
+        return handleApiGuardError(error);
+    }
 }
 
 // ─── POST /api/reservas — Create new reservation ───
 export async function POST(req: NextRequest) {
     try {
+        const user = await requireAuth();
         const body = await req.json();
-        const { unidadId, leadId, vendedorId, plazo, montoSena, observaciones } = body;
+        const { unidadId, leadId, plazo, montoSena } = body;
 
-        if (!unidadId || !leadId || !vendedorId) {
-            return NextResponse.json({ error: "unidadId, leadId, vendedorId son requeridos" }, { status: 400 });
+        if (!unidadId || !leadId) {
+            return NextResponse.json({ error: "unidadId y leadId son requeridos" }, { status: 400 });
         }
 
-        // 1. Check unit availability (optimistic locking)
+        // 1. Check unit availability
         const unidad = await prisma.unidad.findUnique({
             where: { id: unidadId },
-            include: {
-                manzana: {
-                    include: {
-                        etapa: { include: { proyecto: { select: { nombre: true, ubicacion: true } } } },
-                    },
-                },
-            },
         });
 
         if (!unidad) {
@@ -107,7 +125,7 @@ export async function POST(req: NextRequest) {
         const plazoHoras = plazo === "24hs" ? 24 : plazo === "48hs" ? 48 : plazo === "72hs" ? 72 : parseInt(plazo) || 48;
         const fechaVencimiento = new Date(now.getTime() + plazoHoras * 60 * 60 * 1000);
 
-        // 3. Transaction: create reserva + update unit status
+        // 3. Transaction: create reserva with PENDING status
         const reserva = await prisma.$transaction(async (tx) => {
             // Double-check availability inside transaction
             const unitCheck = await tx.unidad.findUnique({ where: { id: unidadId } });
@@ -115,33 +133,16 @@ export async function POST(req: NextRequest) {
                 throw new Error("CONFLICT: Unidad ya no está disponible");
             }
 
-            // Update unit → RESERVADO
-            await tx.unidad.update({
-                where: { id: unidadId },
-                data: { estado: "RESERVADO" },
-            });
-
-            // Create historial entry
-            await tx.historialUnidad.create({
-                data: {
-                    unidadId,
-                    usuarioId: vendedorId,
-                    estadoAnterior: "DISPONIBLE",
-                    estadoNuevo: "RESERVADO",
-                    motivo: `Reserva creada para lead ${leadId}`,
-                },
-            });
-
-            // Create reserva
+            // Create reserva in PENDING_APROBACION
             return tx.reserva.create({
                 data: {
                     unidadId,
                     leadId,
-                    vendedorId,
+                    vendedorId: user.id, // Derived from session
                     fechaVencimiento,
-                    montoSena: montoSena || null,
+                    montoSena: montoSena ? parseFloat(montoSena) : null,
                     estadoPago: "PENDIENTE",
-                    estado: "ACTIVA",
+                    estado: "PENDIENTE_APROBACION",
                 },
                 include: {
                     lead: { select: { nombre: true } },
@@ -150,20 +151,16 @@ export async function POST(req: NextRequest) {
             });
         });
 
-        // 4. Broadcast real-time event
+        // 4. Broadcast real-time event (optional but good for CRM)
         try {
             const pusher = getPusherServer();
             await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CREATED, {
                 reservaId: reserva.id,
                 unidadId,
-                estado: "RESERVADO",
-            });
-            await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
-                unidadId,
-                nuevoEstado: "RESERVADO",
+                estado: "PENDIENTE_APROBACION",
             });
         } catch {
-            // Non-blocking: Pusher may not be configured
+            // Silence pusher errors
         }
 
         return NextResponse.json(reserva, { status: 201 });
@@ -171,7 +168,6 @@ export async function POST(req: NextRequest) {
         if (error.message?.includes("CONFLICT")) {
             return NextResponse.json({ error: "La unidad ya no está disponible" }, { status: 409 });
         }
-        console.error("Error creating reserva:", error);
-        return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }

@@ -20,12 +20,18 @@ export default function SmartCrmSettingsForm({ initialConfig }: SmartCrmSettings
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await Promise.all([
-                updateSystemConfig("OPENAI_API_KEY", config.openaiApiKey),
-                updateSystemConfig("WHATSAPP_PROVIDER_KEY", config.whatsappProviderKey),
-                updateSystemConfig("DEFAULT_AUTOMATION_LEVEL", config.automationLevel)
-            ]);
-            toast.success("Configuración de AI & WhatsApp actualizada");
+            const { updateBulkSystemConfig } = await import("@/lib/actions/configuration");
+            const res = await updateBulkSystemConfig({
+                "OPENAI_API_KEY": config.openaiApiKey,
+                "WHATSAPP_PROVIDER_KEY": config.whatsappProviderKey,
+                "DEFAULT_AUTOMATION_LEVEL": config.automationLevel
+            });
+
+            if (res.success) {
+                toast.success("Configuración de AI & WhatsApp actualizada");
+            } else {
+                toast.error(res.error || "Error al guardar la configuración");
+            }
         } catch (error) {
             toast.error("Error al guardar la configuración");
         } finally {

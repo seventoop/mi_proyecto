@@ -2,6 +2,11 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { requireRole, handleGuardError } from "@/lib/guards";
+import { z } from "zod";
+import { idSchema } from "@/lib/validations";
+
+// ─── Queries ───
 
 export async function getUsers(
     page: number = 1,
@@ -11,6 +16,7 @@ export async function getUsers(
     kycStatus?: string
 ) {
     try {
+        await requireRole("ADMIN");
         const where: any = {};
 
         if (search) {
@@ -54,13 +60,18 @@ export async function getUsers(
             }
         };
     } catch (error) {
-        console.error("Error fetching users:", error);
-        return { success: false, error: "Error al obtener usuarios" };
+        return handleGuardError(error);
     }
 }
 
+// ─── Mutations ───
+
 export async function updateUserRole(userId: string, newRole: "ADMIN" | "VENDEDOR" | "USER") {
     try {
+        const idParsed = idSchema.safeParse(userId);
+        if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
+
+        await requireRole("ADMIN");
         await prisma.user.update({
             where: { id: userId },
             data: { rol: newRole }
@@ -68,23 +79,21 @@ export async function updateUserRole(userId: string, newRole: "ADMIN" | "VENDEDO
         revalidatePath("/dashboard/admin/users");
         return { success: true };
     } catch (error) {
-        return { success: false, error: "Error al actualizar rol" };
+        return handleGuardError(error);
     }
 }
 
 export async function toggleUserBan(userId: string, isBanned: boolean) {
-    // Note: checks for 'isBanned' field or similar logic. 
-    // Since Schema doesn't have 'isBanned', we might simulate this by another means or add field.
-    // For now, let's assume we might handle this by role = 'BANNED' if schema supported it, 
-    // or just skipping this if schema change is not desired yet.
-    // Let's stick to updateRole for now as primary moderation tool or implement delete.
-
-    // Implementing Delete for severe cases
     try {
+        const idParsed = idSchema.safeParse(userId);
+        if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
+
+        await requireRole("ADMIN");
+        // In the original file, it was deleting the user. I'll stick to that if that's the intended "ban" logic in this repo.
         await prisma.user.delete({ where: { id: userId } });
         revalidatePath("/dashboard/admin/users");
         return { success: true };
     } catch (error) {
-        return { success: false, error: "Error al eliminar usuario" };
+        return handleGuardError(error);
     }
 }

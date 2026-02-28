@@ -39,28 +39,16 @@ export default function Tour360TabWrapper({
     };
 
     const handleEditClick = (tour: any) => {
-        try {
-            const scenes = JSON.parse(tour.escenas || "[]");
-            setEditorScenes(scenes);
-            setTourName(tour.nombre);
-            setActiveTour(tour);
-            setViewMode("EDIT");
-        } catch (e) {
-            console.error("Error parsing scenes", e);
-            alert("Error al cargar escenas del tour");
-        }
+        setEditorScenes(tour.scenes || []);
+        setTourName(tour.nombre);
+        setActiveTour(tour);
+        setViewMode("EDIT");
     };
 
     const handleViewClick = (tour: any) => {
-        try {
-            const scenes = JSON.parse(tour.escenas || "[]");
-            setEditorScenes(scenes); // Viewer uses same Scene type structure
-            setActiveTour(tour);
-            setViewMode("VIEW");
-        } catch (e) {
-            console.error("Error parsing scenes", e);
-            alert("Error al cargar escenas");
-        }
+        setEditorScenes(tour.scenes || []); // Viewer uses same Scene type structure
+        setActiveTour(tour);
+        setViewMode("VIEW");
     };
 
     const handleDeleteClick = async (tourId: string) => {
@@ -85,19 +73,18 @@ export default function Tour360TabWrapper({
         if (scenes.length === 0) return alert("Debes agregar al menos una escena");
 
         setIsSaving(true);
-        const scenesJson = JSON.stringify(scenes);
 
         let res;
         if (viewMode === "CREATE") {
             res = await createTour({
                 proyectoId,
                 nombre: tourName,
-                escenas: scenesJson
+                scenes: scenes // Now passing the array directly
             });
         } else {
             res = await updateTour(activeTour.id, {
                 nombre: tourName,
-                escenas: scenesJson
+                scenes: scenes
             });
         }
 
@@ -107,16 +94,17 @@ export default function Tour360TabWrapper({
             toast.success(viewMode === "CREATE" ? "Tour creado con éxito" : "Tour actualizado con éxito");
 
             // Optimistic update for immediate feedback
+            const tourData = (res as any).data;
             if (viewMode === "CREATE") {
-                setTours(prev => [res.data, ...prev]);
+                setTours(prev => [tourData, ...prev]);
             } else {
-                setTours(prev => prev.map(t => t.id === res.data.id ? res.data : t));
+                setTours(prev => prev.map(t => t.id === tourData.id ? tourData : t));
             }
 
             router.refresh();
             setViewMode("LIST");
         } else {
-            toast.error(res.error);
+            toast.error("error" in res ? String(res.error) : "Error");
         }
     };
 
@@ -133,7 +121,7 @@ export default function Tour360TabWrapper({
                 router.refresh();
                 return "Tour aprobado";
             }
-            throw new Error(res.error || "Error al aprobar tour");
+            throw new Error("error" in res ? String(res.error) : "Error al aprobar tour");
         });
 
         toast.promise(approvePromise, {
@@ -152,7 +140,7 @@ export default function Tour360TabWrapper({
                 router.refresh();
                 return "Tour rechazado";
             }
-            throw new Error(res.error || "Error al rechazar tour");
+            throw new Error("error" in res ? String(res.error) : "Error al rechazar tour");
         });
 
         toast.promise(rejectPromise, {
@@ -218,11 +206,7 @@ export default function Tour360TabWrapper({
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {tours.map(tour => {
                             // Try to get thumbnail from first scene
-                            let thumbnail = null;
-                            try {
-                                const s = JSON.parse(tour.escenas || "[]");
-                                if (s.length > 0) thumbnail = s[0].imageUrl;
-                            } catch { }
+                            let thumbnail = tour.scenes?.[0]?.imageUrl;
 
                             return (
                                 <div key={tour.id} className="group relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all">
@@ -254,9 +238,7 @@ export default function Tour360TabWrapper({
                                         <h3 className="font-bold text-slate-800 dark:text-white truncate">{tour.nombre}</h3>
                                         <div className="flex items-center justify-between mt-2">
                                             <p className="text-xs text-slate-500">
-                                                {(() => {
-                                                    try { return JSON.parse(tour.escenas).length } catch { return 0 }
-                                                })()} escenas
+                                                {tour.scenes?.length || 0} escenas
                                             </p>
                                             {getStatusBadge(tour.estado || "PENDIENTE")}
                                         </div>
@@ -319,7 +301,7 @@ export default function Tour360TabWrapper({
 
                 <TourCreator
                     proyectoId={proyectoId}
-                    initialScenes={editorScenes}
+                    initialScenes={editorScenes as any}
                     onSave={handleSaveTour}
                 />
             </div>

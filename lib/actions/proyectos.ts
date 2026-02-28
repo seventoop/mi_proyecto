@@ -4,6 +4,32 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { z } from "zod";
+import { idSchema, slugSchema } from "@/lib/validations";
+
+// ─── Scemas ───
+
+const proyectoCreateSchema = z.object({
+    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres").max(100),
+    slug: slugSchema.optional(),
+    descripcion: z.string().max(2000).optional(),
+    ubicacion: z.string().max(200).optional(),
+    estado: z.string().optional(),
+    tipo: z.string().optional(),
+    imagenPortada: z.string().url("URL de imagen inválida").optional().or(z.literal("")),
+    invertible: z.boolean().optional(),
+    precioM2Inversor: z.number().positive().optional(),
+    precioM2Mercado: z.number().positive().optional(),
+    metaM2Objetivo: z.number().positive().optional(),
+    fechaLimiteFondeo: z.date().optional().or(z.string().transform(v => new Date(v))).optional(),
+    mapCenterLat: z.number().optional(),
+    mapCenterLng: z.number().optional(),
+    mapZoom: z.number().int().optional(),
+    aiKnowledgeBase: z.string().optional(),
+    aiSystemPrompt: z.string().optional(),
+});
+
+const proyectoUpdateSchema = proyectoCreateSchema.partial();
 
 export async function getProyectos(params: {
     page?: number;
@@ -15,45 +41,26 @@ export async function getProyectos(params: {
     const skip = (page - 1) * pageSize;
 
     try {
-        // Raw SQL to filter IDs bypassing outdated Prisma Client type check for isDemo/demoExpiresAt
-        let rawQuery = `
-            SELECT id FROM proyectos 
-            WHERE "visibilityStatus" = 'PUBLICADO' 
-            AND "estado" != 'SUSPENDIDO'
-            AND (
-                "isDemo" = false 
-                OR ("isDemo" = true AND "demoExpiresAt" > NOW())
-            )
-        `;
+        const now = new Date();
+        const where: any = {
+            visibilityStatus: 'PUBLICADO',
+            estado: { not: 'SUSPENDIDO' },
+            OR: [
+                { isDemo: false },
+                { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] }
+            ]
+        };
 
-        const queryParams: any[] = [];
         if (estado && estado !== "ALL") {
-            rawQuery += ` AND "estado" = $1`;
-            queryParams.push(estado);
+            where.estado = estado;
         }
         if (tipo && tipo !== "ALL") {
-            rawQuery += ` AND "tipo" = ${queryParams.length + 1}`;
-            queryParams.push(tipo);
+            where.tipo = tipo;
         }
 
-        rawQuery += ` ORDER BY "createdAt" DESC`;
-
-        const filteredResults: any[] = await prisma.$queryRawUnsafe(rawQuery, ...queryParams);
-        const allIds = filteredResults.map(r => r.id);
-        const total = allIds.length;
-        const pageIds = allIds.slice(skip, skip + pageSize);
-
-        if (pageIds.length === 0) {
-            return {
-                success: true,
-                data: [],
-                metadata: { total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
-            };
-        }
-
-        const [proyectos, demoInfoRaw]: [any[], any[]] = await Promise.all([
+        const [proyectos, total] = await Promise.all([
             prisma.proyecto.findMany({
-                where: { id: { in: pageIds } },
+                where,
                 select: {
                     id: true,
                     nombre: true,
@@ -63,19 +70,28 @@ export async function getProyectos(params: {
                     imagenPortada: true,
                     ubicacion: true,
                     createdAt: true,
+                    isDemo: true,
+                    demoExpiresAt: true,
                     _count: {
                         select: { etapas: true, leads: true, inversiones: true }
                     }
                 },
                 orderBy: { createdAt: "desc" },
+                take: pageSize,
+                skip
             }),
-            prisma.$queryRaw`
-                SELECT id, "isDemo", "demoExpiresAt" FROM proyectos 
-                WHERE id IN (${pageIds})
-            `
+            prisma.proyecto.count({ where })
         ]);
 
-        const demoInfoMap = new Map(demoInfoRaw.map(d => [d.id, d]));
+        const projectIds = proyectos.map(p => p.id);
+
+        if (projectIds.length === 0) {
+            return {
+                success: true,
+                data: [],
+                metadata: { total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
+            };
+        }
 
         // Optimización de Ultra-Rendimiento para estadísticas
         const statsRaw: any[] = await prisma.$queryRaw`
@@ -86,7 +102,7 @@ export async function getProyectos(params: {
             FROM unidades u
             JOIN manzanas m ON u."manzanaId" = m.id
             JOIN etapas e ON m."etapaId" = e.id
-            WHERE e."proyectoId" IN (${pageIds})
+            WHERE e."proyectoId" IN (${projectIds})
             GROUP BY e."proyectoId", u.estado
         `;
 
@@ -105,21 +121,16 @@ export async function getProyectos(params: {
             else if (stat.estado === "VENDIDA") current.vendidas += count;
         }
 
-        const data = proyectos.map(p => {
-            const demoInfo = demoInfoMap.get(p.id) || { isDemo: false, demoExpiresAt: null };
-            return {
-                ...p,
-                isDemo: demoInfo.isDemo,
-                demoExpiresAt: demoInfo.demoExpiresAt,
-                demoExpired: demoInfo.isDemo && demoInfo.demoExpiresAt && new Date(demoInfo.demoExpiresAt) < new Date(),
-                unidades: unitsByProject.get(p.id) || {
-                    total: 0,
-                    disponibles: 0,
-                    reservadas: 0,
-                    vendidas: 0
-                }
-            };
-        });
+        const data = proyectos.map(p => ({
+            ...p,
+            demoExpired: p.isDemo && p.demoExpiresAt && new Date(p.demoExpiresAt) < now,
+            unidades: unitsByProject.get(p.id) || {
+                total: 0,
+                disponibles: 0,
+                reservadas: 0,
+                vendidas: 0
+            }
+        }));
 
         return {
             success: true,
@@ -139,41 +150,37 @@ export async function getProyecto(id: string) {
 
         if (!user) return { success: false, error: "No autorizado" };
 
-        const [proyecto, demoInfo]: [any, any[]] = await Promise.all([
-            prisma.proyecto.findUnique({
-                where: { id },
-                include: {
-                    etapas: {
-                        include: { manzanas: { include: { unidades: true } } },
-                        orderBy: { orden: "asc" }
-                    },
-                    inversiones: {
-                        include: { inversor: { select: { nombre: true, email: true } } }
-                    },
-                    hitosEscrow: true,
-                    documentacion: true,
-                    pagos: true,
-                    tours: true,
-                    _count: { select: { leads: true, oportunidades: true } }
-                }
-            }),
-            prisma.$queryRaw`SELECT "isDemo", "demoExpiresAt", "creadoPorId" FROM proyectos WHERE id = ${id}`
-        ]);
+        const proyecto = await prisma.proyecto.findUnique({
+            where: { id },
+            include: {
+                etapas: {
+                    include: { manzanas: { include: { unidades: true } } },
+                    orderBy: { orden: "asc" }
+                },
+                inversiones: {
+                    include: { inversor: { select: { nombre: true, email: true } } }
+                },
+                hitosEscrow: true,
+                documentacion: true,
+                pagos: true,
+                tours: true,
+                _count: { select: { leads: true, oportunidades: true } }
+            }
+        });
 
         if (!proyecto) {
             return { success: false, error: "Proyecto no encontrado" };
         }
 
-        // Attach demo info from raw query
-        if (demoInfo && demoInfo.length > 0) {
-            proyecto.isDemo = demoInfo[0].isDemo;
-            proyecto.demoExpiresAt = demoInfo[0].demoExpiresAt;
-            proyecto.creadoPorId = demoInfo[0].creadoPorId;
-        }
-
         // SECURITY CHECK: Only Admin or Owner can see the full dashboard detail
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
-            return { success: false, error: "No tienes permisos para ver este proyecto" };
+        // MULTI-TENANT: Non-admin must be in the same org
+        if (user.role !== "ADMIN") {
+            if ((proyecto as any).orgId && (user as any).orgId && (proyecto as any).orgId !== (user as any).orgId) {
+                return { success: false, error: "Proyecto no encontrado" };
+            }
+            if ((proyecto as any).creadoPorId !== user.id) {
+                return { success: false, error: "No tienes permisos para ver este proyecto" };
+            }
         }
 
         return { success: true, data: proyecto };
@@ -183,25 +190,7 @@ export async function getProyecto(id: string) {
     }
 }
 
-export async function createProyecto(data: {
-    nombre: string;
-    slug?: string;
-    descripcion?: string;
-    ubicacion?: string;
-    estado?: string;
-    tipo?: string;
-    imagenPortada?: string;
-    invertible?: boolean;
-    precioM2Inversor?: number;
-    precioM2Mercado?: number;
-    metaM2Objetivo?: number;
-    fechaLimiteFondeo?: Date;
-    mapCenterLat?: number;
-    mapCenterLng?: number;
-    mapZoom?: number;
-    aiKnowledgeBase?: string;
-    aiSystemPrompt?: string;
-}) {
+export async function createProyecto(input: unknown) {
     try {
         const session = await getServerSession(authOptions);
         const userRole = session?.user?.role;
@@ -209,16 +198,21 @@ export async function createProyecto(data: {
 
         if (!userId) return { success: false, error: "No autorizado" };
 
-        const { isKycVerifiedOrDemoActive } = await import("@/lib/actions/kyc");
-        const kycOrDemo = await isKycVerifiedOrDemoActive();
+        const parsed = proyectoCreateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
 
-        const users: any[] = await prisma.$queryRaw`
-            SELECT "kycStatus", "demoEndsAt" FROM users WHERE id = ${userId}
-        `;
-        const userRecord = users[0];
+        const userRecord = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { kycStatus: true, demoEndsAt: true }
+        });
+
         const isVerified = userRecord?.kycStatus === "VERIFICADO";
+        const isDemoActive = userRecord?.demoEndsAt && new Date(userRecord.demoEndsAt) > new Date();
 
-        if (!kycOrDemo) {
+        if (!isVerified && !isDemoActive) {
             return {
                 success: false,
                 error: "Debes completar el proceso KYC o estar en período de prueba de 48h para publicar proyectos."
@@ -226,7 +220,6 @@ export async function createProyecto(data: {
         }
 
         const isDemo = !isVerified;
-
         const slug = data.slug || data.nombre.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 
         const existing = await prisma.proyecto.findUnique({ where: { slug } });
@@ -235,11 +228,7 @@ export async function createProyecto(data: {
         }
 
         let estado = data.estado || "PLANIFICACION";
-        let documentacionEstado = "PENDIENTE";
-
-        if (userRole === "DESARROLLADOR") {
-            documentacionEstado = "PENDIENTE";
-        }
+        let documentacionEstado = (userRole === "ADMIN") ? "APROBADO" : "PENDIENTE";
 
         const proyecto = await prisma.proyecto.create({
             data: {
@@ -250,25 +239,18 @@ export async function createProyecto(data: {
                 invertible: data.invertible ?? false,
                 m2VendidosInversores: 0,
                 creadoPorId: userId,
+                orgId: (session?.user as any)?.orgId || null,
+                isDemo,
+                demoExpiresAt: isDemo ? (userRecord?.demoEndsAt ? new Date(userRecord.demoEndsAt) : null) : null,
+                visibilityStatus: 'PUBLICADO'
             }
         });
 
-        // Use raw SQL to set demo fields that the Prisma client might not know about yet
         if (isDemo) {
-            await prisma.$executeRaw`
-                UPDATE proyectos 
-                SET "isDemo" = true,
-                    "demoExpiresAt" = ${userRecord.demoEndsAt ? new Date(userRecord.demoEndsAt) : null},
-                    "visibilityStatus" = 'PUBLICADO'
-                WHERE id = ${proyecto.id}
-            `;
-
-            // Mark demo as used if it hasn't been already
-            await prisma.$executeRaw`
-                UPDATE users 
-                SET "demoUsed" = true 
-                WHERE id = ${userId}
-            `;
+            await prisma.user.update({
+                where: { id: userId },
+                data: { demoUsed: true }
+            });
         }
 
         revalidatePath("/dashboard/proyectos");
@@ -279,36 +261,21 @@ export async function createProyecto(data: {
     }
 }
 
-export async function updateProyecto(id: string, data: Partial<{
-    nombre: string;
-    slug: string;
-    descripcion: string;
-    ubicacion: string;
-    estado: string;
-    tipo: string;
-    imagenPortada: string;
-    galeria: string;
-    documentos: string;
-    masterplanSVG: string;
-    mapCenterLat: number;
-    mapCenterLng: number;
-    mapZoom: number;
-    overlayUrl: string;
-    overlayBounds: string;
-    overlayRotation: number;
-    invertible: boolean;
-    precioM2Inversor: number;
-    precioM2Mercado: number;
-    metaM2Objetivo: number;
-    fechaLimiteFondeo: Date;
-    aiKnowledgeBase: string;
-    aiSystemPrompt: string;
-}>) {
+export async function updateProyecto(id: string, input: unknown) {
     try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
+
         const session = await getServerSession(authOptions);
         const user = session?.user;
 
         if (!user) return { success: false, error: "No autorizado" };
+
+        const parsed = proyectoUpdateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id },
@@ -318,7 +285,7 @@ export async function updateProyecto(id: string, data: Partial<{
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
 
         // SECURITY CHECK
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
             return { success: false, error: "No tienes permisos para modificar este proyecto" };
         }
 
@@ -346,12 +313,7 @@ export async function deleteProyecto(id: string) {
         const proyecto = await prisma.proyecto.findUnique({ where: { id } });
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
 
-        if (user.role === "ADMIN") {
-        } else if (user.role === "DESARROLLADOR" || user.role === "VENDEDOR") {
-            if (proyecto.creadoPorId && proyecto.creadoPorId !== user.id) {
-                return { success: false, error: "No tienes permisos para eliminar este proyecto" };
-            }
-        } else {
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
             return { success: false, error: "No tienes permisos para eliminar este proyecto" };
         }
 
@@ -377,7 +339,7 @@ export async function updateProyectoStatus(id: string, estado: string) {
         });
 
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
             return { success: false, error: "No autorizado" };
         }
 
@@ -418,15 +380,14 @@ export async function updateDocumentacionStatus(id: string, documentacionEstado:
 
 export async function getProyectoArchivos(proyectoId: string) {
     try {
-        const archivos: any[] = await prisma.$queryRaw`
-            SELECT * FROM proyecto_archivos 
-            WHERE "proyectoId" = ${proyectoId} 
-            ORDER BY "createdAt" DESC
-        `;
+        const archivos = await prisma.proyectoArchivo.findMany({
+            where: { proyectoId },
+            orderBy: { createdAt: "desc" }
+        });
         return { success: true, data: archivos };
     } catch (error) {
         console.error("Error fetching project files:", error);
-        return { success: true, data: [] }; // Return empty instead of error for better UX
+        return { success: true, data: [] };
     }
 }
 
@@ -448,15 +409,20 @@ export async function addProyectoArchivo(data: {
         });
 
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
             return { success: false, error: "No autorizado" };
         }
 
-        const id = `pa_${Math.random().toString(36).substring(2, 11)}`;
-        await prisma.$executeRaw`
-            INSERT INTO proyecto_archivos (id, "proyectoId", tipo, nombre, url, "visiblePublicamente", "createdAt")
-            VALUES (${id}, ${data.proyectoId}, ${data.tipo}, ${data.nombre}, ${data.url}, ${data.visiblePublicamente}, NOW())
-        `;
+        await prisma.proyectoArchivo.create({
+            data: {
+                proyectoId: data.proyectoId,
+                tipo: data.tipo,
+                nombre: data.nombre,
+                url: data.url,
+                visiblePublicamente: data.visiblePublicamente
+            }
+        });
+
         revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
         return { success: true };
     } catch (error) {
@@ -477,13 +443,12 @@ export async function deleteProyectoArchivo(id: string, proyectoId: string) {
         });
 
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
             return { success: false, error: "No autorizado" };
         }
 
-        await prisma.$executeRaw`
-            DELETE FROM proyecto_archivos WHERE id = ${id}
-        `;
+        await prisma.proyectoArchivo.delete({ where: { id } });
+
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };
     } catch (error) {
@@ -496,11 +461,10 @@ export async function deleteProyectoArchivo(id: string, proyectoId: string) {
 
 export async function getProyectoImagenes(proyectoId: string) {
     try {
-        const imagenes: any[] = await prisma.$queryRaw`
-            SELECT * FROM proyecto_imagenes 
-            WHERE "proyectoId" = ${proyectoId} 
-            ORDER BY "orden" ASC
-        `;
+        const imagenes = await prisma.proyectoImagen.findMany({
+            where: { proyectoId },
+            orderBy: { orden: "asc" }
+        });
         return { success: true, data: imagenes };
     } catch (error) {
         console.error("Error fetching project images:", error);
@@ -526,26 +490,34 @@ export async function addProyectoImagen(data: {
         });
 
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
             return { success: false, error: "No autorizado" };
         }
 
-        const id = `pi_${Math.random().toString(36).substring(2, 11)}`;
         const esPrincipal = data.esPrincipal || false;
 
-        if (esPrincipal) {
-            await prisma.$executeRaw`
-                UPDATE proyecto_imagenes SET "esPrincipal" = false WHERE "proyectoId" = ${data.proyectoId}
-            `;
-            await prisma.$executeRaw`
-                UPDATE proyectos SET "imagenPortada" = ${data.url} WHERE id = ${data.proyectoId}
-            `;
-        }
+        await prisma.$transaction(async (tx) => {
+            if (esPrincipal) {
+                await tx.proyectoImagen.updateMany({
+                    where: { proyectoId: data.proyectoId },
+                    data: { esPrincipal: false }
+                });
+                await tx.proyecto.update({
+                    where: { id: data.proyectoId },
+                    data: { imagenPortada: data.url }
+                });
+            }
 
-        await prisma.$executeRaw`
-            INSERT INTO proyecto_imagenes (id, "proyectoId", url, categoria, "esPrincipal", "orden", "createdAt")
-            VALUES (${id}, ${data.proyectoId}, ${data.url}, ${data.categoria}, ${esPrincipal}, ${data.orden || 0}, NOW())
-        `;
+            await tx.proyectoImagen.create({
+                data: {
+                    proyectoId: data.proyectoId,
+                    url: data.url,
+                    categoria: data.categoria,
+                    esPrincipal,
+                    orden: data.orden || 0
+                }
+            });
+        });
 
         revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
         return { success: true };
@@ -567,15 +539,17 @@ export async function updateProyectoImagenesOrder(updates: { id: string, orden: 
         });
 
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
             return { success: false, error: "No autorizado" };
         }
 
-        for (const update of updates) {
-            await prisma.$executeRaw`
-                UPDATE proyecto_imagenes SET "orden" = ${update.orden} WHERE id = ${update.id}
-            `;
-        }
+        await prisma.$transaction(
+            updates.map(u => prisma.proyectoImagen.update({
+                where: { id: u.id },
+                data: { orden: u.orden }
+            }))
+        );
+
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };
     } catch (error) {
@@ -596,13 +570,12 @@ export async function deleteProyectoImagen(id: string, proyectoId: string) {
         });
 
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
             return { success: false, error: "No autorizado" };
         }
 
-        await prisma.$executeRaw`
-            DELETE FROM proyecto_imagenes WHERE id = ${id}
-        `;
+        await prisma.proyectoImagen.delete({ where: { id } });
+
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };
     } catch (error) {
@@ -623,26 +596,27 @@ export async function setMainProyectoImagen(id: string, proyectoId: string) {
         });
 
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
             return { success: false, error: "No autorizado" };
         }
 
-        const imgs: any[] = await prisma.$queryRaw`
-            SELECT url FROM proyecto_imagenes WHERE id = ${id}
-        `;
-        if (imgs.length === 0) return { success: false, error: "Imagen no encontrada" };
+        const img = await prisma.proyectoImagen.findUnique({ where: { id } });
+        if (!img) return { success: false, error: "Imagen no encontrada" };
 
-        const url = imgs[0].url;
-
-        await prisma.$executeRaw`
-            UPDATE proyecto_imagenes SET "esPrincipal" = false WHERE "proyectoId" = ${proyectoId}
-        `;
-        await prisma.$executeRaw`
-            UPDATE proyecto_imagenes SET "esPrincipal" = true WHERE id = ${id}
-        `;
-        await prisma.$executeRaw`
-            UPDATE proyectos SET "imagenPortada" = ${url} WHERE id = ${proyectoId}
-        `;
+        await prisma.$transaction([
+            prisma.proyectoImagen.updateMany({
+                where: { proyectoId },
+                data: { esPrincipal: false }
+            }),
+            prisma.proyectoImagen.update({
+                where: { id },
+                data: { esPrincipal: true }
+            }),
+            prisma.proyecto.update({
+                where: { id: proyectoId },
+                data: { imagenPortada: img.url }
+            })
+        ]);
 
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };

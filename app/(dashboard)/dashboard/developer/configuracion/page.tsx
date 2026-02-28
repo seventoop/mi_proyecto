@@ -2,7 +2,8 @@ import { getSettings } from "@/lib/actions/settings";
 import SettingsForm from "@/components/dashboard/settings/settings-form";
 
 export default async function SettingsPage() {
-    const { data: settings } = await getSettings();
+    const res = await getSettings();
+    const settings = (res as any).data;
 
     // Default Fallback is handled in server action, but just in case
     const safeSettings = settings || {

@@ -1,6 +1,3 @@
-// Prisma Schema - Plataforma Inmobiliaria GentionGeodevia
-// Generado para PostgreSQL
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,62 +8,80 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─────────────────────────────────────────────
-// ENUMS (Removed for SQLite compatibility - handled as Strings in app)
-// ─────────────────────────────────────────────
+model Organization {
+  id        String     @id @default(cuid())
+  nombre    String
+  slug      String     @unique
+  plan      String     @default("FREE")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  users     User[]
+  proyectos Proyecto[]
 
-
-// ─────────────────────────────────────────────
-// MODELS
-// ─────────────────────────────────────────────
+  @@map("organizations")
+}
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String   // bcrypt hash
-  nombre    String
-  rol       String      @default("VENDEDOR")
-  whatsappNumber  String?
-  aiAgentTone     String   @default("PROFESIONAL")
-  useAiCopilot    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Profile Fields
-  apellido        String?
-  telefono        String?
-  direccion       String?
-  apodo           String?
-  avatar          String?
-  bio             String?
-  fechaNacimiento DateTime?
-
-  // Relaciones
-  unidadesResponsable Unidad[]       @relation("ResponsableUnidad")
-  leadsAsignados      Lead[]         @relation("LeadAsignado")
-  reservasVendedor    Reserva[]      @relation("VendedorReserva")
-  inversiones         Inversion[]    @relation("InversorInversion")
+  id                  String            @id @default(cuid())
+  email               String            @unique
+  password            String
+  nombre              String
+  rol                 String            @default("VENDEDOR")
+  orgId               String?
+  whatsappNumber      String?
+  aiAgentTone         String            @default("PROFESIONAL")
+  useAiCopilot        Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  apellido            String?
+  telefono            String?
+  direccion           String?
+  apodo               String?
+  avatar              String?
+  bio                 String?
+  fechaNacimiento     DateTime?
+  kycStatus           String            @default("PENDIENTE")
+  configuracion       String?
+  saldo               Decimal           @default(0) @db.Decimal(18, 2)
+  demoEndsAt          DateTime?
+  demoUsed            Boolean           @default(false)
+  riskLevel           String            @default("low")
+  riskReason          String?
+  organization        Organization?     @relation(fields: [orgId], references: [id])
+  bannersCreados      Banner[]          @relation("BannerCreador")
+  documentacion       Documentacion[]
   historialAcciones   HistorialUnidad[]
-  tareas             Tarea[]
-  
-  // Nuevas relaciones Admin
-  bannersCreados     Banner[]       @relation("BannerCreador")
-  notificaciones     Notificacion[]
-  pagos              Pago[]
-  documentacion      Documentacion[] // KYC docs
-  kycStatus          String         @default("PENDIENTE") // PENDIENTE, EN_REVISION, VERIFICADO, RECHAZADO
-  configuracion      String?        // JSON: { notifications: { kyc: true, ... }, theme: "system" }
-  proyectosCreados   Proyecto[]     @relation("ProyectoCreador")
-  noticiasEscritas   Noticia[]      @relation("NoticiaAutor")
-  saldo              Float          @default(0)
-  riskLevel          String         @default("low") // low, medium, high
-  riskReason         String?
+  inversiones         Inversion[]       @relation("InversorInversion")
+  leadsAsignados      Lead[]            @relation("LeadAsignado")
+  noticiasEscritas    Noticia[]         @relation("NoticiaAutor")
+  notificaciones      Notificacion[]
+  pagos               Pago[]
+  proyectosCreados    Proyecto[]        @relation("ProyectoCreador")
+  reservasVendedor    Reserva[]         @relation("VendedorReserva")
+  tareas              Tarea[]
+  unidadesResponsable Unidad[]          @relation("ResponsableUnidad")
+  auditLogs           AuditLog[]
 
-  // Demo Mode
-  demoEndsAt         DateTime?      // Fin del período demo de 48h
-  demoUsed           Boolean        @default(false)
-
+  @@index([orgId])
   @@map("users")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // e.g., "UPDATE_CONFIG", "DELETE_USER"
+  entity    String   // e.g., "SystemConfig", "User"
+  entityId  String?
+  details   String?  // JSON string with changes or info
+  ip        String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 model SystemConfig {
@@ -79,269 +94,234 @@ model SystemConfig {
 }
 
 model Proyecto {
-  id               String          @id @default(cuid())
-  nombre           String
-  slug             String?         @unique
-  descripcion      String?
-  ubicacion        String?
-  estado           String  @default("PLANIFICACION")
-  tipo             String    @default("URBANIZACION")
-  imagenPortada    String?
-  galeria          String?        // JSON array de URLs
-  documentos       String?        // JSON array de URLs
-  masterplanSVG    String?
-  // Configuración del Mapa Interactivo (Overlay)
-  mapCenterLat    Float?   @default(-34.6037)
-  mapCenterLng    Float?   @default(-58.3816)
-  mapZoom         Int?     @default(16)
-  
-  // Configuración de la Imagen Overlay
-  overlayUrl      String?  // URL de la imagen del masterplan
-  overlayBounds   String?  // JSON: [[lat1,lng1], [lat2,lng2]] (Esquinas)
-  overlayRotation Float?   @default(0) // Rotación en grados
-  
-  // Campos de Inversión / Escrow
-  invertible           Boolean   @default(false)
-  precioM2Inversor     Float?    // Precio costo (wholesale)
-  precioM2Mercado      Float?    // Precio lanzamiento proyectado
-  metaM2Objetivo       Float?    // Cuántos m2 se necesitan fondear
-  m2VendidosInversores Float     @default(0)
+  id                   String            @id @default(cuid())
+  nombre               String
+  slug                 String?           @unique
+  descripcion          String?
+  ubicacion            String?
+  estado               String            @default("PLANIFICACION")
+  tipo                 String            @default("URBANIZACION")
+  orgId                String?
+  imagenPortada        String?
+  galeria              String?
+  documentos           String?
+  masterplanSVG        String?
+  mapCenterLat         Float?            @default(-34.6037)
+  mapCenterLng         Float?            @default(-58.3816)
+  mapZoom              Int?              @default(16)
+  overlayUrl           String?
+  overlayBounds        String?
+  overlayRotation      Float?            @default(0)
+  invertible           Boolean           @default(false)
+  precioM2Inversor     Decimal?          @db.Decimal(18, 2)
+  precioM2Mercado      Decimal?          @db.Decimal(18, 2)
+  metaM2Objetivo       Decimal?          @db.Decimal(18, 2)
+  m2VendidosInversores Decimal           @default(0) @db.Decimal(18, 2)
   fechaLimiteFondeo    DateTime?
-  
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  documentacionEstado  String            @default("PENDIENTE")
+  creadoPorId          String?
+  aiKnowledgeBase      String?
+  aiSystemPrompt       String?
+  demoExpiresAt        DateTime?
+  isDemo               Boolean           @default(false)
+  requireKyc           Boolean           @default(true)
+  visibilityStatus     String            @default("PUBLICADO")
+  organization         Organization?     @relation(fields: [orgId], references: [id])
+  documentacion        Documentacion[]
+  etapas               Etapa[]
+  hitosEscrow          EscrowMilestone[]
+  inversiones          Inversion[]
+  leads                Lead[]
+  oportunidades        Oportunidad[]
+  pagos                Pago[]
+  archivosTecnicos     ProyectoArchivo[]
+  imagenes             ProyectoImagen[]
+  creadoPor            User?             @relation("ProyectoCreador", fields: [creadoPorId], references: [id])
+  tareas               Tarea[]
+  testimonios          Testimonio[]
+  tours                Tour360[]
 
-  // Relaciones
-  etapas        Etapa[]
-  leads         Lead[]
-  oportunidades Oportunidad[]
-  tours         Tour360[]
-  tareas        Tarea[]
-  inversiones   Inversion[]
-  hitosEscrow   EscrowMilestone[]
-  
-  // Nuevas relaciones Admin
-  documentacion Documentacion[] // Planos, aprobaciones municipales
-  pagos         Pago[]
-  testimonios   Testimonio[]
-  
-  documentacionEstado String @default("PENDIENTE") // PENDIENTE, EN_REVISION, APROBADO, RECHAZADO
-
-  creadoPorId   String?
-  creadoPor     User?    @relation("ProyectoCreador", fields: [creadoPorId], references: [id], onDelete: SetNull)
-
-  // Demo Mode
-  isDemo             Boolean        @default(false)
-  demoExpiresAt      DateTime?
-  visibilityStatus   String         @default("PUBLICADO") // PUBLICADO, DESPUBLICADO, SUSPENDIDO
-  requireKyc         Boolean        @default(true)
-
-  // AI Agent Fields
-  aiKnowledgeBase String?  @db.Text
-  aiSystemPrompt  String?  @db.Text
-
-  // Masterplan / Technical Files
-  archivosTecnicos ProyectoArchivo[]
-  imagenes         ProyectoImagen[]
-
-  @@map("proyectos")
   @@index([estado])
   @@index([createdAt])
+  @@index([visibilityStatus])
+  @@index([isDemo])
+  @@index([tipo])
+  @@index([orgId])
+  @@map("proyectos")
 }
 
 model ProyectoArchivo {
-  id                 String   @id @default(cuid())
-  proyectoId         String
-  tipo               String   // PLANO, MEMORIA, LEGAL, RENDER, OTRO
-  nombre             String
-  url                String
+  id                  String   @id @default(cuid())
+  proyectoId          String
+  tipo                String
+  nombre              String
+  url                 String
   visiblePublicamente Boolean  @default(false)
-  createdAt          DateTime @default(now())
+  createdAt           DateTime @default(now())
+  proyecto            Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
-  // Relaciones
-  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-
-  @@map("proyecto_archivos")
   @@index([proyectoId])
+  @@map("proyecto_archivos")
 }
 
 model ProyectoImagen {
-  id         String   @id @default(cuid())
-  proyectoId String
-  url        String
-  categoria  String   // RENDER, AVANCE_OBRA, MASTERPLAN, INTERIOR, EXTERIOR
+  id          String   @id @default(cuid())
+  proyectoId  String
+  url         String
+  categoria   String
   esPrincipal Boolean  @default(false)
-  orden      Int      @default(0)
-  createdAt  DateTime @default(now())
+  orden       Int      @default(0)
+  createdAt   DateTime @default(now())
+  proyecto    Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
-  // Relaciones
-  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-
-  @@map("proyecto_imagenes")
   @@index([proyectoId])
   @@index([orden])
+  @@map("proyecto_imagenes")
 }
 
 model Inversion {
-  id              String   @id @default(cuid())
-  proyectoId      String
-  inversorId      String
-  m2Comprados     Float
-  montoTotal      Float
-  precioM2Aplicado Float
-  estado          String   @default("ESCROW") // PENDING, ESCROW, RELEASED, REFUNDED
-  hashTransaccion String?
-  fechaInversion  DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relaciones
-  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  inversor User     @relation("InversorInversion", fields: [inversorId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  proyectoId       String
+  inversorId       String
+  m2Comprados      Decimal    @db.Decimal(18, 2)
+  montoTotal       Decimal    @db.Decimal(18, 2)
+  precioM2Aplicado Decimal    @db.Decimal(18, 2)
+  estado           String   @default("ESCROW")
+  hashTransaccion  String?
+  fechaInversion   DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  inversor         User     @relation("InversorInversion", fields: [inversorId], references: [id], onDelete: Cascade)
+  proyecto         Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
   @@map("inversiones")
 }
 
 model EscrowMilestone {
-  id           String   @id @default(cuid())
-  proyectoId   String
-  titulo       String
-  descripcion  String?
-  porcentaje   Float    // Porcentaje de fondos a liberar (0-100)
-  estado       String   @default("PENDIENTE") // PENDIENTE, COMPLETADO
-  fechaLogro   DateTime?
-  createdAt    DateTime @default(now())
-
-  // Relaciones
-  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  proyectoId  String
+  titulo      String
+  descripcion String?
+  porcentaje  Float
+  estado      String    @default("PENDIENTE")
+  fechaLogro  DateTime?
+  createdAt   DateTime  @default(now())
+  proyecto    Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
   @@map("hitos_escrow")
 }
 
-
 model Etapa {
-  id         String      @id @default(cuid())
+  id         String    @id @default(cuid())
   proyectoId String
   nombre     String
   orden      Int
-  estado     String @default("PENDIENTE")
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  estado     String    @default("PENDIENTE")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  proyecto   Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  manzanas   Manzana[]
 
-  // Relaciones
-  proyecto  Proyecto   @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  manzanas  Manzana[]
-
-  @@map("etapas")
   @@index([proyectoId])
+  @@map("etapas")
 }
 
 model Manzana {
   id          String   @id @default(cuid())
   etapaId     String
   nombre      String
-  coordenadas String?    // coordenadas para SVG del masterplan
+  coordenadas String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  etapa       Etapa    @relation(fields: [etapaId], references: [id], onDelete: Cascade)
+  unidades    Unidad[]
 
-  // Relaciones
-  etapa    Etapa    @relation(fields: [etapaId], references: [id], onDelete: Cascade)
-  unidades Unidad[]
-
-  @@map("manzanas")
   @@index([etapaId])
+  @@map("manzanas")
 }
 
 model Unidad {
-  id                    String       @id @default(cuid())
+  id                    String            @id @default(cuid())
   manzanaId             String
   numero                String
-  tipo                  String   @default("LOTE")
-  superficie            Float?       // m²
-  frente                Float?       // metros
-  fondo                 Float?       // metros
-  esEsquina             Boolean      @default(false)
-  orientacion           String?      // N, S, E, O, NE, NO, SE, SO
+  tipo                  String            @default("LOTE")
+  superficie            Float?
+  frente                Float?
+  fondo                 Float?
+  esEsquina             Boolean           @default(false)
+  orientacion           String?
   precio                Float?
-  moneda                String       @default("USD")
-  
-  // Georreferenciación
-  geoJSON         String?  // Coordenadas del polígono interactivo sobre mapa
-  centerLat       Float?
-  centerLng       Float?
-
-  financiacion          String?        // { cuotas, anticipo, tasaInteres, ... }
-  estado                String @default("DISPONIBLE")
-  coordenadasMasterplan String?        // { x, y, width, height, path, ... }
-  imagenes              String?     // JSON array de URLs
+  moneda                String            @default("USD")
+  geoJSON               String?
+  centerLat             Float?
+  centerLng             Float?
+  financiacion          String?
+  estado                String            @default("DISPONIBLE")
+  coordenadasMasterplan String?
+  imagenes              String?
   tour360Url            String?
   responsableId         String?
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  historial             HistorialUnidad[]
+  oportunidades         Oportunidad[]
+  reservas              Reserva[]
+  tours                 Tour360[]
+  tourHotspots          Hotspot[]
+  manzana               Manzana           @relation(fields: [manzanaId], references: [id], onDelete: Cascade)
+  responsable           User?             @relation("ResponsableUnidad", fields: [responsableId], references: [id])
 
-  // Relaciones
-  manzana      Manzana          @relation(fields: [manzanaId], references: [id], onDelete: Cascade)
-  responsable  User?            @relation("ResponsableUnidad", fields: [responsableId], references: [id], onDelete: SetNull)
-  reservas     Reserva[]
-  oportunidades Oportunidad[]
-  historial    HistorialUnidad[]
-  tours        Tour360[]
-
-  @@map("unidades")
   @@index([manzanaId])
   @@index([estado])
   @@index([responsableId])
   @@index([manzanaId, estado])
+  @@map("unidades")
 }
 
 model Lead {
-  id             String      @id @default(cuid())
-  nombre         String
-  email          String?
-  telefono       String?
-  origen         String  @default("WEB")
-  proyectoId     String?
-  unidadInteres  String?    // JSON array de IDs de unidades de interés
-  estado         String  @default("NUEVO")
-  asignadoAId    String?
-  ultimoContacto DateTime?
-  fuente         String?    // Facebook, Google, Valla, etc.
-  campana        String?
-  mensaje        String?
-  notas          String?      // JSON array [{ fecha, texto, userId }]
-  
-  // AI Pilot Fields
+  id                   String        @id @default(cuid())
+  nombre               String
+  email                String?
+  telefono             String?
+  origen               String        @default("WEB")
+  proyectoId           String?
+  unidadInteres        String?
+  estado               String        @default("NUEVO")
+  asignadoAId          String?
+  ultimoContacto       DateTime?
+  fuente               String?
+  campana              String?
+  mensaje              String?
+  notas                String?
   aiQualificationScore Int?
-  lastAiSummary        String?   @db.Text
-  automationStatus     String    @default("MANUAL") // MANUAL, COPILOT, PILOT
-  communityType        String    @default("NONE")   // NONE, OPEN, VIP
-  
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  lastAiSummary        String?
+  automationStatus     String        @default("MANUAL")
+  communityType        String        @default("NONE")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  mensajes             LeadMessage[]
+  asignadoA            User?         @relation("LeadAsignado", fields: [asignadoAId], references: [id])
+  proyecto             Proyecto?     @relation(fields: [proyectoId], references: [id])
+  oportunidades        Oportunidad[]
+  reservas             Reserva[]
+  tareas               Tarea[]
 
-  // Relaciones
-  proyecto      Proyecto?     @relation(fields: [proyectoId], references: [id], onDelete: SetNull)
-  asignadoA     User?         @relation("LeadAsignado", fields: [asignadoAId], references: [id], onDelete: SetNull)
-  oportunidades Oportunidad[]
-  reservas      Reserva[]
-  tareas        Tarea[]
-  mensajes      LeadMessage[]
-
-  @@map("leads")
   @@index([email])
   @@index([telefono])
   @@index([proyectoId])
   @@index([asignadoAId])
   @@index([estado])
   @@index([asignadoAId, estado])
+  @@map("leads")
 }
 
 model LeadMessage {
   id        String   @id @default(cuid())
   leadId    String
-  role      String   // 'user' or 'assistant'
-  content   String   @db.Text
+  role      String
+  content   String
   createdAt DateTime @default(now())
-
   lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId])
@@ -349,235 +329,245 @@ model LeadMessage {
 }
 
 model Oportunidad {
-  id                  String             @id @default(cuid())
+  id                  String    @id @default(cuid())
   leadId              String
   proyectoId          String
   unidadId            String?
-  etapa               String   @default("NUEVO")
-  probabilidad        Int                @default(0) // 0-100
-  valorEstimado       Float?
-  presupuesto         Float?
+  etapa               String    @default("NUEVO")
+  probabilidad        Int       @default(0)
+  valorEstimado       Decimal?  @db.Decimal(18, 2)
+  presupuesto         Decimal?  @db.Decimal(18, 2)
   fechaCierreEstimada DateTime?
   proximaAccion       String?
   fechaProximaAccion  DateTime?
   motivoPerdida       String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-
-  // Relaciones
-  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  unidad   Unidad?  @relation(fields: [unidadId], references: [id], onDelete: SetNull)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  lead                Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  proyecto            Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  unidad              Unidad?   @relation(fields: [unidadId], references: [id])
 
   @@map("oportunidades")
 }
 
 model Tarea {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   titulo           String
   descripcion      String?
   fechaVencimiento DateTime
-  prioridad        String   @default("MEDIA") // BAJA, MEDIA, ALTA
-  estado           String   @default("PENDIENTE") // PENDIENTE, COMPLETADA
-  
+  prioridad        String    @default("MEDIA")
+  estado           String    @default("PENDIENTE")
   leadId           String?
   usuarioId        String
   proyectoId       String?
-
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // Relaciones
-  lead     Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  usuario  User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  proyecto Proyecto? @relation(fields: [proyectoId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  lead             Lead?     @relation(fields: [leadId], references: [id])
+  proyecto         Proyecto? @relation(fields: [proyectoId], references: [id])
+  usuario          User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@map("tareas")
 }
 
 model Reserva {
-  id                 String            @id @default(cuid())
-  unidadId           String
-  leadId             String
-  vendedorId         String
-  fechaInicio        DateTime          @default(now())
-  fechaVencimiento   DateTime
-  montoSena          Float?
-  estadoPago         String @default("PENDIENTE")
-  documentoGenerado  String?           // URL al documento generado
-  estado             String     @default("ACTIVA")
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  id                String   @id @default(cuid())
+  unidadId          String
+  leadId            String
+  vendedorId        String
+  fechaInicio       DateTime @default(now())
+  fechaVencimiento  DateTime
+  montoSena         Decimal?  @db.Decimal(18, 2)
+  estadoPago        String   @default("PENDIENTE")
+  documentoGenerado String?
+  estado            String   @default("ACTIVA")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lead              Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  unidad            Unidad   @relation(fields: [unidadId], references: [id], onDelete: Cascade)
+  vendedor          User     @relation("VendedorReserva", fields: [vendedorId], references: [id], onDelete: Cascade)
 
-  // Relaciones
-  unidad   Unidad @relation(fields: [unidadId], references: [id], onDelete: Cascade)
-  lead     Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  vendedor User   @relation("VendedorReserva", fields: [vendedorId], references: [id], onDelete: Cascade)
-
-  @@map("reservas")
   @@index([unidadId])
   @@index([leadId])
   @@index([vendedorId])
   @@index([estado])
   @@index([createdAt])
+  @@map("reservas")
 }
 
 model HistorialUnidad {
-  id              String   @id @default(cuid())
-  unidadId        String
-  usuarioId       String
-  estadoAnterior  String
-  estadoNuevo     String
-  motivo          String?
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  unidadId       String
+  usuarioId      String
+  estadoAnterior String
+  estadoNuevo    String
+  motivo         String?
+  createdAt      DateTime @default(now())
+  unidad         Unidad   @relation(fields: [unidadId], references: [id], onDelete: Cascade)
+  usuario        User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
-  // Relaciones
-  unidad  Unidad @relation(fields: [unidadId], references: [id], onDelete: Cascade)
-  usuario User   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-
-  @@map("historial_unidades")
   @@index([unidadId, createdAt])
+  @@map("historial_unidades")
 }
 
 model Tour360 {
-  id          String   @id @default(cuid())
-  proyectoId  String
-  unidadId    String?
-  nombre      String
-  escenas     String     // JSON Array of scenes with hotspots
-  estado      String     @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
-  notasAdmin  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relaciones
-  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  unidad   Unidad?  @relation(fields: [unidadId], references: [id], onDelete: SetNull)
+  id         String   @id @default(cuid())
+  proyectoId String
+  unidadId   String?  // Optional: A tour can be global for the project or specific to a unit
+  nombre     String
+  estado     String   @default("PENDIENTE") // PENDING, APPROVED, REJECTED
+  notasAdmin String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  unidad     Unidad?  @relation(fields: [unidadId], references: [id])
+  scenes     TourScene[]
 
   @@map("tours_360")
 }
 
-// ─────────────────────────────────────────────
-// NUEVOS MODELOS ADMIN (Banners, Testimonios, KYC)
-// ─────────────────────────────────────────────
+model TourScene {
+  id         String   @id @default(cuid())
+  tourId     String
+  title      String
+  imageUrl   String
+  isDefault  Boolean  @default(false)
+  order      Int      @default(0)
+  category   String   @default("RAW") // RAW, RENDERED
+  
+  tour       Tour360  @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  hotspots   Hotspot[]
+
+  @@index([tourId])
+  @@map("tour_scenes")
+}
+
+model Hotspot {
+  id            String    @id @default(cuid())
+  sceneId       String
+  unidadId      String    // Mandatory for inventory sync
+  type          String    @default("INFO") // INFO, SCENE, LINK, UNIT
+  pitch         Float
+  yaw           Float
+  text          String?
+  targetSceneId String?   // For SCENE type
+  
+  scene         TourScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  unidad        Unidad    @relation(fields: [unidadId], references: [id])
+
+  @@index([sceneId])
+  @@index([unidadId])
+  @@map("tour_hotspots")
+}
 
 model Banner {
-  id            String   @id @default(cuid())
-  titulo        String
-  tipo          String   @default("IMAGEN") // IMAGEN, VIDEO, HTML
-  mediaUrl      String
-  linkDestino   String?
-  posicion      String   @default("HOME_TOP") // HOME_TOP, HOME_MID, LANDING, ETC
-  prioridad     Int      @default(0)
-  estado        String   @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO, PAUSADO
-  fechaInicio   DateTime?
-  fechaFin      DateTime?
-  notasAdmin    String?
-  creadoPorId   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  creadoPor     User?    @relation("BannerCreador", fields: [creadoPorId], references: [id], onDelete: SetNull)
-  pago          Pago?
+  id          String    @id @default(cuid())
+  titulo      String
+  tipo        String    @default("IMAGEN")
+  mediaUrl    String
+  linkDestino String?
+  posicion    String    @default("HOME_TOP")
+  prioridad   Int       @default(0)
+  estado      String    @default("PENDIENTE")
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  notasAdmin  String?
+  creadoPorId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  creadoPor   User?     @relation("BannerCreador", fields: [creadoPorId], references: [id])
+  pago        Pago?
 
   @@map("banners")
 }
 
 model Testimonio {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   autorNombre   String
-  autorTipo     String   @default("USUARIO") // USUARIO, EMPRESA
+  autorTipo     String    @default("USUARIO")
   autorContacto String?
   texto         String
-  rating        Int?     @default(5)
+  rating        Int?      @default(5)
   mediaUrl      String?
   proyectoId    String?
-  estado        String   @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
-  destacado     Boolean  @default(false)
+  estado        String    @default("PENDIENTE")
+  destacado     Boolean   @default(false)
   notasAdmin    String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  proyecto      Proyecto? @relation(fields: [proyectoId], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  proyecto      Proyecto? @relation(fields: [proyectoId], references: [id])
 
   @@map("testimonios")
 }
 
 model Documentacion {
-  id            String   @id @default(cuid())
-  tipo          String   // DNI, ESTATUTO, MUNICIPAL, FACTIBILIDAD, OTRO
-  archivoUrl    String
-  estado        String   @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
-  comentarios   String?
-  
-  usuarioId     String?  // Para KYC de usuario
-  proyectoId    String?  // Para documentación técnica de proyecto
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  usuario       User?     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  proyecto      Proyecto? @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  tipo        String
+  archivoUrl  String
+  estado      String    @default("PENDIENTE")
+  comentarios String?
+  usuarioId   String?
+  proyectoId  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  proyecto    Proyecto? @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  usuario     User?     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@map("documentacion")
 }
 
 model Pago {
-  id            String   @id @default(cuid())
-  monto         Float
-  moneda        String   @default("USD")
-  concepto      String?
-  estado        String   @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
+  id             String    @id @default(cuid())
+  monto          Decimal   @db.Decimal(18, 2)
+  moneda         String    @default("USD")
+  concepto       String?
+  estado         String    @default("PENDIENTE")
+  tipo           String?   // WALLET_DEPOSIT, WALLET_WITHDRAWAL, PROJECT_ACTIVATION, etc.
   comprobanteUrl String?
-  fechaPago     DateTime @default(now())
-  
-  usuarioId     String
-  proyectoId    String?
-  bannerId      String?   @unique
+  fechaPago      DateTime  @default(now())
+  usuarioId      String
+  proyectoId     String?
+  bannerId       String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  banner         Banner?   @relation(fields: [bannerId], references: [id])
+  proyecto       Proyecto? @relation(fields: [proyectoId], references: [id])
+  usuario        User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  usuario       User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  proyecto      Proyecto? @relation(fields: [proyectoId], references: [id], onDelete: SetNull)
-  banner        Banner?   @relation(fields: [bannerId], references: [id], onDelete: SetNull)
-
-  @@map("pagos")
   @@index([usuarioId])
   @@index([proyectoId])
+  @@map("pagos")
 }
 
 model Notificacion {
-  id            String   @id @default(cuid())
-  usuarioId     String   // Destinatario (puede ser admin o dev)
-  tipo          String   // INFO, ALERTA, EXITO, ERROR
-  titulo        String
-  mensaje       String
-  leido         Boolean  @default(false)
-  linkAccion    String?
-  createdAt     DateTime @default(now())
+  id         String   @id @default(cuid())
+  usuarioId  String
+  tipo       String
+  titulo     String
+  mensaje    String
+  leido      Boolean  @default(false)
+  linkAccion String?
+  createdAt  DateTime @default(now())
+  usuario    User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
-  usuario       User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-
-  @@map("notificaciones")
   @@index([usuarioId, leido])
   @@index([createdAt])
+  @@map("notificaciones")
 }
 
 model Noticia {
-  id            String   @id @default(cuid())
-  titulo        String
-  slug          String   @unique
-  excerpt       String?
-  contenido     String   
-  categoria     String   @default("GENERAL") // TECNOLOGIA, INVERSION, MARKETING, etc.
-  imagenUrl     String?
-  destacada     Boolean  @default(false)
-  autorId       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  autor         User?    @relation("NoticiaAutor", fields: [autorId], references: [id], onDelete: SetNull)
+  id        String   @id @default(cuid())
+  titulo    String
+  slug      String   @unique
+  excerpt   String?
+  contenido String
+  categoria String   @default("GENERAL")
+  imagenUrl String?
+  destacada Boolean  @default(false)
+  autorId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  autor     User?    @relation("NoticiaAutor", fields: [autorId], references: [id])
 
   @@map("noticias")
 }

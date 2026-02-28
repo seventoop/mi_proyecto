@@ -1,4 +1,4 @@
-import { jsPDF } from "jspdf";
+// jsPDF loaded dynamically to reduce initial bundle size
 
 interface ReservaPDFData {
     // Reservation
@@ -28,7 +28,8 @@ interface ReservaPDFData {
     vendedorNombre: string;
 }
 
-export function generateReservaPDF(data: ReservaPDFData): Buffer {
+export async function generateReservaPDF(data: ReservaPDFData): Promise<Buffer> {
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     const pageW = doc.internal.pageSize.getWidth();
     let y = 20;
@@ -135,7 +136,7 @@ export function generateReservaPDF(data: ReservaPDFData): Buffer {
     return Buffer.from(doc.output("arraybuffer"));
 }
 
-function drawSectionTitle(doc: jsPDF, title: string, y: number) {
+function drawSectionTitle(doc: any, title: string, y: number) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(37, 99, 235);
@@ -145,7 +146,7 @@ function drawSectionTitle(doc: jsPDF, title: string, y: number) {
     doc.line(20, y + 1.5, 190, y + 1.5);
 }
 
-function drawField(doc: jsPDF, label: string, value: string, x: number, y: number) {
+function drawField(doc: any, label: string, value: string, x: number, y: number) {
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(100, 116, 139);

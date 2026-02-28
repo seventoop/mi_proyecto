@@ -57,8 +57,8 @@ export default function ReservaModal({ isOpen, onClose, unidad, onSuccess }: Res
     const fetchLeads = async (query: string) => {
         setIsLoadingLeads(true);
         const res = await getLeads({ search: query });
-        if (res.success) {
-            setLeads(res.data || []);
+        if (res.success && res.data) {
+            setLeads(res.data.leads || []);
         }
         setIsLoadingLeads(false);
     };

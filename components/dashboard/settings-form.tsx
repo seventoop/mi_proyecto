@@ -40,7 +40,7 @@ export default function SettingsForm({ initialConfig = {} }: SettingsFormProps) 
             // Theme is handled by next-themes locally, but we could sync it if we wanted
         };
 
-        const res = await updateUserConfig(session.user.id, newConfig);
+        const res = await updateUserConfig(newConfig);
 
         setIsSaving(false);
         if (res.success) {

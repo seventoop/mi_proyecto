@@ -2,37 +2,29 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
+import { requireRole, handleGuardError } from "@/lib/guards";
+import { idSchema } from "@/lib/validations";
 
-const moderationSchema = z.object({
-    id: z.string().cuid(),
-    estado: z.string(),
+// ─── Scemas ───
+
+const testimonioCreateSchema = z.object({
+    autorNombre: z.string().min(2, "Nombre requerido").max(100),
+    autorTipo: z.string().default("USUARIO"),
+    autorContacto: z.string().max(100).optional(),
+    texto: z.string().min(10, "El testimonio es demasiado corto").max(1000),
+    rating: z.number().int().min(1).max(5).default(5),
+    mediaUrl: z.string().url("URL de media inválida").optional().or(z.literal("")),
+    proyectoId: idSchema.optional(),
 });
 
-export async function createTestimonio(data: {
-    autorNombre: string;
-    autorTipo: string;
-    autorContacto?: string;
-    texto: string;
-    rating: number;
-    mediaUrl?: string;
-    proyectoId?: string;
-}) {
-    try {
-        await prisma.testimonio.create({
-            data: {
-                ...data,
-                estado: "PENDIENTE",
-            },
-        });
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: "Error al enviar testimonio" };
-    }
-}
+const moderationSchema = z.object({
+    id: idSchema,
+    estado: z.enum(["PENDIENTE", "APROBADO", "RECHAZADO"]),
+});
+
+// ─── Queries ───
 
 export async function getTestimonios(params: {
     page?: number;
@@ -81,36 +73,63 @@ export async function getTestimonios(params: {
     }
 }
 
+// ─── Mutations ───
+
+export async function createTestimonio(input: unknown) {
+    try {
+        const parsed = testimonioCreateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
+
+        await prisma.testimonio.create({
+            data: {
+                ...data,
+                estado: "PENDIENTE",
+            },
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: "Error al enviar testimonio" };
+    }
+}
+
 export async function updateTestimonioStatus(id: string, estado: string) {
     try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de testimonio inválido" };
+
+        await requireRole("ADMIN");
         await prisma.testimonio.update({
             where: { id },
             data: { estado },
         });
         revalidatePath("/dashboard/admin/testimonios");
-        revalidatePath("/"); // Update home if featured
+        revalidatePath("/");
         return { success: true };
     } catch (error) {
-        return { success: false, error: "Error al actualizar estado" };
+        return handleGuardError(error);
     }
 }
 
 export async function deleteTestimonio(id: string) {
     try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de testimonio inválido" };
+
+        await requireRole("ADMIN");
         await prisma.testimonio.delete({ where: { id } });
         revalidatePath("/dashboard/admin/testimonios");
         return { success: true };
     } catch (error) {
-        return { success: false, error: "Error al eliminar testimonio" };
+        return handleGuardError(error);
     }
 }
 
 export async function moderarTestimonio(input: unknown) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
-            return { success: false, error: "No autorizado" };
-        }
+        await requireRole("ADMIN");
 
         const parsed = moderationSchema.safeParse(input);
         if (!parsed.success) return { success: false, error: "Datos inválidos" };
@@ -122,11 +141,10 @@ export async function moderarTestimonio(input: unknown) {
         });
 
         revalidatePath("/dashboard/admin/testimonios");
-        revalidatePath("/"); // Update home if featured
+        revalidatePath("/");
         return { success: true };
     } catch (error) {
         Sentry.captureException(error);
-        console.error("[moderarTestimonio]", error);
-        return { success: false, error: "Error interno al moderar testimonio" };
+        return handleGuardError(error);
     }
 }

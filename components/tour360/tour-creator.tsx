@@ -28,6 +28,7 @@ export interface Hotspot {
     pitch: number;
     yaw: number;
     text: string;
+    unidadId: string; // Mandatory for STP-TOUR360-PRO
     targetSceneId?: string;
     targetUrl?: string;
     targetThumbnail?: string;
@@ -480,6 +481,8 @@ export default function TourCreator({
     const [draggingHotspotId, setDraggingHotspotId] = useState<string | null>(null);
     const [draggingLabelId, setDraggingLabelId] = useState<string | null>(null);
     const [lastDragTime, setLastDragTime] = useState(0);
+    const [projectUnits, setProjectUnits] = useState<{ id: string, numero: string }[]>([]);
+    const [selectedUnitId, setSelectedUnitId] = useState<string>("");
 
     // Landmark Placement State
     const [pendingLandmarkAnchor, setPendingLandmarkAnchor] = useState<{ pitch: number, yaw: number } | null>(null);
@@ -620,6 +623,22 @@ export default function TourCreator({
 
 
     // ─── Handle click on panorama to place hotspot ───
+    // ─── Fetch Units ───
+    useEffect(() => {
+        const fetchUnits = async () => {
+            try {
+                const { getAllUnidades } = await import("@/lib/actions/unidades");
+                const res = await getAllUnidades({ proyectoId, pageSize: 1000 });
+                if (res.success && res.data) {
+                    setProjectUnits(res.data.map((u: any) => ({ id: u.id, numero: u.numero })));
+                }
+            } catch (error) {
+                console.error("Error fetching units:", error);
+            }
+        };
+        fetchUnits();
+    }, [proyectoId]);
+
     // ─── Handle click on panorama to place objects ───
     const handleViewerClick = useCallback(
         (e: React.MouseEvent) => {
@@ -632,16 +651,26 @@ export default function TourCreator({
             const [pitch, yaw] = coords;
 
             if (editorMode === 'hotspot') {
+                if (!selectedUnitId) {
+                    alert("Por favor, selecciona una unidad antes de colocar el hotspot.");
+                    return;
+                }
+
                 const targetScene = scenes.find(s => s.id === linkTargetScene);
+                const selectedUnit = projectUnits.find(u => u.id === selectedUnitId);
+
                 const newHotspot: Hotspot = {
                     id: `hs-${Date.now()}`,
                     type: hotspotMode,
                     pitch,
                     yaw,
-                    text: hotspotMode === "scene" ? (targetScene?.title || "Ir a escena") : "Punto de interés",
+                    text: hotspotMode === "scene"
+                        ? (targetScene?.title || "Ir a escena")
+                        : (selectedUnit ? `Unidad ${selectedUnit.numero}` : "Punto de interés"),
+                    unidadId: selectedUnitId,
                     targetSceneId: hotspotMode === "scene" ? linkTargetScene : undefined,
                     targetThumbnail: hotspotMode === "scene" ? targetScene?.imageUrl : undefined,
-                    icon: "info",
+                    icon: hotspotMode === "lot" ? "lot" : "info",
                 };
 
                 setScenes((prev) =>
@@ -832,6 +861,24 @@ export default function TourCreator({
         }
     };
 
+    // ─── 2:1 Equirectangular Validation ───
+    const validateEquirectangular = (file: File): Promise<{ valid: boolean; width: number; height: number; ratio: number }> => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const ratio = img.width / img.height;
+                const valid = Math.abs(ratio - 2) < 0.2; // 10% tolerance for 2:1
+                resolve({ valid, width: img.width, height: img.height, ratio });
+                URL.revokeObjectURL(img.src);
+            };
+            img.onerror = () => {
+                resolve({ valid: false, width: 0, height: 0, ratio: 0 });
+                URL.revokeObjectURL(img.src);
+            };
+            img.src = URL.createObjectURL(file);
+        });
+    };
+
     const handleFilesSelected = async (files: FileList | File[]) => {
         const fileArray = Array.from(files);
         const validFiles = fileArray.filter((f) =>
@@ -840,8 +887,28 @@ export default function TourCreator({
 
         if (validFiles.length === 0) return;
 
-        // Upload all files
-        const results = await Promise.all(validFiles.map(uploadFile));
+        // Validate 2:1 aspect ratio for equirectangular panoramas
+        const validatedFiles: File[] = [];
+        for (const file of validFiles) {
+            if (file.type.startsWith("image/")) {
+                const result = await validateEquirectangular(file);
+                if (!result.valid) {
+                    const proceed = confirm(
+                        `⚠️ "${file.name}" no tiene proporción 2:1 (equirectangular).\n\n` +
+                        `Resolución: ${result.width}×${result.height} (ratio ${result.ratio.toFixed(2)}:1)\n` +
+                        `Se recomienda una imagen con proporción 2:1 para una experiencia 360° óptima.\n\n` +
+                        `¿Desea continuar de todas formas?`
+                    );
+                    if (!proceed) continue;
+                }
+            }
+            validatedFiles.push(file);
+        }
+
+        if (validatedFiles.length === 0) return;
+
+        // Upload all validated files
+        const results = await Promise.all(validatedFiles.map(uploadFile));
 
         // Create scenes from successful uploads
         const newScenes: Scene[] = results
@@ -931,9 +998,43 @@ export default function TourCreator({
 
     // ─── Save tour ───
     const handleSave = async () => {
+        if (scenes.length === 0) return;
         setIsSaving(true);
         try {
-            await onSave(scenes);
+            const { upsertTour } = await import("@/lib/actions/tours");
+
+            const payload = {
+                id: tourId,
+                proyectoId,
+                nombre: "Tour 360 - " + new Date().toLocaleDateString(),
+                scenes: scenes.map((s, idx) => ({
+                    id: s.id.startsWith("scene-") ? undefined : s.id,
+                    title: s.title,
+                    imageUrl: s.imageUrl,
+                    isDefault: s.isDefault || (idx === 0 && !scenes.some(sc => sc.isDefault)),
+                    order: idx,
+                    category: (s.category || "raw").toUpperCase(),
+                    hotspots: s.hotspots.map(h => ({
+                        unidadId: (h as any).unidadId || "demo-unidad", // TODO: Wire actual unit picker
+                        type: h.type.toUpperCase(),
+                        pitch: h.pitch,
+                        yaw: h.yaw,
+                        text: h.text,
+                        targetSceneId: h.targetSceneId
+                    }))
+                }))
+            };
+
+            const res = await upsertTour(payload);
+            if (res.success) {
+                alert("Tour guardado con éxito.");
+                onSave(scenes);
+            } else {
+                throw new Error(res.error);
+            }
+        } catch (error: any) {
+            console.error("Save error:", error);
+            alert(`Error al guardar: ${error.message}`);
         } finally {
             setIsSaving(false);
         }
@@ -1464,7 +1565,24 @@ export default function TourCreator({
                             </div>
 
                             {/* Add hotspot controls pills */}
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-3">
+                                {/* Unit Selector */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-slate-400 pl-1 uppercase">Vincular a Unidad:</label>
+                                    <select
+                                        value={selectedUnitId}
+                                        onChange={(e) => setSelectedUnitId(e.target.value)}
+                                        className="w-full bg-[#1A1A1A] border border-white/5 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                                    >
+                                        <option value="">Seleccionar Unidad...</option>
+                                        {projectUnits.map((u) => (
+                                            <option key={u.id} value={u.id}>
+                                                Unidad {u.numero}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => {

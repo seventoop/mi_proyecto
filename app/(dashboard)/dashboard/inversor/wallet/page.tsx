@@ -14,18 +14,18 @@ export default function WalletPage() {
     const [showDeposit, setShowDeposit] = useState(false);
 
     const loadData = async () => {
-        if (!session?.user?.id) return;
+        if (!session?.user) return;
         setLoading(true);
-        const res = await getWalletData(session.user.id);
-        if (res.success) {
-            setData({ saldo: res.saldo || 0, transacciones: res.transacciones || [] });
+        const res = await getWalletData();
+        if (res.success && 'saldo' in res) {
+            setData({ saldo: res.saldo || 0, transacciones: (res as any).transacciones || [] });
         }
         setLoading(false);
     };
 
     useEffect(() => {
         loadData();
-    }, [session?.user?.id]);
+    }, [session?.user]);
 
     if (loading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="w-8 h-8 animate-spin text-brand-500" /></div>;
 
@@ -112,7 +112,6 @@ export default function WalletPage() {
 
             {showDeposit && (
                 <DepositModal
-                    userId={session?.user?.id as string}
                     onClose={() => { setShowDeposit(false); loadData(); }}
                 />
             )}

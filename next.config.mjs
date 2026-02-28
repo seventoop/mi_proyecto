@@ -5,10 +5,25 @@ const nextConfig = {
     typescript: {
         ignoreBuildErrors: false,
     },
+    experimental: {
+        optimizePackageImports: [
+            "lucide-react",
+            "framer-motion",
+            "date-fns",
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-select",
+        ],
+    },
     webpack: (config, { isServer }) => {
         if (isServer) {
             // Alias tfjs-node to tfjs to avoid binary build issues on some environments
             config.resolve.alias['@tensorflow/tfjs-node'] = '@tensorflow/tfjs';
+        } else {
+            // 🛡️ Security & Size: Exclude heavy machine learning libs from client bundle
+            config.resolve.alias['@tensorflow/tfjs'] = false;
+            config.resolve.alias['@tensorflow/tfjs-backend-webgl'] = false;
+            config.resolve.alias['upscaler'] = false;
         }
         return config;
     },

@@ -32,11 +32,11 @@ const fields: { key: string; label: string; format?: (u: MasterplanUnit) => stri
     { key: "fondo", label: "Fondo", format: (u) => u.fondo ? `${u.fondo} m` : "—" },
     { key: "precio", label: "Precio", format: (u) => u.precio ? formatCurrency(u.precio) : "—" },
     { key: "precioM2", label: "Precio/m²", format: (u) => u.precio && u.superficie ? formatCurrency(Math.round(u.precio / u.superficie)) : "—" },
-    { key: "moneda", label: "Moneda", format: (u) => u.moneda },
+    { key: "moneda", label: "Moneda", format: (u) => u.moneda || "—" },
     { key: "orientacion", label: "Orientación", format: (u) => u.orientacion || "—" },
     { key: "esquina", label: "Esquina", format: (u) => u.esEsquina ? "Sí ★" : "No" },
-    { key: "etapa", label: "Etapa", format: (u) => u.etapaNombre },
-    { key: "manzana", label: "Manzana", format: (u) => u.manzanaNombre },
+    { key: "etapa", label: "Etapa", format: (u) => u.etapaNombre || "—" },
+    { key: "manzana", label: "Manzana", format: (u) => u.manzanaNombre || "—" },
     { key: "tour360", label: "Tour 360°", format: (u) => u.tour360Url ? "Disponible" : "—" },
 ];
 

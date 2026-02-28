@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireCronSecret } from "@/lib/guards";
 
 /**
  * Cron Job: Expire Demo Projects & Send KYC Reminders
- * Frequency recommendation: Every 1-6 hours
+ * Frequency recommendation: Every 1-6 hours via POST
  */
-export async function GET() {
+export async function POST(req: NextRequest) {
     try {
+        requireCronSecret(req);
         const now = new Date();
 
         // 1. Find projects that have expired their demo period

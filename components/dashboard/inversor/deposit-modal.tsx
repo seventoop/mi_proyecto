@@ -4,14 +4,14 @@ import { useState } from "react";
 import { CreditCard, ShieldCheck, Loader2 } from "lucide-react";
 import { depositFunds } from "@/lib/actions/wallet";
 
-export default function DepositModal({ userId, onClose }: { userId: string, onClose: () => void }) {
+export default function DepositModal({ onClose }: { onClose: () => void }) {
     const [amount, setAmount] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleDeposit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        const res = await depositFunds(userId, parseFloat(amount));
+        const res = await depositFunds({ monto: parseFloat(amount) });
         if (res.success) {
             onClose();
         }

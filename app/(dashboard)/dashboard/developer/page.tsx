@@ -16,12 +16,10 @@ export default async function DeveloperDashboard() {
     }
 
     // Fetch developer's user info for KYC and Risk level using raw query
-    const users: any[] = await prisma.$queryRaw`
-        SELECT "kycStatus", "nombre", "riskLevel", "demoEndsAt", "demoUsed" 
-        FROM users 
-        WHERE id = ${userId}
-    `;
-    const user = users[0];
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { kycStatus: true, nombre: true, riskLevel: true, demoEndsAt: true, demoUsed: true }
+    });
 
     // Fetch developer metrics (we'll assume they're respons for units or have a relation)
     const [totalUnits, availableUnits, reservedUnits, soldUnits] = await Promise.all([
@@ -39,17 +37,21 @@ export default async function DeveloperDashboard() {
     ];
 
     // Fetch Enriched Developer Dashboard Data
-    const { global, projectStats, nextMilestones } = await getDeveloperDashboardData(userId);
+    const dashboardRes = await getDeveloperDashboardData(userId);
+    if (!dashboardRes.success || !dashboardRes.data) {
+        redirect("/dashboard");
+    }
+    const { global, projectStats, nextMilestones } = dashboardRes.data;
 
-    const isDemo = (user as any)?.demoEndsAt && new Date((user as any)?.demoEndsAt) > new Date();
-    const demoEndsAtValue = (user as any)?.demoEndsAt;
+    const isDemo = user?.demoEndsAt && new Date(user.demoEndsAt) > new Date();
+    const demoEndsAtValue = user?.demoEndsAt;
 
     return (
         <div className="space-y-8 pb-12 animate-fade-in">
             <KycDemoStatusCard
-                kycStatus={user?.kycStatus || "PENDIENTE"}
-                demoEndsAt={user?.demoEndsAt}
-                demoUsed={(user as any)?.demoUsed || false}
+                kycStatus={(user?.kycStatus as any) || "PENDIENTE"}
+                demoEndsAt={user?.demoEndsAt || null}
+                demoUsed={user?.demoUsed || false}
             />
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">

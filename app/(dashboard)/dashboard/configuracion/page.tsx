@@ -8,24 +8,26 @@ import SmartCrmSettingsForm from "@/components/dashboard/smart-crm-settings-form
 
 export default async function ConfiguracionPage() {
     const session = await getServerSession(authOptions);
-    const userId = (session?.user as any)?.id;
 
     // Fetch Configs in Parallel on the Server
     const [configRes, userRes] = await Promise.all([
         getAllSystemConfig(),
-        getUserConfig(userId)
+        getUserConfig()
     ]);
 
+    const configData = configRes.success && 'data' in configRes ? configRes.data : {} as Record<string, string>;
+    const userData = userRes.success && 'data' in userRes ? userRes.data : null;
+
     const systemConfig = {
-        siteName: configRes.data?.["siteName"] || "Seventoop",
-        contactEmail: configRes.data?.["contactEmail"] || "admin@gention.com",
-        maintenanceMode: configRes.data?.["maintenanceMode"] || "false"
+        siteName: configData?.["siteName"] || "Seventoop",
+        contactEmail: configData?.["contactEmail"] || "admin@gention.com",
+        maintenanceMode: configData?.["maintenanceMode"] || "false"
     };
 
     const smartCrmConfig = {
-        openaiApiKey: configRes.data?.["OPENAI_API_KEY"] || "",
-        whatsappProviderKey: configRes.data?.["WHATSAPP_PROVIDER_KEY"] || "",
-        automationLevel: configRes.data?.["DEFAULT_AUTOMATION_LEVEL"] || "COPILOT"
+        openaiApiKey: configData?.["OPENAI_API_KEY"] || "",
+        whatsappProviderKey: configData?.["WHATSAPP_PROVIDER_KEY"] || "",
+        automationLevel: configData?.["DEFAULT_AUTOMATION_LEVEL"] || "COPILOT"
     };
 
     return (
@@ -70,7 +72,7 @@ export default async function ConfiguracionPage() {
                             </div>
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Perfil Personal</h2>
                         </div>
-                        <SettingsForm initialConfig={userRes.data} />
+                        <SettingsForm initialConfig={userData} />
                     </div>
                 </div>
 

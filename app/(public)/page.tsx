@@ -1,14 +1,17 @@
 import Hero from "@/components/public/hero";
 import MediaBanner from "@/components/public/media-banner";
 import EarlyAccess from "@/components/public/early-access";
-import CommunityCTA from "@/components/public/community-cta";
-import AboutSection from "@/components/public/about-section";
-import WhatIsSevenToop from "@/components/public/what-is-seventoop";
-import TestimonialsSection from "@/components/public/testimonials-section";
-import ContactSection from "@/components/public/contact-section";
 import HashAutoScroll from "@/components/public/hash-auto-scroll";
+import dynamic from "next/dynamic";
 
 import { getBanners } from "@/lib/actions/banners";
+
+// ─── Lazy load below-fold sections (LCP optimization) ───
+const AboutSection = dynamic(() => import("@/components/public/about-section"));
+const CommunityCTA = dynamic(() => import("@/components/public/community-cta"));
+const WhatIsSevenToop = dynamic(() => import("@/components/public/what-is-seventoop"));
+const TestimonialsSection = dynamic(() => import("@/components/public/testimonials-section"));
+const ContactSection = dynamic(() => import("@/components/public/contact-section"));
 
 const defaultBannerItems = [
     {

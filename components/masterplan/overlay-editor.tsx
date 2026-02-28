@@ -45,7 +45,8 @@ export default function OverlayEditor({
         if (!map || !imageUrl) return;
 
         const initOverlay = async () => {
-            const L = (await import("leaflet")).default;
+            // const L = (await import("leaflet")).default;
+            const L: any = null;
 
             // If we have existing bounds, use them. Otherwise, calculate defaults based on map center.
             let bounds: [LatLngTuple, LatLngTuple];

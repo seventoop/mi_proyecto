@@ -13,7 +13,8 @@ export default async function InversorDashboardPage() {
     const session = await getServerSession(authOptions);
     if (!session?.user) redirect("/login");
 
-    const { inversiones, stats, movimientos, nextMilestone, distribution } = await getInversorDashboardData(session.user.id as string);
+    const data = await getInversorDashboardData(session.user.id as string) as any;
+    const { inversiones, stats, movimientos, nextMilestone, distribution } = data;
     const oportunidades = await getInvestmentOpportunities();
 
     // Fetch KYC and Risk Status

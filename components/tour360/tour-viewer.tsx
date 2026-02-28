@@ -16,7 +16,7 @@ declare global {
     }
 }
 
-export type HotspotType = "info" | "scene" | "link" | "lot" | "check" | "sold" | "gallery" | "video";
+export type HotspotType = "info" | "scene" | "link" | "lot" | "check" | "sold" | "gallery" | "video" | "UNIT";
 
 export interface Hotspot {
     id: string;
@@ -28,6 +28,13 @@ export interface Hotspot {
     targetUrl?: string;
     targetThumbnail?: string;
     icon?: string;
+    unidad?: {
+        id: string;
+        numero: string;
+        estado: string;
+        precio?: number;
+        moneda?: string;
+    };
 }
 
 export interface PolygonPoint {
@@ -370,6 +377,40 @@ export default function TourViewer({
 
 
 
+    // Dynamic scenes state to handle real-time updates
+    const [dynamicScenes, setDynamicScenes] = useState<Scene[]>(scenes);
+
+    useEffect(() => {
+        if (!proyectoId) return;
+
+        const { pusherClient } = require("@/lib/pusher");
+        const { CHANNELS, EVENTS } = require("@/lib/pusher");
+
+        const channel = pusherClient.subscribe(CHANNELS.UNIDADES);
+
+        channel.bind(EVENTS.UNIDAD_ESTADO_CAMBIADO, (data: { unidadId: string, nuevoEstado: string }) => {
+            setDynamicScenes(prev => prev.map(scene => ({
+                ...scene,
+                hotspots: scene.hotspots.map(hs => {
+                    if (hs.unidad?.id === data.unidadId) {
+                        return { ...hs, unidad: { ...hs.unidad, estado: data.nuevoEstado } };
+                    }
+                    return hs;
+                })
+            })));
+
+            // Re-render Pannellum hotSpots if currently active
+            if (viewerInstance.current) {
+                // This is tricky as Pannellum doesn't allow easy hotspot update without re-render or internal API access
+                // For now, reflecting in the tooltip logic is the priority
+            }
+        });
+
+        return () => {
+            pusherClient.unsubscribe(CHANNELS.UNIDADES);
+        };
+    }, [proyectoId]);
+
     const initViewer = (firstSceneId: string) => {
         if (!viewerRef.current) return;
 
@@ -427,18 +468,24 @@ export default function TourViewer({
     const hotspotTooltip = (hotSpotDiv: HTMLElement, args: Hotspot) => {
         hotSpotDiv.classList.add("custom-hotspot-container");
 
+        // Use real-time state from the component if available, otherwise use initial unit data
+        const currentEstado = (args.unidad as any)?.estado || "DISPONIBLE";
+
         switch (args.type) {
             case "lot":
                 hotSpotDiv.innerHTML = `<div class="hotspot-lot-marker">${args.text}</div>`;
                 break;
-            case "check": // Disponible
-                hotSpotDiv.innerHTML = `<div class="hotspot-status-marker available"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>`;
-                break;
-            case "sold": // Vendido
-                hotSpotDiv.innerHTML = `<div class="hotspot-status-marker sold"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>`;
-                break;
-            case "gallery": // Future support for gallery type
-                hotSpotDiv.innerHTML = `<div class="hotspot-icon-marker gallery">📷</div>`;
+            case "check": // Dynamic status
+            case "sold":
+            case "UNIT": // New professional type
+                const isSold = ["VENDIDA", "RESERVADA", "SUSPENDIDA"].includes(currentEstado);
+                hotSpotDiv.innerHTML = `
+                    <div class="hotspot-status-marker ${isSold ? 'sold' : 'available'}">
+                        ${isSold
+                        ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>'
+                        : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+                    }
+                    </div>`;
                 break;
             case "scene":
                 if (args.targetThumbnail) {
@@ -448,10 +495,9 @@ export default function TourViewer({
                 }
                 break;
             default:
-                // Default handling for info, etc.
                 hotSpotDiv.classList.add("custom-tooltip");
                 const span = document.createElement("span");
-                span.innerHTML = args.text;
+                span.innerHTML = args.text || (args.unidad?.numero ? `Unidad ${args.unidad.numero}` : "");
                 hotSpotDiv.appendChild(span);
                 break;
         }
@@ -564,7 +610,7 @@ export default function TourViewer({
             <PanoramicOverlay
                 viewer={viewerInstance.current}
                 viewerRef={viewerRef}
-                currentScene={currentScene}
+                currentScene={currentScene || null}
                 viewerReady={viewerReady}
                 onPolygonClick={onPolygonClick}
             />

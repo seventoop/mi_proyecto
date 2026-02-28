@@ -4,7 +4,7 @@ import { create } from "zustand";
 export interface MasterplanUnit {
     id: string;
     numero: string;
-    tipo: "LOTE" | "DEPARTAMENTO";
+    tipo: string;
     superficie: number | null;
     frente: number | null;
     fondo: number | null;
@@ -12,18 +12,19 @@ export interface MasterplanUnit {
     orientacion: string | null;
     precio: number | null;
     moneda: string;
-    estado: "DISPONIBLE" | "BLOQUEADO" | "RESERVADO" | "VENDIDO";
-    etapaId: string;
-    etapaNombre: string;
-    manzanaId: string;
-    manzanaNombre: string;
-    tour360Url: string | null;
-    imagenes: string[];
-    responsable: string | null;
-    // SVG shape data
-    path: string; // SVG path d attribute or polygon points
-    cx: number;   // center X for label
-    cy: number;   // center Y for label
+    estado: "DISPONIBLE" | "BLOQUEADO" | "RESERVADO" | "VENDIDO" | "SUSPENDIDO";
+    etapaId?: string;
+    etapaNombre?: string;
+    manzanaId?: string;
+    manzanaNombre?: string;
+    tour360Url?: string | null;
+    imagenes?: string[];
+    responsable?: string | null;
+    // Geometric data (usually stored as JSON in coordenadasMasterplan)
+    path?: string;
+    cx?: number;
+    cy?: number;
+    geoJSON?: string | null;
 }
 
 export interface MasterplanLayer {
@@ -36,8 +37,7 @@ export interface MasterplanLayer {
 
 export interface MasterplanFilters {
     estado: string[];
-    etapaId: string | null;
-    manzanaId: string | null;
+    tipo: string[];
     precioMin: number | null;
     precioMax: number | null;
     superficieMin: number | null;
@@ -47,8 +47,7 @@ export interface MasterplanFilters {
 
 const defaultFilters: MasterplanFilters = {
     estado: [],
-    etapaId: null,
-    manzanaId: null,
+    tipo: [],
     precioMin: null,
     precioMax: null,
     superficieMin: null,
@@ -57,15 +56,14 @@ const defaultFilters: MasterplanFilters = {
 };
 
 interface MasterplanState {
-    // Units data
+    // Units data (Single Source of Truth)
     units: MasterplanUnit[];
     setUnits: (units: MasterplanUnit[]) => void;
+    updateUnitState: (unitId: string, partial: Partial<MasterplanUnit>) => void;
 
-    // Selection
+    // Selection & UI State
     selectedUnitId: string | null;
     setSelectedUnitId: (id: string | null) => void;
-
-    // Hover
     hoveredUnitId: string | null;
     setHoveredUnitId: (id: string | null) => void;
 
@@ -85,7 +83,6 @@ interface MasterplanState {
 
     // Layers
     layers: MasterplanLayer[];
-    setLayers: (layers: MasterplanLayer[]) => void;
     toggleLayer: (id: string) => void;
 
     // View
@@ -97,6 +94,10 @@ export const useMasterplanStore = create<MasterplanState>((set) => ({
     // Units
     units: [],
     setUnits: (units) => set({ units }),
+    updateUnitState: (unitId, partial) =>
+        set((state) => ({
+            units: state.units.map(u => u.id === unitId ? { ...u, ...partial } : u)
+        })),
 
     // Selection
     selectedUnitId: null,
@@ -113,7 +114,7 @@ export const useMasterplanStore = create<MasterplanState>((set) => ({
             if (state.comparisonIds.includes(id)) {
                 return { comparisonIds: state.comparisonIds.filter((i) => i !== id) };
             }
-            if (state.comparisonIds.length >= 4) return state; // max 4
+            if (state.comparisonIds.length >= 4) return state;
             return { comparisonIds: [...state.comparisonIds, id] };
         }),
     clearComparison: () => set({ comparisonIds: [], showComparator: false }),
@@ -130,12 +131,10 @@ export const useMasterplanStore = create<MasterplanState>((set) => ({
 
     // Layers
     layers: [
-        { id: "servicios", label: "Servicios (agua, luz, gas)", icon: "⚡", visible: true, color: "#3b82f6" },
+        { id: "servicios", label: "Servicios", icon: "⚡", visible: true, color: "#3b82f6" },
         { id: "amenities", label: "Amenities", icon: "🏊", visible: true, color: "#8b5cf6" },
         { id: "accesos", label: "Accesos", icon: "🚗", visible: true, color: "#f59e0b" },
-        { id: "reglamento", label: "Reglamento de construcción", icon: "📋", visible: false, color: "#64748b" },
     ],
-    setLayers: (layers) => set({ layers }),
     toggleLayer: (id) =>
         set((state) => ({
             layers: state.layers.map((l) =>
@@ -148,15 +147,17 @@ export const useMasterplanStore = create<MasterplanState>((set) => ({
     setZoom: (zoom) => set({ zoom }),
 }));
 
-// ─── Selector for filtered units ───
+// ─── Selectors (Optimized performance) ───
+export const selectUnits = (state: MasterplanState) => state.units;
+export const selectFilters = (state: MasterplanState) => state.filters;
+
 export function useFilteredUnits(): MasterplanUnit[] {
-    const units = useMasterplanStore((s) => s.units);
-    const filters = useMasterplanStore((s) => s.filters);
+    const units = useMasterplanStore(selectUnits);
+    const filters = useMasterplanStore(selectFilters);
 
     return units.filter((u) => {
         if (filters.estado.length > 0 && !filters.estado.includes(u.estado)) return false;
-        if (filters.etapaId && u.etapaId !== filters.etapaId) return false;
-        if (filters.manzanaId && u.manzanaId !== filters.manzanaId) return false;
+        if (filters.tipo.length > 0 && !filters.tipo.includes(u.tipo)) return false;
         if (filters.precioMin != null && (u.precio || 0) < filters.precioMin) return false;
         if (filters.precioMax != null && (u.precio || 0) > filters.precioMax) return false;
         if (filters.superficieMin != null && (u.superficie || 0) < filters.superficieMin) return false;

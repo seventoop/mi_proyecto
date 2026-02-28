@@ -1,6 +1,7 @@
 import Sidebar from "@/components/dashboard/sidebar";
 import Header from "@/components/dashboard/header";
 import DashboardContainer from "@/components/dashboard/dashboard-container";
+import SessionSyncHandler from "@/components/dashboard/session-sync-handler";
 
 export default function DashboardLayout({
     children,
@@ -9,6 +10,7 @@ export default function DashboardLayout({
 }) {
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-black">
+            <SessionSyncHandler />
             <Sidebar />
             <DashboardContainer>
                 <Header />

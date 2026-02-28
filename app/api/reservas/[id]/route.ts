@@ -1,74 +1,91 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
+import { requireAuth, requireRole, handleApiGuardError } from "@/lib/guards";
 
 // ─── GET /api/reservas/[id] — Single reservation detail ───
 export async function GET(
     req: NextRequest,
     { params }: { params: { id: string } }
 ) {
-    const reserva = await prisma.reserva.findUnique({
-        where: { id: params.id },
-        include: {
-            unidad: {
-                include: {
-                    manzana: {
-                        include: {
-                            etapa: {
-                                include: {
-                                    proyecto: {
-                                        select: {
-                                            id: true,
-                                            nombre: true,
-                                            ubicacion: true,
+    try {
+        const user = await requireAuth();
+
+        const reserva = await prisma.reserva.findUnique({
+            where: { id: params.id },
+            include: {
+                unidad: {
+                    include: {
+                        manzana: {
+                            include: {
+                                etapa: {
+                                    include: {
+                                        proyecto: {
+                                            select: {
+                                                id: true,
+                                                nombre: true,
+                                                ubicacion: true,
+                                                creadoPorId: true,
+                                            },
                                         },
                                     },
                                 },
                             },
                         },
-                    },
-                    historial: {
-                        orderBy: { createdAt: "desc" },
-                        take: 20,
-                        include: { usuario: { select: { nombre: true } } },
+                        historial: {
+                            orderBy: { createdAt: "desc" },
+                            take: 20,
+                            include: { usuario: { select: { nombre: true } } },
+                        },
                     },
                 },
-            },
-            lead: {
-                select: {
-                    id: true,
-                    nombre: true,
-                    email: true,
-                    telefono: true,
+                lead: {
+                    select: {
+                        id: true,
+                        nombre: true,
+                        email: true,
+                        telefono: true,
+                    },
+                },
+                vendedor: {
+                    select: { id: true, nombre: true, email: true },
                 },
             },
-            vendedor: {
-                select: { id: true, nombre: true, email: true },
-            },
-        },
-    });
+        });
 
-    if (!reserva) {
-        return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+        if (!reserva) {
+            return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+        }
+
+        // Authorization Check
+        const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
+        const isSeller = reserva.vendedorId === user.id;
+        const isAdmin = user.role === "ADMIN";
+
+        if (!isAdmin && !isOwner && !isSeller) {
+            return NextResponse.json({ error: "No autorizado para ver esta reserva" }, { status: 403 });
+        }
+
+        return NextResponse.json(reserva);
+    } catch (error) {
+        return handleApiGuardError(error);
     }
-
-    return NextResponse.json(reserva);
 }
 
 // ─── PUT /api/reservas/[id] — Update reservation ───
-// Actions: registrarPago, extender, cancelar, convertir
 export async function PUT(
     req: NextRequest,
     { params }: { params: { id: string } }
 ) {
     try {
+        const user = await requireAuth();
         const body = await req.json();
         const { action, ...data } = body;
 
         const reserva = await prisma.reserva.findUnique({
             where: { id: params.id },
             include: {
-                unidad: true,
+                unidad: { include: { manzana: { include: { etapa: { include: { proyecto: true } } } } } },
                 vendedor: { select: { id: true, nombre: true } },
                 lead: { select: { nombre: true } },
             },
@@ -78,11 +95,18 @@ export async function PUT(
             return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
         }
 
+        const isAdmin = user.role === "ADMIN";
+        const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
+        const isSeller = reserva.vendedorId === user.id;
+
         let updated;
         const pusher = getPusherServer();
 
         switch (action) {
             case "registrarPago": {
+                if (!isAdmin && !isOwner) {
+                    return NextResponse.json({ error: "No autorizado para registrar pagos" }, { status: 403 });
+                }
                 updated = await prisma.reserva.update({
                     where: { id: params.id },
                     data: {
@@ -94,6 +118,9 @@ export async function PUT(
             }
 
             case "extender": {
+                if (!isAdmin && !isOwner) {
+                    return NextResponse.json({ error: "No autorizado para extender reservas" }, { status: 403 });
+                }
                 if (!data.nuevaFechaVencimiento) {
                     return NextResponse.json({ error: "nuevaFechaVencimiento es requerida" }, { status: 400 });
                 }
@@ -107,13 +134,15 @@ export async function PUT(
             }
 
             case "cancelar": {
+                if (!isAdmin && !isOwner && !isSeller) {
+                    return NextResponse.json({ error: "No autorizado para cancelar esta reserva" }, { status: 403 });
+                }
                 updated = await prisma.$transaction(async (tx) => {
                     const res = await tx.reserva.update({
                         where: { id: params.id },
                         data: { estado: "CANCELADA" },
                     });
 
-                    // Release unit → DISPONIBLE
                     await tx.unidad.update({
                         where: { id: reserva.unidadId },
                         data: { estado: "DISPONIBLE" },
@@ -122,10 +151,10 @@ export async function PUT(
                     await tx.historialUnidad.create({
                         data: {
                             unidadId: reserva.unidadId,
-                            usuarioId: reserva.vendedorId,
+                            usuarioId: user.id,
                             estadoAnterior: "RESERVADO",
                             estadoNuevo: "DISPONIBLE",
-                            motivo: `Reserva cancelada. Motivo: ${data.motivo || "No especificado"}`,
+                            motivo: `Reserva cancelada (${user.role}). Motivo: ${data.motivo || "No especificado"}`,
                         },
                     });
 
@@ -146,13 +175,16 @@ export async function PUT(
             }
 
             case "convertir": {
+                // Hardening: Only ADMIN should confirm final sales usually, or owner.
+                if (!isAdmin) {
+                    return NextResponse.json({ error: "Solo administradores pueden confirmar ventas finales" }, { status: 403 });
+                }
                 updated = await prisma.$transaction(async (tx) => {
                     const res = await tx.reserva.update({
                         where: { id: params.id },
                         data: { estado: "CONVERTIDA" },
                     });
 
-                    // Unit → VENDIDO
                     await tx.unidad.update({
                         where: { id: reserva.unidadId },
                         data: { estado: "VENDIDO" },
@@ -161,10 +193,10 @@ export async function PUT(
                     await tx.historialUnidad.create({
                         data: {
                             unidadId: reserva.unidadId,
-                            usuarioId: reserva.vendedorId,
+                            usuarioId: user.id,
                             estadoAnterior: "RESERVADO",
                             estadoNuevo: "VENDIDO",
-                            motivo: `Reserva convertida a venta`,
+                            motivo: `Reserva convertida a venta por Admin`,
                         },
                     });
 
@@ -190,8 +222,7 @@ export async function PUT(
 
         return NextResponse.json(updated);
     } catch (error) {
-        console.error("Error updating reserva:", error);
-        return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }
 
@@ -201,6 +232,8 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
+        await requireRole("ADMIN");
+
         const reserva = await prisma.reserva.findUnique({
             where: { id: params.id },
         });
@@ -221,7 +254,6 @@ export async function DELETE(
 
         return NextResponse.json({ ok: true });
     } catch (error) {
-        console.error("Error deleting reserva:", error);
-        return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }

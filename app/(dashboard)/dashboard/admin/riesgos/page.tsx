@@ -17,7 +17,15 @@ export default async function AdminRisksPage({
     const session = await getServerSession(authOptions);
     if ((session?.user as any)?.role !== "ADMIN") redirect("/dashboard");
 
-    const { users, stats } = await getUsersRiskData({ level: searchParams.level });
+    const res = await getUsersRiskData({ level: searchParams.level });
+
+    // Type-safe data extraction
+    const users = res.success ? res.data.users : [];
+    const stats = res.success ? res.data.stats : { low: 0, medium: 0, high: 0 };
+
+    if (!res.success) {
+        return <div className="p-8 text-rose-500 font-bold">Error al cargar datos de riesgo: {"error" in res ? res.error : "Error desconocido"}</div>;
+    }
 
     return (
         <div className="space-y-8 animate-fade-in pb-12">
@@ -102,7 +110,7 @@ export default async function AdminRisksPage({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {users.map((user) => (
+                            {users.map((user: any) => (
                                 <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">

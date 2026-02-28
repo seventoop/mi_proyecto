@@ -61,7 +61,7 @@ export default function LeadCard({ oportunidad }: LeadCardProps) {
                         </h4>
                         <p className="text-[10px] font-black text-brand-orange truncate uppercase tracking-widest">
                             {oportunidad.valorEstimado
-                                ? formatCurrency(oportunidad.valorEstimado)
+                                ? formatCurrency(Number(oportunidad.valorEstimado))
                                 : "Sin valor"}
                         </p>
                     </div>

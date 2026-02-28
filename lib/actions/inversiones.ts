@@ -4,21 +4,36 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { z } from "zod";
+import { idSchema } from "@/lib/validations";
+import { createNotification } from "./notifications";
 
-export async function crearInversion(data: {
-    proyectoId: string;
-    m2Comprados: number;
-    montoTotal: number;
-    metodoPago: string;
-    comprobanteUrl?: string;
-}) {
+// ─── Schemas ───
+
+const inversionCreateSchema = z.object({
+    proyectoId: idSchema,
+    m2Comprados: z.number().positive("Los m2 deben ser mayores a cero"),
+    montoTotal: z.number().positive("El monto total debe ser positivo"),
+    metodoPago: z.string().min(1, "Método de pago requerido"),
+    comprobanteUrl: z.string().url("URL de comprobante inválida").optional().or(z.literal("")),
+});
+
+// ─── Mutations ───
+
+export async function crearInversion(input: unknown) {
     try {
         const session = await getServerSession(authOptions);
-        const userId = (session?.user as any)?.id;
+        const userId = session?.user?.id;
 
         if (!userId) {
             return { success: false, error: "Usuario no autenticado" };
         }
+
+        const parsed = inversionCreateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
 
         // 🛡️ SECURITY: Verificar KYC del inversor O Periodo Demo
         const { isKycVerifiedOrDemoActive } = await import("@/lib/actions/kyc");
@@ -47,27 +62,45 @@ export async function crearInversion(data: {
         }
 
         // Validar límite
-        const nuevoTotal = (proyecto.m2VendidosInversores || 0) + data.m2Comprados;
-        if (nuevoTotal > (proyecto.metaM2Objetivo || 0)) {
+        const m2Vendidos = Number(proyecto.m2VendidosInversores) || 0;
+        const metaM2 = Number(proyecto.metaM2Objetivo) || 0;
+        const nuevoTotal = m2Vendidos + data.m2Comprados;
+
+        if (nuevoTotal > metaM2) {
             return { success: false, error: "La inversión excede la meta del proyecto" };
         }
 
-        // Crear inversión en estado PENDIENTE (o ESCROW si es confirmado)
+        // Crear inversión en estado PENDIENTE
         const inversion = await prisma.inversion.create({
             data: {
                 proyectoId: data.proyectoId,
                 inversorId: userId,
                 m2Comprados: data.m2Comprados,
                 montoTotal: data.montoTotal,
-                estado: "PENDIENTE", // PENDIENTE -> PAGADO -> EN_ESCROW -> COMPLETADO
+                estado: "PENDIENTE",
                 fechaInversion: new Date(),
                 precioM2Aplicado: proyecto.precioM2Inversor || 0,
-                // comprobante: data.comprobanteUrl // TODO: Field does not exist in schema
             }
         });
 
         revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
         revalidatePath("/dashboard/inversor/mis-inversiones");
+
+        // Notify Admins
+        const admins = await prisma.user.findMany({
+            where: { rol: "ADMIN" },
+            select: { id: true }
+        });
+
+        for (const admin of admins) {
+            await createNotification(
+                admin.id,
+                "INFO",
+                "Nueva Inversión Registrada",
+                `Un usuario ha registrado una inversión de ${data.m2Comprados} m2 en el proyecto.`,
+                `/dashboard/admin/proyectos/${data.proyectoId}`
+            );
+        }
 
         return { success: true, data: inversion };
     } catch (error) {
@@ -78,8 +111,11 @@ export async function crearInversion(data: {
 
 export async function confirmarInversion(id: string) {
     try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de inversión inválido" };
+
         const session = await getServerSession(authOptions);
-        const role = (session?.user as any)?.role;
+        const role = session?.user?.role;
 
         if (role !== "ADMIN") {
             return { success: false, error: "No autorizado" };
@@ -95,14 +131,22 @@ export async function confirmarInversion(id: string) {
             const proyecto = await tx.proyecto.update({
                 where: { id: inversion.proyectoId },
                 data: {
-                    m2VendidosInversores: { increment: inversion.m2Comprados }
+                    m2VendidosInversores: { increment: inversion.m2Comprados as any }
                 }
             });
 
-            // Aquí se podría generar notificación al inversor
-
             return { inversion, proyecto };
         });
+
+        // Notify Investor
+        await createNotification(
+            result.inversion.inversorId,
+            "EXITO",
+            "Inversión Confirmada 🌟",
+            `Tu inversión en "${result.proyecto.nombre}" ha sido confirmada y los fondos ya están en escrow.`,
+            "/dashboard/inversor/mis-inversiones",
+            true // Send Email
+        );
 
         revalidatePath(`/dashboard/proyectos/${result.inversion.proyectoId}`);
         return { success: true, data: result.inversion };
@@ -112,8 +156,13 @@ export async function confirmarInversion(id: string) {
     }
 }
 
+// ─── Queries ───
+
 export async function getInversionesPorProyecto(proyectoId: string) {
     try {
+        const idParsed = idSchema.safeParse(proyectoId);
+        if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
+
         const session = await getServerSession(authOptions);
         const user = session?.user;
         if (!user) return { success: false, error: "No autorizado" };
@@ -153,14 +202,9 @@ export async function getInversionesPorProyecto(proyectoId: string) {
 export async function getMisInversiones() {
     try {
         const session = await getServerSession(authOptions);
-        const userId = (session?.user as any)?.id;
+        const userId = session?.user?.id;
 
         if (!userId) return { success: false, error: "No autorizado" };
-
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { kycStatus: true, riskLevel: true } as any
-        });
 
         const inversiones = await prisma.inversion.findMany({
             where: { inversorId: userId },

@@ -1,89 +1,71 @@
 "use server";
 
-import prisma from "@/lib/db";
-import { revalidatePath } from "next/cache";
+/**
+ * ══════════════════════════════════════════════════════════
+ * WALLET MODULE — DISABLED (No Payment Gateway Configured)
+ * ══════════════════════════════════════════════════════════
+ *
+ * This module is intentionally disabled because:
+ * 1. No payment gateway (Stripe, MercadoPago, etc.) is integrated.
+ * 2. Simulating deposits/withdrawals without real money movement
+ *    is dangerous and potentially illegal.
+ * 3. Balance manipulation without a gateway creates false financial records.
+ *
+ * WHEN A GATEWAY IS INTEGRATED:
+ * - depositFunds → create Checkout Session via gateway → webhook confirms → increment balance
+ * - withdrawFunds → create Payout via gateway → webhook confirms → decrement balance
+ * - All mutations must go through gateway webhooks (never direct balance manipulation)
+ *
+ * For now, getWalletData returns read-only data for informational purposes.
+ */
 
-export async function getWalletData(userId: string) {
+import prisma from "@/lib/db";
+import { requireAuth, handleGuardError } from "@/lib/guards";
+
+// ─── Queries (Read-Only) ───
+
+export async function getWalletData() {
     try {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { saldo: true }
+        const user = await requireAuth();
+
+        const userData = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { saldo: true },
         });
 
         const transacciones = await prisma.pago.findMany({
-            where: { usuarioId: userId },
+            where: { usuarioId: user.id },
             orderBy: { fechaPago: "desc" },
-            take: 10
+            take: 15,
         });
 
         return {
             success: true,
-            saldo: user?.saldo || 0,
-            transacciones
+            saldo: Number(userData?.saldo || 0),
+            transacciones: transacciones.map(t => ({
+                ...t,
+                monto: Number(t.monto),
+            })),
+            gatewayEnabled: false,
+            message: "Módulo de pagos en configuración. Los depósitos y retiros estarán disponibles cuando se integre la pasarela de pago.",
         };
     } catch (error) {
-        return { success: false, error: "Error al obtener datos de la billetera" };
+        return handleGuardError(error);
     }
 }
 
-export async function depositFunds(userId: string, monto: number, concepto: string = "Carga de Saldo") {
-    try {
-        // En una app real, aquí validaríamos con el gateway de pagos (Stripe, etc)
+// ─── Mutations (DISABLED) ───
 
-        await prisma.$transaction([
-            prisma.user.update({
-                where: { id: userId },
-                data: { saldo: { increment: monto } }
-            }),
-            prisma.pago.create({
-                data: {
-                    usuarioId: userId,
-                    monto,
-                    moneda: "USD",
-                    concepto,
-                    estado: "APROBADO",
-                    comprobanteUrl: "SIMULATED_PAYMENT"
-                }
-            })
-        ]);
-
-        revalidatePath("/dashboard/inversor/wallet");
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: "Error al depositar fondos" };
-    }
+export async function depositFunds(_input: unknown) {
+    return {
+        success: false,
+        error: "Función deshabilitada. No hay pasarela de pago configurada. Los depósitos estarán disponibles próximamente.",
+    };
 }
 
-export async function withdrawFunds(userId: string, monto: number) {
-    try {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { saldo: true }
-        });
-
-        if (!user || user.saldo < monto) {
-            return { success: false, error: "Saldo insuficiente" };
-        }
-
-        await prisma.$transaction([
-            prisma.user.update({
-                where: { id: userId },
-                data: { saldo: { decrement: monto } }
-            }),
-            prisma.pago.create({
-                data: {
-                    usuarioId: userId,
-                    monto: -monto,
-                    moneda: "USD",
-                    concepto: "Retiro de Fondos",
-                    estado: "PENDIENTE",
-                }
-            })
-        ]);
-
-        revalidatePath("/dashboard/inversor/wallet");
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: "Error al procesar retiro" };
-    }
+export async function withdrawFunds(_input: unknown) {
+    return {
+        success: false,
+        error: "Función deshabilitada. No hay pasarela de pago configurada. Los retiros estarán disponibles próximamente.",
+    };
 }

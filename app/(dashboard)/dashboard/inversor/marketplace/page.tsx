@@ -50,10 +50,10 @@ export default async function MarketplacePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {proyectos.map((proyecto) => {
                         const progress = proyecto.metaM2Objetivo
-                            ? (proyecto.m2VendidosInversores / proyecto.metaM2Objetivo) * 100
+                            ? (Number(proyecto.m2VendidosInversores) / Number(proyecto.metaM2Objetivo)) * 100
                             : 0;
                         const roi = proyecto.precioM2Inversor && proyecto.precioM2Mercado
-                            ? ((proyecto.precioM2Mercado - proyecto.precioM2Inversor) / proyecto.precioM2Inversor) * 100
+                            ? ((Number(proyecto.precioM2Mercado) - Number(proyecto.precioM2Inversor)) / Number(proyecto.precioM2Inversor)) * 100
                             : 0;
 
                         return (
@@ -87,7 +87,7 @@ export default async function MarketplacePage() {
                                             <div>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400">Precio/M²</p>
                                                 <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                    {formatCurrency(proyecto.precioM2Inversor || 0)}
+                                                    {formatCurrency(Number(proyecto.precioM2Inversor) || 0)}
                                                 </p>
                                             </div>
                                             <div>

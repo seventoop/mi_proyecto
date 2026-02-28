@@ -2,16 +2,28 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
-import * as Sentry from "@sentry/nextjs";
+import { generateReservaPDF } from "@/lib/pdf-generator";
+import { uploadFile } from "@/lib/storage";
+import { createNotification } from "@/lib/actions/notifications";
+import { idSchema } from "@/lib/validations";
 
-const idSchema = z.string().cuid();
+// ─── Scemas ───
+
 const confirmVentaSchema = z.object({
-    reservaId: z.string().cuid(),
+    reservaId: idSchema,
     precioFinal: z.number().optional(),
 });
+
+const reservaCreateSchema = z.object({
+    unidadId: idSchema,
+    leadId: idSchema,
+    fechaVencimiento: z.string().or(z.date()),
+    montoSena: z.number().positive("El monto de la seña debe ser positivo"),
+});
+
+// ─── Queries ───
 
 export async function getReservas(
     page: number = 1,
@@ -25,19 +37,15 @@ export async function getReservas(
     } = {}
 ) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) return { success: false, error: "No autorizado" };
-
-        const userId = session.user.id;
-        const userRole = session.user.role;
+        const user = await requireAuth();
 
         const where: any = {};
 
-        // Role based access
-        if (userRole !== "ADMIN") {
+        // Role based access: Admins see all. Developers see their projects. Sellers see their sales.
+        if (user.role !== "ADMIN") {
             where.OR = [
-                { vendedorId: userId },
-                { unidad: { manzana: { etapa: { proyecto: { creadoPorId: userId } } } } }
+                { vendedorId: user.id },
+                { unidad: { manzana: { etapa: { proyecto: { creadoPorId: user.id } } } } }
             ];
         }
 
@@ -45,13 +53,19 @@ export async function getReservas(
         if (filters.estado && filters.estado !== "ALL") where.estado = filters.estado;
         if (filters.estadoPago) where.estadoPago = filters.estadoPago;
         if (filters.search) {
-            where.OR = [
-                { lead: { nombre: { contains: filters.search, mode: "insensitive" } } },
-                { unidad: { numero: { contains: filters.search, mode: "insensitive" } } }
+            where.AND = [
+                ...(where.AND || []),
+                {
+                    OR: [
+                        { lead: { nombre: { contains: filters.search, mode: "insensitive" } } },
+                        { unidad: { numero: { contains: filters.search, mode: "insensitive" } } }
+                    ]
+                }
             ];
         }
         if (filters.proyecto) {
             where.unidad = {
+                ...where.unidad,
                 manzana: { etapa: { proyecto: { nombre: { contains: filters.proyecto, mode: "insensitive" } } } }
             };
         }
@@ -65,22 +79,13 @@ export async function getReservas(
                 skip: (page - 1) * limit,
                 take: limit,
                 orderBy: { createdAt: "desc" },
-                select: {
-                    id: true,
-                    estado: true,
-                    estadoPago: true,
-                    montoSena: true,
-                    fechaInicio: true,
-                    fechaVencimiento: true,
+                include: {
                     unidad: {
-                        select: {
-                            numero: true,
+                        include: {
                             manzana: {
-                                select: {
+                                include: {
                                     etapa: {
-                                        select: {
-                                            proyecto: { select: { nombre: true } }
-                                        }
+                                        include: { proyecto: { select: { nombre: true } } }
                                     }
                                 }
                             }
@@ -104,7 +109,8 @@ export async function getReservas(
             fechaVencimiento: r.fechaVencimiento.toISOString(),
             estado: r.estado,
             estadoPago: r.estadoPago,
-            montoSena: r.montoSena
+            montoSena: r.montoSena,
+            documentoGenerado: r.documentoGenerado
         }));
 
         return {
@@ -120,137 +126,278 @@ export async function getReservas(
             }
         };
     } catch (error) {
-        console.error("Error fetching reservas:", error);
-        return { success: false, error: "Error al obtener reservas" };
+        return handleGuardError(error);
     }
 }
 
-export async function createReserva(data: any) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) return { success: false, error: "No autorizado" };
+// ─── Mutations ───
 
-        // 1. Validate Unit Availability
-        const unidad = await prisma.unidad.findUnique({
-            where: { id: data.unidadId }
+export async function createReserva(input: unknown) {
+    try {
+        const user = await requireAuth();
+
+        const parsed = reservaCreateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
+
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Atomic logical lock: Try to update state only if it is "DISPONIBLE"
+            const updated = await tx.unidad.updateMany({
+                where: {
+                    id: data.unidadId,
+                    estado: "DISPONIBLE"
+                },
+                data: {
+                    estado: "RESERVADA_PENDIENTE"
+                }
+            });
+
+            if (updated.count === 0) {
+                throw new Error("La unidad ya no está disponible");
+            }
+
+            // 2. Create the reservation
+            const newReserva = await tx.reserva.create({
+                data: {
+                    unidadId: data.unidadId,
+                    leadId: data.leadId,
+                    vendedorId: user.id,
+                    fechaInicio: new Date(),
+                    fechaVencimiento: new Date(data.fechaVencimiento),
+                    montoSena: data.montoSena,
+                    estado: "PENDIENTE_APROBACION",
+                    estadoPago: "PENDIENTE"
+                }
+            });
+
+            // 3. Record in unit history
+            await tx.historialUnidad.create({
+                data: {
+                    unidadId: data.unidadId,
+                    usuarioId: user.id,
+                    estadoAnterior: "DISPONIBLE",
+                    estadoNuevo: "RESERVADA_PENDIENTE",
+                    motivo: "Inicio de proceso de reserva"
+                }
+            });
+
+            return newReserva;
         });
 
-        if (!unidad || unidad.estado !== "DISPONIBLE") {
-            return { success: false, error: "La unidad no está disponible" };
+        revalidatePath("/dashboard/developer/reservas");
+        return { success: true, data: result };
+    } catch (error: any) {
+        if (error.message === "La unidad ya no está disponible") {
+            return { success: false, error: error.message };
         }
+        return handleGuardError(error);
+    }
+}
 
-        // 2. Create Reservation
-        const newReserva = await prisma.reserva.create({
-            data: {
-                unidadId: data.unidadId,
-                leadId: data.leadId,
-                vendedorId: session.user.id,
-                fechaInicio: new Date(),
-                fechaVencimiento: new Date(data.fechaVencimiento), // Should be future date
-                montoSena: parseFloat(data.montoSena) || 0,
-                estado: "PENDIENTE_APROBACION",
-                estadoPago: "PENDIENTE"
+/**
+ * STP-P1-5: Hardened Approve Reserva with automated PDF and Notifications.
+ */
+export async function approveReserva(reservaId: string) {
+    try {
+        const idParsed = idSchema.safeParse(reservaId);
+        if (!idParsed.success) return { success: false, error: "ID de reserva inválido" };
+
+        const adminOrDev = await requireAuth();
+
+        // 1. Fetch full data for validation and PDF
+        const reserva = await prisma.reserva.findUnique({
+            where: { id: reservaId },
+            include: {
+                unidad: {
+                    include: {
+                        manzana: {
+                            include: {
+                                etapa: {
+                                    include: { proyecto: true }
+                                }
+                            }
+                        }
+                    }
+                },
+                lead: true,
+                vendedor: true
             }
         });
 
-        // Optional: Block unit temporarily? For now we wait for approval.
+        if (!reserva) return { success: false, error: "Reserva no encontrada" };
 
-        revalidatePath("/dashboard/developer/reservas");
-        return { success: true, data: newReserva };
-    } catch (error) {
-        console.error("Error creating reserva:", error);
-        return { success: false, error: "Error al crear reserva" };
-    }
-}
+        const proyectoId = reserva.unidad.manzana.etapa.proyectoId;
 
-export async function approveReserva(reservaId: string) {
-    try {
-        // Transaction to update Reservation AND Unit
-        await prisma.$transaction(async (tx) => {
-            const reserva = await tx.reserva.findUnique({ where: { id: reservaId } });
-            if (!reserva) throw new Error("Reserva no encontrada");
+        // 2. Ownership security check
+        if (adminOrDev.role !== "ADMIN") {
+            await requireProjectOwnership(proyectoId);
+        }
 
-            // Update Reservation
-            await tx.reserva.update({
-                where: { id: reservaId },
-                data: { estado: "ACTIVA" }
-            });
-
+        // 3. Atomic Transaction for Side-Effects
+        const result = await prisma.$transaction(async (tx) => {
             // Update Unit
             await tx.unidad.update({
                 where: { id: reserva.unidadId },
                 data: { estado: "RESERVADA" }
             });
+
+            // Update History
+            await tx.historialUnidad.create({
+                data: {
+                    unidadId: reserva.unidadId,
+                    usuarioId: adminOrDev.id,
+                    estadoAnterior: (reserva.unidad as any).estado,
+                    estadoNuevo: "RESERVADA",
+                    motivo: "Reserva aprobada por administración"
+                }
+            });
+
+            // Generate PDF Buffer (Awaited)
+            const pdfBuffer = await generateReservaPDF({
+                reservaId: reserva.id,
+                fechaInicio: reserva.fechaInicio.toISOString(),
+                fechaVencimiento: reserva.fechaVencimiento.toISOString(),
+                montoSena: Number(reserva.montoSena) || 0,
+                unidadNumero: reserva.unidad.numero,
+                unidadTipo: reserva.unidad.tipo,
+                unidadSuperficie: reserva.unidad.superficie || 0,
+                unidadPrecio: reserva.unidad.precio || 0,
+                unidadMoneda: reserva.unidad.moneda,
+                proyectoNombre: reserva.unidad.manzana.etapa.proyecto.nombre,
+                proyectoUbicacion: reserva.unidad.manzana.etapa.proyecto.ubicacion || "",
+                clienteNombre: reserva.lead.nombre,
+                clienteEmail: reserva.lead.email || "",
+                clienteTelefono: reserva.lead.telefono || "",
+                vendedorNombre: reserva.vendedor.nombre
+            });
+
+            // Upload PDF to storage
+            const upload = await uploadFile({
+                folder: "reservas",
+                filename: `reserva-${reserva.id.slice(-8)}.pdf`,
+                contentType: "application/pdf",
+                buffer: pdfBuffer
+            });
+
+            // Update Reserva with PDF URL and status
+            const updatedReserva = await tx.reserva.update({
+                where: { id: reservaId },
+                data: {
+                    estado: "ACTIVA",
+                    documentoGenerado: upload.url
+                }
+            });
+
+            // Create Notification for the Seller
+            await createNotification(
+                reserva.vendedorId,
+                "EXITO",
+                "Reserva Aprobada",
+                `La reserva para ${reserva.lead.nombre} en ${reserva.unidad.numero} ha sido aprobada.`,
+                `/dashboard/leads/${reserva.leadId}`,
+                true // Send Email
+            );
+
+            return updatedReserva;
         });
 
         revalidatePath("/dashboard/developer/reservas");
-        revalidatePath("/dashboard/developer"); // Update dashboard stats
-        return { success: true };
+        revalidatePath("/dashboard/developer");
+        return { success: true, documentoUrl: result.documentoGenerado };
     } catch (error) {
-        console.error("Error approving reserva:", error);
-        return { success: false, error: "Error al aprobar reserva" };
+        return handleGuardError(error);
     }
 }
 
-export async function cancelReserva(input: unknown) {
+export async function cancelReserva(reservaId: string) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) return { success: false, error: "No autorizado" };
+        const idParsed = idSchema.safeParse(reservaId);
+        if (!idParsed.success) return { success: false, error: "ID de reserva inválido" };
 
-        const parsed = idSchema.safeParse(input);
-        if (!parsed.success) return { success: false, error: "ID de reserva inválido" };
-        const reservaId = parsed.data;
+        const user = await requireAuth();
 
-        const reserva = await prisma.reserva.findUnique({ where: { id: reservaId } });
+        const reserva = await prisma.reserva.findUnique({
+            where: { id: reservaId },
+            include: {
+                unidad: { include: { manzana: { include: { etapa: { include: { proyecto: true } } } } } },
+                lead: true
+            }
+        });
+
         if (!reserva) return { success: false, error: "Reserva no encontrada" };
 
-        // Autorización: ADMIN o el Vendedor que creó la reserva
-        if (session.user.role !== "ADMIN" && reserva.vendedorId !== session.user.id) {
+        // Permisos: ADMIN o Dueño del proyecto
+        if (user.role !== "ADMIN" && reserva.unidad.manzana.etapa.proyecto.creadoPorId !== user.id && reserva.vendedorId !== user.id) {
             return { success: false, error: "No tienes permisos para cancelar esta reserva" };
         }
 
         await prisma.$transaction(async (tx) => {
-            // Update Reservation
             await tx.reserva.update({
                 where: { id: reservaId },
                 data: { estado: "CANCELADA" }
             });
 
-            // Update Unit (Release it back)
             await tx.unidad.update({
                 where: { id: reserva.unidadId },
                 data: { estado: "DISPONIBLE" }
             });
+
+            await tx.historialUnidad.create({
+                data: {
+                    unidadId: reserva.unidadId,
+                    usuarioId: user.id,
+                    estadoAnterior: (reserva.unidad as any).estado,
+                    estadoNuevo: "DISPONIBLE",
+                    motivo: "Reserva cancelada"
+                }
+            });
+
+            // Create Notification for the Seller
+            await createNotification(
+                reserva.vendedorId,
+                "ALERTA",
+                "Reserva Cancelada",
+                `La reserva para ${reserva.lead.nombre} en ${reserva.unidad.numero} ha sido cancelada.`,
+                `/dashboard/leads/${reserva.leadId}`,
+                true // Send Email
+            );
         });
 
         revalidatePath("/dashboard/developer/reservas");
-        revalidatePath("/dashboard/developer");
         return { success: true };
     } catch (error) {
-        Sentry.captureException(error);
-        console.error("[cancelReserva]", error);
-        return { success: false, error: "Error interno al cancelar reserva" };
+        return handleGuardError(error);
     }
 }
 
-// Alias used by reservas-list.tsx
-export async function cancelarReserva(reservaId: string) {
-    return cancelReserva(reservaId);
+export async function cancelarReserva(id: string) {
+    return cancelReserva(id);
 }
 
 export async function confirmarVenta(input: unknown) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) return { success: false, error: "No autorizado" };
-
-        if (session.user.role !== "ADMIN") return { success: false, error: "Sin permisos" };
+        const user = await requireRole("ADMIN");
 
         const parsed = confirmVentaSchema.safeParse(input);
         if (!parsed.success) return { success: false, error: "Datos de venta inválidos" };
         const { reservaId } = parsed.data;
 
         await prisma.$transaction(async (tx) => {
-            const reserva = await tx.reserva.findUnique({ where: { id: reservaId } });
+            const reserva = await tx.reserva.findUnique({
+                where: { id: reservaId },
+                include: {
+                    unidad: {
+                        include: {
+                            manzana: {
+                                include: { etapa: true }
+                            }
+                        }
+                    },
+                    lead: true
+                }
+            });
             if (!reserva) throw new Error("Reserva no encontrada");
 
             await tx.reserva.update({
@@ -265,28 +412,62 @@ export async function confirmarVenta(input: unknown) {
                 where: { id: reserva.unidadId },
                 data: { estado: "VENDIDA" }
             });
+
+            await tx.historialUnidad.create({
+                data: {
+                    unidadId: reserva.unidadId,
+                    usuarioId: user.id,
+                    estadoAnterior: "RESERVADA",
+                    estadoNuevo: "VENDIDA",
+                    motivo: "Venta confirmada por administración"
+                }
+            });
+
+            // Notify Vendedor and Owner
+            const proyecto = await tx.proyecto.findUnique({
+                where: { id: reserva.unidad.manzana.etapa.proyectoId },
+                select: { creadoPorId: true }
+            });
+
+            await createNotification(
+                reserva.vendedorId,
+                "EXITO",
+                "¡Venta Confirmada! 💰",
+                `La venta de ${reserva.unidad.numero} para ${reserva.lead.nombre} ha sido confirmada.`,
+                `/dashboard/leads/${reserva.leadId}`,
+                true
+            );
+
+            if (proyecto && proyecto.creadoPorId !== reserva.vendedorId) {
+                await createNotification(
+                    proyecto.creadoPorId as string,
+                    "EXITO",
+                    "Nueva Venta de Unidad",
+                    `Se ha confirmado la venta de la unidad ${reserva.unidad.numero}.`,
+                    `/dashboard/proyectos/${reserva.unidad.manzana.etapa.proyectoId}`,
+                    true
+                );
+            }
         });
 
         revalidatePath("/dashboard/developer/reservas");
-        revalidatePath("/dashboard/developer");
         return { success: true };
     } catch (error) {
-        Sentry.captureException(error);
-        console.error("[confirmarVenta]", error);
-        return { success: false, error: "Error interno al confirmar venta" };
+        return handleGuardError(error);
     }
 }
 
 export async function getReservasProyecto(proyectoId: string) {
     try {
+        const idParsed = idSchema.safeParse(proyectoId);
+        if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
+
+        await requireProjectOwnership(proyectoId);
+
         const reservas = await prisma.reserva.findMany({
             where: {
                 unidad: {
-                    manzana: {
-                        etapa: {
-                            proyectoId
-                        }
-                    }
+                    manzana: { etapa: { proyectoId } }
                 }
             },
             orderBy: { createdAt: "desc" },
@@ -299,6 +480,6 @@ export async function getReservasProyecto(proyectoId: string) {
 
         return { success: true, data: reservas };
     } catch (error) {
-        return { success: false, error: "Error al obtener reservas del proyecto" };
+        return handleGuardError(error);
     }
 }

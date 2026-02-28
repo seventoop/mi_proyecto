@@ -1,13 +1,32 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, orgFilter, handleGuardError } from "@/lib/guards";
+import { z } from "zod";
+import { idSchema } from "@/lib/validations";
+
+// ─── Schemas ───
+
+const searchSchema = z.string().min(2, "Búsqueda mínima de 2 caracteres").max(100);
+
+// ─── Queries ───
 
 export async function getLeadsAutocomplete(search: string) {
     try {
+        // AUTH: Must be authenticated
+        const user = await requireAuth();
+
+        const parsed = searchSchema.safeParse(search);
+        if (!parsed.success) return { success: true, data: [] };
+
+        // MULTI-TENANT: Only leads from projects in user's org
+        const orgWhere = user.role !== "ADMIN" && user.orgId
+            ? { proyecto: { orgId: user.orgId } }
+            : {};
+
         const leads = await prisma.lead.findMany({
             where: {
+                ...orgWhere,
                 OR: [
                     { nombre: { contains: search, mode: "insensitive" } },
                     { email: { contains: search, mode: "insensitive" } },
@@ -18,14 +37,23 @@ export async function getLeadsAutocomplete(search: string) {
         });
         return { success: true, data: leads };
     } catch (error) {
-        return { success: false, data: [] };
+        return handleGuardError(error);
     }
 }
 
 export async function getVendedoresAutocomplete() {
     try {
+        // AUTH: Must be authenticated
+        const user = await requireAuth();
+
+        // MULTI-TENANT: Only list users in the same org
+        const orgWhere = user.role !== "ADMIN" && user.orgId
+            ? { orgId: user.orgId }
+            : {};
+
         const users = await prisma.user.findMany({
             where: {
+                ...orgWhere,
                 rol: { in: ["ADMIN", "VENDEDOR", "DESARROLLADOR"] }
             },
             select: { id: true, nombre: true },
@@ -33,14 +61,26 @@ export async function getVendedoresAutocomplete() {
         });
         return { success: true, data: users };
     } catch (error) {
-        return { success: false, data: [] };
+        return handleGuardError(error);
     }
 }
 
 export async function getUnidadesDisponiblesAutocomplete(proyectoId?: string) {
     try {
+        // AUTH: Must be authenticated
+        const user = await requireAuth();
+
         const where: any = { estado: "DISPONIBLE" };
+
+        // MULTI-TENANT: Only units from projects in user's org
+        if (user.role !== "ADMIN" && user.orgId) {
+            where.manzana = { etapa: { proyecto: { orgId: user.orgId } } };
+        }
+
         if (proyectoId) {
+            const pidParsed = idSchema.safeParse(proyectoId);
+            if (!pidParsed.success) return { success: false, error: "ID de proyecto inválido", data: [] };
+            // Override more specific filter
             where.manzana = { etapa: { proyectoId } };
         }
 
@@ -69,6 +109,6 @@ export async function getUnidadesDisponiblesAutocomplete(proyectoId?: string) {
 
         return { success: true, data: mapped };
     } catch (error) {
-        return { success: false, data: [] };
+        return handleGuardError(error);
     }
 }

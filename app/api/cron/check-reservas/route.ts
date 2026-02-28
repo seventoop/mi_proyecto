@@ -1,13 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
+import { requireCronSecret } from "@/lib/guards";
 
-// ─── GET /api/cron/check-reservas — Auto-expire overdue reservations ───
-// Called by Vercel Cron every hour, or manually
+// ─── POST /api/cron/check-reservas — Auto-expire overdue reservations ───
+// Called by Vercel Cron every hour via POST
 // Vercel cron config in vercel.json:
 // { "crons": [{ "path": "/api/cron/check-reservas", "schedule": "0 * * * *" }] }
-export async function GET() {
+export async function POST(req: NextRequest) {
     try {
+        requireCronSecret(req);
         const now = new Date();
 
         // Find active reservas past their deadline without paid deposit

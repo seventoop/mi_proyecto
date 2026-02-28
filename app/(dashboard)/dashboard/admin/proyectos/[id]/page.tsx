@@ -85,7 +85,15 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 _count: {
                     select: { leads: true }
                 },
-                tours: true
+                tours: {
+                    include: {
+                        scenes: {
+                            include: {
+                                hotspots: true
+                            }
+                        }
+                    }
+                }
             }
         }),
         prisma.unidad.groupBy({

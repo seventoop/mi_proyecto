@@ -2,20 +2,31 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, requireRole, handleGuardError } from "@/lib/guards";
+import { z } from "zod";
+import { idSchema } from "@/lib/validations";
+import { createNotification } from "./notifications";
 
-export async function crearHito(data: {
-    proyectoId: string;
-    titulo: string;
-    descripcion?: string;
-    porcentajeLiberacion: number;
-    fechaEstimada?: Date;
-}) {
+// ─── Scemas ───
+
+const hitoCreateSchema = z.object({
+    proyectoId: idSchema,
+    titulo: z.string().min(1, "Título requerido").max(100),
+    descripcion: z.string().max(500).optional(),
+    porcentajeLiberacion: z.number().min(0).max(100),
+});
+
+// ─── Mutations ───
+
+export async function crearHito(input: unknown) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
+
+        const parsed = hitoCreateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: data.proyectoId },
@@ -44,24 +55,23 @@ export async function crearHito(data: {
                 titulo: data.titulo,
                 descripcion: data.descripcion,
                 porcentaje: data.porcentajeLiberacion,
-                estado: "PENDIENTE", // PENDIENTE -> COMPLETADO -> LIBERADO
-                // fechaEstimada: data.fechaEstimada // TODO: Field not in schema
+                estado: "PENDIENTE",
             }
         });
 
         revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
         return { success: true, data: hito };
     } catch (error) {
-        console.error("Error creating hito:", error);
-        return { success: false, error: "Error al crear hito de escrow" };
+        return handleGuardError(error);
     }
 }
 
 export async function completarHito(id: string, evidenciaUrl?: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de hito inválido" };
+
+        const user = await requireAuth();
 
         const hitoData = await prisma.escrowMilestone.findUnique({
             where: { id },
@@ -75,48 +85,73 @@ export async function completarHito(id: string, evidenciaUrl?: string) {
         const hito = await prisma.escrowMilestone.update({
             where: { id },
             data: {
-                estado: "COMPLETADO",
+                estado: "COMPLETADO" as any,
                 fechaLogro: new Date(),
-                // evidencia: evidenciaUrl // TODO: Field not in schema
             }
         });
 
         revalidatePath(`/dashboard/proyectos/${hito.proyectoId}`);
         return { success: true, data: hito };
     } catch (error) {
-        console.error("Error completing hito:", error);
-        return { success: false, error: "Error al completar hito" };
+        return handleGuardError(error);
     }
 }
 
 export async function liberarFondosHito(id: string) {
     try {
-        const session = await getServerSession(authOptions);
-        if (session?.user?.role !== "ADMIN") return { success: false, error: "No autorizado" };
-        // Esta acción solo debería poder hacerla un admin o smart contract
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de hito inválido" };
+
+        await requireRole("ADMIN");
         const hito = await prisma.escrowMilestone.update({
             where: { id },
             data: {
-                estado: "LIBERADO",
-                // fechaLiberacion: new Date() // TODO: Field not in schema
-            }
+                estado: "LIBERADO" as any,
+            },
+            include: { proyecto: { select: { creadoPorId: true, nombre: true } } }
         });
 
-        // Aquí iría la lógica de movimiento de dinero real o actualización de saldos
+        // Notify Project Owner
+        if (hito.proyecto.creadoPorId) {
+            await createNotification(
+                hito.proyecto.creadoPorId,
+                "EXITO",
+                "Fondos Liberados de Hito Escrow",
+                `Los fondos del hito "${hito.titulo}" en el proyecto "${hito.proyecto.nombre}" han sido liberados.`,
+                `/dashboard/proyectos/${hito.proyectoId}`,
+                true
+            );
+        }
+
+        // Notify Investors
+        const inversiones = await prisma.inversion.findMany({
+            where: { proyectoId: hito.proyectoId, estado: "EN_ESCROW" },
+            select: { inversorId: true }
+        });
+
+        for (const inv of inversiones) {
+            await createNotification(
+                inv.inversorId,
+                "INFO",
+                "Actualización de Hito en tu Inversión",
+                `Se ha completado y liberado un hito en el proyecto "${hito.proyecto.nombre}".`,
+                "/dashboard/inversor/mis-inversiones"
+            );
+        }
 
         revalidatePath(`/dashboard/proyectos/${hito.proyectoId}`);
         return { success: true, data: hito };
     } catch (error) {
-        console.error("Error releasing funds:", error);
-        return { success: false, error: "Error al liberar fondos" };
+        return handleGuardError(error);
     }
 }
 
 export async function getHitosProyecto(proyectoId: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const idParsed = idSchema.safeParse(proyectoId);
+        if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
+
+        const user = await requireAuth();
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: proyectoId },
@@ -136,7 +171,6 @@ export async function getHitosProyecto(proyectoId: string) {
 
         return { success: true, data: hitos };
     } catch (error) {
-        console.error("Error getting hitos:", error);
-        return { success: false, error: "Error al obtener hitos" };
+        return handleGuardError(error);
     }
 }

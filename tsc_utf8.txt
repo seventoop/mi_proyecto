@@ -1,0 +1,41 @@
+﻿app/(dashboard)/dashboard/developer/configuracion/page.tsx(5,13): error TS2339: Property 'data' does not exist on type '{ success: false; error: string; } | { success: boolean; data: any; }'.
+app/(dashboard)/dashboard/inversor/marketplace/page.tsx(90,69): error TS2345: Argument of type '0 | Decimal' is not assignable to parameter of type 'number'.
+  Type 'Decimal' is not assignable to type 'number'.
+app/(dashboard)/dashboard/inversor/page.tsx(16,13): error TS2339: Property 'inversiones' does not exist on type '{ success: boolean; error: string; data?: undefined; } | { success: boolean; data: { inversiones: ({ proyecto: { id: string; nombre: string; estado: string; createdAt: Date; updatedAt: Date; ... 28 more ...; visibilityStatus: string; }; } & { ...; })[]; movimientos: { ...; }[]; nextMilestone: ({ ...; } & { ...; }) |...'.
+app/(dashboard)/dashboard/inversor/page.tsx(16,26): error TS2339: Property 'stats' does not exist on type '{ success: boolean; error: string; data?: undefined; } | { success: boolean; data: { inversiones: ({ proyecto: { id: string; nombre: string; estado: string; createdAt: Date; updatedAt: Date; ... 28 more ...; visibilityStatus: string; }; } & { ...; })[]; movimientos: { ...; }[]; nextMilestone: ({ ...; } & { ...; }) |...'.
+app/(dashboard)/dashboard/inversor/page.tsx(16,33): error TS2339: Property 'movimientos' does not exist on type '{ success: boolean; error: string; data?: undefined; } | { success: boolean; data: { inversiones: ({ proyecto: { id: string; nombre: string; estado: string; createdAt: Date; updatedAt: Date; ... 28 more ...; visibilityStatus: string; }; } & { ...; })[]; movimientos: { ...; }[]; nextMilestone: ({ ...; } & { ...; }) |...'.
+app/(dashboard)/dashboard/inversor/page.tsx(16,46): error TS2339: Property 'nextMilestone' does not exist on type '{ success: boolean; error: string; data?: undefined; } | { success: boolean; data: { inversiones: ({ proyecto: { id: string; nombre: string; estado: string; createdAt: Date; updatedAt: Date; ... 28 more ...; visibilityStatus: string; }; } & { ...; })[]; movimientos: { ...; }[]; nextMilestone: ({ ...; } & { ...; }) |...'.
+app/(dashboard)/dashboard/inversor/page.tsx(16,61): error TS2339: Property 'distribution' does not exist on type '{ success: boolean; error: string; data?: undefined; } | { success: boolean; data: { inversiones: ({ proyecto: { id: string; nombre: string; estado: string; createdAt: Date; updatedAt: Date; ... 28 more ...; visibilityStatus: string; }; } & { ...; })[]; movimientos: { ...; }[]; nextMilestone: ({ ...; } & { ...; }) |...'.
+app/api/reservas/[id]/documento/route.ts(54,13): error TS2322: Type 'Decimal | null' is not assignable to type 'number | null'.
+  Type 'Decimal' is not assignable to type 'number'.
+app/api/reservas/[id]/documento/route.ts(72,48): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'Promise<Buffer<ArrayBufferLike>>' is not assignable to parameter of type 'ArrayBuffer | ArrayLike<number>'.
+      Type 'Promise<Buffer<ArrayBufferLike>>' is missing the following properties from type 'ArrayBuffer': byteLength, slice, maxByteLength, resizable, and 4 more.
+components/dashboard/leads/leads-import-dialog.tsx(83,31): error TS18048: 'res.data' is possibly 'undefined'.
+components/dashboard/leads/leads-import-dialog.tsx(83,55): error TS18048: 'res.data' is possibly 'undefined'.
+components/dashboard/leads/leads-import-dialog.tsx(84,54): error TS18048: 'res.data' is possibly 'undefined'.
+components/dashboard/proyectos/project-payments-tab.tsx(54,37): error TS2554: Expected 1 arguments, but got 3.
+components/dashboard/settings-form.tsx(43,61): error TS2554: Expected 1 arguments, but got 2.
+components/dashboard/sidebar.tsx(204,33): error TS2339: Property 'error' does not exist on type '{ success: false; error: string; } | { success: boolean; }'.
+  Property 'error' does not exist on type '{ success: boolean; }'.
+components/masterplan/masterplan-comparator.tsx(38,37): error TS2322: Type '(u: MasterplanUnit) => string | undefined' is not assignable to type '(u: MasterplanUnit) => string'.
+  Type 'string | undefined' is not assignable to type 'string'.
+    Type 'undefined' is not assignable to type 'string'.
+components/masterplan/masterplan-comparator.tsx(39,41): error TS2322: Type '(u: MasterplanUnit) => string | undefined' is not assignable to type '(u: MasterplanUnit) => string'.
+  Type 'string | undefined' is not assignable to type 'string'.
+    Type 'undefined' is not assignable to type 'string'.
+components/public/scroll-animation-wrapper.tsx(42,13): error TS2322: Type '{ hidden: { opacity: number; y: number; x: number; }; visible: { opacity: number; y: number; x: number; transition: { duration: number; delay: number; ease: number[]; }; }; }' is not assignable to type 'Variants'.
+  Property 'visible' is incompatible with index signature.
+    Type '{ opacity: number; y: number; x: number; transition: { duration: number; delay: number; ease: number[]; }; }' is not assignable to type 'Variant'.
+      Type '{ opacity: number; y: number; x: number; transition: { duration: number; delay: number; ease: number[]; }; }' is not assignable to type 'TargetAndTransition'.
+        Type '{ opacity: number; y: number; x: number; transition: { duration: number; delay: number; ease: number[]; }; }' is not assignable to type '{ transition?: Transition<any> | undefined; transitionEnd?: ResolvedValues$1 | undefined; }'.
+          Types of property 'transition' are incompatible.
+            Type '{ duration: number; delay: number; ease: number[]; }' is not assignable to type 'Transition<any> | undefined'.
+              Type '{ duration: number; delay: number; ease: number[]; }' is not assignable to type 'TransitionWithValueOverrides<any>'.
+                Type '{ duration: number; delay: number; ease: number[]; }' is not assignable to type 'ValueAnimationTransition<any>'.
+                  Types of property 'ease' are incompatible.
+                    Type 'number[]' is not assignable to type 'Easing | Easing[] | undefined'.
+                      Type 'number[]' is not assignable to type 'EasingFunction | Easing[]'.
+                        Type 'number[]' is not assignable to type 'Easing[]'.
+                          Type 'number' is not assignable to type 'Easing'.

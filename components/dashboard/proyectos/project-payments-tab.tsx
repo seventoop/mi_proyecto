@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { DollarSign, Upload, CheckCircle, XCircle, Clock, CreditCard, Image as ImageIcon } from "lucide-react";
-import { createPayment, verifyPayment } from "@/lib/actions/pagos";
+import { createPayment, updatePaymentStatusAdmin } from "@/lib/actions/pagos";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -51,7 +51,7 @@ export default function ProjectPaymentsTab({ proyectoId, pagos, userRole = "DESA
 
     const handleVerify = async (pagoId: string, status: "APROBADO" | "RECHAZADO") => {
         if (!confirm(`¿Confirmas ${status} el pago?`)) return;
-        await verifyPayment(pagoId, status, proyectoId);
+        await updatePaymentStatusAdmin(pagoId, status);
         router.refresh();
     };
 

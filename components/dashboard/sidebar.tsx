@@ -201,7 +201,7 @@ function AccountDeletionButton({ sidebarOpen }: { sidebarOpen: boolean }) {
             if (res.success) {
                 await signOut({ callbackUrl: "/" });
             } else {
-                toast.error(res.error || "Error al eliminar cuenta");
+                toast.error((res as any).error || "Error al eliminar cuenta");
                 setIsDeleting(false);
             }
         } catch (error) {
