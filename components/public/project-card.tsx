@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { ArrowRight, MapPin, TrendingUp } from "lucide-react";
 import { Proyecto } from "@prisma/client";

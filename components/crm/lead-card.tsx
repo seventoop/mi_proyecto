@@ -1,5 +1,3 @@
-"use client";
-
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Lead, Oportunidad } from "@prisma/client";

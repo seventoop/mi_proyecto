@@ -1,5 +1,3 @@
-"use client";
-
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { ArrowUpRight, ArrowDownLeft, Clock, CheckCircle2, AlertCircle } from "lucide-react";

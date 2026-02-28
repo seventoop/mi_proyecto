@@ -1,5 +1,3 @@
-"use client";
-
 import dynamic from "next/dynamic";
 
 const TestimoniosCarousel = dynamic(() => import("./testimonios-carousel"), {

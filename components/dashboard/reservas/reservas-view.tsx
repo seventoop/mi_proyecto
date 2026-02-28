@@ -1,5 +1,3 @@
-"use client";
-
 import ReservaDialog from "./reserva-dialog";
 import ReservasTable from "./reservas-table";
 
