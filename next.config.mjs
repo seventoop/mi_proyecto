@@ -5,6 +5,13 @@ const nextConfig = {
     typescript: {
         ignoreBuildErrors: false,
     },
+    transpilePackages: [
+        '@photo-sphere-viewer/core',
+        '@photo-sphere-viewer/virtual-tour-plugin',
+        '@photo-sphere-viewer/map-plugin',
+        '@photo-sphere-viewer/markers-plugin',
+        '@photo-sphere-viewer/autorotate-plugin',
+    ],
     experimental: {
         optimizePackageImports: [
             "lucide-react",

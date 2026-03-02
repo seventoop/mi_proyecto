@@ -5,12 +5,8 @@ import { X, Layers, Edit } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Tour360Upscaler from "./tour360-upscaler";
 import Tour360Overlay from "./tour360-overlay";
-
-declare global {
-    interface Window {
-        pannellum: any;
-    }
-}
+import { Viewer } from "@photo-sphere-viewer/core";
+import "@photo-sphere-viewer/core/index.css";
 
 interface Tour360ViewerProps {
     imageUrl: string;
@@ -18,112 +14,57 @@ interface Tour360ViewerProps {
     title?: string;
 }
 
-let pannellumLoading: Promise<void> | null = null;
-
-function loadPannellumOnce(): Promise<void> {
-    if (window.pannellum) return Promise.resolve();
-    if (pannellumLoading) return pannellumLoading;
-
-    pannellumLoading = new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js";
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("No se pudo cargar Pannellum"));
-        document.body.appendChild(script);
-
-        // CSS una sola vez
-        if (!document.querySelector('link[data-pannellum="1"]')) {
-            const style = document.createElement("link");
-            style.rel = "stylesheet";
-            style.href = "https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css";
-            style.setAttribute("data-pannellum", "1");
-            document.head.appendChild(style);
-        }
-    });
-
-    return pannellumLoading;
-}
-
 export default function Tour360Viewer({ imageUrl, onClose, title }: Tour360ViewerProps) {
     const viewerRef = useRef<HTMLDivElement>(null);
-    const instanceRef = useRef<any>(null);
+    const instanceRef = useRef<Viewer | null>(null);
+    const lastViewRef = useRef<{ yaw: number; pitch: number; zoom: number }>({ yaw: 0, pitch: 0, zoom: 50 });
 
-    const [isUpscaled, setIsUpscaled] = useState(false);
     const [showOverlay, setShowOverlay] = useState(false);
     const [isEditingOverlay, setIsEditingOverlay] = useState(false);
     const [upscaledUrl, setUpscaledUrl] = useState<string | null>(null);
     const activeUrl = upscaledUrl ?? imageUrl;
 
     useEffect(() => {
-        let cancelled = false;
+        if (!viewerRef.current) return;
 
-        async function init() {
-            await loadPannellumOnce();
-            if (cancelled) return;
-
-            if (!viewerRef.current || !window.pannellum) return;
-
-            // guardar vista actual (si existe) antes de recrear
-            const prev = instanceRef.current;
-            const view = prev
-                ? {
-                    yaw: safeCall(() => prev.getYaw(), 0),
-                    pitch: safeCall(() => prev.getPitch(), 0),
-                    hfov: safeCall(() => prev.getHfov(), 100),
-                }
-                : { yaw: 0, pitch: 0, hfov: 100 };
-
-            // destruir instancia anterior
-            if (prev?.destroy) {
-                try { prev.destroy(); } catch { }
-            }
+        // Save current view before recreating
+        if (instanceRef.current) {
+            try {
+                const pos = instanceRef.current.getPosition();
+                lastViewRef.current = {
+                    yaw: pos.yaw * (180 / Math.PI),
+                    pitch: pos.pitch * (180 / Math.PI),
+                    zoom: instanceRef.current.getZoomLevel(),
+                };
+            } catch { }
+            try { instanceRef.current.destroy(); } catch { }
             instanceRef.current = null;
-
-            // limpiar el contenedor por las dudas
-            viewerRef.current.innerHTML = "";
-
-            // crear nueva instancia con el panorama activo
-            instanceRef.current = window.pannellum.viewer(viewerRef.current, {
-                type: "equirectangular",
-                panorama: activeUrl,
-                autoLoad: true,
-                showControls: true,
-                compass: true,
-                title: title || "Tour 360",
-                yaw: view.yaw,
-                pitch: view.pitch,
-                hfov: view.hfov,
-                hotSpots: [
-                    {
-                        pitch: -10,
-                        yaw: 15,
-                        type: "info",
-                        text: "Lote 104 - Disponible",
-                        URL: "#"
-                    },
-                    {
-                        pitch: -5,
-                        yaw: -20,
-                        type: "info",
-                        text: "Area Recreativa",
-                    },
-                    {
-                        pitch: 5,
-                        yaw: 50,
-                        type: "info",
-                        text: "Futuro Acceso",
-                    }
-                ]
-            });
         }
 
-        init();
+        const psv = new Viewer({
+            container: viewerRef.current,
+            panorama: activeUrl,
+            defaultYaw: lastViewRef.current.yaw * (Math.PI / 180),
+            defaultPitch: lastViewRef.current.pitch * (Math.PI / 180),
+            defaultZoomLvl: lastViewRef.current.zoom,
+            navbar: ['zoom', 'fullscreen'],
+        });
+
+        instanceRef.current = psv;
 
         return () => {
-            cancelled = true;
+            try {
+                const pos = psv.getPosition();
+                lastViewRef.current = {
+                    yaw: pos.yaw * (180 / Math.PI),
+                    pitch: pos.pitch * (180 / Math.PI),
+                    zoom: psv.getZoomLevel(),
+                };
+            } catch { }
+            try { psv.destroy(); } catch { }
+            instanceRef.current = null;
         };
-    }, [activeUrl, title]);
+    }, [activeUrl]);
 
     const isUpscaledState = !!upscaledUrl;
 
@@ -193,6 +134,3 @@ export default function Tour360Viewer({ imageUrl, onClose, title }: Tour360Viewe
     );
 }
 
-function safeCall<T>(fn: () => T, fallback: T): T {
-    try { return fn(); } catch { return fallback; }
-}

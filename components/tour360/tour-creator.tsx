@@ -1,12 +1,32 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Viewer } from "@photo-sphere-viewer/core";
+import { MarkersPlugin } from "@photo-sphere-viewer/markers-plugin";
+import "@photo-sphere-viewer/core/index.css";
+import "@photo-sphere-viewer/markers-plugin/index.css";
 import {
-    Upload, Trash2, Save, MapPin, ImageIcon,
-    Plus, X, Loader2, GripVertical, Pencil, Check,
-    Link2, Navigation, Eye, Share2, Play, Pause,
-    Maximize2, RotateCcw, Camera, Grid3x3, Sparkles
+    Anchor,
+    ArrowRight,
+    Camera,
+    Check,
+    Circle as CircleIcon,
+    Grid3x3,
+    ImageIcon,
+    Link2,
+    Loader2,
+    MapPin,
+    Maximize2,
+    Navigation,
+    Pencil,
+    Plus,
+    RotateCcw,
+    RotateCw,
+    Square,
+    Trash2,
+    Type,
+    X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -17,10 +37,22 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import Script from "next/script";
 
-// ─── Types ───
-export type HotspotType = "info" | "scene" | "link" | "lot" | "check" | "sold" | "gallery" | "video";
+/**
+ * =========================================================
+ * Types
+ * =========================================================
+ */
+
+export type HotspotType =
+    | "info"
+    | "scene"
+    | "link"
+    | "lot"
+    | "check"
+    | "sold"
+    | "gallery"
+    | "video";
 
 export interface Hotspot {
     id: string;
@@ -28,7 +60,7 @@ export interface Hotspot {
     pitch: number;
     yaw: number;
     text: string;
-    unidadId: string; // Mandatory for STP-TOUR360-PRO
+    unidadId?: string; // REQUIRED for UNIT after normalization
     targetSceneId?: string;
     targetUrl?: string;
     targetThumbnail?: string;
@@ -54,7 +86,7 @@ export interface FloatingLabel {
     pitch: number;
     yaw: number;
     text: string;
-    style?: 'street' | 'landmark';
+    style?: "street" | "landmark";
     anchorPitch?: number;
     anchorYaw?: number;
 }
@@ -66,382 +98,879 @@ export interface MasterplanOverlay {
     isVisible: boolean;
 }
 
+export interface Overlay2D {
+    id: string;
+    type: "text" | "rect" | "circle" | "line" | "arrow" | "image";
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation: number;
+    text?: string;
+    src?: string;
+    style: {
+        opacity?: number;
+        stroke?: string;
+        strokeWidth?: number;
+        bgColor?: string;
+        textColor?: string;
+        fontSize?: number;
+        fontWeight?: string;
+        radius?: number;
+        shadow?: boolean;
+    };
+}
+
+export interface WorldAnchor {
+    id: string;
+    kind: "icon" | "text" | "image";
+    pitch: number;
+    yaw: number;
+    title?: string;
+    text?: string;
+    icon?: string;
+    imageUrl?: string;
+    width?: number;
+    height?: number;
+    rotation?: number;
+    style: {
+        scale: number;
+        opacity: number;
+        color?: string;
+        bgColor?: string;
+        leaderLine?: boolean;
+        leaderLineLength?: number;
+        shadow?: boolean;
+        textColor?: string;
+        fontSize?: number;
+        fontWeight?: string;
+        radius?: number;
+    };
+    src?: string;
+}
+
 export interface Scene {
     id: string;
     title: string;
     imageUrl: string;
-    thumbnailUrl?: string; // Kept for future use
+    thumbnailUrl?: string;
+
     hotspots: Hotspot[];
-    polygons?: TourPolygon[];
-    floatingLabels?: FloatingLabel[];
+
     isDefault?: boolean;
     order?: number;
-    category?: 'raw' | 'rendered';
+    category?: "raw" | "rendered";
+
+    polygons?: TourPolygon[];
+    floatingLabels?: FloatingLabel[];
     masterplanOverlay?: MasterplanOverlay;
+
+    // ✅ Persisted complex JSON
+    overlay2D?: Overlay2D[];
+    worldAnchors?: WorldAnchor[];
+
+    // passthrough for backend compatibility
+    imageVariants?: any;
 }
 
 interface UploadProgress {
     id: string;
     filename: string;
     progress: number;
-    status: "uploading" | "done" | "error";
+    status: "uploading" | "processing" | "done" | "error";
     url?: string;
 }
 
 interface TourCreatorProps {
     proyectoId: string;
-    tourId?: string; // Optional for delete action
+    tourId?: string;
     initialScenes?: Scene[];
     onSave: (scenes: Scene[]) => void;
-    onDelete?: () => void; // Callback for delete
+    onDelete?: () => void;
 }
 
-// ─── Hotspot icon options ───
-const HOTSPOT_ICONS: { value: string; label: string; emoji: string }[] = [
-    { value: "info", label: "Info", emoji: "ℹ️" },
-    { value: "lot", label: "Lote N°", emoji: "🔢" },
-    { value: "check", label: "Disponible", emoji: "✅" },
-    { value: "sold", label: "Vendido", emoji: "🔴" },
-    { value: "arrow", label: "Flecha", emoji: "➡️" },
-    { value: "house", label: "Casa", emoji: "🏠" },
-    { value: "tree", label: "Amenity", emoji: "🌳" },
-    { value: "camera", label: "Foto", emoji: "📷" },
-];
+/**
+ * =========================================================
+ * Helpers
+ * =========================================================
+ */
 
+const jsonParseSafe = <T,>(val: any, fallback: T): T => {
+    if (!val) return fallback;
+    if (typeof val === "string") {
+        try {
+            return JSON.parse(val) as T;
+        } catch {
+            return fallback;
+        }
+    }
+    return val as T;
+};
 
-interface PanoramicOverlayProps {
+const normalizeHotspotType = (type: string): "INFO" | "SCENE" | "LINK" | "UNIT" => {
+    const t = String(type || "").toLowerCase();
+    if (t === "scene") return "SCENE";
+    if (t === "link") return "LINK";
+    if (["lot", "check", "sold", "unit"].includes(t)) return "UNIT";
+    return "INFO";
+};
+
+const uid = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+/**
+ * =========================================================
+ * Overlay2D (Canva layer)
+ * =========================================================
+ */
+
+function Overlay2DLayer(props: {
+    elements: Overlay2D[];
+    selectedId: string | null;
+    onSelect: (id: string | null) => void;
+    onUpdate: (id: string, updates: Partial<Overlay2D>) => void;
+    onDelete: (id: string) => void;
+    viewer: any;
+}) {
+    const { elements, selectedId, onSelect, onUpdate, onDelete, viewer } = props;
+
+    const [dragState, setDragState] = useState<{
+        id: string;
+        type: "move" | "resize" | "rotate";
+        handle?: string;
+        startX: number;
+        startY: number;
+        initialX: number;
+        initialY: number;
+        initialW: number;
+        initialH: number;
+        initialR: number;
+    } | null>(null);
+
+    const lockViewer = () => { /* PSV handles pointer capture natively */ };
+    const unlockViewer = () => { /* PSV handles pointer capture natively */ };
+
+    const onPointerDown = (
+        e: React.PointerEvent,
+        id: string,
+        type: "move" | "resize" | "rotate",
+        handle?: string
+    ) => {
+        e.stopPropagation();
+        const el = elements.find((x) => x.id === id);
+        if (!el) return;
+
+        onSelect(id);
+        setDragState({
+            id,
+            type,
+            handle,
+            startX: e.clientX,
+            startY: e.clientY,
+            initialX: el.x,
+            initialY: el.y,
+            initialW: el.width,
+            initialH: el.height,
+            initialR: el.rotation,
+        });
+
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        lockViewer();
+    };
+
+    const onPointerMove = (e: React.PointerEvent) => {
+        if (!dragState) return;
+        e.stopPropagation();
+
+        const dx = e.clientX - dragState.startX;
+        const dy = e.clientY - dragState.startY;
+
+        const el = elements.find((x) => x.id === dragState.id);
+        if (!el) return;
+
+        if (dragState.type === "move") {
+            onUpdate(dragState.id, { x: dragState.initialX + dx, y: dragState.initialY + dy });
+            return;
+        }
+
+        if (dragState.type === "resize") {
+            let x = dragState.initialX;
+            let y = dragState.initialY;
+            let w = dragState.initialW;
+            let h = dragState.initialH;
+
+            const hnd = dragState.handle || "";
+            if (hnd.includes("right")) w = Math.max(10, dragState.initialW + dx);
+            if (hnd.includes("bottom")) h = Math.max(10, dragState.initialH + dy);
+
+            if (hnd.includes("left")) {
+                const newW = Math.max(10, dragState.initialW - dx);
+                x = dragState.initialX + (dragState.initialW - newW);
+                w = newW;
+            }
+            if (hnd.includes("top")) {
+                const newH = Math.max(10, dragState.initialH - dy);
+                y = dragState.initialY + (dragState.initialH - newH);
+                h = newH;
+            }
+
+            onUpdate(dragState.id, { x, y, width: w, height: h });
+            return;
+        }
+
+        // rotate
+        if (dragState.type === "rotate") {
+            const cx = dragState.initialX + dragState.initialW / 2;
+            const cy = dragState.initialY + dragState.initialH / 2;
+            const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+            onUpdate(dragState.id, { rotation: angle + 90 });
+        }
+    };
+
+    const onPointerUp = (e: React.PointerEvent) => {
+        if (!dragState) return;
+        e.stopPropagation();
+        setDragState(null);
+        try {
+            (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+        } catch { }
+        unlockViewer();
+    };
+
+    return (
+        <div
+            className="absolute inset-0 z-40 pointer-events-none overflow-hidden"
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+        >
+            {elements.map((el) => {
+                const isSel = selectedId === el.id;
+                const opacity = el.style.opacity ?? 1;
+
+                const style: React.CSSProperties = {
+                    position: "absolute",
+                    left: el.x,
+                    top: el.y,
+                    width: el.width,
+                    height: el.height,
+                    transform: `rotate(${el.rotation}deg)`,
+                    opacity,
+                    pointerEvents: "auto",
+                    cursor: "move",
+                    userSelect: "none",
+                    zIndex: isSel ? 999 : 50,
+                    boxShadow: el.style.shadow ? "0 10px 30px rgba(0,0,0,0.35)" : undefined,
+                };
+
+                return (
+                    <div
+                        key={el.id}
+                        style={style}
+                        onPointerDown={(e) => onPointerDown(e, el.id, "move")}
+                        className={cn("group", isSel && "ring-2 ring-indigo-500 ring-offset-2 ring-offset-transparent")}
+                    >
+                        {/* render */}
+                        {el.type === "rect" && (
+                            <div
+                                className="w-full h-full"
+                                style={{
+                                    backgroundColor: el.style.bgColor ?? "rgba(99,102,241,0.25)",
+                                    border: `${el.style.strokeWidth ?? 2}px solid ${el.style.stroke ?? "#6366f1"}`,
+                                    borderRadius: `${el.style.radius ?? 10}px`,
+                                }}
+                            />
+                        )}
+
+                        {el.type === "circle" && (
+                            <div
+                                className="w-full h-full rounded-full"
+                                style={{
+                                    backgroundColor: el.style.bgColor ?? "rgba(99,102,241,0.25)",
+                                    border: `${el.style.strokeWidth ?? 2}px solid ${el.style.stroke ?? "#6366f1"}`,
+                                }}
+                            />
+                        )}
+
+                        {el.type === "text" && (
+                            <div
+                                className="w-full h-full flex items-center justify-center p-2 text-center break-words overflow-hidden"
+                                style={{
+                                    backgroundColor: el.style.bgColor ?? "rgba(15,23,42,0.75)",
+                                    color: el.style.textColor ?? "#fff",
+                                    border: `${el.style.strokeWidth ?? 1}px solid ${el.style.stroke ?? "rgba(255,255,255,0.18)"}`,
+                                    borderRadius: `${el.style.radius ?? 12}px`,
+                                    fontSize: el.style.fontSize ?? 14,
+                                    fontWeight: el.style.fontWeight as any,
+                                }}
+                            >
+                                {el.text}
+                            </div>
+                        )}
+
+                        {el.type === "line" && (
+                            <div
+                                className="w-full h-0 absolute top-1/2 -translate-y-1/2"
+                                style={{
+                                    borderTop: `${el.style.strokeWidth ?? 3}px solid ${el.style.stroke ?? "#fff"}`,
+                                }}
+                            />
+                        )}
+
+                        {el.type === "arrow" && (
+                            <div className="w-full h-0 absolute top-1/2 -translate-y-1/2 flex items-center">
+                                <div
+                                    className="w-full"
+                                    style={{
+                                        borderTop: `${el.style.strokeWidth ?? 3}px solid ${el.style.stroke ?? "#fff"}`,
+                                    }}
+                                />
+                                <div
+                                    className="absolute right-0 w-3 h-3 border-t-2 border-r-2 rotate-45 -translate-y-1/2"
+                                    style={{
+                                        borderColor: el.style.stroke ?? "#fff",
+                                        borderWidth: el.style.strokeWidth ?? 2,
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {el.type === "image" && (el.src || "") && (
+                            <img src={el.src} alt="" className="w-full h-full object-contain pointer-events-none rounded-xl" />
+                        )}
+
+                        {/* handles */}
+                        {isSel && (
+                            <>
+                                {["top-left", "top-right", "bottom-left", "bottom-right"].map((h) => (
+                                    <div
+                                        key={h}
+                                        onPointerDown={(e) => onPointerDown(e, el.id, "resize", h)}
+                                        className={cn(
+                                            "absolute w-3 h-3 bg-white border-2 border-indigo-500 rounded-full z-[1000]",
+                                            h === "top-left" && "-top-1.5 -left-1.5 cursor-nwse-resize",
+                                            h === "top-right" && "-top-1.5 -right-1.5 cursor-nesw-resize",
+                                            h === "bottom-left" && "-bottom-1.5 -left-1.5 cursor-nesw-resize",
+                                            h === "bottom-right" && "-bottom-1.5 -right-1.5 cursor-nwse-resize"
+                                        )}
+                                    />
+                                ))}
+                                <div
+                                    onPointerDown={(e) => onPointerDown(e, el.id, "rotate")}
+                                    className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-white border-2 border-indigo-500 rounded-full flex items-center justify-center cursor-alias z-[1000]"
+                                >
+                                    <RotateCw className="w-3 h-3 text-indigo-600" />
+                                    <div className="absolute top-6 left-1/2 -translate-x-px w-px h-2 bg-indigo-500" />
+                                </div>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete(el.id);
+                                    }}
+                                    className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg"
+                                    title="Eliminar elemento 2D"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+/**
+ * =========================================================
+ * Panoramic Overlay (Polygons, Labels, WorldAnchors, Hotspots)
+ * =========================================================
+ */
+
+function PanoramicOverlay(props: {
     viewer: any;
     viewerRef: React.RefObject<HTMLDivElement>;
     activeScene: Scene | null;
     editorMode: string;
     mouseCoords: { pitch: number; yaw: number } | null;
-    draggingHotspotId: string | null;
-    setDraggingHotspotId: (id: string | null) => void;
-    draggingLabelId: string | null;
-    setDraggingLabelId: (id: string | null) => void;
-    pendingLandmarkAnchor: { pitch: number; yaw: number } | null;
+    currentPolygonPoints: PolygonPoint[];
     pendingOverlayPoints: { pitch: number; yaw: number }[];
-    currentPolygonPoints: { pitch: number; yaw: number }[];
+    pendingLandmarkAnchor: { pitch: number; yaw: number } | null;
     viewerReady: boolean;
-}
 
-function PanoramicOverlay({
-    viewer,
-    viewerRef,
-    activeScene,
-    editorMode,
-    mouseCoords,
-    draggingHotspotId,
-    setDraggingHotspotId,
-    draggingLabelId,
-    setDraggingLabelId,
-    pendingLandmarkAnchor,
-    pendingOverlayPoints,
-    currentPolygonPoints,
-    viewerReady
-}: PanoramicOverlayProps) {
+    selectedElementId: string | null;
+    setSelectedElementId: (id: string | null) => void;
+
+    onUpdateHotspotPos: (hotspotId: string, pitch: number, yaw: number) => void;
+    onUpdateLabelPos: (labelId: string, pitch: number, yaw: number) => void;
+    onUpdateWorldAnchorPos: (anchorId: string, pitch: number, yaw: number) => void;
+    onDeleteElement: (kind: "hotspot" | "label" | "worldAnchor", id: string) => void;
+}) {
+    const {
+        viewer,
+        viewerRef,
+        activeScene,
+        editorMode,
+        mouseCoords,
+        currentPolygonPoints,
+        pendingOverlayPoints,
+        pendingLandmarkAnchor,
+        viewerReady,
+        selectedElementId,
+        setSelectedElementId,
+        onUpdateHotspotPos,
+        onUpdateLabelPos,
+        onUpdateWorldAnchorPos,
+        onDeleteElement,
+    } = props;
+
     const [viewState, setViewState] = useState({ hfov: 100, pitch: 0, yaw: 0 });
+    const [drag, setDrag] = useState<{ kind: "hotspot" | "label" | "worldAnchor"; id: string } | null>(null);
 
     useEffect(() => {
-        if (!viewer) return;
-        let rafId: number;
-        const update = () => {
+        if (!viewer || !viewerReady) return;
+
+        const psvViewer = viewer as Viewer;
+
+        const onPosition = ({ position }: any) => {
+            const el = viewerRef.current;
+            if (!el) return;
+            const maxFov = psvViewer.config.maxFov ?? 110;
+            const minFov = psvViewer.config.minFov ?? 30;
+            const vFov = maxFov - (maxFov - minFov) * (psvViewer.getZoomLevel() / 100);
+            const ar = el.clientWidth / el.clientHeight;
+            const hFov = 2 * Math.atan(Math.tan(vFov * Math.PI / 180 / 2) * ar) * (180 / Math.PI);
             setViewState({
-                hfov: viewer.getHfov(),
-                pitch: viewer.getPitch(),
-                yaw: viewer.getYaw()
+                hfov: hFov,
+                pitch: position.pitch * (180 / Math.PI),
+                yaw: position.yaw * (180 / Math.PI),
             });
-            rafId = requestAnimationFrame(update);
         };
-        rafId = requestAnimationFrame(update);
-        return () => cancelAnimationFrame(rafId);
-    }, [viewer]);
+
+        const onZoom = ({ zoomLevel }: any) => {
+            const el = viewerRef.current;
+            if (!el) return;
+            const maxFov = psvViewer.config.maxFov ?? 110;
+            const minFov = psvViewer.config.minFov ?? 30;
+            const vFov = maxFov - (maxFov - minFov) * (zoomLevel / 100);
+            const ar = el.clientWidth / el.clientHeight;
+            const hFov = 2 * Math.atan(Math.tan(vFov * Math.PI / 180 / 2) * ar) * (180 / Math.PI);
+            setViewState(prev => ({ ...prev, hfov: hFov }));
+        };
+
+        try {
+            psvViewer.addEventListener('position-updated', onPosition);
+            psvViewer.addEventListener('zoom-updated', onZoom);
+        } catch { }
+
+        return () => {
+            try {
+                psvViewer.removeEventListener('position-updated', onPosition);
+                psvViewer.removeEventListener('zoom-updated', onZoom);
+            } catch { }
+        };
+    }, [viewer, viewerReady, viewerRef, activeScene?.id]);
 
     const projectCoords = (pitch: number, yaw: number) => {
         if (!viewer || !viewerRef.current) return null;
+        try {
+            const hfov = viewState.hfov;
+            const viewPitch = viewState.pitch;
+            const viewYaw = viewState.yaw;
+            const container = viewerRef.current;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
 
-        const hfov = viewState.hfov;
-        const viewPitch = viewState.pitch;
-        const viewYaw = viewState.yaw;
-        const container = viewerRef.current;
-        const width = container.clientWidth;
-        const height = container.clientHeight;
+            const degToRad = Math.PI / 180;
+            const p = pitch * degToRad;
+            const y = yaw * degToRad;
+            const vp = viewPitch * degToRad;
+            const vy = viewYaw * degToRad;
 
-        const degToRad = Math.PI / 180;
-        const p = pitch * degToRad;
-        const y = yaw * degToRad;
-        const vp = viewPitch * degToRad;
-        const vy = viewYaw * degToRad;
+            const vx = Math.cos(p) * Math.sin(y);
+            const vy_vec = Math.sin(p);
+            const vz = Math.cos(p) * Math.cos(y);
 
-        const vx = Math.cos(p) * Math.sin(y);
-        const vy_vec = Math.sin(p);
-        const vz = Math.cos(p) * Math.cos(y);
+            const s_y = Math.sin(-vy);
+            const c_y = Math.cos(-vy);
+            const rx = vx * c_y - vz * s_y;
+            const rz_temp = vx * s_y + vz * c_y;
 
-        const s_y = Math.sin(-vy);
-        const c_y = Math.cos(-vy);
-        const rx = vx * c_y - vz * s_y;
-        const rz_temp = vx * s_y + vz * c_y;
+            const s_p = Math.sin(-vp);
+            const c_p = Math.cos(-vp);
+            const ry = vy_vec * c_p - rz_temp * s_p;
+            const rz = vy_vec * s_p + rz_temp * c_p;
 
-        const s_p = Math.sin(-vp);
-        const c_p = Math.cos(-vp);
-        const ry = vy_vec * c_p - rz_temp * s_p;
-        const rz = vy_vec * s_p + rz_temp * c_p;
+            if (rz <= 0.05) return null;
 
-        if (rz <= 0) return null;
+            const canvas_hfov = hfov * degToRad;
+            const focalLength = (width / 2) / Math.tan(canvas_hfov / 2);
 
-        const canvas_hfov = hfov * degToRad;
-        const focalLength = (width / 2) / Math.tan(canvas_hfov / 2);
+            const px = (rx / rz) * focalLength + width / 2;
+            const py = (-ry / rz) * focalLength + height / 2;
 
-        const px = (rx / rz) * focalLength + (width / 2);
-        const py = (-ry / rz) * focalLength + (height / 2);
-
-        return { x: px, y: py };
-    };
-
-    const getPolygonPath = (points: { pitch: number; yaw: number }[]) => {
-        const coords = points.map(p => projectCoords(p.pitch, p.yaw));
-        return coords.map((c, i) => {
-            if (!c) return "";
-            return `${i === 0 ? 'M' : 'L'} ${c.x},${c.y}`;
-        }).join(" ") + " Z";
-    };
-
-    const getPerspectiveMatrix = (src: { x: number, y: number }[], dst: { x: number, y: number }[]) => {
-        const solve = (A: number[][], b: number[]) => {
-            let n = A.length;
-            for (let i = 0; i < n; i++) {
-                let max = i;
-                for (let j = i + 1; j < n; j++) if (Math.abs(A[j][i]) > Math.abs(A[max][i])) max = j;
-                [A[i], A[max]] = [A[max], A[i]];
-                [b[i], b[max]] = [b[max], b[i]];
-                for (let j = i + 1; j < n; j++) {
-                    let f = A[j][i] / A[i][i];
-                    b[j] -= f * b[i];
-                    for (let k = i; k < n; k++) A[j][k] -= f * A[i][k];
-                }
-            }
-            let x = new Array(n);
-            for (let i = n - 1; i >= 0; i--) {
-                let s = 0;
-                for (let j = i + 1; j < n; j++) s += A[i][j] * x[j];
-                x[i] = (b[i] - s) / A[i][i];
-            }
-            return x;
-        };
-
-        let A = [], b = [];
-        for (let i = 0; i < 4; i++) {
-            A.push([src[i].x, src[i].y, 1, 0, 0, 0, -src[i].x * dst[i].x, -src[i].y * dst[i].x]);
-            b.push(dst[i].x);
-            A.push([0, 0, 0, src[i].x, src[i].y, 1, -src[i].x * dst[i].y, -src[i].y * dst[i].y]);
-            b.push(dst[i].y);
+            if (px < -width || px > width * 2 || py < -height || py > height * 2) return null;
+            return { x: px, y: py };
+        } catch {
+            return null;
         }
+    };
 
-        let h = solve(A, b);
-        return [
-            h[0], h[3], 0, h[6],
-            h[1], h[4], 0, h[7],
-            0, 0, 1, 0,
-            h[2], h[5], 0, 1
-        ];
+    const getPolygonPath = (points: PolygonPoint[], closed = true) => {
+        if (!points.length) return "";
+        const segs: string[] = [];
+        let moved = false;
+
+        for (const pt of points) {
+            const c = projectCoords(pt.pitch, pt.yaw);
+            if (!c) continue;
+            if (!moved) {
+                segs.push(`M ${c.x},${c.y}`);
+                moved = true;
+            } else {
+                segs.push(`L ${c.x},${c.y}`);
+            }
+        }
+        if (segs.length < 2) return "";
+        if (closed && segs.length >= 3) return segs.join(" ") + " Z";
+        return segs.join(" ");
+    };
+
+    const onPointerDown = (e: React.PointerEvent, kind: "hotspot" | "label" | "worldAnchor", id: string) => {
+        if (!viewer || !viewerReady) return;
+        e.stopPropagation();
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+
+        setDrag({ kind, id });
+        setSelectedElementId(id);
+    };
+
+    const onPointerMove = (e: React.PointerEvent) => {
+        if (!viewer || !viewerReady || !drag) return;
+        e.stopPropagation();
+        try {
+            const psvViewer = viewer as Viewer;
+            const rect = (psvViewer.container as HTMLElement).getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const pos = psvViewer.dataHelper.viewerCoordsToSphericalCoords({ x, y });
+            if (!pos) return;
+            const pitch = pos.pitch * (180 / Math.PI);
+            const yaw = pos.yaw * (180 / Math.PI);
+
+            if (drag.kind === "hotspot") onUpdateHotspotPos(drag.id, pitch, yaw);
+            if (drag.kind === "label") onUpdateLabelPos(drag.id, pitch, yaw);
+            if (drag.kind === "worldAnchor") onUpdateWorldAnchorPos(drag.id, pitch, yaw);
+        } catch { }
+    };
+
+    const onPointerUp = (e: React.PointerEvent) => {
+        if (!drag) return;
+        e.stopPropagation();
+        setDrag(null);
+        try {
+            (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+        } catch { }
     };
 
     if (!viewerReady || !activeScene) return null;
 
     return (
-        <>
-            {/* Perspective Masterplan Overlay */}
+        <div className="absolute inset-0 z-20 pointer-events-none" onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+            {/* MASTERPLAN overlay (perspective) */}
             {activeScene.masterplanOverlay?.isVisible && (() => {
-                const overlay = activeScene.masterplanOverlay;
-                const coords = overlay.points.map(p => projectCoords(p.pitch, p.yaw));
+                const overlay = activeScene.masterplanOverlay!;
+                const coords = overlay.points.map((p) => projectCoords(p.pitch, p.yaw));
+                if (coords.some((c) => !c)) return null;
 
-                if (coords.some(c => !c)) return null;
+                // Perspective transform helper (4-point)
+                const src = [
+                    { x: 0, y: 0 },
+                    { x: 1000, y: 0 },
+                    { x: 1000, y: 1000 },
+                    { x: 0, y: 1000 },
+                ];
+                const dst = coords as { x: number; y: number }[];
 
-                const src = [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }];
-                const dst = coords as { x: number, y: number }[];
-                const matrix = getPerspectiveMatrix(src, dst);
+                const solve = (A: number[][], b: number[]) => {
+                    const n = A.length;
+                    for (let i = 0; i < n; i++) {
+                        let max = i;
+                        for (let j = i + 1; j < n; j++) if (Math.abs(A[j][i]) > Math.abs(A[max][i])) max = j;
+                        [A[i], A[max]] = [A[max], A[i]];
+                        [b[i], b[max]] = [b[max], b[i]];
+                        for (let j = i + 1; j < n; j++) {
+                            const f = A[j][i] / A[i][i];
+                            b[j] -= f * b[i];
+                            for (let k = i; k < n; k++) A[j][k] -= f * A[i][k];
+                        }
+                    }
+                    const x = new Array(n).fill(0);
+                    for (let i = n - 1; i >= 0; i--) {
+                        let s = 0;
+                        for (let j = i + 1; j < n; j++) s += A[i][j] * x[j];
+                        x[i] = (b[i] - s) / A[i][i];
+                    }
+                    return x;
+                };
+
+                const getPerspectiveMatrix = () => {
+                    const A: number[][] = [];
+                    const b: number[] = [];
+                    for (let i = 0; i < 4; i++) {
+                        A.push([src[i].x, src[i].y, 1, 0, 0, 0, -src[i].x * dst[i].x, -src[i].y * dst[i].x]);
+                        b.push(dst[i].x);
+                        A.push([0, 0, 0, src[i].x, src[i].y, 1, -src[i].x * dst[i].y, -src[i].y * dst[i].y]);
+                        b.push(dst[i].y);
+                    }
+                    const h = solve(A, b);
+                    return [h[0], h[3], 0, h[6], h[1], h[4], 0, h[7], 0, 0, 1, 0, h[2], h[5], 0, 1];
+                };
+
+                const matrix = getPerspectiveMatrix();
 
                 return (
-                    <div
-                        className="absolute inset-0 pointer-events-none overflow-hidden z-0"
-                        style={{ perspective: '1000px' }}
-                    >
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" style={{ perspective: "1000px" }}>
                         <div
                             className="absolute top-0 left-0 w-[1000px] h-[1000px] origin-top-left"
                             style={{
-                                transform: `matrix3d(${matrix.join(',')})`,
+                                transform: `matrix3d(${matrix.join(",")})`,
                                 opacity: overlay.opacity,
                                 backgroundImage: `url(${overlay.imageUrl})`,
-                                backgroundSize: '100% 100%'
+                                backgroundSize: "100% 100%",
                             }}
                         />
                     </div>
                 );
             })()}
 
-            {/* SVG Overlay for Polygons & Lines */}
+            {/* SVG polygons + helpers */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
-                {/* Polygons */}
-                {activeScene.polygons?.map(poly => (
+                {/* Saved polygons */}
+                {activeScene.polygons?.map((poly) => (
                     <path
                         key={poly.id}
                         d={getPolygonPath(poly.points)}
-                        fill={poly.fillColor || "rgba(16, 185, 129, 0.4)"}
-                        stroke={poly.strokeColor || "white"}
+                        fill={poly.fillColor || "rgba(16, 185, 129, 0.35)"}
+                        stroke={poly.strokeColor || "rgba(255,255,255,0.85)"}
                         strokeWidth={2}
-                        className="opacity-70"
+                        opacity={0.8}
                     />
                 ))}
 
-                {/* Current drawing polygon */}
-                {editorMode === 'polygon' && currentPolygonPoints.length > 0 && (
+                {/* Current polygon */}
+                {editorMode === "polygon" && currentPolygonPoints.length > 0 && (
                     <>
                         <path
-                            d={getPolygonPath([...currentPolygonPoints])}
-                            fill="rgba(59, 130, 246, 0.3)"
+                            d={getPolygonPath(currentPolygonPoints, false)}
+                            fill="none"
                             stroke="#3b82f6"
                             strokeWidth={2}
                             strokeDasharray="4 2"
+                            opacity={0.9}
                         />
                         {currentPolygonPoints.map((p, i) => {
                             const c = projectCoords(p.pitch, p.yaw);
-                            return c ? <circle key={i} cx={c.x} cy={c.y} r={4} fill="#3b82f6" /> : null;
+                            if (!c) return null;
+                            return <circle key={i} cx={c.x} cy={c.y} r={5} fill="#3b82f6" opacity={0.85} />;
                         })}
                     </>
                 )}
 
-                {/* Leader Lines for Landmarks */}
-                {activeScene.floatingLabels?.filter(l => l.style === 'landmark' && l.anchorPitch !== undefined).map(label => {
-                    const labelCoords = projectCoords(label.pitch, label.yaw);
-                    const anchorCoords = projectCoords(label.anchorPitch!, label.anchorYaw!);
-                    if (!labelCoords || !anchorCoords) return null;
-                    return (
-                        <line
-                            key={`line-${label.id}`}
-                            x1={anchorCoords.x} y1={anchorCoords.y}
-                            x2={labelCoords.x} y2={labelCoords.y}
-                            stroke="white" strokeWidth={1} strokeDasharray="4 2" opacity={0.6}
-                        />
-                    );
-                })}
+                {/* Pending overlay points (masterplan) */}
+                {editorMode === "overlay" &&
+                    pendingOverlayPoints.map((p, i) => {
+                        const c = projectCoords(p.pitch, p.yaw);
+                        if (!c) return null;
+                        return (
+                            <g key={`ovpt-${i}`}>
+                                <circle cx={c.x} cy={c.y} r={6} fill="white" stroke="#3b82f6" strokeWidth={2} />
+                                <text x={c.x} y={c.y} dy=".3em" textAnchor="middle" fill="#3b82f6" fontSize="10" fontWeight="bold">
+                                    {i + 1}
+                                </text>
+                            </g>
+                        );
+                    })}
 
-                {/* Interaction Points for Hotspots (Dragging) */}
-                {activeScene.hotspots.map(hs => {
-                    const c = projectCoords(hs.pitch, hs.yaw);
-                    if (!c) return null;
-                    return (
-                        <circle
-                            key={`drag-${hs.id}`}
-                            cx={c.x} cy={c.y} r={14}
-                            fill={draggingHotspotId === hs.id ? "rgba(59, 130, 246, 0.4)" : "transparent"}
-                            stroke={draggingHotspotId === hs.id ? "#3b82f6" : "rgba(255,255,255,0.1)"}
-                            strokeWidth={2}
-                            strokeDasharray={draggingHotspotId === hs.id ? "none" : "2 2"}
-                            className="cursor-move pointer-events-auto hover:stroke-brand-400"
-                            onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setDraggingHotspotId(hs.id);
-                            }}
-                        >
-                            <title>Arrastrar para mover</title>
-                        </circle>
-                    );
-                })}
-
-                {/* Interaction Points for Labels (Dragging) */}
-                {activeScene.floatingLabels?.map(lbl => {
-                    const c = projectCoords(lbl.pitch, lbl.yaw);
-                    if (!c) return null;
-                    return (
-                        <rect
-                            key={`drag-lbl-${lbl.id}`}
-                            x={c.x - 40} y={c.y - 12} width={80} height={24} rx={12}
-                            fill={draggingLabelId === lbl.id ? "rgba(59, 130, 246, 0.2)" : "transparent"}
-                            stroke={draggingLabelId === lbl.id ? "#3b82f6" : "transparent"}
-                            strokeWidth={2}
-                            className="cursor-move pointer-events-auto"
-                            onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setDraggingLabelId(lbl.id);
-                            }}
-                        />
-                    );
-                })}
-
-                {/* Ghost Previews for new placements */}
-                {mouseCoords && !draggingHotspotId && !draggingLabelId && (
-                    <g opacity={0.7} className="pointer-events-none">
-                        {(() => {
-                            const c = projectCoords(mouseCoords.pitch, mouseCoords.yaw);
-                            if (!c) return null;
-
-                            if (editorMode === 'hotspot') {
-                                return (
-                                    <g>
-                                        <circle cx={c.x} cy={c.y} r={16} fill="rgba(59, 130, 246, 0.3)" stroke="#3b82f6" strokeWidth={2} strokeDasharray="4 2" />
-                                        <text x={c.x} y={c.y} dy=".3em" textAnchor="middle" fill="#3b82f6" fontSize="12" fontWeight="bold">+</text>
-                                    </g>
-                                );
-                            }
-
-                            if (editorMode === 'label' && !pendingLandmarkAnchor) {
-                                return (
-                                    <g transform={`translate(${c.x}, ${c.y})`}>
-                                        <rect x="-40" y="-12" width="80" height="24" rx="12" fill="rgba(59, 130, 246, 0.2)" stroke="#3b82f6" strokeWidth={1} strokeDasharray="4 2" />
-                                        <text y="4" textAnchor="middle" fill="#3b82f6" fontSize="10" fontWeight="bold">Nueva Etiqueta</text>
-                                    </g>
-                                );
-                            }
-
-                            return null;
-                        })()}
-                    </g>
-                )}
-
-                {/* Pending Landmark Line */}
-                {pendingLandmarkAnchor && editorMode === 'label' && mouseCoords && (
-                    <g>
-                        {(() => {
-                            const p1 = projectCoords(pendingLandmarkAnchor.pitch, pendingLandmarkAnchor.yaw);
-                            const p2 = projectCoords(mouseCoords.pitch, mouseCoords.yaw);
-                            if (!p1 || !p2) return null;
-                            return <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#3b82f6" strokeWidth={2} strokeDasharray="4 2" />;
-                        })()}
-                    </g>
-                )}
-
-                {/* Pending Overlay Points */}
-                {editorMode === 'overlay' && pendingOverlayPoints.map((p, i) => {
-                    const c = projectCoords(p.pitch, p.yaw);
-                    return c ? (
-                        <g key={`pending-ov-${i}`}>
-                            <circle cx={c.x} cy={c.y} r={6} fill="white" stroke="#3b82f6" strokeWidth={2} />
-                            <text x={c.x} y={c.y} dy=".3em" textAnchor="middle" fill="#3b82f6" fontSize="8" fontWeight="bold">{i + 1}</text>
-                        </g>
-                    ) : null;
-                })}
+                {/* Pending landmark line */}
+                {pendingLandmarkAnchor && editorMode === "label" && mouseCoords && (() => {
+                    const p1 = projectCoords(pendingLandmarkAnchor.pitch, pendingLandmarkAnchor.yaw);
+                    const p2 = projectCoords(mouseCoords.pitch, mouseCoords.yaw);
+                    if (!p1 || !p2) return null;
+                    return <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#3b82f6" strokeWidth={2} strokeDasharray="4 2" />;
+                })()}
             </svg>
 
-            {/* Floating Labels Layer */}
-            {activeScene.floatingLabels?.map(label => {
-                const coords = projectCoords(label.pitch, label.yaw);
-                if (!coords) return null;
-                return (
-                    <div
-                        key={label.id}
-                        className={cn(
-                            "absolute px-3 py-1 rounded-full text-[10px] font-bold text-white shadow-lg pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 z-20",
-                            label.style === 'street' ? "bg-slate-900/80 border border-white/20 backdrop-blur-md" : "bg-brand-500"
-                        )}
-                        style={{ left: coords.x, top: coords.y }}
-                    >
-                        {label.text}
-                    </div>
-                );
-            })}
-        </>
+            {/* HOTSPOTS (draggable) */}
+            <div className="absolute inset-0 z-20 pointer-events-none">
+                {activeScene.hotspots.map((hs) => {
+                    const c = projectCoords(hs.pitch, hs.yaw);
+                    if (!c) return null;
+                    const selected = selectedElementId === hs.id;
+                    return (
+                        <div
+                            key={hs.id}
+                            className={cn(
+                                "absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2",
+                                selected && "ring-2 ring-indigo-500 rounded-full"
+                            )}
+                            style={{ left: c.x, top: c.y }}
+                            onPointerDown={(e) => onPointerDown(e, "hotspot", hs.id)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedElementId(hs.id);
+                            }}
+                            title="Arrastrá para mover"
+                        >
+                            <div className="w-9 h-9 rounded-full bg-indigo-600 border-2 border-white shadow-xl flex items-center justify-center text-white text-[11px] font-black">
+                                {hs.type === "scene" ? "→" : hs.type === "link" ? "🔗" : "i"}
+                            </div>
+
+                            {selected && (
+                                <button
+                                    className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteElement("hotspot", hs.id);
+                                    }}
+                                    title="Eliminar hotspot"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    );
+                })}
+
+                {/* LABELS (draggable) */}
+                {activeScene.floatingLabels?.map((lbl) => {
+                    const c = projectCoords(lbl.pitch, lbl.yaw);
+                    if (!c) return null;
+                    const selected = selectedElementId === lbl.id;
+                    return (
+                        <div
+                            key={lbl.id}
+                            className={cn(
+                                "absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2 px-3 py-1 rounded-full text-[11px] font-black shadow-xl",
+                                lbl.style === "street" ? "bg-slate-900/85 text-white border border-white/10" : "bg-emerald-500 text-white",
+                                selected && "ring-2 ring-indigo-500"
+                            )}
+                            style={{ left: c.x, top: c.y }}
+                            onPointerDown={(e) => onPointerDown(e, "label", lbl.id)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedElementId(lbl.id);
+                            }}
+                            title="Arrastrá para mover"
+                        >
+                            {lbl.text}
+
+                            {selected && (
+                                <button
+                                    className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteElement("label", lbl.id);
+                                    }}
+                                    title="Eliminar label"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    );
+                })}
+
+                {/* WORLD ANCHORS (draggable) */}
+                {activeScene.worldAnchors?.map((wa) => {
+                    const c = projectCoords(wa.pitch, wa.yaw);
+                    if (!c) return null;
+                    const selected = selectedElementId === wa.id;
+                    const scale = wa.style?.scale ?? 1;
+                    const opacity = wa.style?.opacity ?? 1;
+
+                    return (
+                        <div
+                            key={wa.id}
+                            className={cn(
+                                "absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2 flex flex-col items-center",
+                                selected && "z-50"
+                            )}
+                            style={{ left: c.x, top: c.y, opacity }}
+                            onPointerDown={(e) => onPointerDown(e, "worldAnchor", wa.id)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedElementId(wa.id);
+                            }}
+                            title="Arrastrá para mover"
+                        >
+                            {wa.style?.leaderLine && (
+                                <div
+                                    className="w-[2px] bg-white/50"
+                                    style={{ height: wa.style.leaderLineLength ?? 100, marginBottom: 8 }}
+                                />
+                            )}
+
+                            {wa.title && (
+                                <div className="mb-2 px-2 py-1 rounded-lg bg-black/60 border border-white/10 text-[10px] font-black text-white whitespace-nowrap">
+                                    {wa.title}
+                                </div>
+                            )}
+
+                            <div
+                                className={cn(
+                                    "shadow-2xl border-2 border-white/80",
+                                    wa.kind === "icon" ? "w-11 h-11 rounded-full" : "rounded-2xl"
+                                )}
+                                style={{
+                                    transform: `scale(${scale})`,
+                                    backgroundColor: wa.kind === "icon" ? wa.style?.bgColor ?? "#6366f1" : "rgba(15,23,42,0.7)",
+                                    padding: wa.kind === "icon" ? 10 : 10,
+                                    minWidth: wa.kind !== "icon" ? 120 : undefined,
+                                }}
+                            >
+                                {wa.kind === "icon" && <Anchor className="w-full h-full text-white" />}
+                                {wa.kind === "text" && (
+                                    <div
+                                        className="text-white text-[12px] font-bold"
+                                        style={{
+                                            color: wa.style?.textColor ?? "#fff",
+                                            fontSize: wa.style?.fontSize ?? 12,
+                                            fontWeight: wa.style?.fontWeight as any,
+                                        }}
+                                    >
+                                        {wa.text || "Texto"}
+                                    </div>
+                                )}
+                                {wa.kind === "image" && (wa.imageUrl || wa.src) && (
+                                    <img src={wa.imageUrl || wa.src} alt="" className="w-full h-full object-contain rounded-xl" />
+                                )}
+                            </div>
+
+                            {selected && (
+                                <button
+                                    className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteElement("worldAnchor", wa.id);
+                                    }}
+                                    title="Eliminar anchor"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
     );
 }
+
+/**
+ * =========================================================
+ * Main Component
+ * =========================================================
+ */
 
 export default function TourCreator({
     proyectoId,
@@ -450,180 +979,87 @@ export default function TourCreator({
     onSave,
     onDelete,
 }: TourCreatorProps) {
-    const [scenes, setScenes] = useState<Scene[]>(initialScenes);
-    const [activeSceneId, setActiveSceneId] = useState<string | null>(
-        initialScenes[0]?.id || null
-    );
-    const [uploads, setUploads] = useState<UploadProgress[]>([]);
-    const [isDragging, setIsDragging] = useState(false);
-    const [isPlacingHotspot, setIsPlacingHotspot] = useState(false);
-    const [editingTitle, setEditingTitle] = useState<string | null>(null);
-    const [editTitleValue, setEditTitleValue] = useState("");
-    const [isSaving, setIsSaving] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [pannellumLoaded, setPannellumLoaded] = useState(false);
-    const [viewerReady, setViewerReady] = useState(false);
-    const [hotspotMode, setHotspotMode] = useState<HotspotType>("info");
-    const [linkTargetScene, setLinkTargetScene] = useState<string>("");
-
-    // Start with "view" mode, can switch to 'hotspot', 'polygon', 'label', 'overlay'
-    const [editorMode, setEditorMode] = useState<'view' | 'hotspot' | 'polygon' | 'label' | 'overlay'>('view');
-
-    // Polygon Editor State
-    const [currentPolygonPoints, setCurrentPolygonPoints] = useState<PolygonPoint[]>([]);
-    const [polygonProperties, setPolygonProperties] = useState<{ hoverText: string, linkedUnitId: string }>({ hoverText: "", linkedUnitId: "" });
-
-    // Gallery Tabs
-    const [activeTab, setActiveTab] = useState<'raw' | 'rendered'>('raw');
-
-    // Mouse tracking for ghost hotspot & dragging
-    const [mouseCoords, setMouseCoords] = useState<{ pitch: number, yaw: number } | null>(null);
-    const [draggingHotspotId, setDraggingHotspotId] = useState<string | null>(null);
-    const [draggingLabelId, setDraggingLabelId] = useState<string | null>(null);
-    const [lastDragTime, setLastDragTime] = useState(0);
-    const [projectUnits, setProjectUnits] = useState<{ id: string, numero: string }[]>([]);
-    const [selectedUnitId, setSelectedUnitId] = useState<string>("");
-
-    // Landmark Placement State
-    const [pendingLandmarkAnchor, setPendingLandmarkAnchor] = useState<{ pitch: number, yaw: number } | null>(null);
-
-    // Overlay Alignment State
-    const [pendingOverlayPoints, setPendingOverlayPoints] = useState<{ pitch: number, yaw: number }[]>([]);
-
-    const [isUpscaling, setIsUpscaling] = useState(false);
-    const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-
     const viewerRef = useRef<HTMLDivElement>(null);
     const viewerInstance = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const activeScene = scenes.find((s) => s.id === activeSceneId) || null;
+    const [viewerReady, setViewerReady] = useState(false);
 
-    // Filter scenes by category (default to 'raw' if undefined for backward compatibility)
-    const filteredScenes = scenes.filter(s => (s.category || 'raw') === activeTab);
+    const [scenes, setScenes] = useState<Scene[]>([]);
+    const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
 
-    // ─── Upscale Handler ───
-    const handleUpscale = async (scene: Scene) => {
-        if (!scene.imageUrl) return;
+    const [uploads, setUploads] = useState<UploadProgress[]>([]);
+    const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
-        setIsUpscaling(true);
-        try {
-            // Validate image URL availability first
-            const checkRes = await fetch(scene.imageUrl, { method: "HEAD" });
-            if (!checkRes.ok) throw new Error("La imagen original no es accesible");
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
-            const enhancedImageSrc = await upscaleImageClientSide(scene.imageUrl, (msg) => {
-                console.log(msg);
-            });
+    const [isGalleryOpen, setIsGalleryOpen] = useState(false);
 
-            if (!enhancedImageSrc) throw new Error("Falló el procesamiento de la imagen");
+    const [editorMode, setEditorMode] = useState<
+        "view" | "hotspot" | "polygon" | "label" | "overlay" | "overlay2D" | "worldAnchor"
+    >("view");
 
-            // Create new scene for the rendered version
-            const newScene: Scene = {
-                ...scene,
-                id: `scene-${Date.now()}-ai`,
-                title: `${scene.title} (Mejorada)`,
-                imageUrl: enhancedImageSrc,
-                category: 'rendered',
-                isDefault: false,
-            };
+    const [hotspotMode, setHotspotMode] = useState<HotspotType>("info");
+    const [linkTargetScene, setLinkTargetScene] = useState<string>("");
 
-            setScenes((prev) => [...prev, newScene]);
-            setActiveTab('rendered'); // Switch to rendered tab to show result
+    const [projectUnits, setProjectUnits] = useState<{ id: string; numero: string }[]>([]);
+    const [selectedUnitId, setSelectedUnitId] = useState<string>("");
 
-            alert("¡Imagen mejorada con éxito! Se ha creado una copia en la galería de Renderizadas.");
-        } catch (error: any) {
-            console.error("Upscale failed", error);
-            alert(`Error al mejorar la imagen: ${error.message || "Verifica el formato o la conexión."}`);
-        } finally {
-            setIsUpscaling(false);
-        }
-    };
+    const [mouseCoords, setMouseCoords] = useState<{ pitch: number; yaw: number } | null>(null);
+    const [lastDragTime, setLastDragTime] = useState(0);
 
-    // ─── Initialize/reinitialize Pannellum viewer ───
+    // polygons
+    const [currentPolygonPoints, setCurrentPolygonPoints] = useState<PolygonPoint[]>([]);
+    const [polygonHoverText, setPolygonHoverText] = useState<string>("Lote Disponible");
+    const [polygonLinkedUnitId, setPolygonLinkedUnitId] = useState<string>("");
+
+    // masterplan overlay placement
+    const [pendingOverlayPoints, setPendingOverlayPoints] = useState<{ pitch: number; yaw: number }[]>([]);
+
+    // labels placement
+    const [pendingLandmarkAnchor, setPendingLandmarkAnchor] = useState<{ pitch: number; yaw: number } | null>(null);
+
+    // selection
+    const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+
+    // Overlay2D selection
+    const [selected2DId, setSelected2DId] = useState<string | null>(null);
+
+    const activeScene = useMemo(() => scenes.find((s) => s.id === activeSceneId) || null, [scenes, activeSceneId]);
+
+    /**
+     * =========================================================
+     * Hydration initialScenes
+     * =========================================================
+     */
     useEffect(() => {
-        if (!pannellumLoaded || !viewerRef.current || scenes.length === 0) return;
-
-        const sceneId = activeSceneId || scenes[0].id;
-        const scene = scenes.find((s) => s.id === sceneId);
-        if (!scene) return;
-
-        // Reuse instance if already exists
-        if (viewerInstance.current) {
-            try {
-                if (viewerInstance.current.getScene() !== sceneId) {
-                    viewerInstance.current.loadScene(sceneId);
-                }
-                return;
-            } catch (e) {
-                console.warn("Instance reuse failed, recreating...", e);
-                viewerInstance.current.destroy();
-                viewerInstance.current = null;
-            }
+        if (!initialScenes?.length) {
+            setScenes([]);
+            setActiveSceneId(null);
+            return;
         }
 
-        try {
-            // Build scenes config for Pannellum
-            const scenesConfig: any = {};
-            scenes.forEach((s) => {
-                scenesConfig[s.id] = {
-                    title: s.title,
-                    type: "equirectangular",
-                    panorama: s.imageUrl,
-                    hotSpots: s.hotspots
-                        .filter((h) => h.type !== "scene" || h.targetSceneId)
-                        .map((h) => ({
-                            pitch: h.pitch,
-                            yaw: h.yaw,
-                            type: h.type === "scene" ? "scene" : "info",
-                            text: h.text,
-                            sceneId: h.type === "scene" ? h.targetSceneId : undefined,
-                            cssClass: `hotspot-icon-${h.icon || "info"}`,
-                        })),
-                };
-            });
+        const hydrated = initialScenes.map((s) => ({
+            ...s,
+            hotspots: s.hotspots || [],
+            polygons: jsonParseSafe<TourPolygon[]>((s as any).polygons, []),
+            floatingLabels: jsonParseSafe<FloatingLabel[]>((s as any).floatingLabels, []),
+            masterplanOverlay: jsonParseSafe<MasterplanOverlay | undefined>((s as any).masterplanOverlay, undefined),
+            overlay2D: jsonParseSafe<Overlay2D[]>((s as any).overlay2D, []),
+            worldAnchors: jsonParseSafe<WorldAnchor[]>((s as any).worldAnchors, []),
+            category: (s.category?.toLowerCase() || "raw") as "raw" | "rendered",
+        }));
 
-            viewerInstance.current = window.pannellum.viewer(viewerRef.current, {
-                default: {
-                    firstScene: sceneId,
-                    sceneFadeDuration: 800,
-                    autoLoad: true,
-                    autoRotate: 0,
-                    showControls: false,
-                    compass: false,
-                },
-                scenes: scenesConfig,
-            });
+        setScenes(hydrated);
+        setActiveSceneId(hydrated.find((x) => x.isDefault)?.id || hydrated[0]?.id || null);
+    }, [initialScenes]);
 
-            viewerInstance.current.on("load", () => {
-                setViewerReady(true);
-            });
-
-            viewerInstance.current.on("scenechange", (newSceneId: string) => {
-                setActiveSceneId(newSceneId);
-            });
-        } catch (err) {
-            console.error("Pannellum init error:", err);
-        }
-
-        return () => {
-            // Only destroy if component unmounts
-        };
-    }, [pannellumLoaded]); // Re-init ONLY if JS library loads or for structural changes
-
-    // Global cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (viewerInstance.current) {
-                viewerInstance.current.destroy();
-                viewerInstance.current = null;
-            }
-        };
-    }, []);
-
-
-    // ─── Handle click on panorama to place hotspot ───
-    // ─── Fetch Units ───
+    /**
+     * =========================================================
+     * Fetch Units
+     * =========================================================
+     */
     useEffect(() => {
         const fetchUnits = async () => {
             try {
@@ -632,41 +1068,132 @@ export default function TourCreator({
                 if (res.success && res.data) {
                     setProjectUnits(res.data.map((u: any) => ({ id: u.id, numero: u.numero })));
                 }
-            } catch (error) {
-                console.error("Error fetching units:", error);
+            } catch (err) {
+                console.error("Error fetching units:", err);
             }
         };
-        fetchUnits();
+        if (proyectoId) fetchUnits();
     }, [proyectoId]);
 
-    // ─── Handle click on panorama to place objects ───
+    /**
+     * =========================================================
+     * PSV init / scene switch
+     * =========================================================
+     */
+    const hasScenes = scenes.length > 0;
+
+    // Create the viewer once when scenes become available
+    useEffect(() => {
+        if (!viewerRef.current || !hasScenes || viewerInstance.current) return;
+
+        const scene = scenes.find(s => s.id === activeSceneId) || scenes[0];
+
+        try {
+            const psv = new Viewer({
+                container: viewerRef.current,
+                panorama: scene.imageUrl,
+                defaultYaw: 0,
+                defaultPitch: 0,
+                defaultZoomLvl: 50,
+                minFov: 30,
+                maxFov: 110,
+                navbar: false,
+                plugins: [[MarkersPlugin, {}]],
+            });
+
+            viewerInstance.current = psv;
+            psv.addEventListener('ready', () => setViewerReady(true));
+        } catch (err) {
+            console.error("PSV init error:", err);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasScenes]);
+
+    // Switch panorama when active scene changes (viewer already exists)
+    useEffect(() => {
+        if (!viewerInstance.current || !viewerReady || !activeSceneId) return;
+        const scene = scenes.find(s => s.id === activeSceneId);
+        if (!scene) return;
+        try {
+            (viewerInstance.current as Viewer).setPanorama(scene.imageUrl);
+        } catch { }
+    }, [activeSceneId, viewerReady, scenes]);
+
+    useEffect(() => {
+        return () => {
+            try {
+                (viewerInstance.current as Viewer)?.destroy();
+            } catch { }
+            viewerInstance.current = null;
+        };
+    }, []);
+
+    /**
+     * =========================================================
+     * Viewer interactions
+     * =========================================================
+     */
+    const getPSVCoordsFromEvent = useCallback((e: React.MouseEvent): { pitch: number; yaw: number } | null => {
+        const psv = viewerInstance.current as Viewer | null;
+        if (!psv) return null;
+        try {
+            const rect = (psv.container as HTMLElement).getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const pos = psv.dataHelper.viewerCoordsToSphericalCoords({ x, y });
+            if (!pos) return null;
+            return {
+                pitch: pos.pitch * (180 / Math.PI),
+                yaw: pos.yaw * (180 / Math.PI),
+            };
+        } catch {
+            return null;
+        }
+    }, []);
+
+    const handleViewerMouseMove = useCallback(
+        (e: React.MouseEvent) => {
+            const coords = getPSVCoordsFromEvent(e);
+            if (!coords) return;
+            setMouseCoords(coords);
+        },
+        [getPSVCoordsFromEvent]
+    );
+
     const handleViewerClick = useCallback(
         (e: React.MouseEvent) => {
-            if (editorMode === 'view' || !viewerInstance.current || !activeSceneId) return;
+            if (!activeSceneId) return;
 
-            const viewer = viewerInstance.current;
-            const coords = viewer.mouseEventToCoords(e.nativeEvent);
+            // avoid click right after a drag
+            if (Date.now() - lastDragTime < 180) return;
+
+            if (editorMode === "view") return;
+
+            const coords = getPSVCoordsFromEvent(e);
             if (!coords) return;
+            const { pitch, yaw } = coords;
 
-            const [pitch, yaw] = coords;
-
-            if (editorMode === 'hotspot') {
+            // HOTSPOT
+            if (editorMode === "hotspot") {
                 if (!selectedUnitId) {
-                    alert("Por favor, selecciona una unidad antes de colocar el hotspot.");
+                    alert("Seleccioná una unidad antes de colocar el hotspot.");
                     return;
                 }
 
-                const targetScene = scenes.find(s => s.id === linkTargetScene);
-                const selectedUnit = projectUnits.find(u => u.id === selectedUnitId);
+                const targetScene = scenes.find((s) => s.id === linkTargetScene);
+                const selectedUnit = projectUnits.find((u) => u.id === selectedUnitId);
 
                 const newHotspot: Hotspot = {
-                    id: `hs-${Date.now()}`,
+                    id: uid("hs"),
                     type: hotspotMode,
                     pitch,
                     yaw,
-                    text: hotspotMode === "scene"
-                        ? (targetScene?.title || "Ir a escena")
-                        : (selectedUnit ? `Unidad ${selectedUnit.numero}` : "Punto de interés"),
+                    text:
+                        hotspotMode === "scene"
+                            ? targetScene?.title || "Ir a escena"
+                            : selectedUnit
+                                ? `Unidad ${selectedUnit.numero}`
+                                : "Punto",
                     unidadId: selectedUnitId,
                     targetSceneId: hotspotMode === "scene" ? linkTargetScene : undefined,
                     targetThumbnail: hotspotMode === "scene" ? targetScene?.imageUrl : undefined,
@@ -674,200 +1201,319 @@ export default function TourCreator({
                 };
 
                 setScenes((prev) =>
-                    prev.map((s) =>
-                        s.id === activeSceneId
-                            ? { ...s, hotspots: [...s.hotspots, newHotspot] }
-                            : s
-                    )
+                    prev.map((s) => (s.id === activeSceneId ? { ...s, hotspots: [...(s.hotspots || []), newHotspot] } : s))
                 );
-                // Don't exit mode, allow multiple placements? Or exit?
-                // setIsPlacingHotspot(false); 
-                // Currently keeping existing behavior of exiting placement
-                setEditorMode('view');
-            } else if (editorMode === 'polygon') {
-                // Add point to current polygon
-                setCurrentPolygonPoints(prev => [...prev, { pitch, yaw }]);
-            } else if (editorMode === 'label') {
-                if (!pendingLandmarkAnchor) {
-                    // Step 1: Place anchor
-                    setPendingLandmarkAnchor({ pitch, yaw });
-                } else {
-                    // Step 2: Place label and finish
-                    const text = prompt("Texto de la etiqueta:");
-                    if (text) {
-                        const newLabel: FloatingLabel = {
-                            id: `lbl-${Date.now()}`,
-                            pitch,
-                            yaw,
-                            text,
-                            style: 'landmark',
-                            anchorPitch: pendingLandmarkAnchor.pitch,
-                            anchorYaw: pendingLandmarkAnchor.yaw
-                        };
 
-                        setScenes((prev) =>
-                            prev.map((s) =>
-                                s.id === activeSceneId
-                                    ? { ...s, floatingLabels: [...(s.floatingLabels || []), newLabel] }
-                                    : s
-                            )
-                        );
-                    }
-                    setPendingLandmarkAnchor(null);
-                    setEditorMode('view');
+                setEditorMode("view");
+                return;
+            }
+
+            // POLYGON
+            if (editorMode === "polygon") {
+                setCurrentPolygonPoints((prev) => [...prev, { pitch, yaw }]);
+                return;
+            }
+
+            // LABEL
+            if (editorMode === "label") {
+                if (!pendingLandmarkAnchor) {
+                    setPendingLandmarkAnchor({ pitch, yaw });
+                    return;
                 }
-            } else if (editorMode === 'overlay') {
-                const nextPoints = [...pendingOverlayPoints, { pitch, yaw }];
-                if (nextPoints.length < 4) {
-                    setPendingOverlayPoints(nextPoints);
-                } else {
-                    const imageUrl = prompt("URL de la imagen del plano (PNG/JPG):");
-                    if (imageUrl) {
-                        const overlay: MasterplanOverlay = {
-                            imageUrl,
-                            points: nextPoints as [any, any, any, any],
-                            opacity: 0.6,
-                            isVisible: true
-                        };
-                        setScenes((prev) =>
-                            prev.map((s) =>
-                                s.id === activeSceneId
-                                    ? { ...s, masterplanOverlay: overlay }
-                                    : s
-                            )
-                        );
-                    }
-                    setPendingOverlayPoints([]);
-                    setEditorMode('view');
+
+                const text = prompt("Texto de la etiqueta:");
+                if (text && text.trim()) {
+                    const newLbl: FloatingLabel = {
+                        id: uid("lbl"),
+                        text: text.trim(),
+                        pitch: pendingLandmarkAnchor.pitch,
+                        yaw: pendingLandmarkAnchor.yaw,
+                        anchorPitch: pitch,
+                        anchorYaw: yaw,
+                        style: "landmark",
+                    };
+
+                    setScenes((prev) =>
+                        prev.map((s) =>
+                            s.id === activeSceneId ? { ...s, floatingLabels: [...(s.floatingLabels || []), newLbl] } : s
+                        )
+                    );
                 }
+
+                setPendingLandmarkAnchor(null);
+                setEditorMode("view");
+                return;
+            }
+
+            // MASTERPLAN overlay (4 points)
+            if (editorMode === "overlay") {
+                const next = [...pendingOverlayPoints, { pitch, yaw }];
+                if (next.length < 4) {
+                    setPendingOverlayPoints(next);
+                    return;
+                }
+                const imageUrl = prompt("URL de imagen del masterplan (PNG/JPG):");
+                if (imageUrl && imageUrl.trim()) {
+                    const overlay: MasterplanOverlay = {
+                        imageUrl: imageUrl.trim(),
+                        points: next,
+                        opacity: 0.6,
+                        isVisible: true,
+                    };
+                    setScenes((prev) => prev.map((s) => (s.id === activeSceneId ? { ...s, masterplanOverlay: overlay } : s)));
+                }
+                setPendingOverlayPoints([]);
+                setEditorMode("view");
+                return;
+            }
+
+            // WORLD ANCHOR (FIJAR)
+            if (editorMode === "worldAnchor") {
+                const title = prompt("Título del punto (ej: Escuela, Acceso, etc):") || "Punto";
+                const newWA: WorldAnchor = {
+                    id: uid("wa"),
+                    kind: "icon",
+                    pitch,
+                    yaw,
+                    title,
+                    style: {
+                        scale: 1,
+                        opacity: 1,
+                        bgColor: "#6366f1",
+                        leaderLine: true,
+                        leaderLineLength: 90,
+                        shadow: true,
+                        textColor: "#fff",
+                        fontSize: 12,
+                        fontWeight: "900",
+                        radius: 12,
+                    },
+                };
+
+                setScenes((prev) =>
+                    prev.map((s) => (s.id === activeSceneId ? { ...s, worldAnchors: [...(s.worldAnchors || []), newWA] } : s))
+                );
+                setEditorMode("view");
+                return;
             }
         },
-        [editorMode, activeSceneId, hotspotMode, linkTargetScene, pendingLandmarkAnchor, pendingOverlayPoints]
+        [
+            editorMode,
+            activeSceneId,
+            scenes,
+            hotspotMode,
+            linkTargetScene,
+            selectedUnitId,
+            projectUnits,
+            pendingLandmarkAnchor,
+            pendingOverlayPoints,
+            lastDragTime,
+            getPSVCoordsFromEvent,
+        ]
     );
 
-    const handleViewerMouseMove = useCallback((e: React.MouseEvent) => {
-        if (!viewerInstance.current) return;
-        const coords = viewerInstance.current.mouseEventToCoords(e.nativeEvent);
-        if (!coords) return;
-        const [pitch, yaw] = coords;
+    /**
+     * =========================================================
+     * Update / Delete overlay elements
+     * =========================================================
+     */
+    const updateScene = (sceneId: string, updater: (s: Scene) => Scene) => {
+        setScenes((prev) => prev.map((s) => (s.id === sceneId ? updater(s) : s)));
+    };
 
-        setMouseCoords({ pitch, yaw });
+    const onUpdateHotspotPos = (hotspotId: string, pitch: number, yaw: number) => {
+        if (!activeSceneId) return;
+        updateScene(activeSceneId, (s) => ({
+            ...s,
+            hotspots: (s.hotspots || []).map((h) => (h.id === hotspotId ? { ...h, pitch, yaw } : h)),
+        }));
+        setLastDragTime(Date.now());
+    };
 
-        if (draggingHotspotId && activeSceneId) {
-            setScenes(prev => prev.map(s =>
-                s.id === activeSceneId
-                    ? {
-                        ...s, hotspots: s.hotspots.map(h =>
-                            h.id === draggingHotspotId ? { ...h, pitch, yaw } : h
-                        )
-                    }
-                    : s
-            ));
-            setLastDragTime(Date.now());
+    const onUpdateLabelPos = (labelId: string, pitch: number, yaw: number) => {
+        if (!activeSceneId) return;
+        updateScene(activeSceneId, (s) => ({
+            ...s,
+            floatingLabels: (s.floatingLabels || []).map((l) => (l.id === labelId ? { ...l, pitch, yaw } : l)),
+        }));
+        setLastDragTime(Date.now());
+    };
+
+    const onUpdateWorldAnchorPos = (anchorId: string, pitch: number, yaw: number) => {
+        if (!activeSceneId) return;
+        updateScene(activeSceneId, (s) => ({
+            ...s,
+            worldAnchors: (s.worldAnchors || []).map((a) => (a.id === anchorId ? { ...a, pitch, yaw } : a)),
+        }));
+        setLastDragTime(Date.now());
+    };
+
+    const onDeleteElement = (kind: "hotspot" | "label" | "worldAnchor", id: string) => {
+        if (!activeSceneId) return;
+        if (kind === "hotspot") {
+            updateScene(activeSceneId, (s) => ({ ...s, hotspots: (s.hotspots || []).filter((h) => h.id !== id) }));
         }
-
-        if (draggingLabelId && activeSceneId) {
-            setScenes(prev => prev.map(s =>
-                s.id === activeSceneId
-                    ? {
-                        ...s, floatingLabels: s.floatingLabels?.map(l =>
-                            l.id === draggingLabelId ? { ...l, pitch, yaw } : l
-                        )
-                    }
-                    : s
-            ));
-            setLastDragTime(Date.now());
+        if (kind === "label") {
+            updateScene(activeSceneId, (s) => ({
+                ...s,
+                floatingLabels: (s.floatingLabels || []).filter((l) => l.id !== id),
+            }));
         }
-    }, [draggingHotspotId, draggingLabelId, activeSceneId]);
-
-    const handleGlobalMouseUp = useCallback(() => {
-        if (draggingHotspotId || draggingLabelId) {
-            setDraggingHotspotId(null);
-            setDraggingLabelId(null);
-            setLastDragTime(Date.now());
+        if (kind === "worldAnchor") {
+            updateScene(activeSceneId, (s) => ({
+                ...s,
+                worldAnchors: (s.worldAnchors || []).filter((a) => a.id !== id),
+            }));
         }
-    }, [draggingHotspotId, draggingLabelId]);
+        if (selectedElementId === id) setSelectedElementId(null);
+    };
 
-    // Helper to finish polygon
+    /**
+     * =========================================================
+     * Overlay2D controls
+     * =========================================================
+     */
+    const handleAddOverlay2D = (type: Overlay2D["type"]) => {
+        if (!activeSceneId) return;
+        const base: Overlay2D = {
+            id: uid("ov2d"),
+            type,
+            x: 120,
+            y: 120,
+            width: type === "text" ? 220 : 120,
+            height: type === "text" ? 80 : 120,
+            rotation: 0,
+            text: type === "text" ? "Nuevo texto" : undefined,
+            style: {
+                opacity: 1,
+                stroke: "rgba(255,255,255,0.25)",
+                strokeWidth: 2,
+                bgColor: type === "text" ? "rgba(15,23,42,0.65)" : "rgba(99,102,241,0.22)",
+                textColor: "#fff",
+                fontSize: 14,
+                fontWeight: "900",
+                radius: 14,
+                shadow: true,
+            },
+        };
+
+        updateScene(activeSceneId, (s) => ({ ...s, overlay2D: [...(s.overlay2D || []), base] }));
+        setSelected2DId(base.id);
+        setEditorMode("overlay2D");
+    };
+
+    const handleUpdateOverlay2D = (id: string, updates: Partial<Overlay2D>) => {
+        if (!activeSceneId) return;
+        updateScene(activeSceneId, (s) => ({
+            ...s,
+            overlay2D: (s.overlay2D || []).map((el) => (el.id === id ? { ...el, ...updates } : el)),
+        }));
+    };
+
+    const handleDeleteOverlay2D = (id: string) => {
+        if (!activeSceneId) return;
+        updateScene(activeSceneId, (s) => ({ ...s, overlay2D: (s.overlay2D || []).filter((el) => el.id !== id) }));
+        if (selected2DId === id) setSelected2DId(null);
+    };
+
+    /**
+     * =========================================================
+     * Polygons finish/undo/cancel
+     * =========================================================
+     */
     const finishPolygon = () => {
+        if (!activeSceneId) return;
         if (currentPolygonPoints.length < 3) {
             alert("Un polígono necesita al menos 3 puntos.");
             return;
         }
-        if (!activeSceneId) return;
-
-        const newPolygon: TourPolygon = {
-            id: `poly-${Date.now()}`,
+        const poly: TourPolygon = {
+            id: uid("poly"),
             points: [...currentPolygonPoints],
-            fillColor: "rgba(16, 185, 129, 0.4)", // Default green
-            strokeColor: "rgba(255, 255, 255, 0.8)",
-            hoverText: polygonProperties.hoverText || "Lote Disponible",
-            linkedUnitId: polygonProperties.linkedUnitId
+            fillColor: "rgba(16, 185, 129, 0.35)",
+            strokeColor: "rgba(255,255,255,0.85)",
+            hoverText: polygonHoverText || "Lote",
+            linkedUnitId: polygonLinkedUnitId || undefined,
         };
 
-        setScenes(prev => prev.map(s =>
-            s.id === activeSceneId
-                ? { ...s, polygons: [...(s.polygons || []), newPolygon] }
-                : s
-        ));
-
-        // Reset
+        updateScene(activeSceneId, (s) => ({ ...s, polygons: [...(s.polygons || []), poly] }));
         setCurrentPolygonPoints([]);
-        setPolygonProperties({ hoverText: "", linkedUnitId: "" });
-        setEditorMode('view');
+        setPolygonHoverText("Lote Disponible");
+        setPolygonLinkedUnitId("");
+        setEditorMode("view");
     };
 
-    // Helper to undo last point
-    const undoPolygonPoint = () => {
-        setCurrentPolygonPoints(prev => prev.slice(0, -1));
-    };
-
-    // Cancel polygon
+    const undoPolygonPoint = () => setCurrentPolygonPoints((prev) => prev.slice(0, -1));
     const cancelPolygon = () => {
         setCurrentPolygonPoints([]);
-        setEditorMode('view');
+        setEditorMode("view");
     };
 
+    /**
+     * =========================================================
+     * Upload with progress (projectId required)
+     * =========================================================
+     */
+    const MAX_UPLOAD_MB = parseInt(process.env.NEXT_PUBLIC_TOUR360_MAX_UPLOAD_MB || "80", 10);
+    const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
-    // ─── File upload ───
-    const uploadFile = async (file: File): Promise<{ url: string; filename: string } | null> => {
-        const id = `upload-${Date.now()}-${Math.random()}`;
-        setUploads((prev) => [
-            ...prev,
-            { id, filename: file.name, progress: 0, status: "uploading" },
-        ]);
-
-        try {
-            const formData = new FormData();
-            formData.append("file", file);
-
-            const res = await fetch("/api/upload/360", {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!res.ok) throw new Error("Upload failed");
-
-            const data = await res.json();
-            setUploads((prev) =>
-                prev.map((u) => (u.id === id ? { ...u, status: "done", progress: 100, url: data.url } : u))
-            );
-            return { url: data.url, filename: file.name };
-        } catch (err) {
-            setUploads((prev) =>
-                prev.map((u) => (u.id === id ? { ...u, status: "error", progress: 0 } : u))
-            );
+    const uploadFileWithProgress = async (file: File): Promise<{ url: string; filename: string; imageVariants?: any } | null> => {
+        if (file.size > MAX_UPLOAD_BYTES) {
+            alert(`"${file.name}" excede el límite de ${MAX_UPLOAD_MB}MB`);
             return null;
         }
+
+        const id = uid("upload");
+        setUploads((prev) => [...prev, { id, filename: file.name, progress: 0, status: "uploading" }]);
+
+        return new Promise((resolve) => {
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("projectId", proyectoId); // ✅ requerido por backend
+
+            xhr.upload.addEventListener("progress", (e) => {
+                if (!e.lengthComputable) return;
+                const pct = Math.round((e.loaded / e.total) * 100);
+                setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, progress: pct } : u)));
+                if (pct >= 100) setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, status: "processing" } : u)));
+            });
+
+            xhr.addEventListener("load", () => {
+                try {
+                    const data = JSON.parse(xhr.responseText || "{}");
+                    if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+                        setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, status: "done", progress: 100, url: data.url } : u)));
+                        resolve({ url: data.url, filename: file.name, imageVariants: data.imageVariants });
+                    } else {
+                        setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, status: "error", progress: 0 } : u)));
+                        alert(`Error subiendo "${file.name}": ${data.error || `HTTP ${xhr.status}`}`);
+                        resolve(null);
+                    }
+                } catch {
+                    setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, status: "error", progress: 0 } : u)));
+                    alert(`Error inesperado subiendo "${file.name}"`);
+                    resolve(null);
+                }
+            });
+
+            xhr.addEventListener("error", () => {
+                setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, status: "error", progress: 0 } : u)));
+                alert(`Error de red subiendo "${file.name}"`);
+                resolve(null);
+            });
+
+            xhr.open("POST", "/api/upload/360");
+            xhr.send(formData);
+        });
     };
 
-    // ─── 2:1 Equirectangular Validation ───
     const validateEquirectangular = (file: File): Promise<{ valid: boolean; width: number; height: number; ratio: number }> => {
         return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
                 const ratio = img.width / img.height;
-                const valid = Math.abs(ratio - 2) < 0.2; // 10% tolerance for 2:1
+                const valid = Math.abs(ratio - 2) < 0.2;
                 resolve({ valid, width: img.width, height: img.height, ratio });
                 URL.revokeObjectURL(img.src);
             };
@@ -880,125 +1526,81 @@ export default function TourCreator({
     };
 
     const handleFilesSelected = async (files: FileList | File[]) => {
-        const fileArray = Array.from(files);
-        const validFiles = fileArray.filter((f) =>
-            f.type.startsWith("image/") || f.type === "application/pdf"
-        );
+        const arr = Array.from(files);
+        const valid = arr.filter((f) => f.type.startsWith("image/"));
 
-        if (validFiles.length === 0) return;
+        if (!valid.length) return;
 
-        // Validate 2:1 aspect ratio for equirectangular panoramas
-        const validatedFiles: File[] = [];
-        for (const file of validFiles) {
-            if (file.type.startsWith("image/")) {
-                const result = await validateEquirectangular(file);
-                if (!result.valid) {
-                    const proceed = confirm(
-                        `⚠️ "${file.name}" no tiene proporción 2:1 (equirectangular).\n\n` +
-                        `Resolución: ${result.width}×${result.height} (ratio ${result.ratio.toFixed(2)}:1)\n` +
-                        `Se recomienda una imagen con proporción 2:1 para una experiencia 360° óptima.\n\n` +
-                        `¿Desea continuar de todas formas?`
-                    );
-                    if (!proceed) continue;
-                }
+        const okFiles: File[] = [];
+        for (const f of valid) {
+            const res = await validateEquirectangular(f);
+            if (!res.valid) {
+                const proceed = confirm(
+                    `⚠️ "${f.name}" no es 2:1 equirectangular.\n\n` +
+                    `Resolución: ${res.width}×${res.height} (ratio ${res.ratio.toFixed(2)}:1)\n\n` +
+                    `¿Continuar igual?`
+                );
+                if (!proceed) continue;
             }
-            validatedFiles.push(file);
+            okFiles.push(f);
         }
+        if (!okFiles.length) return;
 
-        if (validatedFiles.length === 0) return;
+        const results = await Promise.all(okFiles.map(uploadFileWithProgress));
 
-        // Upload all validated files
-        const results = await Promise.all(validatedFiles.map(uploadFile));
-
-        // Create scenes from successful uploads
         const newScenes: Scene[] = results
-            .filter((r): r is { url: string; filename: string } => r !== null)
+            .filter((r): r is { url: string; filename: string; imageVariants?: any } => Boolean(r))
             .map((r, i) => ({
-                id: `scene-${Date.now()}-${i}`,
-                title: r.filename
-                    .replace(/\.[^/.]+$/, "")
-                    .replace(/[-_]/g, " ")
-                    .replace(/^\w/, (c) => c.toUpperCase()),
+                id: uid(`scene${i}`),
+                title: r.filename.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ").replace(/^\w/, (c) => c.toUpperCase()),
                 imageUrl: r.url,
                 hotspots: [],
+                polygons: [],
+                floatingLabels: [],
+                overlay2D: [],
+                worldAnchors: [],
+                masterplanOverlay: undefined,
                 isDefault: scenes.length === 0 && i === 0,
                 order: scenes.length + i,
-                category: activeTab, // Assign current tab category
+                category: "raw",
+                imageVariants: r.imageVariants || {},
             }));
 
-        if (newScenes.length > 0) {
+        if (newScenes.length) {
             setScenes((prev) => [...prev, ...newScenes]);
-            if (!activeSceneId) {
-                setActiveSceneId(newScenes[0].id);
-            }
+            if (!activeSceneId) setActiveSceneId(newScenes[0].id);
         }
 
-        // Clear completed uploads after a delay
         setTimeout(() => {
             setUploads((prev) => prev.filter((u) => u.status !== "done"));
-        }, 2000);
+        }, 1500);
     };
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
-        setIsDragging(false);
+        setIsDraggingFiles(false);
         handleFilesSelected(e.dataTransfer.files);
     };
 
-    // ─── Scene management ───
-    // ─── Scene management ───
-    const deleteScene = (sceneId: string) => {
-        setScenes((prev) => prev.filter((s) => s.id !== sceneId));
-        if (activeSceneId === sceneId) {
-            const remaining = scenes.filter((s) => s.id !== sceneId);
-            setActiveSceneId(remaining[0]?.id || null);
-        }
-    };
-
-    const startEditingTitle = (scene: Scene) => {
-        setEditingTitle(scene.id);
-        setEditTitleValue(scene.title);
-    };
-
-    const saveSceneTitle = () => {
-        if (editingTitle && editTitleValue.trim()) {
-            setScenes((prev) =>
-                prev.map((s) =>
-                    s.id === editingTitle ? { ...s, title: editTitleValue.trim() } : s
-                )
-            );
-        }
-        setEditingTitle(null);
-    };
-
-    const removeHotspot = (sceneId: string, hotspotId: string) => {
-        setScenes((prev) =>
-            prev.map((s) =>
-                s.id === sceneId
-                    ? { ...s, hotspots: s.hotspots.filter((h) => h.id !== hotspotId) }
-                    : s
-            )
-        );
-    };
-
-    const updateHotspot = (sceneId: string, hotspotId: string, updates: Partial<Hotspot>) => {
-        setScenes((prev) =>
-            prev.map((s) =>
-                s.id === sceneId
-                    ? {
-                        ...s,
-                        hotspots: s.hotspots.map((h) =>
-                            h.id === hotspotId ? { ...h, ...updates } : h
-                        ),
-                    }
-                    : s
-            )
-        );
-    };
-
-    // ─── Save tour ───
+    /**
+     * =========================================================
+     * Save / Delete
+     * =========================================================
+     */
     const handleSave = async () => {
-        if (scenes.length === 0) return;
+        if (!scenes.length) return;
+
+        // ✅ Validate UNIT hotspots have unidadId
+        for (const s of scenes) {
+            for (const h of s.hotspots || []) {
+                const norm = normalizeHotspotType(h.type);
+                if (norm === "UNIT" && (!h.unidadId || h.unidadId === "demo-unidad")) {
+                    alert(`Error en escena "${s.title}": hotspot "${h.text || h.id}" requiere unidad válida.`);
+                    return;
+                }
+            }
+        }
+
         setIsSaving(true);
         try {
             const { upsertTour } = await import("@/lib/actions/tours");
@@ -1006,43 +1608,47 @@ export default function TourCreator({
             const payload = {
                 id: tourId,
                 proyectoId,
-                nombre: "Tour 360 - " + new Date().toLocaleDateString(),
+                nombre: `Tour 360 - ${new Date().toLocaleDateString()}`,
                 scenes: scenes.map((s, idx) => ({
-                    id: s.id.startsWith("scene-") ? undefined : s.id,
+                    id: s.id.startsWith("scene-") || s.id.startsWith("scene") ? undefined : s.id,
                     title: s.title,
                     imageUrl: s.imageUrl,
-                    isDefault: s.isDefault || (idx === 0 && !scenes.some(sc => sc.isDefault)),
+                    isDefault: s.isDefault || (idx === 0 && !scenes.some((x) => x.isDefault)),
                     order: idx,
                     category: (s.category || "raw").toUpperCase(),
-                    hotspots: s.hotspots.map(h => ({
-                        unidadId: (h as any).unidadId || "demo-unidad", // TODO: Wire actual unit picker
-                        type: h.type.toUpperCase(),
+                    hotspots: (s.hotspots || []).map((h) => ({
+                        unidadId: h.unidadId,
+                        type: normalizeHotspotType(h.type),
                         pitch: h.pitch,
                         yaw: h.yaw,
                         text: h.text,
-                        targetSceneId: h.targetSceneId
-                    }))
-                }))
+                        targetSceneId: h.targetSceneId ?? null,
+                    })),
+                    polygons: s.polygons || [],
+                    floatingLabels: s.floatingLabels || [],
+                    masterplanOverlay: s.masterplanOverlay || {},
+                    imageVariants: s.imageVariants || {},
+                    overlay2D: s.overlay2D || [],
+                    worldAnchors: s.worldAnchors || [],
+                })),
             };
 
             const res = await upsertTour(payload);
-            if (res.success) {
-                alert("Tour guardado con éxito.");
-                onSave(scenes);
-            } else {
-                throw new Error(res.error);
-            }
-        } catch (error: any) {
-            console.error("Save error:", error);
-            alert(`Error al guardar: ${error.message}`);
+            if (!res.success) throw new Error(res.error || "Error al guardar");
+
+            alert("Tour guardado con éxito.");
+            onSave(scenes);
+        } catch (err: any) {
+            console.error("Save error:", err);
+            alert(`Error al guardar: ${err?.message || "Error"}`);
         } finally {
             setIsSaving(false);
         }
     };
 
-    // ─── Delete tour ───
     const handleDeleteTour = async () => {
-        if (!onDelete || !confirm("¿Estás seguro de que quieres eliminar este tour completo? Esta acción no se puede deshacer.")) return;
+        if (!onDelete) return;
+        if (!confirm("¿Eliminar este tour completo? No se puede deshacer.")) return;
 
         setIsDeleting(true);
         try {
@@ -1052,235 +1658,301 @@ export default function TourCreator({
         }
     };
 
+    /**
+     * =========================================================
+     * UI helpers
+     * =========================================================
+     */
+    const deleteScene = (sceneId: string) => {
+        setScenes((prev) => prev.filter((s) => s.id !== sceneId));
+        if (activeSceneId === sceneId) {
+            const rem = scenes.filter((s) => s.id !== sceneId);
+            setActiveSceneId(rem[0]?.id || null);
+        }
+    };
+
+    const resetView = () => {
+        try {
+            (viewerInstance.current as Viewer)?.rotate({ yaw: 0, pitch: 0 });
+            (viewerInstance.current as Viewer)?.zoom(50);
+        } catch { }
+    };
+
+    /**
+     * =========================================================
+     * Render
+     * =========================================================
+     */
     return (
-        <div className="flex flex-col h-[calc(100vh-100px)] gap-4">
-            {/* Pannellum Scripts */}
-            <Script
-                src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"
-                strategy="afterInteractive"
-                onLoad={() => setPannellumLoaded(true)}
-            />
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
+        <div className="flex flex-col h-[calc(100vh-90px)] gap-4">
 
-            {/* ─── Gallery Modal / View ─── */}
-            <AnimatePresence>
-                {/* Gallery Mode implementation could go here as an overlay or separate view */}
-            </AnimatePresence>
-
-            {/* Main editor layout */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 min-h-0">
-                {/* ─── Left: Viewer ─── */}
-                <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/50 min-h-[400px]">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 min-h-0">
+                {/* LEFT VIEWER */}
+                <div className="relative bg-slate-950 rounded-3xl overflow-hidden border border-white/10 min-h-[520px] shadow-2xl">
                     {scenes.length > 0 ? (
                         <>
                             <div
                                 ref={viewerRef}
-                                className={cn(
-                                    "w-full h-full",
-                                    (editorMode !== 'view' || draggingHotspotId || draggingLabelId) && "cursor-crosshair"
-                                )}
-                                onClick={(e) => {
-                                    // Prevent click if recently finished a drag
-                                    if (Date.now() - lastDragTime < 200) return;
-                                    handleViewerClick(e);
-                                }}
+                                className={cn("w-full h-full", editorMode !== "view" && "cursor-crosshair")}
                                 onMouseMove={handleViewerMouseMove}
-                                onMouseUp={handleGlobalMouseUp}
                                 onMouseLeave={() => setMouseCoords(null)}
+                                onClick={handleViewerClick}
                             />
 
+                            {/* overlays */}
                             <PanoramicOverlay
                                 viewer={viewerInstance.current}
                                 viewerRef={viewerRef}
                                 activeScene={activeScene}
                                 editorMode={editorMode}
                                 mouseCoords={mouseCoords}
-                                draggingHotspotId={draggingHotspotId}
-                                setDraggingHotspotId={setDraggingHotspotId}
-                                draggingLabelId={draggingLabelId}
-                                setDraggingLabelId={setDraggingLabelId}
-                                pendingLandmarkAnchor={pendingLandmarkAnchor}
-                                pendingOverlayPoints={pendingOverlayPoints}
                                 currentPolygonPoints={currentPolygonPoints}
+                                pendingOverlayPoints={pendingOverlayPoints}
+                                pendingLandmarkAnchor={pendingLandmarkAnchor}
                                 viewerReady={viewerReady}
+                                selectedElementId={selectedElementId}
+                                setSelectedElementId={setSelectedElementId}
+                                onUpdateHotspotPos={onUpdateHotspotPos}
+                                onUpdateLabelPos={onUpdateLabelPos}
+                                onUpdateWorldAnchorPos={onUpdateWorldAnchorPos}
+                                onDeleteElement={onDeleteElement}
                             />
 
-                            {/* Editor Mode Indicator & Controls */}
+                            {/* 2D overlay layer */}
+                            {activeScene && (
+                                <Overlay2DLayer
+                                    elements={activeScene.overlay2D || []}
+                                    selectedId={selected2DId}
+                                    onSelect={setSelected2DId}
+                                    onUpdate={handleUpdateOverlay2D}
+                                    onDelete={handleDeleteOverlay2D}
+                                    viewer={viewerInstance.current}
+                                />
+                            )}
+
+                            {/* TOP MODE BAR */}
                             <AnimatePresence>
-                                {editorMode !== 'view' && (
+                                {editorMode !== "view" && (
                                     <motion.div
-                                        initial={{ y: -20, opacity: 0 }}
+                                        initial={{ y: -10, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
-                                        exit={{ y: -20, opacity: 0 }}
-                                        className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-700 text-white px-4 py-3 rounded-xl shadow-xl flex flex-col items-center gap-3 min-w-[300px]"
+                                        exit={{ y: -10, opacity: 0 }}
+                                        className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-black/70 backdrop-blur-xl border border-white/10 text-white px-5 py-3 rounded-2xl shadow-2xl min-w-[320px]"
                                     >
-                                        <div className="flex items-center gap-2 text-sm font-semibold text-brand-400">
-                                            {editorMode === 'hotspot' && <><MapPin className="w-4 h-4" /> Colocando Hotspot</>}
-                                            {editorMode === 'polygon' && <><Grid3x3 className="w-4 h-4" /> Dibujando Polígono ({currentPolygonPoints.length} ptos)</>}
-                                            {editorMode === 'label' && <><Pencil className="w-4 h-4" /> Colocando Etiqueta</>}
-                                            {editorMode === 'overlay' && <><ImageIcon className="w-4 h-4" /> Ajustando Plano ({pendingOverlayPoints.length}/4 ptos)</>}
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="text-xs font-black uppercase tracking-widest text-indigo-300">
+                                                {editorMode === "hotspot" && "Modo: Hotspot"}
+                                                {editorMode === "polygon" && `Modo: Polígono (${currentPolygonPoints.length})`}
+                                                {editorMode === "label" && "Modo: Etiqueta"}
+                                                {editorMode === "overlay" && `Modo: Plano (${pendingOverlayPoints.length}/4)`}
+                                                {editorMode === "overlay2D" && "Modo: Overlay 2D"}
+                                                {editorMode === "worldAnchor" && "Modo: FIJAR (World Anchor)"}
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    if (editorMode === "polygon") cancelPolygon();
+                                                    setPendingLandmarkAnchor(null);
+                                                    setPendingOverlayPoints([]);
+                                                    setEditorMode("view");
+                                                }}
+                                                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center"
+                                                title="Salir del modo"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
                                         </div>
 
-                                        <div className="text-xs text-slate-400 text-center">
-                                            {editorMode === 'label' && !pendingLandmarkAnchor && "Hacé clic en el punto exacto de interés (el piso o un objeto)."}
-                                            {editorMode === 'label' && pendingLandmarkAnchor && "Hacé clic donde querés que flote la etiqueta de texto."}
-                                            {editorMode === 'overlay' && "Hacé clic en las 4 esquinas del terreno donde irá el plano."}
-                                            {editorMode !== 'label' && editorMode !== 'overlay' && `Hacé clic en la imagen para ${editorMode === 'polygon' ? 'agregar un punto' : 'colocar el elemento'}.`}
+                                        <div className="mt-2 text-[11px] text-white/70">
+                                            {editorMode === "hotspot" && "Click en el panorama para colocar. (Requiere unidad seleccionada)."}
+                                            {editorMode === "polygon" && "Click para sumar puntos. Terminar cuando tengas 3+."}
+                                            {editorMode === "label" && (!pendingLandmarkAnchor ? "Click en el punto base." : "Click donde flota el texto.")}
+                                            {editorMode === "overlay" && "Marcá 4 esquinas del terreno."}
+                                            {editorMode === "overlay2D" && "Agregá elementos con la barra inferior (tipo Canva)."}
+                                            {editorMode === "worldAnchor" && "Click en el panorama para FIJAR un punto 3D."}
                                         </div>
 
-                                        {editorMode === 'polygon' && (
-                                            <div className="flex flex-col gap-2 w-full">
+                                        {editorMode === "polygon" && (
+                                            <div className="mt-3 flex flex-col gap-2">
                                                 <input
-                                                    type="text"
-                                                    placeholder="Lote N° / Texto"
-                                                    value={polygonProperties.hoverText}
-                                                    onChange={e => setPolygonProperties(prev => ({ ...prev, hoverText: e.target.value }))}
-                                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-brand-500"
+                                                    value={polygonHoverText}
+                                                    onChange={(e) => setPolygonHoverText(e.target.value)}
+                                                    placeholder="Texto (ej: Lote 45)"
+                                                    className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
                                                 />
-                                                <div className="flex gap-2 w-full">
-                                                    <button onClick={undoPolygonPoint} disabled={currentPolygonPoints.length === 0} className="flex-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs">Deshacer</button>
-                                                    <button onClick={finishPolygon} disabled={currentPolygonPoints.length < 3} className="flex-1 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 rounded text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed">Terminar</button>
+                                                <select
+                                                    value={polygonLinkedUnitId}
+                                                    onChange={(e) => setPolygonLinkedUnitId(e.target.value)}
+                                                    className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+                                                >
+                                                    <option value="">(Opcional) Vincular a unidad...</option>
+                                                    {projectUnits.map((u) => (
+                                                        <option key={u.id} value={u.id}>
+                                                            Unidad {u.numero}
+                                                        </option>
+                                                    ))}
+                                                </select>
+
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={undoPolygonPoint}
+                                                        disabled={currentPolygonPoints.length === 0}
+                                                        className="flex-1 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-black disabled:opacity-40"
+                                                    >
+                                                        Deshacer
+                                                    </button>
+                                                    <button
+                                                        onClick={finishPolygon}
+                                                        disabled={currentPolygonPoints.length < 3}
+                                                        className="flex-1 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-black disabled:opacity-40"
+                                                    >
+                                                        Terminar
+                                                    </button>
                                                 </div>
                                             </div>
                                         )}
-
-                                        <button
-                                            onClick={() => {
-                                                if (editorMode === 'polygon') cancelPolygon();
-                                                else setEditorMode('view');
-                                            }}
-                                            className="absolute -top-2 -right-2 p-1 bg-slate-800 rounded-full border border-slate-600 hover:bg-slate-700"
-                                        >
-                                            <X className="w-3.5 h-3.5" />
-                                        </button>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
 
-                            {/* Editor Toolbar (Bottom Left - Floating Stick) */}
-                            <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3">
-                                <div className="bg-black/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-2 flex flex-col gap-2 shadow-2xl">
+                            {/* LEFT TOOLBAR */}
+                            <div className="absolute left-5 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3">
+                                <div className="bg-black/55 backdrop-blur-2xl rounded-3xl border border-white/10 p-2 shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
                                     <button
-                                        onClick={() => setEditorMode(editorMode === 'label' ? 'view' : 'label')}
-                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'label' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Ubicación"
+                                        onClick={() => setEditorMode(editorMode === "label" ? "view" : "label")}
+                                        className={cn(
+                                            "p-3 rounded-2xl transition-all flex items-center justify-center",
+                                            editorMode === "label" ? "bg-indigo-600 text-white" : "text-white/70 hover:bg-white/10"
+                                        )}
+                                        title="Etiqueta"
                                     >
-                                        <MapPin className="w-6 h-6" />
+                                        <MapPin className="w-5 h-5" />
                                     </button>
+
                                     <button
-                                        onClick={() => setEditorMode(editorMode === 'polygon' ? 'view' : 'polygon')}
-                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'polygon' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Dibujar Polígono"
+                                        onClick={() => setEditorMode(editorMode === "polygon" ? "view" : "polygon")}
+                                        className={cn(
+                                            "p-3 rounded-2xl transition-all flex items-center justify-center mt-2",
+                                            editorMode === "polygon" ? "bg-indigo-600 text-white" : "text-white/70 hover:bg-white/10"
+                                        )}
+                                        title="Polígono"
                                     >
-                                        <Grid3x3 className="w-6 h-6" />
+                                        <Grid3x3 className="w-5 h-5" />
                                     </button>
+
                                     <button
-                                        onClick={() => setEditorMode(editorMode === 'hotspot' ? 'view' : 'hotspot')}
-                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'hotspot' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Editar"
+                                        onClick={() => setEditorMode(editorMode === "hotspot" ? "view" : "hotspot")}
+                                        className={cn(
+                                            "p-3 rounded-2xl transition-all flex items-center justify-center mt-2",
+                                            editorMode === "hotspot" ? "bg-indigo-600 text-white" : "text-white/70 hover:bg-white/10"
+                                        )}
+                                        title="Hotspot"
                                     >
-                                        <Pencil className="w-6 h-6" />
+                                        <Plus className="w-5 h-5" />
                                     </button>
+
                                     <button
-                                        onClick={() => setEditorMode(editorMode === 'overlay' ? 'view' : 'overlay')}
-                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'overlay' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Galería"
+                                        onClick={() => setEditorMode(editorMode === "overlay" ? "view" : "overlay")}
+                                        className={cn(
+                                            "p-3 rounded-2xl transition-all flex items-center justify-center mt-2",
+                                            editorMode === "overlay" ? "bg-indigo-600 text-white" : "text-white/70 hover:bg-white/10"
+                                        )}
+                                        title="Plano (overlay)"
                                     >
-                                        <ImageIcon className="w-6 h-6" />
+                                        <ImageIcon className="w-5 h-5" />
+                                    </button>
+
+                                    <button
+                                        onClick={() => setEditorMode(editorMode === "worldAnchor" ? "view" : "worldAnchor")}
+                                        className={cn(
+                                            "p-3 rounded-2xl transition-all flex items-center justify-center mt-2",
+                                            editorMode === "worldAnchor" ? "bg-emerald-600 text-white" : "text-white/70 hover:bg-white/10"
+                                        )}
+                                        title="FIJAR (World Anchor)"
+                                    >
+                                        <Anchor className="w-5 h-5" />
+                                    </button>
+
+                                    <div className="h-px bg-white/10 my-2" />
+
+                                    <button
+                                        onClick={resetView}
+                                        className="p-3 rounded-2xl text-white/70 hover:bg-white/10 transition-all flex items-center justify-center"
+                                        title="Reiniciar vista"
+                                    >
+                                        <RotateCcw className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Viewer controls - Floating Pill */}
-                            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4 bg-black/40 backdrop-blur-xl px-6 py-4 rounded-[1.5rem] border border-white/10 shadow-2xl min-w-[300px]">
-                                <button
-                                    onClick={() => viewerInstance.current?.isAutoRotating()
-                                        ? viewerInstance.current?.stopAutoRotate()
-                                        : viewerInstance.current?.startAutoRotate(2)
-                                    }
-                                    className="p-3 bg-white/5 hover:bg-white/20 rounded-xl text-white transition-all shadow-inner"
-                                    title="Auto-rotar"
-                                >
-                                    <RotateCcw className="w-6 h-6" />
-                                </button>
+                            {/* BOTTOM BAR */}
+                            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-black/60 backdrop-blur-2xl px-4 py-3 rounded-2xl border border-white/10 shadow-2xl">
+                                {/* Overlay2D quick add */}
+                                <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl">
+                                    <button
+                                        onClick={() => handleAddOverlay2D("text")}
+                                        className="p-2 rounded-lg hover:bg-white/10 text-white"
+                                        title="Texto 2D"
+                                    >
+                                        <Type className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleAddOverlay2D("rect")}
+                                        className="p-2 rounded-lg hover:bg-white/10 text-white"
+                                        title="Rectángulo 2D"
+                                    >
+                                        <Square className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleAddOverlay2D("circle")}
+                                        className="p-2 rounded-lg hover:bg-white/10 text-white"
+                                        title="Círculo 2D"
+                                    >
+                                        <CircleIcon className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleAddOverlay2D("arrow")}
+                                        className="p-2 rounded-lg hover:bg-white/10 text-white"
+                                        title="Flecha 2D"
+                                    >
+                                        <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                </div>
 
-                                <span className="text-sm font-bold text-white tracking-wide truncate flex-1 text-center">
+                                <div className="h-6 w-px bg-white/15" />
+
+                                <div className="text-white text-sm font-black max-w-[260px] truncate text-center">
                                     {activeScene?.title || "Sin escena"}
-                                </span>
+                                </div>
+
+                                <div className="h-6 w-px bg-white/15" />
 
                                 <button
-                                    onClick={() => viewerInstance.current?.toggleFullscreen()}
-                                    className="p-3 bg-white/5 hover:bg-white/20 rounded-xl text-white transition-all shadow-inner"
-                                    title="Pantalla completa"
+                                    onClick={() => viewerInstance.current?.toggleFullscreen?.()}
+                                    className="p-2.5 bg-white/10 hover:bg-white/15 rounded-xl text-white transition-all"
+                                    title="Fullscreen"
                                 >
-                                    <Maximize2 className="w-6 h-6" />
+                                    <Maximize2 className="w-5 h-5" />
                                 </button>
                             </div>
-
-                            {/* Upscaling Overlay */}
-                            <AnimatePresence>
-                                {isUpscaling && (
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center"
-                                    >
-                                        <div className="bg-slate-900 border border-slate-700 p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center">
-                                            <div className="relative w-20 h-20 mx-auto mb-6">
-                                                <div className="absolute inset-0 rounded-full border-4 border-slate-700"></div>
-                                                <div className="absolute inset-0 rounded-full border-4 border-brand-500 border-t-transparent animate-spin"></div>
-                                                <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-brand-400 animate-pulse" />
-                                            </div>
-                                            <h3 className="text-xl font-bold text-white mb-2">Mejorando Imagen con IA</h3>
-                                            <p className="text-slate-400 text-sm mb-6">
-                                                Esto puede tomar unos momentos. Estamos aumentando la resolución y reduciendo el ruido.
-                                            </p>
-                                            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                                                <motion.div
-                                                    className="h-full bg-gradient-to-r from-brand-500 to-indigo-500"
-                                                    initial={{ width: "0%" }}
-                                                    animate={{ width: "100%" }}
-                                                    transition={{ duration: 15, repeat: Infinity }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
                         </>
                     ) : (
-                        /* Empty state: drag & drop zone */
                         <div
-                            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                            onDragLeave={() => setIsDragging(false)}
+                            onDragOver={(e) => {
+                                e.preventDefault();
+                                setIsDraggingFiles(true);
+                            }}
+                            onDragLeave={() => setIsDraggingFiles(false)}
                             onDrop={handleDrop}
                             onClick={() => fileInputRef.current?.click()}
                             className={cn(
                                 "w-full h-full flex flex-col items-center justify-center cursor-pointer transition-all",
-                                isDragging
-                                    ? "bg-brand-500/10 border-2 border-dashed border-brand-500"
-                                    : "hover:bg-slate-800/50"
+                                isDraggingFiles ? "bg-indigo-600/10 border-2 border-dashed border-indigo-500" : "hover:bg-white/5"
                             )}
                         >
-                            <motion.div
-                                animate={{ y: [0, -8, 0] }}
-                                transition={{ repeat: Infinity, duration: 2 }}
-                                className="mb-4"
-                            >
-                                <Camera className="w-16 h-16 text-slate-500" />
-                            </motion.div>
-                            <h3 className="text-lg font-bold text-slate-300 mb-1">
-                                Subí tus imágenes 360°
-                            </h3>
-                            <p className="text-sm text-slate-500 text-center max-w-sm">
-                                Arrastrá fotos del drone o cámara 360° aquí.
-                                <br />
-                                Se generan las escenas automáticamente.
-                            </p>
-                            <p className="text-xs text-slate-600 mt-3">
-                                PNG, JPG, WEBP • Equirectangular • Máximo 20MB
-                            </p>
+                            <Camera className="w-16 h-16 text-white/30 mb-4" />
+                            <div className="text-white font-black text-lg">Subí tus imágenes 360°</div>
+                            <div className="text-white/60 text-sm mt-2">Arrastrá o hacé click para seleccionar (ideal 2:1).</div>
+                            <div className="text-white/40 text-xs mt-2">Límite: {MAX_UPLOAD_MB}MB</div>
                         </div>
                     )}
 
@@ -1294,170 +1966,104 @@ export default function TourCreator({
                     />
                 </div>
 
-                {/* ─── Right: Sidebar ─── */}
-                <div className="flex flex-col bg-black rounded-3xl border border-white/5 overflow-hidden min-h-0 shadow-2xl">
-                    {/* Toggle Gallery Button */}
-                    <div className="flex items-center justify-between p-4 border-b border-slate-800/50">
+                {/* RIGHT SIDEBAR */}
+                <div className="flex flex-col bg-black rounded-3xl border border-white/10 overflow-hidden min-h-0 shadow-2xl">
+                    {/* header */}
+                    <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                        <div className="text-white font-black tracking-wide">Tour360</div>
+
                         <div className="flex items-center gap-2">
                             <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
                                 <DialogTrigger asChild>
-                                    <button className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] hover:bg-[#252525] text-white text-xs font-bold rounded-xl transition-all border border-white/5">
+                                    <button className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-black flex items-center gap-2">
                                         <ImageIcon className="w-4 h-4" />
-                                        Galería de Imágenes
+                                        Galería
                                     </button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 bg-slate-950 border-slate-800 text-white">
-                                    <DialogHeader className="p-4 border-b border-slate-800">
+                                <DialogContent className="max-w-5xl h-[82vh] flex flex-col p-0 bg-slate-950 border-white/10 text-white">
+                                    <DialogHeader className="p-4 border-b border-white/10">
                                         <DialogTitle>Galería de Imágenes 360°</DialogTitle>
-                                        <DialogDescription className="text-slate-400">
-                                            Gestiona tus imágenes originales y las renderizadas por IA.
-                                        </DialogDescription>
+                                        <DialogDescription className="text-white/60">Seleccioná una escena o subí nuevas imágenes.</DialogDescription>
                                     </DialogHeader>
 
-                                    <div className="flex-1 flex flex-col min-h-0">
-                                        <div className="flex p-2 gap-2 border-b border-slate-800 bg-slate-900/50">
-                                            <button
-                                                onClick={() => setActiveTab('raw')}
-                                                className={cn(
-                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2",
-                                                    activeTab === 'raw'
-                                                        ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20"
-                                                        : "text-slate-400 hover:text-white hover:bg-slate-800"
-                                                )}
+                                    <div className="flex-1 overflow-y-auto p-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                            <div
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="aspect-square rounded-2xl border-2 border-dashed border-white/15 hover:border-indigo-400 hover:bg-white/5 flex flex-col items-center justify-center cursor-pointer transition-all"
                                             >
-                                                <ImageIcon className="w-4 h-4" />
-                                                Originales ({scenes.filter(s => (s.category || 'raw') === 'raw').length})
-                                            </button>
-                                            <button
-                                                onClick={() => setActiveTab('rendered')}
-                                                className={cn(
-                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2",
-                                                    activeTab === 'rendered'
-                                                        ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
-                                                        : "text-slate-400 hover:text-white hover:bg-slate-800"
-                                                )}
-                                            >
-                                                <Sparkles className="w-4 h-4" />
-                                                Renderizadas ({scenes.filter(s => s.category === 'rendered').length})
-                                            </button>
-                                        </div>
-
-                                        <div className="flex-1 overflow-y-auto p-4 bg-slate-950/50">
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                                {/* Upload Card */}
-                                                <div
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    className="aspect-square rounded-xl border-2 border-dashed border-slate-800 hover:border-brand-500/50 hover:bg-slate-900/50 flex flex-col items-center justify-center cursor-pointer transition-all group"
-                                                >
-                                                    <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                                                        <Plus className="w-6 h-6 text-slate-500 group-hover:text-brand-400" />
-                                                    </div>
-                                                    <span className="text-xs font-bold text-slate-500 group-hover:text-brand-400">Subir Imagen</span>
-                                                </div>
-
-                                                {filteredScenes.map((scene) => (
-                                                    <div key={scene.id} className="group relative aspect-square rounded-xl bg-slate-900 overflow-hidden border border-slate-800 hover:border-brand-500/50 transition-all">
-                                                        <img src={scene.imageUrl} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
-
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <p className="text-white text-xs font-bold truncate mb-1">{scene.title}</p>
-                                                            <div className="flex gap-2">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setActiveSceneId(scene.id);
-                                                                        setIsGalleryOpen(false); // Intelligent behavior: Close gallery on selection
-                                                                    }}
-                                                                    className="flex-1 py-1.5 bg-slate-800 hover:bg-brand-600 text-white text-[10px] font-bold rounded"
-                                                                >
-                                                                    Ver
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => deleteScene(scene.id)}
-                                                                    className="p-1.5 bg-slate-800 hover:bg-rose-600 text-white rounded"
-                                                                >
-                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-
-                                                        {activeSceneId === scene.id && (
-                                                            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-500 shadow-glow"></div>
-                                                        )}
-                                                    </div>
-                                                ))}
+                                                <Plus className="w-10 h-10 text-white/40 mb-2" />
+                                                <div className="text-xs font-black text-white/70">Subir imagen</div>
                                             </div>
 
-                                            {filteredScenes.length === 0 && (
-                                                <div className="flex flex-col items-center justify-center py-20 opacity-50">
-                                                    <ImageIcon className="w-12 h-12 text-slate-600 mb-2" />
-                                                    <p className="text-slate-500">No hay imágenes en esta galería</p>
+                                            {scenes.map((s) => (
+                                                <div key={s.id} className="group relative aspect-square rounded-2xl overflow-hidden border border-white/10 hover:border-indigo-400 transition-all">
+                                                    <img src={s.imageUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                                                        <div className="text-xs font-black truncate">{s.title}</div>
+                                                        <div className="flex gap-2 mt-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setActiveSceneId(s.id);
+                                                                    setIsGalleryOpen(false);
+                                                                }}
+                                                                className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-indigo-600 text-xs font-black"
+                                                            >
+                                                                Ver
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteScene(s.id)}
+                                                                className="py-2 px-3 rounded-xl bg-white/10 hover:bg-rose-600"
+                                                                title="Eliminar escena"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {activeSceneId === s.id && (
+                                                        <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_18px_rgba(99,102,241,0.8)]" />
+                                                    )}
                                                 </div>
-                                            )}
+                                            ))}
                                         </div>
                                     </div>
                                 </DialogContent>
                             </Dialog>
+
+                            {onDelete && (
+                                <button
+                                    onClick={handleDeleteTour}
+                                    disabled={isDeleting}
+                                    className="px-3 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-black"
+                                >
+                                    {isDeleting ? "Eliminando..." : "Eliminar"}
+                                </button>
+                            )}
                         </div>
                     </div>
 
-                    {/* Scene list header (Hidden/Simplified as we have the Gallery Modal now, but keeping for quick access) */}
-                    {/* ... Existing Sidebar Content ... */}
-                    <div className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                        Acceso Rápido
-                    </div>
-
-                    {/* Tabs / Acceso Rápido Pills */}
-                    <div className="flex p-1.5 mx-4 gap-1 bg-[#1A1A1A] rounded-xl border border-white/5 shadow-inner">
-                        <button
-                            onClick={() => setActiveTab('raw')}
-                            className={cn(
-                                "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
-                                activeTab === 'raw'
-                                    ? "bg-[#333333] text-white shadow-lg"
-                                    : "text-slate-500 hover:text-slate-300"
-                            )}
-                        >
-                            Originales
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('rendered')}
-                            className={cn(
-                                "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
-                                activeTab === 'rendered'
-                                    ? "bg-[#333333] text-white shadow-lg"
-                                    : "text-slate-500 hover:text-slate-300"
-                            )}
-                        >
-                            Renderizadas (AI)
-                        </button>
-                    </div>
-
-                    {/* Upload progress */}
+                    {/* upload progress */}
                     <AnimatePresence>
                         {uploads.length > 0 && (
                             <motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: "auto", opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                className="border-b border-slate-800/50"
+                                className="border-b border-white/10"
                             >
-                                <div className="p-3 space-y-2">
-                                    {uploads.map((upload) => (
-                                        <div key={upload.id} className="flex items-center gap-2">
-                                            <Loader2
-                                                className={cn(
-                                                    "w-3.5 h-3.5 shrink-0",
-                                                    upload.status === "uploading" && "animate-spin text-indigo-400",
-                                                    upload.status === "done" && "text-emerald-400",
-                                                    upload.status === "error" && "text-rose-400"
-                                                )}
-                                            />
-                                            <span className="text-xs text-slate-400 truncate flex-1">
-                                                {upload.filename}
-                                            </span>
-                                            {upload.status === "done" && (
-                                                <Check className="w-3 h-3 text-emerald-400" />
-                                            )}
+                                <div className="p-4 space-y-3">
+                                    {uploads.map((u) => (
+                                        <div key={u.id} className="bg-white/5 rounded-2xl p-3 border border-white/10">
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-xs font-black text-white/80 truncate">{u.filename}</div>
+                                                <div className="text-[10px] font-black text-white/60">
+                                                    {u.status === "uploading" ? `${u.progress}%` : u.status === "processing" ? "Procesando" : u.status}
+                                                </div>
+                                            </div>
+                                            <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+                                                <div className="h-full bg-indigo-500" style={{ width: `${u.progress}%` }} />
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -1465,285 +2071,134 @@ export default function TourCreator({
                         )}
                     </AnimatePresence>
 
-                    {/* Scene thumbnails - Modern Cards */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        {filteredScenes.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-slate-600 opacity-50">
-                                <ImageIcon className="w-10 h-10 mb-2" />
-                                <span className="text-xs font-medium">Sin escenas</span>
-                            </div>
+                    {/* HOTSPOT CONTROLS */}
+                    <div className="p-4 border-b border-white/10 space-y-3">
+                        <div className="text-[11px] font-black text-white/60 uppercase tracking-[0.18em]">Hotspots</div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-white/50 uppercase">Unidad</label>
+                            <select
+                                value={selectedUnitId}
+                                onChange={(e) => setSelectedUnitId(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+                            >
+                                <option value="">Seleccionar unidad...</option>
+                                {projectUnits.map((u) => (
+                                    <option key={u.id} value={u.id}>
+                                        Unidad {u.numero}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                onClick={() => {
+                                    setHotspotMode("info");
+                                    setEditorMode("hotspot");
+                                }}
+                                className={cn(
+                                    "px-3 py-2 rounded-2xl text-xs font-black border transition-all",
+                                    editorMode === "hotspot" && hotspotMode === "info"
+                                        ? "bg-indigo-600 text-white border-indigo-500"
+                                        : "bg-white/5 text-white/70 border-white/10 hover:bg-white/10"
+                                )}
+                            >
+                                <MapPin className="w-4 h-4 mx-auto mb-1" />
+                                Info
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setHotspotMode("scene");
+                                    setEditorMode("hotspot");
+                                }}
+                                className={cn(
+                                    "px-3 py-2 rounded-2xl text-xs font-black border transition-all",
+                                    editorMode === "hotspot" && hotspotMode === "scene"
+                                        ? "bg-indigo-600 text-white border-indigo-500"
+                                        : "bg-white/5 text-white/70 border-white/10 hover:bg-white/10"
+                                )}
+                            >
+                                <Navigation className="w-4 h-4 mx-auto mb-1" />
+                                Escena
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setHotspotMode("link");
+                                    setEditorMode("hotspot");
+                                }}
+                                className={cn(
+                                    "px-3 py-2 rounded-2xl text-xs font-black border transition-all",
+                                    editorMode === "hotspot" && hotspotMode === "link"
+                                        ? "bg-indigo-600 text-white border-indigo-500"
+                                        : "bg-white/5 text-white/70 border-white/10 hover:bg-white/10"
+                                )}
+                            >
+                                <Link2 className="w-4 h-4 mx-auto mb-1" />
+                                Link
+                            </button>
+                        </div>
+
+                        {editorMode === "hotspot" && hotspotMode === "scene" && (
+                            <select
+                                value={linkTargetScene}
+                                onChange={(e) => setLinkTargetScene(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+                            >
+                                <option value="">Escena destino...</option>
+                                {scenes
+                                    .filter((s) => s.id !== activeSceneId)
+                                    .map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.title}
+                                        </option>
+                                    ))}
+                            </select>
+                        )}
+                    </div>
+
+                    {/* Scene list */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        <div className="text-[11px] font-black text-white/60 uppercase tracking-[0.18em]">Escenas</div>
+
+                        {scenes.length === 0 ? (
+                            <div className="text-white/40 text-sm">Sin escenas.</div>
                         ) : (
-                            filteredScenes.map((scene, index) => (
-                                <motion.div
-                                    key={scene.id}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    onClick={() => setActiveSceneId(scene.id)}
-                                    className="group flex flex-col gap-2 cursor-pointer"
+                            scenes.map((s, idx) => (
+                                <button
+                                    key={s.id}
+                                    onClick={() => setActiveSceneId(s.id)}
+                                    className={cn(
+                                        "w-full text-left rounded-2xl overflow-hidden border transition-all",
+                                        activeSceneId === s.id ? "border-indigo-500 bg-indigo-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"
+                                    )}
                                 >
-                                    <div className={cn(
-                                        "relative h-36 rounded-2xl overflow-hidden border-2 transition-all duration-300",
-                                        activeSceneId === scene.id
-                                            ? "border-brand-500 ring-4 ring-brand-500/20"
-                                            : "border-white/5 hover:border-white/20"
-                                    )}>
-                                        <img
-                                            src={scene.imageUrl}
-                                            alt={scene.title}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        />
-                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
-
-                                        {/* Scene number badge */}
-                                        <div className="absolute top-3 left-3 w-6 h-6 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-[11px] font-black text-white">
-                                            {index + 1}
+                                    <div className="flex items-center gap-3 p-3">
+                                        <div className="w-14 h-14 rounded-xl overflow-hidden border border-white/10 shrink-0">
+                                            <img src={s.imageUrl} className="w-full h-full object-cover" />
                                         </div>
-
-                                        {/* Default badge */}
-                                        {scene.isDefault && (
-                                            <div className="absolute bottom-3 right-3 text-[10px] font-black bg-[#10B981] text-white px-2 py-0.5 rounded-md shadow-lg shadow-emerald-500/20">
-                                                INICIO
+                                        <div className="min-w-0">
+                                            <div className="text-xs font-black text-white truncate">
+                                                {idx + 1}. {s.title}
                                             </div>
-                                        )}
-
-                                        {/* Quick Actions (Appear on hover) */}
-                                        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    deleteScene(scene.id);
-                                                }}
-                                                className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500 text-white backdrop-blur-md transition-colors border border-red-500/20"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
+                                            <div className="text-[10px] text-white/50 mt-1">
+                                                Hotspots: {s.hotspots?.length || 0} · Polígonos: {s.polygons?.length || 0} · Labels: {s.floatingLabels?.length || 0}
+                                            </div>
                                         </div>
                                     </div>
-
-                                    {/* Footer Info */}
-                                    <div className="px-1 flex items-center justify-between">
-                                        {editingTitle === scene.id ? (
-                                            <div className="flex items-center gap-1 flex-1">
-                                                <input
-                                                    value={editTitleValue}
-                                                    onChange={(e) => setEditTitleValue(e.target.value)}
-                                                    onKeyDown={(e) => e.key === "Enter" && saveSceneTitle()}
-                                                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-brand-500"
-                                                    autoFocus
-                                                />
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <span className="text-xs font-bold text-white/70 truncate group-hover:text-white transition-colors">
-                                                    {scene.title}
-                                                </span>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        startEditingTitle(scene);
-                                                    }}
-                                                    className="p-1 text-white/30 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
-                                                >
-                                                    <Pencil className="w-3 h-3" />
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
-                                </motion.div>
+                                </button>
                             ))
                         )}
                     </div>
 
-                    {/* ─── Hotspot Controls ─── */}
-                    {activeScene && (
-                        <div className="border-t border-white/5 p-4 space-y-4">
-                            <div className="flex items-center justify-between px-1">
-                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                                    Hotspots
-                                </span>
-                            </div>
-
-                            {/* Add hotspot controls pills */}
-                            <div className="flex flex-col gap-3">
-                                {/* Unit Selector */}
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 pl-1 uppercase">Vincular a Unidad:</label>
-                                    <select
-                                        value={selectedUnitId}
-                                        onChange={(e) => setSelectedUnitId(e.target.value)}
-                                        className="w-full bg-[#1A1A1A] border border-white/5 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
-                                    >
-                                        <option value="">Seleccionar Unidad...</option>
-                                        {projectUnits.map((u) => (
-                                            <option key={u.id} value={u.id}>
-                                                Unidad {u.numero}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => {
-                                            setHotspotMode("info");
-                                            setIsPlacingHotspot(true);
-                                        }}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-all",
-                                            isPlacingHotspot && hotspotMode === "info"
-                                                ? "bg-white/10 text-white border-white/20"
-                                                : "bg-[#1A1A1A] text-slate-400 border-white/5 hover:border-white/10"
-                                        )}
-                                    >
-                                        <MapPin className="w-3.5 h-3.5" /> Info
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setHotspotMode("scene");
-                                            setIsPlacingHotspot(true);
-                                        }}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-all",
-                                            isPlacingHotspot && hotspotMode === "scene"
-                                                ? "bg-white/10 text-white border-white/20"
-                                                : "bg-[#1A1A1A] text-slate-400 border-white/5 hover:border-white/10"
-                                        )}
-                                    >
-                                        <Navigation className="w-3.5 h-3.5" /> Escena
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setHotspotMode("link");
-                                            setIsPlacingHotspot(true);
-                                        }}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-all",
-                                            isPlacingHotspot && hotspotMode === "link"
-                                                ? "bg-white/10 text-white border-white/20"
-                                                : "bg-[#1A1A1A] text-slate-400 border-white/5 hover:border-white/10"
-                                        )}
-                                    >
-                                        <Link2 className="w-3.5 h-3.5" /> Link
-                                    </button>
-                                </div>
-
-                                {/* Scene target selector */}
-                                {isPlacingHotspot && hotspotMode === "scene" && (
-                                    <select
-                                        value={linkTargetScene}
-                                        onChange={(e) => setLinkTargetScene(e.target.value)}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
-                                    >
-                                        <option value="">Seleccionar escena destino</option>
-                                        {scenes
-                                            .filter((s) => s.id !== activeSceneId)
-                                            .map((s) => (
-                                                <option key={s.id} value={s.id}>
-                                                    {s.title}
-                                                </option>
-                                            ))}
-                                    </select>
-                                )}
-                            </div>
-
-                            {/* Existing hotspots list */}
-                            {activeScene.hotspots.length > 0 && (
-                                <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
-                                    {activeScene.hotspots.map((h) => (
-                                        <div
-                                            key={h.id}
-                                            className="flex items-center gap-2 p-2 bg-slate-900 rounded-lg border border-slate-800"
-                                        >
-                                            <span className="text-xs">
-                                                {h.type === "info" ? "ℹ️" : h.type === "scene" ? "➡️" : "🔗"}
-                                            </span>
-                                            <input
-                                                value={h.text}
-                                                onChange={(e) =>
-                                                    updateHotspot(activeScene.id, h.id, { text: e.target.value })
-                                                }
-                                                className="flex-1 bg-transparent text-xs text-slate-300 focus:outline-none"
-                                            />
-                                            <button
-                                                onClick={() => removeHotspot(activeScene.id, h.id)}
-                                                className="p-0.5 text-rose-500/60 hover:text-rose-400 transition-colors"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* ─── Masterplan Overlay Controls ─── */}
-                    {activeScene && activeScene.masterplanOverlay && (
-                        <div className="border-t border-slate-800/50 p-4 space-y-3 bg-indigo-500/5">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">
-                                    Plano Superpuesto
-                                </span>
-                                <div className="flex gap-1">
-                                    <button
-                                        onClick={() => {
-                                            setScenes(prev => prev.map(s => s.id === activeSceneId ? {
-                                                ...s,
-                                                masterplanOverlay: { ...s.masterplanOverlay!, isVisible: !s.masterplanOverlay!.isVisible }
-                                            } : s));
-                                        }}
-                                        className={cn(
-                                            "p-1.5 rounded bg-slate-800 hover:bg-slate-700 transition-colors",
-                                            activeScene.masterplanOverlay.isVisible ? "text-indigo-400" : "text-slate-600"
-                                        )}
-                                        title="Alternar Visibilidad"
-                                    >
-                                        <Eye className={cn("w-3.5 h-3.5", !activeScene.masterplanOverlay.isVisible && "opacity-50")} />
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            if (confirm("¿Eliminar el plano de esta escena?")) {
-                                                setScenes(prev => prev.map(s => s.id === activeSceneId ? { ...s, masterplanOverlay: undefined } : s));
-                                            }
-                                        }}
-                                        className="p-1.5 rounded bg-slate-800 hover:bg-rose-500/20 text-slate-600 hover:text-rose-400 transition-colors"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2 text-xs">
-                                <div className="flex justify-between text-slate-500">
-                                    <span>Opacidad</span>
-                                    <span className="text-indigo-300 font-mono">{Math.round((activeScene.masterplanOverlay?.opacity || 0) * 100)}%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                                    value={activeScene.masterplanOverlay?.opacity || 0}
-                                    onChange={(e) => {
-                                        const opacity = parseFloat(e.target.value);
-                                        setScenes(prev => prev.map(s => s.id === activeSceneId ? {
-                                            ...s,
-                                            masterplanOverlay: { ...s.masterplanOverlay!, opacity }
-                                        } : s));
-                                    }}
-                                    className="w-full accent-indigo-500 bg-slate-800 h-1 rounded-lg appearance-none cursor-pointer"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Save button - Large & Primary */}
-                    <div className="p-4 border-t border-white/5 bg-[#0A0A0A]">
+                    {/* Save */}
+                    <div className="p-4 border-t border-white/10">
                         <button
                             onClick={handleSave}
                             disabled={isSaving || scenes.length === 0}
-                            className="w-full py-4 rounded-2xl bg-white text-black text-sm font-black shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                            className="w-full py-4 rounded-2xl bg-white text-black text-sm font-black shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-3"
                         >
                             {isSaving ? (
                                 <>
@@ -1751,7 +2206,7 @@ export default function TourCreator({
                                 </>
                             ) : (
                                 <>
-                                    <ImageIcon className="w-5 h-5" /> Guardar Tour
+                                    <Check className="w-5 h-5" /> Guardar Tour
                                 </>
                             )}
                         </button>
@@ -1759,96 +2214,23 @@ export default function TourCreator({
                 </div>
             </div>
 
-            {/* Bottom: Removed Redundant Scene Strip as requested by design */}
-
-            {/* Hotspot styling */}
+            {/* Global styles */}
             <style jsx global>{`
-                .pnlm-hotspot-base {
-                    border-radius: 50%;
-                    border: 2px solid white;
-                    background: rgba(139, 195, 74, 0.8);
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    width: 24px !important;
-                    height: 24px !important;
-                }
-                .pnlm-hotspot-base:hover {
-                    transform: scale(1.3);
-                    background: rgba(139, 195, 74, 1);
-                    box-shadow: 0 0 20px rgba(139, 195, 74, 0.5);
-                }
-                .pnlm-tooltip span {
-                    background: rgba(15, 23, 42, 0.95) !important;
-                    border-radius: 8px !important;
-                    padding: 4px 10px !important;
-                    font-family: Inter, sans-serif !important;
-                    font-size: 12px !important;
-                    border: 1px solid rgba(100, 116, 139, 0.3) !important;
-                }
-                .pnlm-controls-container {
-                    display: none !important;
-                }
-                .pnlm-panorama-info {
-                    display: none !important;
-                }
-
-                /* Custom Hotspot Styles (Mirrored from Viewer) */
-                .hotspot-lot-marker {
-                    background: white;
-                    color: #0f172a;
-                    font-weight: 800;
-                    border-radius: 50%;
-                    width: 24px; height: 24px;
-                    display: flex; align-items: center; justify-content: center;
-                    font-size: 10px;
-                    border: 1.5px solid #0f172a;
-                    transform: translate(-50%, -50%);
-                }
-                .hotspot-status-marker {
-                    width: 20px; height: 20px;
-                    border-radius: 50%;
-                    display: flex; align-items: center; justify-content: center;
-                    color: white; border: 1.5px solid white;
-                    transform: translate(-50%, -50%);
-                }
-                .hotspot-status-marker.available { background: #10b981; }
-                .hotspot-status-marker.sold { background: #ef4444; }
-                .hotspot-status-marker.scene { background: #3b82f6; }
-
-                .hotspot-bubble-marker {
-                    width: 40px; height: 40px;
-                    border-radius: 50%; border: 2px solid white;
-                    overflow: hidden;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-                    transform: translate(-50%, -50%);
-                }
-                .hotspot-bubble-marker img {
-                    width: 100%; height: 100%; object-fit: cover;
-                }
-            `}</style>
+        .pnlm-controls-container {
+          display: none !important;
+        }
+        .pnlm-panorama-info {
+          display: none !important;
+        }
+        .pnlm-tooltip span {
+          background: rgba(15, 23, 42, 0.95) !important;
+          border-radius: 10px !important;
+          padding: 6px 10px !important;
+          font-family: Inter, sans-serif !important;
+          font-size: 12px !important;
+          border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        }
+      `}</style>
         </div>
     );
-}
-
-// Helper for upscaling
-// Helper for upscaling using Web Worker
-async function upscaleImageClientSide(
-    imageUrl: string,
-    onProgress: (msg: string) => void
-): Promise<string> {
-    onProgress("Enviando a procesar (IA Servidor)...");
-
-    const response = await fetch("/api/upscale", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl }),
-    });
-
-    if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Error en el servidor de IA");
-    }
-
-    const data = await response.json();
-    return data.resultUrl; // Returns base64
 }
