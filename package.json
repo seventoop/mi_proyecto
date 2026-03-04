@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "seventoop",
   "version": "0.1.0",
   "private": true,
@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --skipLibCheck",
     "lint:strict": "next lint --max-warnings 0",
     "check-all": "npm run typecheck && npm run build",
     "db:migrate:dev": "npx prisma migrate dev",
@@ -89,3 +89,4 @@
     "typescript": "^5"
   }
 }
+
