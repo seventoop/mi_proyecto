@@ -292,6 +292,11 @@ model Lead {
   ultimoContacto       DateTime?
   fuente               String?
   campana              String?
+
+  // ✅ Nuevos campos mínimos para IA / scoring
+  presupuesto          Decimal?      @db.Decimal(18, 2)
+  perfilInversor       String        @default("MODERADO")
+
   mensaje              String?
   notas                String?
   aiQualificationScore Int?
