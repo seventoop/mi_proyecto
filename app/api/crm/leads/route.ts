@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
+import { runWorkflow } from "@/lib/workflow-engine";
 
 // Schema validation for creating a lead
 const createLeadSchema = z.object({
@@ -66,6 +67,23 @@ export async function POST(request: Request) {
 
         // Fire-and-forget: score the lead asynchronously, don't block the response
         aiLeadScoring(lead.id).catch(console.error);
+
+        // Auto-trigger NEW_LEAD workflows for the lead's org (via proyecto)
+        if (proyectoId) {
+            const proyecto = await db.proyecto.findUnique({
+                where: { id: proyectoId },
+                select: { orgId: true },
+            });
+            if (proyecto?.orgId) {
+                const workflows = await db.workflow.findMany({
+                    where: { orgId: proyecto.orgId, trigger: "NEW_LEAD", activo: true },
+                    select: { id: true },
+                });
+                for (const wf of workflows) {
+                    runWorkflow(wf.id, "NEW_LEAD", lead.id).catch(console.error);
+                }
+            }
+        }
 
         return NextResponse.json(lead, { status: 201 });
     } catch (error) {
