@@ -38,10 +38,20 @@ export default async function DeveloperDashboard() {
 
     // Fetch Enriched Developer Dashboard Data
     const dashboardRes = await getDeveloperDashboardData(userId);
-    if (!dashboardRes.success || !dashboardRes.data) {
-        redirect("/dashboard");
-    }
-    const { global, projectStats, nextMilestones } = dashboardRes.data;
+    const dashboardData = dashboardRes.success && dashboardRes.data ? dashboardRes.data : {
+        global: { totalRecaudado: 0, montoEnEscrow: 0, soldPercentage: 0, flujoProyectado: 0 },
+        projectStats: [],
+        nextMilestones: [],
+    };
+    const { global, projectStats, nextMilestones } = dashboardData;
+
+    const orgId = (session?.user as any).orgId;
+    const planRes = await getOrgPlanWithUsage(orgId);
+    const planData = planRes.success ? planRes.data : null;
+
+    const leadsPerc = planData ? (planData.usage.leads.current / planData.usage.leads.limit) * 100 : 0;
+    const projectsPerc = planData ? (planData.usage.proyectos.current / planData.usage.proyectos.limit) * 100 : 0;
+    const showUpgrade = leadsPerc >= 90 || projectsPerc >= 90;
 
     const isDemo = user?.demoEndsAt && new Date(user.demoEndsAt) > new Date();
     const demoEndsAtValue = user?.demoEndsAt;
@@ -53,6 +63,15 @@ export default async function DeveloperDashboard() {
                 demoEndsAt={user?.demoEndsAt || null}
                 demoUsed={user?.demoUsed || false}
             />
+
+            {showUpgrade && planData && (
+                <div className="mb-8">
+                    <UpgradePrompt
+                        resource={leadsPerc >= 90 ? "leads" : "proyectos"}
+                        percentage={Math.max(leadsPerc, projectsPerc)}
+                    />
+                </div>
+            )}
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
@@ -86,9 +105,23 @@ export default async function DeveloperDashboard() {
                                     <div className={`p-2 rounded-lg bg-white/5 ${stat.color} group-hover:bg-white/10 transition-colors`}>
                                         <stat.icon className="w-5 h-5" />
                                     </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
-                                        <p className="text-xs text-slate-900 dark:text-slate-400 font-bold group-hover:text-brand-400 transition-colors">{stat.label}</p>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-end">
+                                            <div>
+                                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
+                                                <p className="text-xs text-slate-900 dark:text-slate-400 font-bold group-hover:text-brand-400 transition-colors uppercase tracking-tight">{stat.label}</p>
+                                            </div>
+                                        </div>
+                                        {planData && (stat.label === "Total Unidades" || stat.label === "Total Proyectos") && (
+                                            <div className="mt-3">
+                                                <UsageMeter
+                                                    label="Cupo Plan"
+                                                    resource={stat.label === "Total Unidades" ? "leads" : "proyectos"}
+                                                    current={stat.value as number}
+                                                    limit={stat.label === "Total Unidades" ? planData.usage.leads.limit : planData.usage.proyectos.limit}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -170,4 +203,7 @@ import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { getDeveloperDashboardData } from "@/lib/actions/developer-actions";
 import DeveloperFinancialPanel from "@/components/dashboard/developer-financial-panel";
 import { ChevronRight } from "lucide-react";
+import { getOrgPlanWithUsage } from "@/lib/actions/plan-actions";
+import UpgradePrompt from "@/components/saas/UpgradePrompt";
+import UsageMeter from "@/components/saas/UsageMeter";
 

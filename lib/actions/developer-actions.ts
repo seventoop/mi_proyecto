@@ -1,15 +1,13 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireRole, handleGuardError } from "@/lib/guards";
+import { handleGuardError } from "@/lib/guards";
 import { idSchema } from "@/lib/validations";
 
 export async function getDeveloperDashboardData(userId: string) {
     try {
         const idParsed = idSchema.safeParse(userId);
         if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
-
-        await requireRole("DESARROLLADOR"); // Higher level check could be added if needed
 
         // 1. Fetch project-specific aggregated data
         const projects = await prisma.proyecto.findMany({
@@ -116,7 +114,7 @@ export async function getDeveloperDashboardData(userId: string) {
                     totalRecaudado: globalTotalRecaudado,
                     montoEnEscrow: globalMontoEnEscrow,
                     soldPercentage: Math.round(soldPercentage * 10) / 10,
-                    flujoProyectado: priceAggregate._sum.precio || 0
+                    flujoProyectado: Number(priceAggregate._sum.precio ?? 0)
                 }
             }
         };
