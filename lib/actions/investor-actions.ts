@@ -100,7 +100,7 @@ export async function getInversorDashboardData(userId: string) {
                     valorActual,
                     gananciaProyectada,
                     roiPromedio: Math.round(roiPromedio * 10) / 10,
-                    saldoDisponible: user?.saldo || 0,
+                    saldoDisponible: Number(user?.saldo ?? 0),
                 }
             }
         };
