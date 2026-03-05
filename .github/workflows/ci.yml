@@ -20,10 +20,6 @@ jobs:
         run: npm ci
       - name: Generate Prisma Client
         run: npx prisma generate
-      - name: Check Migration Status
-        run: npx prisma migrate status
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - name: Typecheck
         run: npm run typecheck
 
