@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
 
 // Schema validation for creating a lead
 const createLeadSchema = z.object({
@@ -62,6 +63,9 @@ export async function POST(request: Request) {
                 },
             });
         }
+
+        // Fire-and-forget: score the lead asynchronously, don't block the response
+        aiLeadScoring(lead.id).catch(console.error);
 
         return NextResponse.json(lead, { status: 201 });
     } catch (error) {

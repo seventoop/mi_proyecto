@@ -1,4 +1,4 @@
-﻿-- Manual migration: add Lead.presupuesto + Lead.perfilInversor
+-- Manual migration: add Lead.presupuesto + Lead.perfilInversor
 -- Safe: additive only (no drops). Works on existing DB.
 
 ALTER TABLE "leads"

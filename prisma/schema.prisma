@@ -294,7 +294,7 @@ model Lead {
 
   // âœ… Nuevos campos mÃ­nimos para IA / scoring
   presupuesto          Decimal?      @db.Decimal(18, 2)
-  perfilInversor       String        @default("MODERADO")
+  perfilInversor       String?       @default("MODERADO")
 
   mensaje              String?
   notas                String?
