@@ -6,13 +6,19 @@ import { Building2, FileText, DollarSign, TrendingUp, AlertCircle, Clock } from 
 import prisma from "@/lib/db";
 import { KycDemoStatusCard } from "@/components/dashboard/kyc-demo-status-card";
 
+export const dynamic = "force-dynamic";
+
 export default async function DeveloperDashboard() {
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role;
-    const userId = (session?.user as any)?.id;
+    const userId = (session?.user as any)?.id as string | undefined;
 
-    if (userRole !== "VENDEDOR" && userRole !== "DESARROLLADOR") {
-        redirect("/dashboard");
+    if (!session || (userRole !== "VENDEDOR" && userRole !== "DESARROLLADOR")) {
+        redirect("/login");
+    }
+
+    if (!userId) {
+        redirect("/login");
     }
 
     // Fetch developer's user info for KYC and Risk level using raw query
@@ -89,7 +95,7 @@ export default async function DeveloperDashboard() {
                 <div className="flex items-center gap-3">
                     <div className="px-4 py-2 bg-slate-100 dark:bg-white/5 rounded-xl border border-white/5 flex flex-col items-center">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Operativo</span>
-                        <span className="text-xs font-black text-slate-900 dark:text-white tracking-widest">{userId.slice(0, 8)}</span>
+                        <span className="text-xs font-black text-slate-900 dark:text-white tracking-widest">{userId?.slice(0, 8) ?? "—"}</span>
                     </div>
                 </div>
             </div>
