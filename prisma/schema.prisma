@@ -12,12 +12,18 @@ model Organization {
   nombre    String
   slug      String     @unique
   plan      String     @default("FREE")
+  planId    String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   users     User[]
   proyectos Proyecto[]
   workflows Workflow[]
+  leads          Lead[]
+  planRef        Plan?           @relation(fields: [planId], references: [id])
+  blogPosts      BlogPost[]
+  pipelineEtapas PipelineEtapa[]
 
+  @@index([planId])
   @@map("organizations")
 }
 
@@ -45,6 +51,8 @@ model User {
   saldo               Decimal           @default(0) @db.Decimal(18, 2)
   demoEndsAt          DateTime?
   demoUsed            Boolean           @default(false)
+  kycRequiredAt       DateTime?
+  kycSubmittedAt      DateTime?
   riskLevel           String            @default("low")
   riskReason          String?
   organization        Organization?     @relation(fields: [orgId], references: [id])
@@ -54,6 +62,7 @@ model User {
   inversiones         Inversion[]       @relation("InversorInversion")
   leadsAsignados      Lead[]            @relation("LeadAsignado")
   noticiasEscritas    Noticia[]         @relation("NoticiaAutor")
+  blogPosts           BlogPost[]        @relation("BlogPostAutor")
   notificaciones      Notificacion[]
   pagos               Pago[]
   proyectosCreados    Proyecto[]        @relation("ProyectoCreador")
@@ -142,6 +151,7 @@ model Proyecto {
   tareas               Tarea[]
   testimonios          Testimonio[]
   tours                Tour360[]
+  featureFlags         ProjectFeatureFlags?
 
   @@index([estado])
   @@index([createdAt])
@@ -280,20 +290,27 @@ model Unidad {
 }
 
 model Lead {
-  id                   String        @id @default(cuid())
+  id                   String          @id @default(cuid())
   nombre               String
   email                String?
   telefono             String?
-  origen               String        @default("WEB")
+  origen               String          @default("WEB")
+  canalOrigen          String          @default("WEB") // FACEBOOK | INSTAGRAM | TIKTOK | WHATSAPP | MANUAL | WEB
   proyectoId           String?
   unidadInteres        String?
-  estado               String        @default("NUEVO")
+  estado               String          @default("NUEVO")
+  etapaId              String?         // FK a PipelineEtapa
   asignadoAId          String?
+  orgId                String?         // null = sin asignar, en bandeja admin
   ultimoContacto       DateTime?
   fuente               String?
   campana              String?
+  campanaId            String?       // Ad campaign ID for traceability
+  adId                 String?       // Specific ad ID
+  adSetId              String?       // Ad set ID
+  score                Int?          @default(0) // 0-100 AI scoring
 
-  // âœ… Nuevos campos mÃ­nimos para IA / scoring
+  // Campos IA / scoring
   presupuesto          Decimal?      @db.Decimal(18, 2)
   perfilInversor       String?       @default("MODERADO")
 
@@ -308,6 +325,8 @@ model Lead {
   mensajes             LeadMessage[]
   asignadoA            User?         @relation("LeadAsignado", fields: [asignadoAId], references: [id])
   proyecto             Proyecto?     @relation(fields: [proyectoId], references: [id])
+  organization         Organization? @relation(fields: [orgId], references: [id])
+  etapa                PipelineEtapa? @relation(fields: [etapaId], references: [id])
   oportunidades        Oportunidad[]
   reservas             Reserva[]
   tareas               Tarea[]
@@ -317,8 +336,25 @@ model Lead {
   @@index([proyectoId])
   @@index([asignadoAId])
   @@index([estado])
+  @@index([orgId])
+  @@index([canalOrigen])
   @@index([asignadoAId, estado])
   @@map("leads")
+}
+
+model PipelineEtapa {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id])
+  nombre    String
+  color     String       @default("#6366f1")
+  orden     Int
+  esDefault Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  leads     Lead[]
+
+  @@index([orgId])
+  @@map("pipeline_etapas")
 }
 
 model LeadMessage {
@@ -560,6 +596,26 @@ model Notificacion {
   @@map("notificaciones")
 }
 
+model BlogPost {
+  id        String   @id @default(cuid())
+  titulo    String
+  contenido String   @db.Text
+  slug      String   @unique
+  status    String   @default("PENDIENTE")
+  // PENDIENTE | APROBADO | RECHAZADO | BORRADOR
+  autorId   String
+  orgId     String?  // null = creado directamente por admin
+  imagen    String?
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  autor     User     @relation("BlogPostAutor", fields: [autorId], references: [id])
+  org       Organization? @relation(fields: [orgId], references: [id])
+
+  @@map("blog_posts")
+}
+
 model Noticia {
   id        String   @id @default(cuid())
   titulo    String
@@ -639,4 +695,37 @@ model WorkflowRunPaso {
 
   @@index([runId])
   @@map("workflow_run_pasos")
+}
+
+// ─── SaaS Plans & Feature Flags ─────────────────────────────────────────────
+
+model Plan {
+  id          String   @id @default(cuid())
+  nombre      String
+  precio      Float    @default(0)
+  limites     Json     // { maxLeads, maxProyectos, maxUsers, maxAutomations }
+  features    Json     // { crm, banners, tour360, masterplan, inventario, ... }
+  createdAt   DateTime @default(now())
+  orgs        Organization[]
+
+  @@map("plans")
+}
+
+model ProjectFeatureFlags {
+  id          String   @id @default(cuid())
+  projectId   String   @unique
+  proyecto    Proyecto @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  infoGeneral Boolean  @default(true)
+  archivos    Boolean  @default(false)
+  documentos  Boolean  @default(false)
+  pagos       Boolean  @default(false)
+  masterplan  Boolean  @default(false)
+  motorPlanos Boolean  @default(false)
+  tour360     Boolean  @default(false)
+  etapas      Boolean  @default(false)
+  inventario  Boolean  @default(false)
+  metricas    Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  @@map("project_feature_flags")
 }
