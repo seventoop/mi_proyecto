@@ -59,8 +59,7 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 | Variable | Descripción |
 |----------|-------------|
-| `DATABASE_URL` | URL de conexión al pooler (p. ej. Neon/Supabase) |
-| `DIRECT_URL` | URL de conexión directa para migraciones |
+| `DATABASE_URL` | URL de conexión al pooler (p. ej. Neon/Supabase). Suficiente para migraciones. |
 | `NEXTAUTH_SECRET` | Secreto para sesiones |
 | `NEXTAUTH_URL` | URL base de la app |
 
@@ -73,5 +72,5 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 ### Recuperación ante Desastres
 1. Identificar el último snapshot válido en el proveedor.
 2. Restaurar a una nueva instancia si es necesario.
-3. Actualizar `DATABASE_URL` y `DIRECT_URL` en la plataforma de deploy.
+3. Actualizar `DATABASE_URL` en la plataforma de deploy. Nota: `DATABASE_URL` es suficiente tanto para la ejecución como para las migraciones.
 4. Verificar integridad con `npx prisma migrate status`.

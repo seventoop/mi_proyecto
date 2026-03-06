@@ -154,13 +154,15 @@ export async function POST(req: NextRequest) {
         // 4. Broadcast real-time event (optional but good for CRM)
         try {
             const pusher = getPusherServer();
-            await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CREATED, {
-                reservaId: reserva.id,
-                unidadId,
-                estado: "PENDIENTE_APROBACION",
-            });
-        } catch {
-            // Silence pusher errors
+            if (pusher) {
+                await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CREATED, {
+                    reservaId: reserva.id,
+                    unidadId,
+                    estado: "PENDIENTE_APROBACION",
+                });
+            }
+        } catch (err) {
+            console.warn("Pusher trigger failed in reservations API:", err);
         }
 
         return NextResponse.json(reserva, { status: 201 });

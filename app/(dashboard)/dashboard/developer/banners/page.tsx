@@ -2,14 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Image as ImageIcon, ExternalLink, Clock, CheckCircle, XCircle, DollarSign } from "lucide-react";
+import Image from "next/image";
 import DeveloperBannerForm from "@/components/dashboard/banners/developer-banner-form";
 import { getBanners } from "@/lib/actions/banners";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
+interface Banner {
+    id: string;
+    titulo: string;
+    tipo: string;
+    mediaUrl: string;
+    estado: string;
+    fechaInicio?: string | Date | null;
+    fechaFin?: string | Date | null;
+    linkDestino?: string | null;
+}
 
 export default function DeveloperBannersPage() {
     const { data: session } = useSession();
-    const [banners, setBanners] = useState<any[]>([]);
+    const [banners, setBanners] = useState<Banner[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
 
@@ -71,7 +82,12 @@ export default function DeveloperBannersPage() {
                                 {banner.tipo === "VIDEO" ? (
                                     <video src={banner.mediaUrl} className="w-full h-full object-cover" />
                                 ) : (
-                                    <img src={banner.mediaUrl} alt={banner.titulo} className="w-full h-full object-cover" />
+                                    <Image
+                                        src={banner.mediaUrl}
+                                        alt={banner.titulo}
+                                        fill
+                                        className="w-full h-full object-cover"
+                                    />
                                 )}
 
                                 {/* Status Badge */}

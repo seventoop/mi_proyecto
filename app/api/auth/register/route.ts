@@ -39,7 +39,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { nombre, email, password } = parsed.data;
+    const { nombre, email, password, role } = parsed.data;
+
+    // SECURITY: Whitelist of allowed roles from public registration
+    const ALLOWED_ROLES = ["DESARROLLADOR", "VENDEDOR", "INVERSOR"];
+    const BLOCKED_ROLES = ["ADMIN", "SUPERADMIN"];
+
+    if (BLOCKED_ROLES.includes(role?.toUpperCase())) {
+      return NextResponse.json(
+        { error: "Acceso denegado. No se permiten registros administrativos." },
+        { status: 403 }
+      );
+    }
+
+    // Default to CLIENTE if role is not in whitelist or not provided
+    const finalRole = ALLOWED_ROLES.includes(role?.toUpperCase())
+      ? role.toUpperCase()
+      : "CLIENTE";
 
     // Verificar si el email ya existe
     const existingUser = await prisma.user.findUnique({
@@ -52,9 +68,6 @@ export async function POST(req: NextRequest) {
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // SECURITY: public registration always creates CLIENTE
-    const finalRole = "CLIENTE";
 
     const user = await prisma.user.create({
       data: {
