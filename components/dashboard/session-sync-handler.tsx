@@ -16,7 +16,10 @@ export default function SessionSyncHandler() {
         if (!session?.user?.id) return;
 
         const pusher = getPusherClient();
-        const channelName = PUSHER_CHANNELS.getUserChannel(session.user.id);
+        if (!pusher) return;
+
+        const userId = session?.user?.id;
+        const channelName = PUSHER_CHANNELS.getUserChannel(userId!);
         const channel = pusher.subscribe(channelName);
 
         channel.bind(EVENTS.USER_UPDATED, async (data: any) => {

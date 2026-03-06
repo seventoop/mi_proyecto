@@ -14,12 +14,10 @@ import { es } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MoreHorizontal, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import LeadDetailDrawer from "./lead-detail-drawer";
+import { useState } from "react";
 
 const STATUS_COLORS: Record<string, string> = {
     "NUEVO": "bg-blue-500/20 text-blue-400",
@@ -30,7 +28,24 @@ const STATUS_COLORS: Record<string, string> = {
     "PERDIDO": "bg-slate-500/20 text-slate-400",
 };
 
-export default function LeadsTable({ leads }: { leads: any[] }) {
+export default function LeadsTable({
+    leads,
+    planFeatures = [],
+    etapas = []
+}: {
+    leads: any[],
+    planFeatures?: string[],
+    etapas?: any[]
+}) {
+    const [selectedLead, setSelectedLead] = useState<any>(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const hasAiScoring = planFeatures.includes("ai_scoring");
+
+    const openLead = (lead: any) => {
+        setSelectedLead(lead);
+        setIsDrawerOpen(true);
+    };
+
     return (
         <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
             <Table>
@@ -40,71 +55,92 @@ export default function LeadsTable({ leads }: { leads: any[] }) {
                         <TableHead>Contacto</TableHead>
                         <TableHead>Proyecto</TableHead>
                         <TableHead>Estado</TableHead>
+                        <TableHead>Score AI</TableHead>
                         <TableHead>Asignado A</TableHead>
                         <TableHead>Fecha</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {leads.map((lead) => (
-                        <TableRow key={lead.id} className="border-slate-800 hover:bg-slate-800/50">
-                            <TableCell className="font-medium text-white">
-                                {lead.nombre}
-                            </TableCell>
-                            <TableCell>
-                                <div className="space-y-1">
-                                    {lead.email && (
-                                        <div className="flex items-center gap-2 text-xs text-slate-400">
-                                            <Mail className="w-3 h-3" /> {lead.email}
-                                        </div>
-                                    )}
-                                    {lead.telefono && (
-                                        <div className="flex items-center gap-2 text-xs text-slate-400">
-                                            <Phone className="w-3 h-3" /> {lead.telefono}
-                                        </div>
-                                    )}
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-slate-300">
-                                {lead.proyecto?.nombre || "-"}
-                            </TableCell>
-                            <TableCell>
-                                <Badge variant="outline" className={`border-0 ${STATUS_COLORS[lead.estado] || "bg-slate-700"}`}>
-                                    {lead.estado}
-                                </Badge>
-                            </TableCell>
-                            <TableCell>
-                                {lead.asignadoA ? (
-                                    <div className="flex items-center gap-2">
-                                        <Avatar className="w-6 h-6">
-                                            <AvatarImage src={lead.asignadoA.avatar} />
-                                            <AvatarFallback className="text-[10px]">{lead.asignadoA.nombre.substring(0, 2)}</AvatarFallback>
-                                        </Avatar>
-                                        <span className="text-xs text-slate-400">{lead.asignadoA.nombre}</span>
+                    {leads.map((lead) => {
+                        const score = lead.score || 0;
+                        const scoreColor = score > 70 ? "text-rose-500 bg-rose-500/10" : score > 40 ? "text-amber-500 bg-amber-500/10" : "text-blue-500 bg-blue-500/10";
+
+                        return (
+                            <TableRow
+                                key={lead.id}
+                                className="border-slate-800 hover:bg-slate-800/50 cursor-pointer"
+                                onClick={() => openLead(lead)}
+                            >
+                                <TableCell className="font-medium text-white">
+                                    {lead.nombre}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="space-y-1">
+                                        {lead.email && (
+                                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                <Mail className="w-3 h-3" /> {lead.email}
+                                            </div>
+                                        )}
+                                        {lead.telefono && (
+                                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                <Phone className="w-3 h-3" /> {lead.telefono}
+                                            </div>
+                                        )}
                                     </div>
-                                ) : (
-                                    <span className="text-xs text-slate-500">Sin asignar</span>
-                                )}
-                            </TableCell>
-                            <TableCell className="text-xs text-slate-400">
-                                {format(new Date(lead.createdAt), "dd MMM, yyyy", { locale: es })}
-                            </TableCell>
-                            <TableCell>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400">
-                                            <MoreHorizontal className="w-4 h-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-200">
-                                        <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
-                                        <DropdownMenuItem>Editar</DropdownMenuItem>
-                                        <DropdownMenuItem className="text-rose-400 hover:text-rose-300">Eliminar</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TableCell>
-                        </TableRow>
-                    ))}
+                                </TableCell>
+                                <TableCell className="text-slate-300">
+                                    {lead.proyecto?.nombre || "-"}
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant="outline" className={`border-0 ${STATUS_COLORS[lead.estado] || "bg-slate-700"}`}>
+                                        {lead.estado}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>
+                                    {hasAiScoring ? (
+                                        <div className={cn("inline-flex px-1.5 py-0.5 rounded text-[10px] font-black border border-current", scoreColor)}>
+                                            {score}
+                                        </div>
+                                    ) : (
+                                        <div className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-black border border-slate-600 text-slate-600" title="AI Scoring no incluido en tu plan">
+                                            —
+                                        </div>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {lead.asignadoA ? (
+                                        <div className="flex items-center gap-2">
+                                            <Avatar className="w-6 h-6">
+                                                <AvatarImage src={lead.asignadoA.avatar} />
+                                                <AvatarFallback className="text-[10px]">{lead.asignadoA.nombre.substring(0, 2)}</AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-xs text-slate-400">{lead.asignadoA.nombre}</span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs text-slate-500">Sin asignar</span>
+                                    )}
+                                </TableCell>
+                                <TableCell className="text-xs text-slate-400">
+                                    {format(new Date(lead.createdAt), "dd MMM, yyyy", { locale: es })}
+                                </TableCell>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400">
+                                                <MoreHorizontal className="w-4 h-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-200">
+                                            <DropdownMenuItem onClick={() => openLead(lead)}>Ver Detalles</DropdownMenuItem>
+                                            <DropdownMenuItem>Editar</DropdownMenuItem>
+                                            <DropdownMenuItem className="text-rose-400 hover:text-rose-300">Eliminar</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
                     {leads.length === 0 && (
                         <TableRow>
                             <TableCell colSpan={7} className="h-24 text-center text-slate-500">
@@ -114,6 +150,14 @@ export default function LeadsTable({ leads }: { leads: any[] }) {
                     )}
                 </TableBody>
             </Table>
+
+            <LeadDetailDrawer
+                lead={selectedLead}
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                etapas={etapas}
+                hasAiScoring={hasAiScoring}
+            />
         </div>
     );
 }

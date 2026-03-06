@@ -75,9 +75,16 @@ export default function Header() {
                     {/* User */}
                     <div className="flex items-center gap-3">
                         <div className="text-right hidden sm:block">
-                            <p className="text-sm font-black text-slate-900 dark:text-slate-200">
-                                {userName}
-                            </p>
+                            <div className="flex items-center justify-end gap-1.5">
+                                {(session?.user as any)?.kycStatus === "APROBADO" && (
+                                    <span className="text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-1.5 py-0.5 rounded-full font-black animate-pulse-slow">
+                                        ✔ VERIFICADO
+                                    </span>
+                                )}
+                                <p className="text-sm font-black text-slate-900 dark:text-slate-200">
+                                    {userName}
+                                </p>
+                            </div>
                             <p className="text-xs font-bold text-slate-800 dark:text-slate-400">{userRole}</p>
                         </div>
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-orange to-brand-orangeDark flex items-center justify-center text-white text-sm font-black shadow-lg shadow-brand-orange/20 border border-white/10">

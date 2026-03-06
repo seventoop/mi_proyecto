@@ -121,7 +121,7 @@ function generateGeoUnits(): MasterplanUnit[] {
 
 interface MasterplanMapProps {
     proyectoId: string;
-    modo: "admin" | "public";
+    modo: "admin" | "public" | "inversor";
     initialUnits?: MasterplanUnit[];
     overlayImageUrl?: string;
     centerLat?: number;
