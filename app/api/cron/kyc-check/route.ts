@@ -43,11 +43,15 @@ export async function POST(request: NextRequest) {
     }
 
     // CHECK B — Delete demo project and expire KYC if not submitted in 24h
+    // A developer is considered "not submitted" if they have no kycProfile OR kycProfile.estado is still PENDIENTE
     const kycExpiredUsers = await prisma.user.findMany({
         where: {
             kycStatus: "PENDIENTE",
             kycRequiredAt: { lt: twentyFourHoursAgo },
-            kycSubmittedAt: null,
+            OR: [
+                { kycProfile: null },
+                { kycProfile: { estado: "PENDIENTE" } },
+            ],
         },
         select: { id: true },
     });
