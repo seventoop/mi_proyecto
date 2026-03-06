@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DndContext, DragOverlay, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core";
 import { updateLeadStatus } from "@/lib/actions/leads";
+import { updateLeadEtapa } from "@/lib/actions/crm-actions";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,16 +52,25 @@ export default function LeadsKanban({
         if (!over) return;
 
         const leadId = active.id;
-        const newEtapaId = over.id;
+        const newColId = over.id;
         const currentLead = items.find(l => l.id === leadId);
 
-        if (currentLead && (currentLead.etapaId !== newEtapaId || currentLead.estado !== newEtapaId)) {
+        const hasChanged = currentLead && (
+            (etapas.length > 0 && currentLead.etapaId !== newColId) ||
+            (etapas.length === 0 && currentLead.estado !== newColId)
+        );
+
+        if (hasChanged) {
             // Optimistic Update
             setItems(items.map(l =>
-                l.id === leadId ? { ...l, etapaId: newEtapaId, estado: newEtapaId } : l
+                l.id === leadId ? { ...l, etapaId: newColId, estado: newColId } : l
             ));
 
-            const res = await updateLeadStatus(leadId, newEtapaId);
+            // Use etapa-based update when pipeline etapas are configured, estado-based otherwise
+            const res = etapas.length > 0
+                ? await updateLeadEtapa(leadId, newColId)
+                : await updateLeadStatus(leadId, newColId);
+
             if (!res.success) {
                 toast.error("Error al actualizar estado");
                 // Revert
