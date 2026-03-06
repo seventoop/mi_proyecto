@@ -62,8 +62,8 @@ export async function POST(req: NextRequest) {
         email,
         password: hashedPassword,
         rol: finalRole,
-        // No demo fields from public registration
-        demoEndsAt: null,
+        kycStatus: "NINGUNO",
+        demoEndsAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
         demoUsed: false,
       },
     });
