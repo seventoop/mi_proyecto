@@ -50,6 +50,31 @@ export default async function DeveloperDashboard() {
 
     const orgId = (session?.user as any).orgId;
     const planRes = await getOrgPlanWithUsage(orgId);
+
+    // Real activity feed from unit history
+    const recentHistorial = await prisma.historialUnidad.findMany({
+        where: {
+            unidad: {
+                manzana: { etapa: { proyecto: { creadoPorId: userId } } }
+            }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        include: {
+            unidad: { select: { numero: true } }
+        }
+    });
+    const activities = recentHistorial.map(h => ({
+        id: h.id,
+        type: "UNIT" as const,
+        title: h.estadoNuevo === "VENDIDA" ? "Unidad Vendida" :
+               h.estadoNuevo === "RESERVADA" ? "Unidad Reservada" :
+               h.estadoNuevo === "DISPONIBLE" ? "Unidad Liberada" : "Cambio de Estado",
+        description: h.motivo || `Unidad ${h.unidad.numero}: ${h.estadoAnterior} → ${h.estadoNuevo}`,
+        date: h.createdAt,
+        status: (h.estadoNuevo === "VENDIDA" ? "success" :
+                 h.estadoNuevo === "RESERVADA" ? "info" : "warning") as "success" | "info" | "warning" | "error"
+    }));
     const planData = planRes.success ? planRes.data : null;
 
     const leadsPerc = planData ? (planData.usage.leads.current / planData.usage.leads.limit) * 100 : 0;
@@ -151,10 +176,7 @@ export default async function DeveloperDashboard() {
                 <div className="lg:col-span-2">
                     <ActivityCenter
                         userRole="VENDEDOR"
-                        activities={[
-                            { id: "1", type: "LEAD", title: "Nuevo Lead", description: "Juan Perez interesado en Vista Mar.", date: new Date(), status: "success" },
-                            { id: "2", type: "UNIT", title: "Unidad Reservada", description: "Unidad 305 reservada con éxito.", date: new Date(Date.now() - 3600000), status: "info" }
-                        ]}
+                        activities={activities}
                     />
                 </div>
 

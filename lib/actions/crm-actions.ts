@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, handleGuardError, requireOrgAccess } from "@/lib/guards";
 import { z } from "zod";
+import { idSchema } from "@/lib/validations";
 
 const etapaSchema = z.object({
     nombre: z.string().min(2, "Nombre demasiado corto"),
@@ -151,8 +152,8 @@ export async function updateLeadEtapa(leadId: string, etapaId: string) {
 
 export async function convertLeadToOportunidad(leadId: string, proyectoId: string, unidadId?: string) {
     try {
-        const session = await requireAuth();
-        const orgId = (session as any).orgId as string | undefined;
+        const user = await requireAuth();
+        const orgId = user.orgId;
 
         const lead = await prisma.lead.findUnique({
             where: { id: leadId },
@@ -223,7 +224,7 @@ export async function getCrmMetrics(orgId: string) {
             : 0;
 
         const topStage = leadsByStage.length > 0
-            ? leadsByStage.reduce((a, b) => (a._count > b._count ? a : b)).estado
+            ? (leadsByStage.reduce((a: any, b: any) => (a._count > b._count ? a : b)) as any).estado
             : null;
 
         const avgDealValue = Number(avgDealAgg._avg.montoSena ?? 0);
@@ -242,6 +243,41 @@ export async function getCrmMetrics(orgId: string) {
                 topStage,
             }
         };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function addLeadNote(leadId: string, contenido: string) {
+    try {
+        const idParsed = idSchema.safeParse(leadId);
+        if (!idParsed.success) return { success: false, error: "ID de lead inválido" };
+
+        const contentParsed = z.string().min(1, "La nota no puede estar vacía").max(2000).safeParse(contenido);
+        if (!contentParsed.success) return { success: false, error: contentParsed.error.issues[0].message };
+
+        const user = await requireAuth();
+
+        const lead = await prisma.lead.findUnique({
+            where: { id: leadId },
+            select: { orgId: true }
+        });
+        if (!lead) return { success: false, error: "Lead no encontrado" };
+        if (lead.orgId && user.orgId && lead.orgId !== user.orgId) {
+            return { success: false, error: "Acceso denegado" };
+        }
+
+        const message = await prisma.leadMessage.create({
+            data: {
+                leadId,
+                role: "note",
+                content: contentParsed.data
+            }
+        });
+
+        revalidatePath("/dashboard/leads");
+        revalidatePath("/dashboard/developer/leads");
+        return { success: true, data: message };
     } catch (error) {
         return handleGuardError(error);
     }

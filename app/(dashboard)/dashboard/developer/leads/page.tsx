@@ -12,10 +12,13 @@ export default async function LeadsPage() {
 
     const userId = session.user.id;
     const userRole = session.user.role;
-    const orgId = (session.user as any).orgId;
+    const orgId = session.user.orgId;
 
     // Fetch Leads - filtered for organization if present
-    const where: any = userRole === "ADMIN" ? {} : {
+    const where: {
+        orgId?: string;
+        OR?: any[];
+    } = userRole === "ADMIN" ? {} : {
         OR: [
             { asignadoAId: userId },
             { proyecto: { creadoPorId: userId } }
@@ -26,18 +29,26 @@ export default async function LeadsPage() {
         where.orgId = orgId;
     }
 
-    const [leads, planRes, etapasRes] = await Promise.all([
+    if (!orgId) {
+        redirect("/dashboard/developer");
+    }
+
+    const LEADS_LIMIT = 100;
+    const [leads, totalLeadsCount, planRes, etapasRes] = await Promise.all([
         prisma.lead.findMany({
             where,
             orderBy: { createdAt: "desc" },
+            take: LEADS_LIMIT,
             include: {
                 proyecto: { select: { id: true, nombre: true } },
                 asignadoA: { select: { nombre: true, avatar: true } }
             }
         }),
+        prisma.lead.count({ where }),
         getOrgPlanWithUsage(orgId),
         getPipelineEtapas(orgId)
     ]);
+    const hasMoreLeads = totalLeadsCount > LEADS_LIMIT;
 
     // Fetch Projects for Filter/Create - filtered for developers
     const projectsWhere = userRole === "ADMIN" ? {} : { creadoPorId: userId };
@@ -55,6 +66,11 @@ export default async function LeadsPage() {
 
     return (
         <div className="h-[calc(100vh-100px)] p-6 animate-fade-in">
+            {hasMoreLeads && (
+                <div className="mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
+                    Mostrando los {LEADS_LIMIT} leads más recientes de {totalLeadsCount} total. Usa los filtros para encontrar leads específicos.
+                </div>
+            )}
             <LeadsView
                 leads={leads}
                 projects={projects}

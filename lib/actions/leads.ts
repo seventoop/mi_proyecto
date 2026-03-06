@@ -107,6 +107,10 @@ export async function createLead(input: unknown) {
 
         const data = parsed.data;
 
+        if (!user.orgId) {
+            return { success: false, error: "Sin organización asignada. Contacta al administrador." };
+        }
+
         const lead = await prisma.lead.create({
             data: {
                 nombre: data.nombre,
@@ -115,7 +119,8 @@ export async function createLead(input: unknown) {
                 proyectoId: data.proyectoId || null,
                 estado: data.estado || "NUEVO",
                 origen: data.origen || "WEB",
-                asignadoAId: user.id
+                asignadoAId: user.id,
+                orgId: user.orgId
             }
         });
 

@@ -20,8 +20,6 @@ import {
     User,
     Building2,
     MessageSquare,
-    History,
-    MoreVertical,
     CheckCircle2,
     Clock,
     Zap,
@@ -31,10 +29,36 @@ import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { updateLead, updateLeadStatus } from "@/lib/actions/leads";
-import { updateLeadEtapa, convertLeadToOportunidad } from "@/lib/actions/crm-actions";
+import { updateLeadEtapa, convertLeadToOportunidad, addLeadNote } from "@/lib/actions/crm-actions";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+interface Etapa {
+    id: string;
+    nombre: string;
+    color: string;
+}
+
+interface Lead {
+    id: string;
+    nombre: string;
+    email: string | null;
+    telefono: string | null;
+    canalOrigen?: string;
+    origen?: string;
+    score?: number;
+    estado?: string;
+    etapaId?: string;
+    proyectoId?: string | null;
+    createdAt: string | Date;
+    proyecto?: {
+        nombre: string;
+    } | null;
+    etapa?: {
+        nombre: string;
+    } | null;
+}
 
 export default function LeadDetailDrawer({
     lead,
@@ -43,14 +67,15 @@ export default function LeadDetailDrawer({
     etapas = [],
     hasAiScoring = false
 }: {
-    lead: any,
+    lead: Lead,
     isOpen: boolean,
     onClose: () => void,
-    etapas?: any[],
+    etapas?: Etapa[],
     hasAiScoring?: boolean
 }) {
     const [activeTab, setActiveTab] = useState("info");
     const [note, setNote] = useState("");
+    const [isSavingNote, setIsSavingNote] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
 
@@ -71,7 +96,7 @@ export default function LeadDetailDrawer({
         if (res.success) {
             toast.success("Lead convertido a oportunidad");
         } else {
-            toast.error((res as any).error || "Error al convertir");
+            toast.error(res.error || "Error al convertir");
         }
     };
 
@@ -254,8 +279,22 @@ export default function LeadDetailDrawer({
                                         value={note}
                                         onChange={(e) => setNote(e.target.value)}
                                     />
-                                    <Button className="w-full bg-brand-orange hover:bg-brand-600 text-white font-bold">
-                                        Guardar Nota
+                                    <Button
+                                        className="w-full bg-brand-orange hover:bg-brand-600 text-white font-bold"
+                                        disabled={isSavingNote || !note.trim()}
+                                        onClick={async () => {
+                                            setIsSavingNote(true);
+                                            const res = await addLeadNote(lead.id, note.trim());
+                                            setIsSavingNote(false);
+                                            if (res.success) {
+                                                toast.success("Nota guardada");
+                                                setNote("");
+                                            } else {
+                                                toast.error(res.error || "Error al guardar nota");
+                                            }
+                                        }}
+                                    >
+                                        {isSavingNote ? "Guardando..." : "Guardar Nota"}
                                     </Button>
                                 </div>
                             </div>

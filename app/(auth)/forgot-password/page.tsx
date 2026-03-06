@@ -1,7 +1,7 @@
 "use client";
+
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowLeft, Mail, Loader2 } from "lucide-react";
+import { ArrowLeft, Mail } from "lucide-react";
 
 export default function ForgotPasswordPage() {
     return (

@@ -1,13 +1,19 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { handleGuardError } from "@/lib/guards";
+import { requireAuth, handleGuardError } from "@/lib/guards";
 import { idSchema } from "@/lib/validations";
 
 export async function getDeveloperDashboardData(userId: string) {
     try {
+        const user = await requireAuth();
+
         const idParsed = idSchema.safeParse(userId);
         if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
+
+        if (user.role !== "ADMIN" && user.id !== userId) {
+            return { success: false, error: "No autorizado" };
+        }
 
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

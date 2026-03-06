@@ -124,8 +124,6 @@ export async function processIncomingLeadMessage(input: unknown) {
                 return { success: false, error: "Mensaje demasiado corto" };
             }
 
-            console.log("[Webhook:WhatsApp] Creating new lead", { telefono: data.telefono, nombre: data.nombre });
-
             lead = await (prisma.lead.create({
                 data: {
                     telefono: data.telefono,
@@ -151,14 +149,11 @@ export async function processIncomingLeadMessage(input: unknown) {
                 }
             }) as any);
         } else {
-            console.log("[Webhook:WhatsApp] Message from existing lead", { telefono: data.telefono, currentStatus: lead.estado });
-
             const updateData: any = { mensaje: data.mensaje };
 
             // Mark as CONTACTADO if it was NEW
             if (lead.estado === "NUEVO") {
                 updateData.estado = "CONTACTADO";
-                console.log("[Webhook:WhatsApp] Transitioning lead to CONTACTADO");
             }
 
             await (prisma.lead.update({
@@ -294,7 +289,6 @@ async function sendWhatsAppMessage(to: string, message: string) {
         const providerConfig = await getSystemConfig("WHATSAPP_PROVIDER_KEY");
         const apiKey = providerConfig.value;
         if (!apiKey) return;
-        console.log(`[WA SEND] To: ${to} | Msg: ${message}`);
     } catch (error) {
         console.error("Failed to send WhatsApp message:", error);
     }
