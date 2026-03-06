@@ -19,6 +19,10 @@ export async function getAdminDashboardData() {
     try {
         await requireRole("ADMIN");
 
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
         const [
             totalInvertido,
             totalPagos,
@@ -26,6 +30,14 @@ export async function getAdminDashboardData() {
             pendingKYCQueue,
             pendingProjectDocs,
             recentUsers,
+            totalOrgs,
+            leadsToday,
+            leadsWeek,
+            auditLogs,
+            pendingTestimonios,
+            activeBanners,
+            pendingBlogs,
+            pendingKYCCount,
         ] = await Promise.all([
             prisma.inversion.aggregate({ _sum: { montoTotal: true } }),
             prisma.pago.aggregate({
@@ -43,7 +55,7 @@ export async function getAdminDashboardData() {
                 take: 5,
             }),
             prisma.proyecto.findMany({
-                where: { documentacionEstado: "PENDIENTE" },
+                where: { documentacionEstado: { in: ["PENDIENTE", "EN_REVISION"] } },
                 select: { id: true, nombre: true, documentacionEstado: true, createdAt: true },
                 orderBy: { createdAt: "desc" },
                 take: 5,
@@ -53,10 +65,30 @@ export async function getAdminDashboardData() {
                 take: 5,
                 select: { id: true, nombre: true, rol: true, createdAt: true },
             }),
+            prisma.organization.count(),
+            prisma.lead.count({ where: { createdAt: { gte: startOfDay } } }),
+            prisma.lead.count({ where: { createdAt: { gte: startOfWeek } } }),
+            prisma.auditLog.findMany({
+                take: 20,
+                orderBy: { createdAt: "desc" },
+                include: { user: { select: { nombre: true } } },
+            }),
+            prisma.testimonio.count({ where: { estado: "PENDIENTE" } }),
+            prisma.banner.count({ where: { estado: "ACTIVO" } }),
+            prisma.blogPost.count({ where: { status: "PENDIENTE" } }),
+            prisma.user.count({ where: { kycStatus: { in: ["PENDIENTE", "EN_REVISION"] } } }),
         ]);
 
         const globalVolume = Number(totalInvertido._sum.montoTotal || 0) + Number(totalPagos._sum.monto || 0);
         const platformRevenue = Number(totalPagos._sum.monto || 0) * 0.015;
+
+        // Health checks (Basic connectivity)
+        let dbStatus = "HEALTHY";
+        try {
+            await prisma.$queryRaw`SELECT 1`;
+        } catch (e) {
+            dbStatus = "DOWN";
+        }
 
         return {
             success: true,
@@ -72,6 +104,22 @@ export async function getAdminDashboardData() {
                     projects: pendingProjectDocs,
                 },
                 recentUsers,
+                counts: {
+                    totalOrgs,
+                    leadsToday,
+                    leadsWeek,
+                    pendingTestimonios,
+                    activeBanners,
+                    pendingBlogs,
+                    pendingKYC: pendingKYCCount,
+                },
+                auditLogs,
+                health: {
+                    db: dbStatus,
+                    storage: (process.env.AWS_S3_BUCKET || process.env.SUPABASE_URL) ? "HEALTHY" : "NOT_CONFIGURED",
+                    pusher: (process.env.PUSHER_APP_ID && process.env.PUSHER_KEY && process.env.PUSHER_SECRET) ? "CONFIGURED" : "NOT_CONFIGURED",
+                    whatsapp: (process.env.WHATSAPP_API_KEY || process.env.META_WEBHOOK_SECRET) ? "CONFIGURED" : "NOT_CONFIGURED",
+                }
             }
         };
     } catch (error) {
