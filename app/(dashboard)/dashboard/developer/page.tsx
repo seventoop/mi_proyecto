@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Building2, FileText, DollarSign, TrendingUp, AlertCircle, Clock } from "lucide-react";
+import { Building2, FileText, DollarSign, TrendingUp, AlertCircle, Clock, CheckCircle } from "lucide-react";
 import prisma from "@/lib/db";
 import { KycDemoStatusCard } from "@/components/dashboard/kyc-demo-status-card";
 
@@ -24,7 +24,7 @@ export default async function DeveloperDashboard() {
     // Fetch developer's user info for KYC and Risk level using raw query
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { kycStatus: true, nombre: true, riskLevel: true, demoEndsAt: true, demoUsed: true }
+        select: { kycStatus: true, nombre: true, riskLevel: true, demoEndsAt: true, demoUsed: true, developerVerified: true }
     });
 
     // Fetch Enriched Developer Dashboard Data (contains all real metrics)
@@ -87,6 +87,12 @@ export default async function DeveloperDashboard() {
                             Sincronizado con Central de Operaciones
                         </div>
                         <RiskBadge level={user?.riskLevel || "medium"} />
+                        {user?.developerVerified && (
+                            <span className="flex items-center gap-1 px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full text-xs font-bold border border-emerald-500/20">
+                                <CheckCircle className="w-3 h-3" />
+                                Desarrollador Verificado
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
