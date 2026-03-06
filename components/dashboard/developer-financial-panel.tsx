@@ -33,6 +33,10 @@ interface FinancialPanelProps {
         montoEnEscrow: number;
         soldPercentage: number;
         flujoProyectado: number;
+        leadsThisMonth?: number;
+        conversionRate?: number;
+        reservasActivas?: number;
+        revenueThisMonth?: number;
     };
     projectStats: ProjectStat[];
     kycStatus: string;

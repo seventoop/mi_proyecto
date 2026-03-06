@@ -27,29 +27,26 @@ export default async function DeveloperDashboard() {
         select: { kycStatus: true, nombre: true, riskLevel: true, demoEndsAt: true, demoUsed: true }
     });
 
-    // Fetch developer metrics (we'll assume they're respons for units or have a relation)
-    const [totalUnits, availableUnits, reservedUnits, soldUnits] = await Promise.all([
-        prisma.unidad.count({ where: { responsableId: userId } }),
-        prisma.unidad.count({ where: { responsableId: userId, estado: "DISPONIBLE" } }),
-        prisma.unidad.count({ where: { responsableId: userId, estado: "RESERVADA" } }),
-        prisma.unidad.count({ where: { responsableId: userId, estado: "VENDIDA" } }),
-    ]);
-
-    const stats = [
-        { label: "Total Unidades", value: totalUnits, icon: Building2, color: "text-slate-400", href: "/dashboard/developer/inventario" },
-        { label: "Disponibles", value: availableUnits, icon: TrendingUp, color: "text-emerald-500", href: "/dashboard/developer/inventario?estado=DISPONIBLE" },
-        { label: "Reservadas", value: reservedUnits, icon: AlertCircle, color: "text-amber-500", href: "/dashboard/developer/reservas" },
-        { label: "Vendidas", value: soldUnits, icon: DollarSign, color: "text-brand-500", href: "/dashboard/developer/inventario?estado=VENDIDO" },
-    ];
-
-    // Fetch Enriched Developer Dashboard Data
+    // Fetch Enriched Developer Dashboard Data (contains all real metrics)
     const dashboardRes = await getDeveloperDashboardData(userId);
     const dashboardData = dashboardRes.success && dashboardRes.data ? dashboardRes.data : {
-        global: { totalRecaudado: 0, montoEnEscrow: 0, soldPercentage: 0, flujoProyectado: 0 },
+        global: {
+            totalRecaudado: 0, montoEnEscrow: 0, soldPercentage: 0, flujoProyectado: 0,
+            leadsThisMonth: 0, conversionRate: 0, reservasActivas: 0, revenueThisMonth: 0,
+        },
         projectStats: [],
+        topProjects: [],
         nextMilestones: [],
     };
-    const { global, projectStats, nextMilestones } = dashboardData;
+    const { global, projectStats, topProjects, nextMilestones } = dashboardData;
+
+    // Real stats grid using data from the action
+    const stats = [
+        { label: "Leads este mes", value: global.leadsThisMonth, icon: TrendingUp, color: "text-emerald-500", href: "/dashboard/developer/leads" },
+        { label: "Reservas activas", value: global.reservasActivas, icon: AlertCircle, color: "text-amber-500", href: "/dashboard/developer/reservas" },
+        { label: "Conversión", value: `${global.conversionRate}%`, icon: FileText, color: "text-violet-500", href: "/dashboard/developer/crm/metricas" },
+        { label: "Ingreso mes", value: `$${global.revenueThisMonth.toLocaleString()}`, icon: DollarSign, color: "text-brand-500", href: "/dashboard/developer/reservas" },
+    ];
 
     const orgId = (session?.user as any).orgId;
     const planRes = await getOrgPlanWithUsage(orgId);
@@ -118,13 +115,13 @@ export default async function DeveloperDashboard() {
                                                 <p className="text-xs text-slate-900 dark:text-slate-400 font-bold group-hover:text-brand-400 transition-colors uppercase tracking-tight">{stat.label}</p>
                                             </div>
                                         </div>
-                                        {planData && (stat.label === "Total Unidades" || stat.label === "Total Proyectos") && (
+                                        {planData && stat.label === "Leads este mes" && (
                                             <div className="mt-3">
                                                 <UsageMeter
                                                     label="Cupo Plan"
-                                                    resource={stat.label === "Total Unidades" ? "leads" : "proyectos"}
-                                                    current={stat.value as number}
-                                                    limit={stat.label === "Total Unidades" ? planData.usage.leads.limit : planData.usage.proyectos.limit}
+                                                    resource="leads"
+                                                    current={planData.usage.leads.current}
+                                                    limit={planData.usage.leads.limit}
                                                 />
                                             </div>
                                         )}
