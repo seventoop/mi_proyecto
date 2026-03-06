@@ -46,14 +46,15 @@ export async function requireAuth(): Promise<AuthUser> {
     if (!session?.user?.id) {
         throw new AuthError("No autorizado", 401);
     }
+    const { user } = session;
     return {
-        id: session.user.id as string,
-        email: session.user.email as string,
-        name: session.user.name as string,
-        role: (session.user as any).role as string,
-        orgId: (session.user as any).orgId as string | null,
-        kycStatus: (session.user as any).kycStatus as string,
-        demoEndsAt: (session.user as any).demoEndsAt as string | null,
+        id: user.id,
+        email: user.email as string,
+        name: user.name as string,
+        role: user.role,
+        orgId: user.orgId,
+        kycStatus: user.kycStatus,
+        demoEndsAt: user.demoEndsAt,
     };
 }
 

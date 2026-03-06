@@ -366,11 +366,17 @@ export async function updateUnidadEstado(id: string, estado: string) {
 
     // Trigger real-time update
     const pusher = getPusherServer();
-    await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
-      id,
-      estado,
-      proyectoId: unidad.manzana.etapa.proyectoId,
-    });
+    if (pusher) {
+      try {
+        await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
+          id,
+          estado,
+          proyectoId: unidad.manzana.etapa.proyectoId,
+        });
+      } catch (err) {
+        console.warn("Pusher trigger failed in updateUnidadEstado:", err);
+      }
+    }
 
     revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
     return { success: true, data: updated };

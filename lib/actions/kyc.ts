@@ -95,11 +95,13 @@ export async function updateKYCStatus(userId: string, status: "VERIFICADO" | "RE
         try {
             const { getPusherServer, PUSHER_CHANNELS, EVENTS } = await import("@/lib/pusher");
             const pusher = getPusherServer();
-            await pusher.trigger(
-                PUSHER_CHANNELS.getUserChannel(userId),
-                EVENTS.USER_UPDATED,
-                { userId, kycStatus: status }
-            );
+            if (pusher) {
+                await pusher.trigger(
+                    PUSHER_CHANNELS.getUserChannel(userId),
+                    EVENTS.USER_UPDATED,
+                    { userId, kycStatus: status }
+                );
+            }
         } catch (error) {
             console.error("Failed to trigger session sync event:", error);
         }
@@ -222,12 +224,24 @@ export async function reviewProjectDocs(projectId: string, status: "APROBADO" | 
         if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
 
         await requireRole("ADMIN");
-        await prisma.proyecto.update({
+        const project = await prisma.proyecto.update({
             where: { id: projectId },
             data: {
                 documentacionEstado: status,
             }
         });
+
+        // Notify Project Owner
+        if (project.creadoPorId) {
+            await createNotification(
+                project.creadoPorId,
+                status === "APROBADO" ? "EXITO" : "ALERTA",
+                `Documentación de Proyecto ${status === "APROBADO" ? "Aprobada" : "Rechazada"}`,
+                notas || `La documentación de tu proyecto "${project.nombre}" ha sido ${status === "APROBADO" ? "aprobada" : "rechazada"}.`,
+                `/dashboard/proyectos/${projectId}/documentacion`,
+                true
+            );
+        }
 
         revalidatePath(`/dashboard/proyectos/${projectId}`);
         return { success: true };

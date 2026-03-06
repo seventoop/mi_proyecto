@@ -75,7 +75,7 @@ export async function completarHito(id: string, evidenciaUrl?: string) {
 
         const hitoData = await prisma.escrowMilestone.findUnique({
             where: { id },
-            include: { proyecto: { select: { creadoPorId: true } } }
+            include: { proyecto: { select: { creadoPorId: true, nombre: true } } }
         });
 
         if (!hitoData) return { success: false, error: "Hito no encontrado" };
@@ -89,6 +89,22 @@ export async function completarHito(id: string, evidenciaUrl?: string) {
                 fechaLogro: new Date(),
             }
         });
+
+        // Notify Investors of progress reached
+        const inversiones = await prisma.inversion.findMany({
+            where: { proyectoId: hito.proyectoId, estado: "EN_ESCROW" },
+            select: { inversorId: true }
+        });
+
+        for (const inv of inversiones) {
+            await createNotification(
+                inv.inversorId,
+                "EXITO",
+                "Hito de Progreso Alcanzado",
+                `Se ha completado el hito "${hito.titulo}" en el proyecto "${hitoData.proyecto.nombre}". Los fondos entrarán en proceso de liberación.`,
+                `/dashboard/inversor/proyectos/${hito.proyectoId}`
+            );
+        }
 
         revalidatePath(`/dashboard/proyectos/${hito.proyectoId}`);
         return { success: true, data: hito };
