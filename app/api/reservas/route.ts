@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
-import { requireAuth, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, requireKYC, handleApiGuardError } from "@/lib/guards";
 
 // ─── GET /api/reservas — List with filters ───
 export async function GET(req: NextRequest) {
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/reservas — Create new reservation ───
 export async function POST(req: NextRequest) {
     try {
-        const user = await requireAuth();
+        const user = await requireKYC();
         const body = await req.json();
         const { unidadId, leadId, plazo, montoSena } = body;
 
