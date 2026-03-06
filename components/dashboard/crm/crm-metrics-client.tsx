@@ -26,9 +26,20 @@ import {
     Calendar
 } from "lucide-react";
 
+const STAGE_LABELS: Record<string, string> = {
+    NUEVO: "Nuevo",
+    CONTACTADO: "Contactado",
+    INTERESADO: "Interesado",
+    EN_PROCESO: "En proceso",
+    VISITA: "Visita",
+    RESERVA: "Reservado",
+    PERDIDO: "Perdido",
+    CONVERTIDO: "Convertido",
+};
+
 export default function CrmMetricsClient({ metrics }: { metrics: any }) {
     const stageData = metrics.leadsByStage.map((s: any) => ({
-        name: s.estado,
+        name: STAGE_LABELS[s.estado] ?? s.estado,
         value: s._count
     }));
 
@@ -60,7 +71,7 @@ export default function CrmMetricsClient({ metrics }: { metrics: any }) {
                         <span className="text-xs font-black uppercase tracking-widest">Total Leads</span>
                     </div>
                     <p className="text-4xl font-black text-white">{metrics.totalLeads}</p>
-                    <p className="text-xs text-emerald-500 mt-2 font-bold">+12% vs mes anterior</p>
+                    <p className="text-xs text-slate-500 mt-2 font-bold">{metrics.leadsThisMonth ?? 0} captados este mes</p>
                 </Card>
                 <Card className="p-6 bg-slate-900 border-slate-800">
                     <div className="flex items-center gap-4 text-brand-orange mb-2">
