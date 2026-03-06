@@ -53,6 +53,7 @@ model User {
   demoUsed            Boolean           @default(false)
   kycRequiredAt       DateTime?
   kycSubmittedAt      DateTime?
+  developerVerified   Boolean           @default(false)
   riskLevel           String            @default("low")
   riskReason          String?
   organization        Organization?     @relation(fields: [orgId], references: [id])
@@ -70,9 +71,76 @@ model User {
   tareas              Tarea[]
   unidadesResponsable Unidad[]          @relation("ResponsableUnidad")
   auditLogs           AuditLog[]
+  passwordResetToken  String?           @unique
+  passwordResetExpires DateTime?
+  kycProfile          KycProfile?
+  favoritos           FavoritoProyecto[]
 
   @@index([orgId])
   @@map("users")
+}
+
+model KycProfile {
+  id                     String    @id @default(cuid())
+  userId                 String    @unique
+
+  // Tipo de KYC
+  tipo                   String    @default("DESARROLLADOR") // DESARROLLADOR | INVERSOR
+
+  // NIVEL 1 - Identidad
+  selfieUrl              String?   // Selfie con documento
+  dniFrente              String?   // DNI frente (inversores)
+  dniDorso               String?   // DNI dorso (inversores)
+  pasaporteUrl           String?   // Pasaporte (extranjeros)
+
+  // Perfil financiero (solo inversores)
+  perfilRiesgo           String?   // CONSERVADOR | MODERADO | AGRESIVO
+  ingresosEstimados      String?   // Rango de ingresos declarado
+  patrimonioEstimado     String?   // Rango de patrimonio declarado
+
+  // Aceptación de políticas
+  politicasAceptadas     Boolean   @default(false)
+  politicasAceptadasAt   DateTime?
+
+  // NIVEL 2 - Perfil profesional
+  nombrePublico          String?
+  tipoDeveloper          String?   // PERSONA_FISICA | EMPRESA | FIDEICOMISO
+  yearsExperience        Int?
+  proyectosRealizados    Int?
+  descripcionProfesional String?
+  especialidad           String?   // BARRIOS_PRIVADOS | EDIFICIOS | LOTEOS | INVERSION
+
+  // NIVEL 3 - Empresa
+  razonSocial            String?
+  nombreComercial        String?
+  cuitEmpresa            String?
+  direccionOficina       String?
+  ciudad                 String?
+  provincia              String?
+  pais                   String?   @default("Argentina")
+  telefonoComercial      String?
+  sitioWeb               String?
+  linkedinEmpresa        String?
+
+  // Documentos adicionales
+  estatutoUrl            String?
+  matriculaUrl           String?
+  constanciaBancariaUrl  String?
+
+  // Estado de verificación
+  estado                 String    @default("PENDIENTE")
+  // PENDIENTE | EN_REVISION | VERIFICADO | RECHAZADO | SUSPENDIDO
+
+  notasAdmin             String?
+  verificadoPorId        String?
+  verificadoAt           DateTime?
+
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("kyc_profiles")
 }
 
 model AuditLog {
@@ -152,6 +220,7 @@ model Proyecto {
   testimonios          Testimonio[]
   tours                Tour360[]
   featureFlags         ProjectFeatureFlags?
+  favoritos            FavoritoProyecto[]
 
   @@index([estado])
   @@index([createdAt])
@@ -206,6 +275,18 @@ model Inversion {
   proyecto         Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
   @@map("inversiones")
+}
+
+model FavoritoProyecto {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, proyectoId])
+  @@map("favoritos_proyecto")
 }
 
 model EscrowMilestone {
