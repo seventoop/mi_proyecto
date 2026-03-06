@@ -6,6 +6,7 @@ import { AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { KycDemoStatusCard } from "@/components/dashboard/kyc-demo-status-card";
+import { getOrgPlanWithUsage } from "@/lib/actions/plan-actions";
 
 export default async function ProyectosPage() {
     const session = await getServerSession(authOptions);
@@ -23,7 +24,9 @@ export default async function ProyectosPage() {
                 include: {
                     manzanas: {
                         include: {
-                            unidades: true
+                            unidades: {
+                                select: { estado: true }
+                            }
                         }
                     }
                 }
@@ -67,6 +70,10 @@ export default async function ProyectosPage() {
     });
     const kycStatus = user?.kycStatus;
 
+    const orgId = (session.user as any).orgId;
+    const planRes = await getOrgPlanWithUsage(orgId);
+    const usage = planRes.success ? planRes.data!.usage.proyectos : undefined;
+
     return (
         <div className="space-y-6">
             <KycDemoStatusCard
@@ -76,6 +83,7 @@ export default async function ProyectosPage() {
             />
             <ProjectsListClient
                 projects={processedProyectos}
+                usage={usage}
                 newProjectPath={
                     (kycStatus === "VERIFICADO" || !user || !(user as any).demoUsed || ((user as any)?.demoEndsAt && new Date((user as any).demoEndsAt) > new Date()))
                         ? "/dashboard/developer/proyectos/new"
@@ -85,4 +93,3 @@ export default async function ProyectosPage() {
         </div>
     );
 }
-

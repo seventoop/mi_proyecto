@@ -11,7 +11,7 @@ export default function TestimoniosCarousel() {
 
     useEffect(() => {
         const load = async () => {
-            const res = await getTestimonios({ status: "APROBADO" });
+            const res = await getTestimonios();
             if (res.success && res.data) {
                 setTestimonios(res.data);
             }

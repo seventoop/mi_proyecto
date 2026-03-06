@@ -42,6 +42,31 @@ const nextConfig = {
             }
         ],
     },
+    async redirects() {
+        return [
+            // ─── Legacy panel routes → unified /dashboard/portafolio ───────
+            {
+                source: "/dashboard/cliente",
+                destination: "/dashboard/portafolio",
+                permanent: true,
+            },
+            {
+                source: "/dashboard/cliente/:path*",
+                destination: "/dashboard/portafolio/:path*",
+                permanent: true,
+            },
+            {
+                source: "/dashboard/inversor",
+                destination: "/dashboard/portafolio",
+                permanent: true,
+            },
+            {
+                source: "/dashboard/inversor/:path*",
+                destination: "/dashboard/portafolio/:path*",
+                permanent: true,
+            },
+        ];
+    },
 };
 
 export default withSentryConfig(nextConfig, {

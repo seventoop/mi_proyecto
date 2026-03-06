@@ -4,7 +4,13 @@ import { LazyMotion, domAnimation, m } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 
-export default function Hero() {
+interface HeroProps {
+    title?: string;
+    subtitle?: string;
+    ctaText?: string;
+}
+
+export default function Hero({ title, subtitle, ctaText }: HeroProps) {
     return (
         <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden bg-white dark:bg-black">
             {/* Enhanced Background */}
@@ -31,16 +37,29 @@ export default function Hero() {
                         </div>
 
                         {/* Main Heading */}
-                        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-brand-gray dark:text-brand-surface leading-[1.1]">
-                            La infraestructura detrás de cada{" "}
-                            <span className="bg-gradient-to-r from-brand-orange via-brand-orangeDark to-brand-yellow bg-clip-text text-transparent">
-                                lanzamiento inmobiliario
-                            </span>
+                        <h1
+                            suppressHydrationWarning
+                            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-brand-gray dark:text-brand-surface leading-[1.1]"
+                        >
+                            {title ? (
+                                <span>{title}</span>
+                            ) : (
+                                <>
+                                    La infraestructura detrás de cada{" "}
+                                    <span className="bg-gradient-to-r from-brand-orange via-brand-orangeDark to-brand-yellow bg-clip-text text-transparent">
+                                        lanzamiento inmobiliario
+                                    </span>
+                                </>
+                            )}
                         </h1>
 
                         {/* Subheading */}
                         <p className="text-lg md:text-xl text-brand-muted max-w-3xl mx-auto leading-relaxed font-medium">
-                            Banner premium con rotación automática, <span className="text-brand-orange font-semibold">masterplan interactivo sobre mapa real</span>, tours 360° y una comunidad con acceso anticipado — <span className="text-brand-gray dark:text-brand-surface font-semibold">abierta y VIP</span> — para cada desarrollo.
+                            {subtitle || (
+                                <>
+                                    Banner premium con rotación automática, <span className="text-brand-orange font-semibold">masterplan interactivo sobre mapa real</span>, tours 360° y una comunidad con acceso anticipado — <span className="text-brand-gray dark:text-brand-surface font-semibold">abierta y VIP</span> — para cada desarrollo.
+                                </>
+                            )}
                         </p>
 
                         {/* CTA Buttons */}
@@ -49,7 +68,7 @@ export default function Hero() {
                                 href="/contacto"
                                 className="group px-10 py-5 bg-brand-orange hover:bg-brand-orangeDark text-white rounded-2xl font-black text-center shadow-2xl shadow-brand-orange/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 relative overflow-hidden"
                             >
-                                <span className="relative z-10">Soy Desarrollador</span>
+                                <span className="relative z-10">{ctaText || "Soy Desarrollador"}</span>
                                 <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
                                 <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                             </Link>

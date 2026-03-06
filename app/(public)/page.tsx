@@ -5,6 +5,7 @@ import HashAutoScroll from "@/components/public/hash-auto-scroll";
 import dynamic from "next/dynamic";
 
 import { getBanners } from "@/lib/actions/banners";
+import { getSystemConfig } from "@/lib/actions/configuration";
 
 // ─── Lazy load below-fold sections (LCP optimization) ───
 const AboutSection = dynamic(() => import("@/components/public/about-section"));
@@ -31,6 +32,11 @@ const defaultBannerItems = [
 export default async function HomePage() {
     const bannersRes = await getBanners({ status: "APROBADO" });
 
+    // Fetch Hero Config
+    const heroTitle = await getSystemConfig("HERO_TITLE");
+    const heroSubtitle = await getSystemConfig("HERO_SUBTITLE");
+    const ctaText = await getSystemConfig("CTA_TEXT");
+
     let bannerItems: { type: "image" | "video"; url: string }[] = defaultBannerItems;
 
     if (bannersRes.success && bannersRes.data && bannersRes.data.length > 0) {
@@ -46,7 +52,11 @@ export default async function HomePage() {
             <MediaBanner items={bannerItems} />
 
             <div id="inicio" className="scroll-mt-20">
-                <Hero />
+                <Hero
+                    title={heroTitle.value || undefined}
+                    subtitle={heroSubtitle.value || undefined}
+                    ctaText={ctaText.value || undefined}
+                />
             </div>
 
             {/* 1 — Acceso Anticipado — bg: white/black */}

@@ -23,11 +23,18 @@ import {
     ShieldCheck,
     Trash2,
     AlertTriangle,
-    Loader2
+    Loader2,
+    CreditCard,
+    UserCheck,
+    Workflow,
+    ArrowUpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { useAppStore } from "@/lib/store";
+import { getOrgPlanWithUsage } from "@/lib/actions/plan-actions";
+import PlanBadge from "@/components/saas/PlanBadge";
+import UsageMeter from "@/components/saas/UsageMeter";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -45,34 +52,48 @@ import { toast } from "sonner";
 // Admin navigation
 const adminNavItems = [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "CRM / Leads", href: "/dashboard/admin/crm/leads", icon: Users },
     { label: "Proyectos", href: "/dashboard/admin/proyectos", icon: Building2 },
     { label: "Banners", href: "/dashboard/admin/banners", icon: ImageIcon },
     { label: "Testimonios", href: "/dashboard/admin/testimonios", icon: MessageSquare },
-    { label: "KYC / Usuarios", href: "/dashboard/admin/kyc", icon: ShieldCheck },
-    { label: "Configuración", href: "/dashboard/configuracion", icon: Settings },
+    { label: "KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck },
+    { label: "Usuarios", href: "/dashboard/admin/users", icon: UserCheck },
+    { label: "Planes", href: "/dashboard/admin/planes", icon: CreditCard },
+    { label: "Riesgos", href: "/dashboard/admin/riesgos", icon: AlertTriangle },
+    { label: "Configuración", href: "/dashboard/admin/configuracion", icon: Settings },
 ];
 
 // Developer navigation
 const developerNavItems = [
     { label: "Dashboard", href: "/dashboard/developer", icon: LayoutDashboard },
     { label: "Mis Proyectos", href: "/dashboard/developer/proyectos", icon: Building2 },
-    { label: "Leads", href: "/dashboard/leads", icon: Users },
-    { label: "Oportunidades", href: "/dashboard/oportunidades", icon: Target },
-    { label: "Reservas", href: "/dashboard/reservas", icon: BookmarkCheck },
+    { label: "Leads", href: "/dashboard/developer/leads", icon: Users },
+    { label: "Pipeline CRM", href: "/dashboard/developer/crm/pipeline", icon: Workflow },
+    { label: "BI Métricas", href: "/dashboard/developer/crm/metricas", icon: BarChart3 },
+    { label: "Oportunidades", href: "/dashboard/developer/oportunidades", icon: Target },
+    { label: "Reservas", href: "/dashboard/developer/reservas", icon: BookmarkCheck },
     { label: "Mi Perfil / KYC", href: "/dashboard/developer/mi-perfil/kyc", icon: ShieldCheck },
     { label: "Configuración", href: "/dashboard/developer/configuracion", icon: Settings },
 ];
-
-// User/Investor navigation
-const userNavItems = [
-    { label: "Portafolio", href: "/dashboard/inversor", icon: LayoutDashboard },
-    { label: "Marketplace", href: "/dashboard/inversor/marketplace", icon: Building2 },
-    { label: "Mi Perfil / KYC", href: "/dashboard/inversor/mi-perfil", icon: ShieldCheck },
-    { label: "Configuración", href: "/dashboard/inversor/configuracion", icon: Settings },
+// Portafolio Navigation (CLIENTE)
+const clienteNavItems = [
+    { label: "Mi Portafolio", href: "/dashboard/portafolio", icon: LayoutDashboard },
+    { label: "Mis Propiedades", href: "/dashboard/portafolio/propiedades", icon: Home },
+    { label: "Verificar Perfil", href: "/dashboard/portafolio/kyc", icon: ShieldCheck },
+    { label: "Configuración", href: "/dashboard/portafolio/configuracion", icon: Settings },
 ];
 
-
-
+// Portafolio Navigation (INVERSOR)
+const inversorNavItems = [
+    { label: "Mi Portafolio", href: "/dashboard/portafolio", icon: LayoutDashboard },
+    { label: "Mis Propiedades", href: "/dashboard/portafolio/propiedades", icon: Home },
+    { label: "Mis Inversiones", href: "/dashboard/portafolio/inversiones", icon: ArrowUpCircle },
+    { label: "Marketplace", href: "/dashboard/portafolio/marketplace", icon: Building2 },
+    { label: "Wallet", href: "/dashboard/portafolio/wallet", icon: CreditCard },
+    { label: "Favoritos", href: "/dashboard/portafolio/favoritos", icon: BookmarkCheck },
+    { label: "Mi Perfil KYC", href: "/dashboard/portafolio/kyc", icon: ShieldCheck },
+    { label: "Configuración", href: "/dashboard/portafolio/configuracion", icon: Settings },
+];
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -83,17 +104,28 @@ export default function Sidebar() {
 
     // Select navigation items based on role
     let navItems = developerNavItems;
-    if (userRole === "ADMIN") {
+    if (userRole === "ADMIN" || userRole === "SUPERADMIN") {
         navItems = adminNavItems;
-    } else if (userRole === "CLIENTE" || userRole === "INVERSOR") {
-        navItems = userNavItems;
+    } else if (userRole === "INVERSOR") {
+        navItems = inversorNavItems;
+    } else if (userRole === "CLIENTE") {
+        navItems = clienteNavItems;
     }
 
     const [isMounted, setIsMounted] = useState(false);
+    const [planData, setPlanData] = useState<any>(null);
 
     useEffect(() => {
         setIsMounted(true);
-    }, []);
+        if (session?.user && (userRole === "VENDEDOR" || userRole === "DESARROLLADOR")) {
+            const orgId = (session.user as any).orgId;
+            if (orgId) {
+                getOrgPlanWithUsage(orgId).then(res => {
+                    if (res.success) setPlanData(res.data);
+                });
+            }
+        }
+    }, [session, userRole]);
 
     if (!isMounted) {
         return null;
@@ -126,8 +158,8 @@ export default function Sidebar() {
                     "lg:translate-x-0"
                 )}
             >
-                {/* Logo */}
-                <div className="flex items-center justify-center h-24 px-4 border-b border-white/10">
+                {/* Logo & Plan */}
+                <div className="flex flex-col items-center justify-center p-4 border-b border-white/10 space-y-4">
                     <Link href="/dashboard" className="flex items-center gap-3">
                         {sidebarOpen ? (
                             <Image
@@ -144,6 +176,36 @@ export default function Sidebar() {
                             </div>
                         )}
                     </Link>
+
+                    {sidebarOpen && planData && (
+                        <div className="w-full px-2 animate-in fade-in duration-500">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[9px] font-bold text-slate-500 uppercase">Estado Cuenta</span>
+                                <PlanBadge plan={planData.planName} />
+                            </div>
+                            <div className="space-y-3 bg-white/5 p-3 rounded-2xl border border-white/5">
+                                <UsageMeter
+                                    label="Leads"
+                                    resource="leads"
+                                    current={planData.usage.leads.current}
+                                    limit={planData.usage.leads.limit}
+                                />
+                                <UsageMeter
+                                    label="Proyectos"
+                                    resource="proyectos"
+                                    current={planData.usage.proyectos.current}
+                                    limit={planData.usage.proyectos.limit}
+                                />
+                                <Link
+                                    href="/dashboard/developer/planes"
+                                    className="flex items-center justify-center gap-2 py-1.5 w-full bg-brand-orange/10 hover:bg-brand-orange/20 text-brand-orange rounded-lg text-[9px] font-black uppercase transition-all"
+                                >
+                                    <ArrowUpCircle className="w-3 h-3" />
+                                    Gestionar Plan
+                                </Link>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Navigation */}
@@ -184,7 +246,9 @@ export default function Sidebar() {
                         {sidebarOpen && <span>Cerrar sesión</span>}
                     </button>
 
-                    <AccountDeletionButton sidebarOpen={sidebarOpen} />
+                    {userRole !== "ADMIN" && userRole !== "SUPERADMIN" && (
+                        <AccountDeletionButton sidebarOpen={sidebarOpen} />
+                    )}
                 </div>
             </aside >
         </>

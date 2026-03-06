@@ -91,18 +91,20 @@ function LoginForm() {
                 const role = session?.user?.role;
 
                 // Redirección basada en rol
-                switch (role) {
+                switch (role?.toUpperCase()) {
                     case "ADMIN":
+                    case "SUPERADMIN":
                         router.push("/dashboard/admin");
                         break;
+                    case "DESARROLLADOR":
                     case "VENDEDOR":
                         router.push("/dashboard/developer");
                         break;
                     case "INVERSOR":
-                        router.push("/dashboard/inversor");
+                        router.push("/dashboard/portafolio");
                         break;
                     case "CLIENTE":
-                        router.push("/dashboard/cliente");
+                        router.push("/dashboard/portafolio");
                         break;
                     default:
                         router.push("/dashboard");

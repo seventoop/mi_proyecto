@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head:*)",
+      "Bash(npx tsc:*)",
+      "Bash(gh pr:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx next:*)",
+      "Bash(rm:*)",
+      "Bash(python3:*)",
+      "Bash(node:*)",
+      "Skill(claude-developer-platform)",
+      "Bash(npm install:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(Get-Process:*)",
+      "Bash(tasklist:*)",
+      "Bash(ls:*)",
+      "Bash(netstat:*)",
+      "Bash(tail:*)",
+      "Bash(grep:*)",
+      "Bash(taskkill:*)",
+      "Bash(test:*)",
+      "Bash(npm run:*)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npm run:*)"
+    ]
+  }
+}

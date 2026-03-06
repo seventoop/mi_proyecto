@@ -40,18 +40,26 @@ export default function PublicLayout({
                                 Plataforma
                             </h4>
                             <ul className="space-y-3">
-                                {["Proyectos", "Masterplan", "Tour 360°", "CRM"].map(
-                                    (item) => (
-                                        <li key={item}>
+                                {
+                                    [
+                                        { name: "Proyectos", href: "/proyectos" },
+                                        { name: "Masterplan", href: "/proyectos", comingSoon: true },
+                                        { name: "Tour 360°", href: "/proyectos", comingSoon: true },
+                                        { name: "CRM", href: "#", comingSoon: true }
+                                    ].map((item) => (
+                                        <li key={item.name}>
                                             <Link
-                                                href="#"
-                                                className="text-sm text-foreground/50 hover:text-brand-600 transition-colors"
+                                                href={item.href}
+                                                className="text-sm text-foreground/50 hover:text-brand-600 transition-colors flex items-center gap-2"
                                             >
-                                                {item}
+                                                {item.name}
+                                                {item.comingSoon && (
+                                                    <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 font-black uppercase tracking-tighter">Próximamente</span>
+                                                )}
                                             </Link>
                                         </li>
-                                    )
-                                )}
+                                    ))
+                                }
                             </ul>
                         </div>
                         <div>
@@ -59,18 +67,26 @@ export default function PublicLayout({
                                 Contacto
                             </h4>
                             <ul className="space-y-3">
-                                {["Soporte", "Documentación", "API", "Estado del Servicio"].map(
-                                    (item) => (
-                                        <li key={item}>
+                                {
+                                    [
+                                        { name: "Soporte", href: "/contacto" },
+                                        { name: "Documentación", href: "#", comingSoon: true },
+                                        { name: "API", href: "#", comingSoon: true },
+                                        { name: "Estado del Servicio", href: "#", comingSoon: true }
+                                    ].map((item) => (
+                                        <li key={item.name}>
                                             <Link
-                                                href="#"
-                                                className="text-sm text-foreground/50 hover:text-brand-600 transition-colors"
+                                                href={item.href}
+                                                className="text-sm text-foreground/50 hover:text-brand-600 transition-colors flex items-center gap-2"
                                             >
-                                                {item}
+                                                {item.name}
+                                                {item.comingSoon && (
+                                                    <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 font-black uppercase tracking-tighter">Próximamente</span>
+                                                )}
                                             </Link>
                                         </li>
-                                    )
-                                )}
+                                    ))
+                                }
                             </ul>
                         </div>
                     </div>
@@ -79,15 +95,22 @@ export default function PublicLayout({
                             © {new Date().getFullYear()} Seventoop. Todos los derechos reservados.
                         </span>
                         <div className="flex items-center gap-6">
-                            {["Términos", "Privacidad", "Cookies"].map((item) => (
-                                <Link
-                                    key={item}
-                                    href="#"
-                                    className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors"
-                                >
-                                    {item}
-                                </Link>
-                            ))}
+                            {
+                                [
+                                    { name: "Términos", href: "/terminos" },
+                                    { name: "Privacidad", href: "/privacidad" },
+                                    { name: "Cookies", href: "#", comingSoon: true }
+                                ].map((item) => (
+                                    <Link
+                                        key={item.name}
+                                        href={item.href}
+                                        className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors flex items-center gap-1"
+                                    >
+                                        {item.name}
+                                        {item.comingSoon && <span className="text-[7px] opacity-50 font-black uppercase">(Soon)</span>}
+                                    </Link>
+                                ))
+                            }
                         </div>
 
 

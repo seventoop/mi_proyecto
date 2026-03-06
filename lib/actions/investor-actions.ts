@@ -30,13 +30,13 @@ export async function getInversorDashboardData(userId: string) {
             })
         ]);
 
-        const totalM2 = (inversiones as any[]).reduce((acc: number, inv: any) => acc + inv.m2Comprados, 0);
-        const totalInvertido = (inversiones as any[]).reduce((acc: number, inv: any) => acc + inv.montoTotal, 0);
+        const totalM2 = (inversiones as any[]).reduce((acc: number, inv: any) => acc + Number(inv.m2Comprados), 0);
+        const totalInvertido = (inversiones as any[]).reduce((acc: number, inv: any) => acc + Number(inv.montoTotal), 0);
 
         // Calculate current portfolio value
         const valorActual = (inversiones as any[]).reduce((acc: number, inv: any) => {
-            const marketPrice = inv.proyecto.precioM2Mercado || inv.precioM2Aplicado;
-            return acc + (inv.m2Comprados * marketPrice);
+            const marketPrice = Number(inv.proyecto.precioM2Mercado || inv.precioM2Aplicado);
+            return acc + (Number(inv.m2Comprados) * marketPrice);
         }, 0);
 
         const gananciaProyectada = valorActual - totalInvertido;
@@ -46,12 +46,12 @@ export async function getInversorDashboardData(userId: string) {
         const distribution = inversiones.reduce((acc: any[], inv) => {
             const existing = acc.find(item => item.proyectoId === inv.proyectoId);
             if (existing) {
-                existing.monto += inv.montoTotal;
+                existing.monto += Number(inv.montoTotal);
             } else {
                 acc.push({
                     proyectoId: inv.proyectoId,
                     nombre: inv.proyecto.nombre,
-                    monto: inv.montoTotal
+                    monto: Number(inv.montoTotal)
                 });
             }
             return acc;
@@ -64,7 +64,7 @@ export async function getInversorDashboardData(userId: string) {
                 fecha: inv.fechaInversion,
                 tipo: "Inversión",
                 proyecto: inv.proyecto.nombre,
-                monto: inv.montoTotal,
+                monto: Number(inv.montoTotal),
                 estado: inv.estado
             })),
             ...pagos.map(pago => ({
@@ -72,7 +72,7 @@ export async function getInversorDashboardData(userId: string) {
                 fecha: pago.fechaPago,
                 tipo: "Pago",
                 proyecto: (pago as any).proyecto?.nombre || "General",
-                monto: pago.monto,
+                monto: Number(pago.monto),
                 estado: pago.estado
             }))
         ].sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
@@ -100,7 +100,8 @@ export async function getInversorDashboardData(userId: string) {
                     valorActual,
                     gananciaProyectada,
                     roiPromedio: Math.round(roiPromedio * 10) / 10,
-                    saldoDisponible: user?.saldo || 0,
+                    saldoDisponible: Number(user?.saldo ?? 0),
+                    proyectosActivosCount: inversiones.filter(i => i.estado === 'ACTIVO').length
                 }
             }
         };
@@ -111,26 +112,108 @@ export async function getInversorDashboardData(userId: string) {
 
 export async function getInvestmentOpportunities() {
     try {
+        const authUser = await requireAuth();
         const now = new Date();
-        const opportunities = await prisma.proyecto.findMany({
+        const [opportunities, favoritos] = await Promise.all([
+            prisma.proyecto.findMany({
+                where: {
+                    invertible: true,
+                    estado: { notIn: ['VENDIDO', 'SUSPENDIDO'] },
+                    visibilityStatus: 'PUBLICADO',
+                    OR: [
+                        { isDemo: false },
+                        { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] }
+                    ]
+                },
+                include: {
+                    hitosEscrow: true
+                },
+                orderBy: { createdAt: "desc" }
+            }),
+            prisma.favoritoProyecto.findMany({
+                where: { userId: authUser.id },
+                select: { proyectoId: true }
+            })
+        ]);
+
+        const favIds = new Set(favoritos.map(f => f.proyectoId));
+
+        return opportunities.map(op => ({
+            ...op,
+            isFavorite: favIds.has(op.id)
+        }));
+    } catch (error) {
+        console.error("[getInvestmentOpportunities]", error);
+        return [];
+    }
+}
+
+export async function toggleFavorito(proyectoId: string) {
+    try {
+        const authUser = await requireAuth();
+        const idParsed = idSchema.safeParse(proyectoId);
+        if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
+
+        const existing = await prisma.favoritoProyecto.findUnique({
             where: {
-                invertible: true,
-                estado: { notIn: ['VENDIDO', 'SUSPENDIDO'] },
-                visibilityStatus: 'PUBLICADO',
-                OR: [
-                    { isDemo: false },
-                    { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] }
-                ]
-            },
+                userId_proyectoId: {
+                    userId: authUser.id,
+                    proyectoId
+                }
+            }
+        });
+
+        if (existing) {
+            await prisma.favoritoProyecto.delete({
+                where: { id: existing.id }
+            });
+            return { success: true, isFavorite: false };
+        } else {
+            await prisma.favoritoProyecto.create({
+                data: {
+                    userId: authUser.id,
+                    proyectoId
+                }
+            });
+            return { success: true, isFavorite: true };
+        }
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function getInversorFavoritos() {
+    try {
+        const authUser = await requireAuth();
+        const favoritos = await prisma.favoritoProyecto.findMany({
+            where: { userId: authUser.id },
             include: {
-                hitosEscrow: true
+                proyecto: {
+                    select: {
+                        id: true,
+                        nombre: true,
+                        ubicacion: true,
+                        descripcion: true,
+                        imagenPortada: true,
+                        precioM2Inversor: true,
+                        precioM2Mercado: true,
+                        metaM2Objetivo: true,
+                        m2VendidosInversores: true,
+                        fechaLimiteFondeo: true,
+                    }
+                }
             },
             orderBy: { createdAt: "desc" }
         });
 
-        return opportunities;
+        return {
+            success: true,
+            data: favoritos.map(f => ({
+                ...f.proyecto,
+                isFavorite: true
+            }))
+        };
     } catch (error) {
-        console.error("[getInvestmentOpportunities]", error);
-        return [];
+        return handleGuardError(error);
     }
 }

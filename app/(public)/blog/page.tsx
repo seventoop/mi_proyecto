@@ -1,6 +1,6 @@
 import { getNoticias } from "@/lib/actions/noticias";
 import Link from "next/link";
-import { BookOpen, Calendar, ArrowRight, Tag } from "lucide-react";
+import { BookOpen, Calendar, ArrowRight, Tag, Sparkles } from "lucide-react";
 import MediaBanner from "@/components/public/media-banner";
 
 export const metadata = {
@@ -65,8 +65,29 @@ export default async function BlogPage() {
                             </article>
                         ))
                     ) : (
-                        <div className="col-span-full text-center py-20 text-foreground/40">
-                            Próximamente estaremos compartiendo nuestras primeras noticias.
+                        <div className="col-span-full py-24 text-center">
+                            <div className="w-24 h-24 rounded-[2rem] bg-brand-orange/10 border border-brand-orange/20 flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-brand-orange/20">
+                                <Sparkles className="w-10 h-10 text-brand-orange animate-pulse" />
+                            </div>
+                            <h3 className="text-3xl font-bold text-foreground mb-4">Próximamente</h3>
+                            <p className="text-foreground/50 max-w-md mx-auto text-lg leading-relaxed">
+                                Estamos preparando contenido exclusivo sobre urbanismo digital,
+                                lanzamientos inmobiliarios y estrategias de inversión.
+                            </p>
+                            <div className="mt-12 flex justify-center gap-4">
+                                <Link
+                                    href="/proyectos"
+                                    className="px-8 py-3 rounded-2xl bg-brand-orange text-white font-bold hover:bg-brand-orangeDark transition-all shadow-glow"
+                                >
+                                    Ver Proyectos
+                                </Link>
+                                <Link
+                                    href="/contacto"
+                                    className="px-8 py-3 rounded-2xl border-2 border-brand-orange text-brand-orange font-bold hover:bg-brand-orange hover:text-white transition-all"
+                                >
+                                    Contactar
+                                </Link>
+                            </div>
                         </div>
                     )}
                 </div>

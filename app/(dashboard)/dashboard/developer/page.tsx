@@ -2,46 +2,84 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Building2, FileText, DollarSign, TrendingUp, AlertCircle, Clock } from "lucide-react";
+import { Building2, FileText, DollarSign, TrendingUp, AlertCircle, Clock, CheckCircle } from "lucide-react";
 import prisma from "@/lib/db";
 import { KycDemoStatusCard } from "@/components/dashboard/kyc-demo-status-card";
+
+export const dynamic = "force-dynamic";
 
 export default async function DeveloperDashboard() {
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role;
-    const userId = (session?.user as any)?.id;
+    const userId = (session?.user as any)?.id as string | undefined;
 
-    if (userRole !== "VENDEDOR" && userRole !== "DESARROLLADOR") {
-        redirect("/dashboard");
+    if (!session || (userRole !== "VENDEDOR" && userRole !== "DESARROLLADOR")) {
+        redirect("/login");
+    }
+
+    if (!userId) {
+        redirect("/login");
     }
 
     // Fetch developer's user info for KYC and Risk level using raw query
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { kycStatus: true, nombre: true, riskLevel: true, demoEndsAt: true, demoUsed: true }
+        select: { kycStatus: true, nombre: true, riskLevel: true, demoEndsAt: true, demoUsed: true, developerVerified: true }
     });
 
-    // Fetch developer metrics (we'll assume they're respons for units or have a relation)
-    const [totalUnits, availableUnits, reservedUnits, soldUnits] = await Promise.all([
-        prisma.unidad.count({ where: { responsableId: userId } }),
-        prisma.unidad.count({ where: { responsableId: userId, estado: "DISPONIBLE" } }),
-        prisma.unidad.count({ where: { responsableId: userId, estado: "RESERVADA" } }),
-        prisma.unidad.count({ where: { responsableId: userId, estado: "VENDIDA" } }),
-    ]);
+    // Fetch Enriched Developer Dashboard Data (contains all real metrics)
+    const dashboardRes = await getDeveloperDashboardData(userId);
+    const dashboardData = dashboardRes.success && dashboardRes.data ? dashboardRes.data : {
+        global: {
+            totalRecaudado: 0, montoEnEscrow: 0, soldPercentage: 0, flujoProyectado: 0,
+            leadsThisMonth: 0, conversionRate: 0, reservasActivas: 0, revenueThisMonth: 0,
+        },
+        projectStats: [],
+        topProjects: [],
+        nextMilestones: [],
+    };
+    const { global, projectStats, topProjects, nextMilestones } = dashboardData;
 
+    // Real stats grid using data from the action
     const stats = [
-        { label: "Total Unidades", value: totalUnits, icon: Building2, color: "text-slate-400", href: "/dashboard/developer/inventario" },
-        { label: "Disponibles", value: availableUnits, icon: TrendingUp, color: "text-emerald-500", href: "/dashboard/developer/inventario?estado=DISPONIBLE" },
-        { label: "Reservadas", value: reservedUnits, icon: AlertCircle, color: "text-amber-500", href: "/dashboard/developer/reservas" },
-        { label: "Vendidas", value: soldUnits, icon: DollarSign, color: "text-brand-500", href: "/dashboard/developer/inventario?estado=VENDIDO" },
+        { label: "Leads este mes", value: global.leadsThisMonth, icon: TrendingUp, color: "text-emerald-500", href: "/dashboard/developer/leads" },
+        { label: "Reservas activas", value: global.reservasActivas, icon: AlertCircle, color: "text-amber-500", href: "/dashboard/developer/reservas" },
+        { label: "Conversión", value: `${global.conversionRate}%`, icon: FileText, color: "text-violet-500", href: "/dashboard/developer/crm/metricas" },
+        { label: "Ingreso mes", value: `$${global.revenueThisMonth.toLocaleString()}`, icon: DollarSign, color: "text-brand-500", href: "/dashboard/developer/reservas" },
     ];
 
-    // Fetch Enriched Developer Dashboard Data
-    const dashboardRes = await getDeveloperDashboardData(userId);
-    if (!dashboardRes.success || !dashboardRes.data) {
-        redirect("/dashboard");
-    }
-    const { global, projectStats, nextMilestones } = dashboardRes.data;
+    const orgId = (session?.user as any).orgId;
+    const planRes = await getOrgPlanWithUsage(orgId);
+
+    // Real activity feed from unit history
+    const recentHistorial = await prisma.historialUnidad.findMany({
+        where: {
+            unidad: {
+                manzana: { etapa: { proyecto: { creadoPorId: userId } } }
+            }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        include: {
+            unidad: { select: { numero: true } }
+        }
+    });
+    const activities = recentHistorial.map(h => ({
+        id: h.id,
+        type: "UNIT" as const,
+        title: h.estadoNuevo === "VENDIDA" ? "Unidad Vendida" :
+               h.estadoNuevo === "RESERVADA" ? "Unidad Reservada" :
+               h.estadoNuevo === "DISPONIBLE" ? "Unidad Liberada" : "Cambio de Estado",
+        description: h.motivo || `Unidad ${h.unidad.numero}: ${h.estadoAnterior} → ${h.estadoNuevo}`,
+        date: h.createdAt,
+        status: (h.estadoNuevo === "VENDIDA" ? "success" :
+                 h.estadoNuevo === "RESERVADA" ? "info" : "warning") as "success" | "info" | "warning" | "error"
+    }));
+    const planData = planRes.success ? planRes.data : null;
+
+    const leadsPerc = planData ? (planData.usage.leads.current / planData.usage.leads.limit) * 100 : 0;
+    const projectsPerc = planData ? (planData.usage.proyectos.current / planData.usage.proyectos.limit) * 100 : 0;
+    const showUpgrade = leadsPerc >= 90 || projectsPerc >= 90;
 
     const isDemo = user?.demoEndsAt && new Date(user.demoEndsAt) > new Date();
     const demoEndsAtValue = user?.demoEndsAt;
@@ -53,6 +91,15 @@ export default async function DeveloperDashboard() {
                 demoEndsAt={user?.demoEndsAt || null}
                 demoUsed={user?.demoUsed || false}
             />
+
+            {showUpgrade && planData && (
+                <div className="mb-8">
+                    <UpgradePrompt
+                        resource={leadsPerc >= 90 ? "leads" : "proyectos"}
+                        percentage={Math.max(leadsPerc, projectsPerc)}
+                    />
+                </div>
+            )}
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
@@ -65,12 +112,18 @@ export default async function DeveloperDashboard() {
                             Sincronizado con Central de Operaciones
                         </div>
                         <RiskBadge level={user?.riskLevel || "medium"} />
+                        {user?.developerVerified && (
+                            <span className="flex items-center gap-1 px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full text-xs font-bold border border-emerald-500/20">
+                                <CheckCircle className="w-3 h-3" />
+                                Desarrollador Verificado
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="px-4 py-2 bg-slate-100 dark:bg-white/5 rounded-xl border border-white/5 flex flex-col items-center">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Operativo</span>
-                        <span className="text-xs font-black text-slate-900 dark:text-white tracking-widest">{userId.slice(0, 8)}</span>
+                        <span className="text-xs font-black text-slate-900 dark:text-white tracking-widest">{userId?.slice(0, 8) ?? "—"}</span>
                     </div>
                 </div>
             </div>
@@ -86,9 +139,23 @@ export default async function DeveloperDashboard() {
                                     <div className={`p-2 rounded-lg bg-white/5 ${stat.color} group-hover:bg-white/10 transition-colors`}>
                                         <stat.icon className="w-5 h-5" />
                                     </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
-                                        <p className="text-xs text-slate-900 dark:text-slate-400 font-bold group-hover:text-brand-400 transition-colors">{stat.label}</p>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-end">
+                                            <div>
+                                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
+                                                <p className="text-xs text-slate-900 dark:text-slate-400 font-bold group-hover:text-brand-400 transition-colors uppercase tracking-tight">{stat.label}</p>
+                                            </div>
+                                        </div>
+                                        {planData && stat.label === "Leads este mes" && (
+                                            <div className="mt-3">
+                                                <UsageMeter
+                                                    label="Cupo Plan"
+                                                    resource="leads"
+                                                    current={planData.usage.leads.current}
+                                                    limit={planData.usage.leads.limit}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -109,10 +176,7 @@ export default async function DeveloperDashboard() {
                 <div className="lg:col-span-2">
                     <ActivityCenter
                         userRole="VENDEDOR"
-                        activities={[
-                            { id: "1", type: "LEAD", title: "Nuevo Lead", description: "Juan Perez interesado en Vista Mar.", date: new Date(), status: "success" },
-                            { id: "2", type: "UNIT", title: "Unidad Reservada", description: "Unidad 305 reservada con éxito.", date: new Date(Date.now() - 3600000), status: "info" }
-                        ]}
+                        activities={activities}
                     />
                 </div>
 
@@ -170,4 +234,7 @@ import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { getDeveloperDashboardData } from "@/lib/actions/developer-actions";
 import DeveloperFinancialPanel from "@/components/dashboard/developer-financial-panel";
 import { ChevronRight } from "lucide-react";
+import { getOrgPlanWithUsage } from "@/lib/actions/plan-actions";
+import UpgradePrompt from "@/components/saas/UpgradePrompt";
+import UsageMeter from "@/components/saas/UsageMeter";
 

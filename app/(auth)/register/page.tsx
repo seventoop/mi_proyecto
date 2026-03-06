@@ -65,8 +65,9 @@ function RegisterForm() {
             }
 
             router.push("/login?registered=true");
-        } catch (err: any) {
-            setError(err.message || "Error al crear la cuenta");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Error al crear la cuenta";
+            setError(message);
         } finally {
             setIsLoading(false);
         }
@@ -96,17 +97,19 @@ function RegisterForm() {
                 <h2 className="text-2xl font-bold text-white">
                     {formData.role === "INVERSOR" ? "Crear cuenta de Inversor" :
                         formData.role === "DESARROLLADOR" ? "Registro para Desarrolladores" :
-                            "Registro para Vendedores"}
+                            formData.role === "CLIENTE" ? "Acceso para Clientes" :
+                                "Registro para Vendedores"}
                 </h2>
                 <p className="text-slate-400">
                     {formData.role === "INVERSOR" ? "Únete a la comunidad de inversores inmobiliarios" :
                         formData.role === "DESARROLLADOR" ? "Comienza a publicar y gestionar tus desarrollos" :
-                            "Gestiona tus ventas y oportunidades inmobiliarias"}
+                            formData.role === "CLIENTE" ? "Accede al estado de tus unidades y pagos" :
+                                "Gestiona tus ventas y oportunidades inmobiliarias"}
                 </p>
             </div>
 
             {/* Role Switcher */}
-            <div className="grid grid-cols-3 gap-2 mb-8 p-1.5 bg-white/5 rounded-2xl border border-white/10">
+            <div className="grid grid-cols-4 gap-2 mb-8 p-1.5 bg-white/5 rounded-2xl border border-white/10">
                 <button
                     type="button"
                     onClick={() => setFormData({ ...formData, role: "INVERSOR" })}
@@ -122,6 +125,19 @@ function RegisterForm() {
                 </button>
                 <button
                     type="button"
+                    onClick={() => setFormData({ ...formData, role: "CLIENTE" })}
+                    className={cn(
+                        "flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-[10px] font-bold transition-all border border-transparent",
+                        formData.role === "CLIENTE"
+                            ? "bg-brand-500 text-white shadow-lg border-brand-400"
+                            : "text-slate-500 hover:text-white hover:bg-white/5"
+                    )}
+                >
+                    <User className="w-4 h-4" />
+                    CLIENTE
+                </button>
+                <button
+                    type="button"
                     onClick={() => setFormData({ ...formData, role: "DESARROLLADOR" })}
                     className={cn(
                         "flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-[10px] font-bold transition-all border border-transparent",
@@ -131,7 +147,7 @@ function RegisterForm() {
                     )}
                 >
                     <Building2 className="w-4 h-4" />
-                    DESARROLLADOR
+                    DESARR.
                 </button>
                 <button
                     type="button"

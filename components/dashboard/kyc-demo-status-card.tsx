@@ -7,7 +7,7 @@ import Link from "next/link";
 import { activateDemoMode } from "@/lib/actions/auth-actions";
 
 interface KycDemoStatusCardProps {
-    kycStatus: "PENDIENTE" | "EN_REVISION" | "VERIFICADO" | "RECHAZADO";
+    kycStatus: "NINGUNO" | "PENDIENTE" | "EN_REVISION" | "VERIFICADO" | "APROBADO" | "RECHAZADO" | "DEMO_EXPIRADO" | string;
     demoEndsAt: Date | null;
     demoUsed: boolean;
 }
@@ -17,7 +17,7 @@ export function KycDemoStatusCard({ kycStatus, demoEndsAt, demoUsed }: KycDemoSt
     const [isExpired, setIsExpired] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const isVerified = kycStatus === "VERIFICADO";
+    const isVerified = kycStatus === "VERIFICADO" || kycStatus === "APROBADO";
     const hasDemo = demoEndsAt && new Date(demoEndsAt) > new Date();
     const demoHasEnded = demoEndsAt && new Date(demoEndsAt) <= new Date();
 

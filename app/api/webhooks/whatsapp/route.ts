@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { processIncomingLeadMessage } from "@/lib/actions/ai";
 import { getSystemConfig } from "@/lib/actions/configuration";
 import { z } from "zod";
@@ -72,7 +73,23 @@ export async function POST(req: Request) {
         // Check custom header or Evolution API's apikey
         const signature = req.headers.get("x-wa-signature") || req.headers.get("apikey") || req.headers.get("authorization");
 
-        if (!webhookSecret || signature !== webhookSecret) {
+        if (!webhookSecret) {
+            console.error("[Webhook:WhatsApp] Missing WHATSAPP_WEBHOOK_SECRET in configuration");
+            return NextResponse.json({ error: "Configuration Error" }, { status: 500 });
+        }
+
+        if (!signature) {
+            console.warn("[Webhook:WhatsApp] Unauthorized request (missing signature)");
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Timing-safe comparison if possible (if signature is hex/buffer)
+        // For simple string secrets, we still want to avoid timing attacks
+        const isAuthorized = signature.length === webhookSecret.length &&
+            crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(webhookSecret));
+
+        if (!isAuthorized) {
+            console.warn("[Webhook:WhatsApp] Invalid webhook secret");
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 

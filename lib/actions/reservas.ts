@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, requireKYC, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { generateReservaPDF } from "@/lib/pdf-generator";
 import { uploadFile } from "@/lib/storage";
@@ -134,7 +134,7 @@ export async function getReservas(
 
 export async function createReserva(input: unknown) {
     try {
-        const user = await requireAuth();
+        const user = await requireKYC();
 
         const parsed = reservaCreateSchema.safeParse(input);
         if (!parsed.success) {

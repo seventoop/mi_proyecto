@@ -29,7 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 interface SidePanelProps {
     unit: MasterplanUnit;
-    modo: "admin" | "public";
+    modo: "admin" | "public" | "inversor";
     onClose: () => void;
 }
 

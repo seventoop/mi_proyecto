@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { CheckCircle, XCircle, Trash2, Star, MessageSquareQuote, Building, User } from "lucide-react";
-import { getTestimonios, updateTestimonioStatus, deleteTestimonio } from "@/lib/actions/testimonios";
+import { getTestimoniosAdmin, updateTestimonioStatus, deleteTestimonio } from "@/lib/actions/testimonios";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -13,7 +13,7 @@ export default function AdminTestimoniosPage() {
 
     const fetchTestimonios = async () => {
         setLoading(true);
-        const res = await getTestimonios();
+        const res = await getTestimoniosAdmin();
         if (res.success) {
             setTestimonios(res.data || []);
         }

@@ -2,6 +2,7 @@ export interface ExtractedPath {
     id: string;
     pathData: string;
     center: { x: number; y: number };
+    bboxArea: number;
 }
 
 /**
@@ -48,7 +49,8 @@ export function parseBlueprintSVG(svgString: string): ExtractedPath[] {
             paths.push({
                 id: el.getAttribute("id") || `path-${index}`,
                 pathData: d,
-                center: { x: cx, y: cy }
+                center: { x: cx, y: cy },
+                bboxArea: 0,
             });
         }
     });
@@ -189,7 +191,10 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
                 if (entWidth * entHeight > width * height * 0.7) shouldFill = false;
             }
 
-            paths.push({ id: `dxf-${idx}-${ent.layer}`, pathData: d, center: { x: cx, y: cy } });
+            const xs = entVertices.map(v => v.x);
+            const ys = entVertices.map(v => v.y);
+            const bboxArea = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+            paths.push({ id: `dxf-${idx}-${ent.layer}`, pathData: d, center: { x: cx, y: cy }, bboxArea });
             svgElements.push(`<path id="dxf-${idx}-${ent.layer}" d="${d}" fill="${shouldFill ? "rgba(16, 185, 129, 0.15)" : "none"}" stroke="#10b981" stroke-width="${width / 1500}" vector-effect="non-scaling-stroke" />`);
         }
     });

@@ -7,8 +7,38 @@ import LeadDialog from "./lead-dialog";
 import { LeadsImportDialog } from "./leads-import-dialog";
 import { LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import FeatureGate from "@/components/saas/FeatureGate";
 
-export default function LeadsView({ leads, projects }: { leads: any[], projects: any[] }) {
+interface Lead {
+    id: string;
+    nombre: string;
+    email?: string | null;
+    telefono?: string | null;
+    estado?: string;
+    createdAt: string | Date;
+    proyecto?: {
+        nombre: string;
+    } | null;
+}
+
+interface Project {
+    id: string;
+    nombre: string;
+}
+
+export default function LeadsView({
+    leads,
+    projects,
+    planFeatures = [],
+    usage,
+    etapas = []
+}: {
+    leads: Lead[],
+    projects: Project[],
+    planFeatures?: string[],
+    usage?: { current: number; limit: number },
+    etapas?: any[]
+}) {
     const [viewMode, setViewMode] = useState<"BOARD" | "LIST">("BOARD");
 
     return (
@@ -37,16 +67,30 @@ export default function LeadsView({ leads, projects }: { leads: any[], projects:
                             <List className="w-4 h-4 mr-2" /> Lista
                         </Button>
                     </div>
-                    <LeadsImportDialog />
-                    <LeadDialog projects={projects} />
+                    <FeatureGate
+                        feature="importacion_leads"
+                        features={planFeatures}
+                        showUpgradeCard={false}
+                    >
+                        <LeadsImportDialog />
+                    </FeatureGate>
+
+                    <FeatureGate
+                        feature="leads"
+                        max={usage?.limit}
+                        current={usage?.current}
+                        showUpgradeCard={false}
+                    >
+                        <LeadDialog projects={projects} />
+                    </FeatureGate>
                 </div>
             </div>
 
             <div className="flex-1 min-h-0">
                 {viewMode === "BOARD" ? (
-                    <LeadsKanban leads={leads} />
+                    <LeadsKanban leads={leads} planFeatures={planFeatures} etapas={etapas} />
                 ) : (
-                    <LeadsTable leads={leads} />
+                    <LeadsTable leads={leads} planFeatures={planFeatures} etapas={etapas} />
                 )}
             </div>
         </div>
