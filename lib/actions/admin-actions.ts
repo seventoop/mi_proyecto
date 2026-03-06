@@ -5,6 +5,23 @@ import { requireRole, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 
+// ─── Health ───
+
+export async function getHealthStatus() {
+    let db = "DOWN";
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        db = "HEALTHY";
+    } catch { /* DB unreachable */ }
+
+    return {
+        db,
+        storage: (process.env.AWS_S3_BUCKET || process.env.SUPABASE_URL) ? "HEALTHY" : "NOT_CONFIGURED",
+        pusher: (process.env.PUSHER_APP_ID && process.env.PUSHER_KEY && process.env.PUSHER_SECRET) ? "HEALTHY" : "NOT_CONFIGURED",
+        whatsapp: (process.env.WHATSAPP_API_KEY || process.env.META_WEBHOOK_SECRET) ? "HEALTHY" : "NOT_CONFIGURED",
+    };
+}
+
 // ─── Schemas ───
 
 const riskUpdateSchema = z.object({
