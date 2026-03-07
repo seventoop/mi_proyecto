@@ -9,12 +9,12 @@
  *   STORAGE_TYPE=local     → uses local filesystem (DEV ONLY — will THROW in production)
  *
  *   For S3:
- *     S3_BUCKET=my-bucket
- *     S3_REGION=us-east-1
- *     S3_ENDPOINT=https://xxx.r2.cloudflarestorage.com (optional, for R2/MinIO)
- *     S3_ACCESS_KEY_ID=...
- *     S3_SECRET_ACCESS_KEY=...
- *     S3_PUBLIC_URL=https://cdn.example.com (public base URL for the bucket)
+ *     STORAGE_BUCKET=my-bucket
+ *     STORAGE_REGION=us-east-1
+ *     STORAGE_ENDPOINT=https://xxx.r2.cloudflarestorage.com (optional, for R2/MinIO)
+ *     STORAGE_ACCESS_KEY=...
+ *     STORAGE_SECRET_KEY=...
+ *     STORAGE_PUBLIC_URL=https://cdn.example.com (public base URL for the bucket)
  */
 
 import { randomUUID } from "crypto";
@@ -65,12 +65,12 @@ export async function uploadFile(options: UploadOptions): Promise<UploadResult> 
 // ─── S3-Compatible Upload (AWS S3, Cloudflare R2, MinIO, etc.) ───
 
 async function uploadToS3(options: UploadOptions): Promise<UploadResult> {
-    const bucket = process.env.S3_BUCKET;
-    const region = process.env.S3_REGION || "us-east-1";
-    const endpoint = process.env.S3_ENDPOINT;
-    const accessKeyId = process.env.S3_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
-    const publicUrl = process.env.S3_PUBLIC_URL;
+    const bucket = process.env.STORAGE_BUCKET;
+    const region = process.env.STORAGE_REGION || "us-east-1";
+    const endpoint = process.env.STORAGE_ENDPOINT;
+    const accessKeyId = process.env.STORAGE_ACCESS_KEY;
+    const secretAccessKey = process.env.STORAGE_SECRET_KEY;
+    const publicUrl = process.env.STORAGE_PUBLIC_URL;
 
     if (!bucket || !accessKeyId || !secretAccessKey) {
         throw new Error(
@@ -156,11 +156,11 @@ export async function deleteFile(key: string): Promise<void> {
     const storageType = process.env.STORAGE_TYPE || (process.env.NODE_ENV === "production" ? "s3" : "local");
 
     if (storageType === "s3") {
-        const bucket = process.env.S3_BUCKET;
-        const region = process.env.S3_REGION || "us-east-1";
-        const endpoint = process.env.S3_ENDPOINT;
-        const accessKeyId = process.env.S3_ACCESS_KEY_ID;
-        const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+        const bucket = process.env.STORAGE_BUCKET;
+        const region = process.env.STORAGE_REGION || "us-east-1";
+        const endpoint = process.env.STORAGE_ENDPOINT;
+        const accessKeyId = process.env.STORAGE_ACCESS_KEY;
+        const secretAccessKey = process.env.STORAGE_SECRET_KEY;
 
         if (!bucket || !accessKeyId || !secretAccessKey) return;
 

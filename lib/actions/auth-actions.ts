@@ -86,25 +86,31 @@ export async function requestPasswordReset(email: string) {
 
         const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
 
-        await sendTransactionalEmail({
+        // Send Email via Resend
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+
+        await resend.emails.send({
+            from: "SevenToop <noreply@seventoop.com>",
             to: user.email,
-            subject: "Restablecer tu contraseña - SevenToop",
+            subject: "Recuperá tu contraseña — SevenToop",
             html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
-              <h2>Restablecer Contraseña</h2>
-              <p>Has solicitado restablecer tu contraseña en SevenToop.</p>
-              <p>Haz clic en el siguiente botón para continuar:</p>
-              <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #f97316; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
-                Restablecer Contraseña
-              </a>
-              <p style="margin-top: 20px; font-size: 12px; color: #666;">
-                Si no solicitaste este cambio, puedes ignorar este correo. El link expira en 1 hora.
-              </p>
+                <h2>Recuperación de contraseña</h2>
+                <p>Hacé click en el siguiente enlace para restablecer tu contraseña. El enlace expira en 1 hora.</p>
+                <a href="${resetLink}" 
+                   style="background:#f97316;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold;">
+                    Restablecer contraseña
+                </a>
+                <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                    Si no solicitaste esto, ignorá este email.
+                </p>
+                <p>— Equipo SevenToop</p>
             </div>
-          `,
+            `
         });
 
-        console.log("[reset] token generado para:", email.substring(0, 3) + "***");
+        console.log("[reset] solicitud para:", email.substring(0, 3) + "***");
         return { success: true, message: "Si el email existe, se enviarán las instrucciones." };
 
     } catch (error) {

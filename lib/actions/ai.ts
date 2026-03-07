@@ -287,7 +287,7 @@ JSON Schema:
 async function sendWhatsAppMessage(to: string, message: string) {
     try {
         const providerConfig = await getSystemConfig("WHATSAPP_PROVIDER_KEY");
-        const apiKey = providerConfig.value;
+        const apiKey = providerConfig.value || process.env.WHATSAPP_API_KEY;
         if (!apiKey) return;
     } catch (error) {
         console.error("Failed to send WhatsApp message:", error);
