@@ -98,25 +98,39 @@ async function main() {
         where: { slug: "reserva-geodevia" },
         update: {
             invertible: true,
-            estado: "PLANIFICACION",
+            estado: "EN_VENTA",
+            visibilityStatus: "PUBLICADO",
             precioM2Inversor: 120,
             precioM2Mercado: 210,
             metaM2Objetivo: 5000,
             m2VendidosInversores: 1250,
-            fechaLimiteFondeo: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
+            descripcion: "Reserva Geodevia es el primer desarrollo eco-sustentable de alta gama en el Valle de Punilla. Un refugio natural que combina arquitectura bioclimática con servicios de primer nivel, diseñado para quienes buscan equilibrio entre confort y respeto por el entorno serrano.",
+            ubicacion: "Valle de Punilla, Córdoba, Argentina",
+            mapCenterLat: -31.3129,
+            mapCenterLng: -64.4444,
+            imagenPortada: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2000&auto=format&fit=crop",
+            galeria: JSON.stringify([
+                "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1000",
+                "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1000",
+                "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?q=80&w=1000"
+            ]),
+            fechaLimiteFondeo: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
         },
         create: {
             nombre: "Reserva Geodevia",
             slug: "reserva-geodevia",
-            descripcion: "Proyecto ecosustentable en preventa exclusiva para inversores mayoristas.",
-            ubicacion: "Valle de Punilla, Córdoba",
-            estado: "PLANIFICACION",
-            tipo: "ECO_BARRIO",
+            descripcion: "Reserva Geodevia es el primer desarrollo eco-sustentable de alta gama en el Valle de Punilla. Un refugio natural que combina arquitectura bioclimática con servicios de primer nivel, diseñado para quienes buscan equilibrio entre confort y respeto por el entorno serrano.",
+            ubicacion: "Valle de Punilla, Córdoba, Argentina",
+            estado: "EN_VENTA",
+            visibilityStatus: "PUBLICADO",
+            tipo: "URBANIZACION",
             invertible: true,
             precioM2Inversor: 120,
             precioM2Mercado: 210,
             metaM2Objetivo: 5000,
             m2VendidosInversores: 1250,
+            mapCenterLat: -31.3129,
+            mapCenterLng: -64.4444,
             fechaLimiteFondeo: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
             imagenPortada: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2000&auto=format&fit=crop",
             hitosEscrow: {
@@ -125,6 +139,24 @@ async function main() {
                     { titulo: "Apertura de Calles", porcentaje: 30, estado: "PENDIENTE" },
                     { titulo: "Servicios Básicos", porcentaje: 50, estado: "PENDIENTE" },
                 ]
+            },
+            etapas: {
+                create: [{
+                    nombre: "Etapa Unica",
+                    orden: 1,
+                    manzanas: {
+                        create: [{
+                            nombre: "Manzana 01",
+                            unidades: {
+                                create: [
+                                    { numero: "01", tipo: "LOTE", superficie: 1200, precio: 35000, estado: "DISPONIBLE" },
+                                    { numero: "02", tipo: "LOTE", superficie: 1100, precio: 32000, estado: "RESERVADA" },
+                                    { numero: "03", tipo: "LOTE", superficie: 1500, precio: 45000, estado: "VENDIDA" }
+                                ]
+                            }
+                        }]
+                    }
+                }]
             }
         },
     });

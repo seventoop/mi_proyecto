@@ -12,9 +12,21 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Settings2, Building2 } from "lucide-react";
+import { Settings2, Building2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { updateProjectFeatureFlags } from "@/lib/actions/plans";
+import { deleteProyecto } from "@/lib/actions/proyectos";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 interface Project {
@@ -196,6 +208,38 @@ export default function AdminProjectsMatrix({ projects }: AdminProjectsMatrixPro
                                         </div>
                                     </SheetContent>
                                 </Sheet>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-rose-500/10 text-rose-500">
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent className="dark:bg-[#111116] border-white/10 text-slate-100">
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Eliminás '{project.nombre}'?</AlertDialogTitle>
+                                            <AlertDialogDescription className="text-slate-400">
+                                                Esta acción realizará un borrado lógico. Los datos se conservan por 30 días antes de su eliminación definitiva.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-100">Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={async () => {
+                                                    const res = await deleteProyecto(project.id);
+                                                    if (res.success) {
+                                                        toast.success("Proyecto eliminado");
+                                                        window.location.reload();
+                                                    } else {
+                                                        toast.error(res.error || "Error al eliminar");
+                                                    }
+                                                }}
+                                                className="bg-rose-600 hover:bg-rose-700 text-white border-none"
+                                            >
+                                                Eliminar
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </TableCell>
                         </TableRow>
                     ))}

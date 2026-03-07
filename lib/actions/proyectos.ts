@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema, slugSchema } from "@/lib/validations";
 
@@ -45,6 +46,7 @@ export async function getProyectos(params: {
         const where: any = {
             visibilityStatus: 'PUBLICADO',
             estado: { not: 'SUSPENDIDO' },
+            deletedAt: null,
             OR: [
                 { isDemo: false },
                 { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] }
@@ -305,25 +307,42 @@ export async function updateProyecto(id: string, input: unknown) {
 
 export async function deleteProyecto(id: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
-        if (!user) return { success: false, error: "No autorizado" };
+        const proyecto = await prisma.proyecto.findUnique({
+            where: { id },
+            select: { id: true, nombre: true }
+        });
 
-        const proyecto = await prisma.proyecto.findUnique({ where: { id } });
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
 
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No tienes permisos para eliminar este proyecto" };
+        // Soft delete
+        await prisma.proyecto.update({
+            where: { id },
+            data: { deletedAt: new Date() }
+        });
+
+        // Audit log
+        try {
+            const session = await getServerSession(authOptions);
+            await prisma.auditLog.create({
+                data: {
+                    action: "PROYECTO_ELIMINADO",
+                    entity: "PROYECTO",
+                    entityId: id,
+                    userId: session?.user?.id as string,
+                    details: `Proyecto eliminado (soft delete): ${proyecto.nombre}`
+                }
+            });
+        } catch (e) {
+            console.error("Error creating audit log:", e);
         }
 
-        await prisma.proyecto.delete({ where: { id } });
-
-        revalidatePath("/dashboard/proyectos");
+        revalidatePath("/dashboard/admin/proyectos");
+        revalidatePath("/dashboard/developer/proyectos");
         return { success: true };
     } catch (error) {
-        console.error("Error deleting project:", error);
-        return { success: false, error: "Error al eliminar proyecto" };
+        return handleGuardError(error);
     }
 }
 

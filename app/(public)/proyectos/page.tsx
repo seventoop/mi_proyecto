@@ -16,6 +16,7 @@ async function getProjects() {
             where: {
                 visibilityStatus: "PUBLICADO",
                 estado: { not: "SUSPENDIDO" },
+                deletedAt: null,
                 OR: [
                     { isDemo: false },
                     {
