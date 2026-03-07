@@ -165,6 +165,7 @@ model Proyecto {
   overlayUrl           String?
   overlayBounds        String?
   overlayRotation      Float?               @default(0)
+  tour360Url           String?
   invertible           Boolean              @default(false)
   precioM2Inversor     Decimal?             @db.Decimal(18, 2)
   precioM2Mercado      Decimal?             @db.Decimal(18, 2)
@@ -328,6 +329,7 @@ model Unidad {
   centerLng             Float?
   financiacion          String?
   estado                String            @default("DISPONIBLE")
+  bloqueadoHasta        DateTime?
   coordenadasMasterplan String?
   imagenes              String?
   tour360Url            String?
@@ -514,6 +516,7 @@ model Tour360 {
   nombre     String
   estado     String      @default("PENDIENTE")
   notasAdmin String?
+  anchors    Json?
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   scenes     TourScene[]

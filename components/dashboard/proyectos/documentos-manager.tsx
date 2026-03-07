@@ -190,7 +190,7 @@ export default function DocumentosManager({ proyectoId, documentos, userRole }: 
                                 </div>
                                 <h4 className="font-bold text-slate-800 dark:text-white leading-tight mb-1">{doc.titulo}</h4>
                                 {doc.descripcion && <p className="text-xs text-slate-500 mb-3">{doc.descripcion}</p>}
-                                <p className="text-xs text-slate-400 mb-3 block">Subido el {new Date(doc.fechaSubida).toLocaleDateString()}</p>
+                                <p className="text-xs text-slate-400 mb-3 block">Subido el {new Date(doc.createdAt || doc.fechaSubida).toLocaleDateString()}</p>
 
                                 <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                                     <div className={cn("flex items-center gap-1.5 text-xs font-bold",

@@ -52,6 +52,7 @@ export default function MasterplanMap({
     const [isLoaded, setIsLoaded] = useState(false);
     const [mapType, setMapType] = useState<"satellite" | "roadmap">("satellite");
     const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
 
     const {
         units, setUnits,
@@ -112,10 +113,13 @@ export default function MasterplanMap({
         polygonsRef.current.clear();
 
         filteredUnits.forEach(unit => {
-            // Check for polygon data in 'polygon' (new) or 'path' (old/demo)
-            let paths = unit.polygon as any;
+            // Normalize polygon: handle string JSON, object, or legacy path
+            let paths: any = unit.polygon;
+            if (typeof paths === "string") {
+                try { paths = JSON.parse(paths); } catch { paths = null; }
+            }
             if (!paths && unit.path) {
-                try { paths = JSON.parse(unit.path); } catch { paths = null; }
+                try { paths = JSON.parse(unit.path as string); } catch { paths = null; }
             }
 
             if (!paths || !Array.isArray(paths) || paths.length < 3) return;
@@ -134,8 +138,25 @@ export default function MasterplanMap({
                 zIndex: isSelected ? 10 : 1,
             });
 
-            polygon.addListener("click", () => {
+            polygon.addListener("click", (e: google.maps.MapMouseEvent) => {
                 setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id);
+
+                // InfoWindow
+                if (infoWindowRef.current) infoWindowRef.current.close();
+                const precio = unit.precio ? `$${unit.precio.toLocaleString()} ${unit.moneda || "USD"}` : "Consultar";
+                const estadoLabel: Record<string, string> = { DISPONIBLE: "Disponible", RESERVADO: "Reservado", RESERVADA: "Reservado", VENDIDO: "Vendido", VENDIDA: "Vendido", BLOQUEADO: "Bloqueado" };
+                const estadoColor: Record<string, string> = { DISPONIBLE: "#22c55e", RESERVADO: "#f59e0b", RESERVADA: "#f59e0b", VENDIDO: "#ef4444", VENDIDA: "#ef4444", BLOQUEADO: "#6b7280" };
+                const iw = new google.maps.InfoWindow({
+                    content: `<div style="font-family:sans-serif;min-width:160px;padding:4px">
+                        <div style="font-weight:700;font-size:14px;margin-bottom:6px">Lote #${unit.numero}</div>
+                        <span style="background:${estadoColor[unit.estado] || "#94a3b8"}22;color:${estadoColor[unit.estado] || "#94a3b8"};padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600">${estadoLabel[unit.estado] || unit.estado}</span>
+                        ${unit.superficie ? `<div style="margin-top:6px;font-size:12px;color:#64748b">Superficie: <b>${unit.superficie} m²</b></div>` : ""}
+                        <div style="margin-top:4px;font-size:13px;color:#0f172a;font-weight:700">${precio}</div>
+                    </div>`,
+                    position: e.latLng ?? undefined,
+                });
+                iw.open(map);
+                infoWindowRef.current = iw;
             });
 
             polygon.addListener("mouseover", () => {
@@ -229,14 +250,26 @@ export default function MasterplanMap({
                 </a>
             </div>
 
-            {/* Legend */}
-            <div className="absolute bottom-4 left-4 z-10 bg-black/80 backdrop-blur-md p-3 rounded-xl border border-white/10 text-[10px] text-white flex gap-4">
-                {Object.entries(ESTADO_COLORS).map(([key, color]) => (
-                    <div key={key} className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded" style={{ backgroundColor: color.fill }} />
-                        <span className="font-medium uppercase tracking-wider">{key}</span>
-                    </div>
-                ))}
+            {/* Legend — dynamic counts */}
+            <div className="absolute bottom-4 left-4 z-10 bg-black/80 backdrop-blur-md p-3 rounded-xl border border-white/10 text-[10px] text-white space-y-1.5">
+                {Object.entries(ESTADO_COLORS).map(([key, color]) => {
+                    const count = units.filter(u => {
+                        const norm = ["RESERVADO", "RESERVADA", "RESERVADA_PENDIENTE"].includes(u.estado) ? "RESERVADO" : ["VENDIDO", "VENDIDA"].includes(u.estado) ? "VENDIDO" : u.estado;
+                        return norm === key;
+                    }).length;
+                    return (
+                        <div key={key} className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-3 h-3 rounded" style={{ backgroundColor: color.fill }} />
+                                <span className="font-medium uppercase tracking-wider">{key}</span>
+                            </div>
+                            <span className="font-bold text-white/70">{count}</span>
+                        </div>
+                    );
+                })}
+                <div className="pt-1 mt-1 border-t border-white/10 text-white/50">
+                    {units.filter(u => u.estado === "DISPONIBLE").length} disponibles de {units.length}
+                </div>
             </div>
 
             {/* Admin Config Panel */}

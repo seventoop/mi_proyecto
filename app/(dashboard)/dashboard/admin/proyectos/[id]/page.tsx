@@ -17,6 +17,9 @@ const EtapasManager = dynamic(() => import("@/components/dashboard/proyectos/eta
 const InversionPanel = dynamic(() => import("@/components/dashboard/proyectos/inversion-panel"), { ssr: false });
 const DocumentosManager = dynamic(() => import("@/components/dashboard/proyectos/documentos-manager"), { ssr: false });
 const PagosManager = dynamic(() => import("@/components/dashboard/proyectos/pagos-manager"), { ssr: false });
+const PlanosTab = dynamic(() => import("@/components/blueprint/PlanosTab"), { ssr: false, loading: () => <div className="h-[500px] flex items-center justify-center bg-slate-900 rounded-2xl"><span className="text-slate-400">Cargando Motor de Planos...</span></div> });
+const Tour360Viewer = dynamic(() => import("@/components/tour360/Tour360Viewer"), { ssr: false, loading: () => <div className="h-[600px] flex items-center justify-center bg-slate-900 rounded-2xl"><span className="text-slate-400">Cargando Tour 360°...</span></div> });
+const PagosTab = dynamic(() => import("@/components/dashboard/proyectos/pagos-tab"), { ssr: false });
 
 const MasterplanMap = dynamic(
     () => import("@/components/masterplan/masterplan-map"),
@@ -42,6 +45,18 @@ const MasterplanViewer = dynamic(
     }
 );
 
+const BlueprintEngine = dynamic(
+    () => import("@/components/masterplan/blueprint-engine"),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="h-[600px] flex items-center justify-center bg-slate-900 rounded-2xl">
+                <span className="text-slate-400">Cargando Procesador AI...</span>
+            </div>
+        )
+    }
+);
+
 const Tour360TabWrapper = dynamic(
     () => import("@/components/dashboard/proyectos/tour360-tab-wrapper"),
     { ssr: false }
@@ -50,7 +65,7 @@ const Tour360TabWrapper = dynamic(
 
 interface PageProps {
     params: { id: string };
-    searchParams: { tab?: string };
+    searchParams: { tab?: string; mode?: string };
 }
 
 export default async function ProyectoDetailPage({ params, searchParams }: PageProps) {
@@ -71,7 +86,8 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     select: {
                                         id: true, numero: true, tipo: true, superficie: true,
                                         frente: true, fondo: true, esEsquina: true, orientacion: true,
-                                        precio: true, moneda: true, estado: true
+                                        precio: true, moneda: true, estado: true, polygon: true,
+                                        bloqueadoHasta: true
                                     }
                                 }
                             }
@@ -80,7 +96,8 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     orderBy: { orden: "asc" }
                 },
                 pagos: {
-                    orderBy: { createdAt: "desc" }
+                    orderBy: { createdAt: "desc" },
+                    include: { usuario: { select: { nombre: true } } }
                 },
                 _count: {
                     select: { leads: true }
@@ -93,7 +110,15 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             }
                         }
                     }
-                }
+                },
+                documentacion: true,
+                archivosTecnicos: true,
+                inversiones: {
+                    include: {
+                        inversor: true
+                    }
+                },
+                hitosEscrow: true
             }
         }),
         prisma.unidad.groupBy({
@@ -121,7 +146,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     statsGrouped.forEach(group => {
         const count = group._count;
-        const sum = group._sum.precio || 0;
+        const sum = Number(group._sum.precio || 0);
 
         total += count;
         valorTotal += sum;
@@ -138,10 +163,6 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     });
 
     const pctVendido = total > 0 ? Math.round(((vendidas + reservadas) / total) * 100) : 0;
-
-
-
-    // ... previous code ...
 
     // Fetch reservas if tab is active (or always if lightweight)
     const reservasRes = await getReservasProyecto(params.id);
@@ -257,7 +278,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 {activeTab === "docs" && (
                     <DocumentosManager
                         proyectoId={proyecto.id}
-                        documentos={proyecto.documentos || []}
+                        documentos={proyecto.documentacion || []}
                         userRole={userRole}
                     />
                 )}
@@ -314,10 +335,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 )}
 
                 {activeTab === "tour360" && (
-                    <Tour360TabWrapper
+                    <Tour360Viewer
                         proyectoId={proyecto.id}
+                        tour360Url={(proyecto as any).tour360Url}
+                        unidades={proyecto.etapas.flatMap((e: any) => e.manzanas.flatMap((m: any) => m.unidades))}
+                        isAdmin={userRole === "ADMIN" || userRole === "DESARROLLADOR"}
                         tours={proyecto.tours || []}
-                        userRole={userRole}
                     />
                 )}
 
@@ -326,9 +349,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         proyectoId={proyecto.id}
                         proyectoNombre={proyecto.nombre}
                         invertible={proyecto.invertible}
-                        m2Vendidos={proyecto.m2VendidosInversores || 0}
-                        metaM2={proyecto.metaM2Objetivo || 0}
-                        precioM2={proyecto.precioM2Inversor || 0}
+                        m2Vendidos={Number(proyecto.m2VendidosInversores || 0)}
+                        metaM2={Number(proyecto.metaM2Objetivo || 0)}
+                        precioM2={Number(proyecto.precioM2Inversor || 0)}
                         fechaLimite={proyecto.fechaLimiteFondeo}
                         hitos={proyecto.hitosEscrow || []}
                         inversiones={proyecto.inversiones || []}
@@ -354,11 +377,19 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     </div>
                 )}
 
+                {activeTab === "pagos" && (
+                    <PagosTab
+                        pagos={proyecto.pagos || []}
+                        userRole={userRole}
+                    />
+                )}
+
                 {activeTab === "planos" && (
-                    <div className="glass-card p-6">
-                        <h2 className="text-lg font-bold mb-4 text-slate-800 dark:text-white">Motor de Planos</h2>
-                        <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
-                    </div>
+                    <PlanosTab
+                        unidades={proyecto.etapas.flatMap((e: any) => e.manzanas.flatMap((m: any) => m.unidades))}
+                        proyectoId={proyecto.id}
+                        tour360Url={(proyecto as any).tour360Url}
+                    />
                 )}
 
                 {activeTab === "metricas" && (

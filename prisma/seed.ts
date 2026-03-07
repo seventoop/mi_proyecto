@@ -93,10 +93,50 @@ async function main() {
         },
     });
 
-    // 5. Whitelist Investment Project (The success case)
+    // 5. Geodevia — 24 lotes con polígonos reales
+    // Primero, borrar etapas existentes de Geodevia para evitar duplicados
+    const existingGeodevia = await prisma.proyecto.findUnique({ where: { slug: "reserva-geodevia" }, select: { id: true } });
+    if (existingGeodevia) {
+        await prisma.etapa.deleteMany({ where: { proyectoId: existingGeodevia.id } });
+    }
+
+    const BASE_LAT_A = -31.4530; // Fila norte (Manzana A)
+    const BASE_LAT_B = -31.4535; // Fila sur (Manzana B, separada por calle)
+    const BASE_LNG = -64.4825;
+    const LOT_W_LNG = 0.00018; // ancho lon de cada lote (~10m)
+    const LOT_H_LAT = 0.00030; // alto lat de cada lote (~33m)
+
+    const makePoly = (row: number, col: number, baseLat: number) => {
+        const lng0 = BASE_LNG + col * (LOT_W_LNG + 0.00002);
+        const lat0 = baseLat;
+        return [
+            { lat: lat0,            lng: lng0 },
+            { lat: lat0,            lng: lng0 + LOT_W_LNG },
+            { lat: lat0 - LOT_H_LAT, lng: lng0 + LOT_W_LNG },
+            { lat: lat0 - LOT_H_LAT, lng: lng0 },
+        ];
+    };
+
+    // Manzana A: lotes 01-12
+    const manzanaALotes = Array.from({ length: 12 }, (_, i) => {
+        const num = String(i + 1).padStart(2, "0");
+        const estado = i < 6 ? "DISPONIBLE" : i < 9 ? "RESERVADA" : "VENDIDA";
+        const precio = 45000 + i * 1000;
+        return { numero: `A-${num}`, tipo: "LOTE", frente: 10, fondo: 33.04, superficie: 330.4, moneda: "USD", estado, precio, polygon: makePoly(0, i, BASE_LAT_A) };
+    });
+
+    // Manzana B: lotes 13-24
+    const manzanaBLotes = Array.from({ length: 12 }, (_, i) => {
+        const num = String(i + 13).padStart(2, "0");
+        const estado = i < 8 ? "DISPONIBLE" : i < 10 ? "RESERVADA" : "VENDIDA";
+        const precio = 38000 + i * 1000;
+        return { numero: `B-${num}`, tipo: "LOTE", frente: 10, fondo: 33.04, superficie: 330.4, moneda: "USD", estado, precio, polygon: makePoly(1, i, BASE_LAT_B) };
+    });
+
     const proyectoInversion = await prisma.proyecto.upsert({
         where: { slug: "reserva-geodevia" },
         update: {
+            deletedAt: null,
             invertible: true,
             estado: "EN_VENTA",
             visibilityStatus: "PUBLICADO",
@@ -116,7 +156,7 @@ async function main() {
                 "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?q=80&w=1000"
             ]),
             fechaLimiteFondeo: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-        },
+        } as any,
         create: {
             nombre: "Reserva Geodevia",
             slug: "reserva-geodevia",
@@ -142,36 +182,36 @@ async function main() {
                     { titulo: "Servicios Básicos", porcentaje: 50, estado: "PENDIENTE" },
                 ]
             },
-            etapas: {
-                create: [{
-                    nombre: "Etapa 1",
-                    orden: 1,
-                    estado: "EN_CURSO",
-                    manzanas: {
-                        create: [{
-                            nombre: "Manzana A",
-                            unidades: {
-                                create: [
-                                    {
-                                        numero: "A-01", tipo: "LOTE", superficie: 500, precio: 45000, estado: "DISPONIBLE",
-                                        polygon: [{ lat: -31.453050, lng: -64.482050 }, { lat: -31.453250, lng: -64.482050 }, { lat: -31.453250, lng: -64.482250 }, { lat: -31.453050, lng: -64.482250 }]
-                                    },
-                                    {
-                                        numero: "A-02", tipo: "LOTE", superficie: 500, precio: 38000, estado: "RESERVADA",
-                                        polygon: [{ lat: -31.453350, lng: -64.482050 }, { lat: -31.453550, lng: -64.482050 }, { lat: -31.453550, lng: -64.482250 }, { lat: -31.453350, lng: -64.482250 }]
-                                    },
-                                    {
-                                        numero: "A-03", tipo: "LOTE", superficie: 500, precio: 42000, estado: "VENDIDA",
-                                        polygon: [{ lat: -31.453650, lng: -64.482050 }, { lat: -31.453850, lng: -64.482050 }, { lat: -31.453850, lng: -64.482250 }, { lat: -31.453650, lng: -64.482250 }]
-                                    }
-                                ]
-                            }
-                        }]
-                    }
-                }]
-            }
-        },
+        } as any,
     });
+
+    // Crear etapa + manzanas + lotes
+    const etapa1 = await prisma.etapa.create({
+        data: {
+            proyectoId: proyectoInversion.id,
+            nombre: "Etapa 1",
+            orden: 1,
+            estado: "EN_CURSO",
+        }
+    });
+
+    await prisma.manzana.create({
+        data: {
+            etapaId: etapa1.id,
+            nombre: "Manzana A",
+            unidades: { create: manzanaALotes as any }
+        }
+    });
+
+    await prisma.manzana.create({
+        data: {
+            etapaId: etapa1.id,
+            nombre: "Manzana B",
+            unidades: { create: manzanaBLotes as any }
+        }
+    });
+
+    console.log(`✅ Geodevia: 24 lotes creados (Manzana A + B)`);
 
     // 6. Create a mock investment for our investor
     await prisma.inversion.create({

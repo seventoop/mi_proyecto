@@ -22,7 +22,8 @@
       "Bash(taskkill:*)",
       "Bash(test:*)",
       "Bash(npm run:*)",
-      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npm run:*)"
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npm run:*)",
+      "Bash(cmd:*)"
     ]
   }
 }
