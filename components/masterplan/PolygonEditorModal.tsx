@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader } from "@googlemaps/js-api-loader";
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { X, Save, Trash2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,16 +60,15 @@ export default function PolygonEditorModal({
     useEffect(() => {
         if (!isOpen) return;
 
-        const loader = new Loader({
-            apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-            version: "weekly",
-        });
-
         const init = async () => {
             try {
+                setOptions({
+                    key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+                });
+
                 const [{ Map }, { DrawingManager }] = await Promise.all([
-                    loader.importLibrary("maps") as Promise<google.maps.MapsLibrary>,
-                    loader.importLibrary("drawing") as Promise<google.maps.DrawingLibrary>
+                    importLibrary("maps") as Promise<google.maps.MapsLibrary>,
+                    importLibrary("drawing") as Promise<google.maps.DrawingLibrary>
                 ]);
 
                 if (!mapRef.current) return;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Loader } from "@googlemaps/js-api-loader";
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import {
     Filter, ZoomIn, ZoomOut, Crosshair,
     Layers as LayersIcon, Map as MapIcon,
@@ -71,14 +71,13 @@ export default function MasterplanMap({
 
     // Load Google Maps
     useEffect(() => {
-        const loader = new Loader({
-            apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-            version: "weekly",
-        });
-
         const initMap = async () => {
             try {
-                const { Map } = await loader.importLibrary("maps") as google.maps.MapsLibrary;
+                setOptions({
+                    key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+                });
+
+                const { Map } = await importLibrary("maps") as google.maps.MapsLibrary;
 
                 if (!mapRef.current) return;
 
@@ -114,7 +113,7 @@ export default function MasterplanMap({
 
         filteredUnits.forEach(unit => {
             // Check for polygon data in 'polygon' (new) or 'path' (old/demo)
-            let paths = unit.polygon;
+            let paths = unit.polygon as any;
             if (!paths && unit.path) {
                 try { paths = JSON.parse(unit.path); } catch { paths = null; }
             }
