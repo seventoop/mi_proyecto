@@ -165,8 +165,8 @@ export default function Sidebar() {
                             <Image
                                 src="/logo.png"
                                 alt="SevenToop"
-                                width={140}
-                                height={40}
+                                width={180}
+                                height={54}
                                 className="object-contain"
                                 priority
                             />

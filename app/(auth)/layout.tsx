@@ -17,7 +17,7 @@ export default function AuthLayout({
                             src="/logo.png"
                             alt="SevenToop"
                             width={340}
-                            height={110}
+                            height={100}
                             className="object-contain drop-shadow-[0_0_30px_rgba(249,115,22,0.35)]"
                             priority
                         />

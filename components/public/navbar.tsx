@@ -23,9 +23,9 @@ export default function Navbar() {
                         <Image
                             src="/logo.png"
                             alt="SevenToop"
-                            width={140}
-                            height={40}
-                            className="object-contain w-[100px] md:w-[140px]"
+                            width={200}
+                            height={60}
+                            className="object-contain w-[140px] md:w-[200px]"
                             priority
                         />
                     </Link>
