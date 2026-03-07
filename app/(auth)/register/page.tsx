@@ -6,6 +6,13 @@ import { Building2, Mail, Lock, Eye, EyeOff, Loader2, User, ArrowLeft, Briefcase
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+const roleLabels: Record<string, string> = {
+    DESARROLLADOR: "Desarrollador",
+    VENDEDOR: "Vendedor",
+    INVERSOR: "Inversor",
+    CLIENTE: "Cliente",
+};
+
 function RegisterForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -296,7 +303,7 @@ function RegisterForm() {
                             Creando cuenta...
                         </>
                     ) : (
-                        formData.role === "VENDEDOR" ? "Registrarse como Desarrollador" : "Crear cuenta"
+                        `Registrarse como ${roleLabels[formData.role] || "Usuario"}`
                     )}
                 </button>
             </form>

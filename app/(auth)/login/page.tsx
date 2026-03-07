@@ -18,7 +18,6 @@ function LoginForm() {
     const [error, setError] = useState("");
     const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
     const [isLoading, setIsLoading] = useState(false);
-    const [acceptTerms, setAcceptTerms] = useState(false);
 
     useEffect(() => {
         const savedEmail = localStorage.getItem("rememberedEmail");
@@ -49,8 +48,8 @@ function LoginForm() {
 
         if (!password) {
             errors.password = "La contraseña es requerida";
-        } else if (password.length < 6) {
-            errors.password = "La contraseña debe tener al menos 6 caracteres";
+        } else if (password.length < 8) {
+            errors.password = "La contraseña debe tener al menos 8 caracteres";
         }
 
         setFieldErrors(errors);
@@ -62,11 +61,6 @@ function LoginForm() {
         setError("");
 
         if (!validateForm()) return;
-        if (!acceptTerms) {
-            setError("Debes aceptar los términos y condiciones");
-            return;
-        }
-
         setIsLoading(true);
 
         try {
@@ -237,29 +231,6 @@ function LoginForm() {
                     </Link>
                 </div>
 
-                {/* Terms and Conditions */}
-                <label className="flex items-start gap-2 cursor-pointer group">
-                    <input
-                        type="checkbox"
-                        checked={acceptTerms}
-                        onChange={(e) => {
-                            setAcceptTerms(e.target.checked);
-                            if (error === "Debes aceptar los términos y condiciones") setError("");
-                        }}
-                        className="w-4 h-4 mt-0.5 rounded border-white/10 bg-white/5 text-brand-500 focus:ring-brand-500/40 transition-all"
-                    />
-                    <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
-                        Acepto los{" "}
-                        <Link href="/terminos" target="_blank" className="text-brand-400 hover:text-brand-300 underline font-medium">
-                            Términos y Condiciones
-                        </Link>
-                        {" "}y la{" "}
-                        <Link href="/privacidad" target="_blank" className="text-brand-400 hover:text-brand-300 underline font-medium">
-                            Política de Privacidad
-                        </Link>
-                    </span>
-                </label>
-
                 {/* Submit */}
                 <button
                     type="submit"
@@ -280,12 +251,12 @@ function LoginForm() {
             <div className="mt-8 space-y-3">
                 <p className="text-center text-sm text-slate-500">
                     ¿No tienes cuenta?{" "}
-                    <a
+                    <Link
                         href="/register"
                         className="text-brand-400 hover:text-brand-300 font-medium transition-colors"
                     >
                         Regístrate aquí
-                    </a>
+                    </Link>
                 </p>
                 <p className="text-center text-xs text-slate-600">
                     ¿Problemas para acceder?{" "}

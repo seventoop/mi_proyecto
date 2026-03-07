@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { z } from "zod";
 import { sendTransactionalEmail } from "@/lib/mail";
+import { requireAuth } from "@/lib/guards";
 
 const resetRequestSchema = z.object({
     email: z.string().email("Email inválido"),
@@ -14,6 +15,24 @@ const resetPasswordSchema = z.object({
     token: z.string().min(1, "Token requerido"),
     password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
 });
+
+/**
+ * Activates a 48-hour demo period for the current user.
+ */
+export async function activateDemoMode() {
+    try {
+        const user = await requireAuth();
+        const demoEndsAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { demoEndsAt },
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("[ACTIVATE_DEMO_ERROR]", error);
+        return { success: false, error: "Error al activar el modo demo" };
+    }
+}
 
 /**
  * Requests a password reset link.
@@ -26,12 +45,20 @@ export async function requestPasswordReset(email: string) {
             return { success: false, error: parsed.error.issues[0].message };
         }
 
+        // If email service is not configured, guide user to manual support
+        if (!process.env.RESEND_API_KEY) {
+            return {
+                success: true,
+                message: "Para recuperar tu contraseña escribinos a soporte@seventoop.com indicando tu email registrado.",
+            };
+        }
+
         const user = await prisma.user.findUnique({
             where: { email: parsed.data.email },
         });
 
         if (!user) {
-            // Return success even if user not found to prevent user enumeration
+            // Anti-enumeration: same response whether user exists or not
             return { success: true, message: "Si el email existe, se enviarán las instrucciones." };
         }
 
@@ -49,12 +76,10 @@ export async function requestPasswordReset(email: string) {
 
         const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
 
-        // ACTIVAR: requiere RESEND_API_KEY en .env
-        /*
-        const emailRes = await sendTransactionalEmail({
-          to: user.email,
-          subject: "Restablecer tu contraseña - SevenToop",
-          html: `
+        await sendTransactionalEmail({
+            to: user.email,
+            subject: "Restablecer tu contraseña - SevenToop",
+            html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
               <h2>Restablecer Contraseña</h2>
               <p>Has solicitado restablecer tu contraseña en SevenToop.</p>
@@ -68,9 +93,8 @@ export async function requestPasswordReset(email: string) {
             </div>
           `,
         });
-        */
 
-        console.log(`[AUTH] Password reset requested for ${email}. Link: ${resetLink}`);
+        console.log("[reset] token generado para:", email.substring(0, 3) + "***");
         return { success: true, message: "Si el email existe, se enviarán las instrucciones." };
 
     } catch (error) {

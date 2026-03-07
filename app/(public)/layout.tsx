@@ -48,15 +48,24 @@ export default function PublicLayout({
                                         { name: "CRM", href: "#", comingSoon: true }
                                     ].map((item) => (
                                         <li key={item.name}>
-                                            <Link
-                                                href={item.href}
-                                                className="text-sm text-foreground/50 hover:text-brand-600 transition-colors flex items-center gap-2"
-                                            >
-                                                {item.name}
-                                                {item.comingSoon && (
-                                                    <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 font-black uppercase tracking-tighter">Próximamente</span>
-                                                )}
-                                            </Link>
+                                            {item.href === "#" ? (
+                                                <span className="text-sm text-foreground/30 flex items-center gap-2 cursor-default select-none">
+                                                    {item.name}
+                                                    {item.comingSoon && (
+                                                        <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 font-black uppercase tracking-tighter">Próximamente</span>
+                                                    )}
+                                                </span>
+                                            ) : (
+                                                <Link
+                                                    href={item.href}
+                                                    className="text-sm text-foreground/50 hover:text-brand-600 transition-colors flex items-center gap-2"
+                                                >
+                                                    {item.name}
+                                                    {item.comingSoon && (
+                                                        <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 font-black uppercase tracking-tighter">Próximamente</span>
+                                                    )}
+                                                </Link>
+                                            )}
                                         </li>
                                     ))
                                 }
@@ -75,15 +84,24 @@ export default function PublicLayout({
                                         { name: "Estado del Servicio", href: "#", comingSoon: true }
                                     ].map((item) => (
                                         <li key={item.name}>
-                                            <Link
-                                                href={item.href}
-                                                className="text-sm text-foreground/50 hover:text-brand-600 transition-colors flex items-center gap-2"
-                                            >
-                                                {item.name}
-                                                {item.comingSoon && (
-                                                    <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 font-black uppercase tracking-tighter">Próximamente</span>
-                                                )}
-                                            </Link>
+                                            {item.href === "#" ? (
+                                                <span className="text-sm text-foreground/30 flex items-center gap-2 cursor-default select-none">
+                                                    {item.name}
+                                                    {item.comingSoon && (
+                                                        <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 font-black uppercase tracking-tighter">Próximamente</span>
+                                                    )}
+                                                </span>
+                                            ) : (
+                                                <Link
+                                                    href={item.href}
+                                                    className="text-sm text-foreground/50 hover:text-brand-600 transition-colors flex items-center gap-2"
+                                                >
+                                                    {item.name}
+                                                    {item.comingSoon && (
+                                                        <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 font-black uppercase tracking-tighter">Próximamente</span>
+                                                    )}
+                                                </Link>
+                                            )}
                                         </li>
                                     ))
                                 }
@@ -100,16 +118,25 @@ export default function PublicLayout({
                                     { name: "Términos", href: "/terminos" },
                                     { name: "Privacidad", href: "/privacidad" },
                                     { name: "Cookies", href: "#", comingSoon: true }
-                                ].map((item) => (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors flex items-center gap-1"
-                                    >
-                                        {item.name}
-                                        {item.comingSoon && <span className="text-[7px] opacity-50 font-black uppercase">(Soon)</span>}
-                                    </Link>
-                                ))
+                                ].map((item) =>
+                                    item.href === "#" ? (
+                                        <span
+                                            key={item.name}
+                                            className="text-xs text-foreground/20 flex items-center gap-1 cursor-default select-none"
+                                        >
+                                            {item.name}
+                                            {item.comingSoon && <span className="text-[7px] opacity-50 font-black uppercase">(Soon)</span>}
+                                        </span>
+                                    ) : (
+                                        <Link
+                                            key={item.name}
+                                            href={item.href}
+                                            className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors flex items-center gap-1"
+                                        >
+                                            {item.name}
+                                        </Link>
+                                    )
+                                )
                             }
                         </div>
 
