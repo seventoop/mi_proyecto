@@ -106,8 +106,9 @@ async function main() {
             m2VendidosInversores: 1250,
             descripcion: "Reserva Geodevia es el primer desarrollo eco-sustentable de alta gama en el Valle de Punilla. Un refugio natural que combina arquitectura bioclimática con servicios de primer nivel, diseñado para quienes buscan equilibrio entre confort y respeto por el entorno serrano.",
             ubicacion: "Valle de Punilla, Córdoba, Argentina",
-            mapCenterLat: -31.3129,
-            mapCenterLng: -64.4444,
+            mapCenterLat: -31.4532,
+            mapCenterLng: -64.4823,
+            mapZoom: 16,
             imagenPortada: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2000&auto=format&fit=crop",
             galeria: JSON.stringify([
                 "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1000",
@@ -129,8 +130,9 @@ async function main() {
             precioM2Mercado: 210,
             metaM2Objetivo: 5000,
             m2VendidosInversores: 1250,
-            mapCenterLat: -31.3129,
-            mapCenterLng: -64.4444,
+            mapCenterLat: -31.4532,
+            mapCenterLng: -64.4823,
+            mapZoom: 16,
             fechaLimiteFondeo: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
             imagenPortada: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2000&auto=format&fit=crop",
             hitosEscrow: {
@@ -149,9 +151,18 @@ async function main() {
                             nombre: "Manzana 01",
                             unidades: {
                                 create: [
-                                    { numero: "01", tipo: "LOTE", superficie: 1200, precio: 35000, estado: "DISPONIBLE" },
-                                    { numero: "02", tipo: "LOTE", superficie: 1100, precio: 32000, estado: "RESERVADA" },
-                                    { numero: "03", tipo: "LOTE", superficie: 1500, precio: 45000, estado: "VENDIDA" }
+                                    {
+                                        numero: "01", tipo: "LOTE", superficie: 1200, precio: 35000, estado: "DISPONIBLE",
+                                        polygon: [{ lat: -31.4530, lng: -64.4820 }, { lat: -31.4532, lng: -64.4820 }, { lat: -31.4532, lng: -64.4822 }, { lat: -31.4530, lng: -64.4822 }]
+                                    },
+                                    {
+                                        numero: "02", tipo: "LOTE", superficie: 1100, precio: 32000, estado: "RESERVADA",
+                                        polygon: [{ lat: -31.4533, lng: -64.4820 }, { lat: -31.4535, lng: -64.4820 }, { lat: -31.4535, lng: -64.4822 }, { lat: -31.4533, lng: -64.4822 }]
+                                    },
+                                    {
+                                        numero: "03", tipo: "LOTE", superficie: 1500, precio: 45000, estado: "VENDIDA",
+                                        polygon: [{ lat: -31.4536, lng: -64.4820 }, { lat: -31.4538, lng: -64.4820 }, { lat: -31.4538, lng: -64.4822 }, { lat: -31.4536, lng: -64.4822 }]
+                                    }
                                 ]
                             }
                         }]

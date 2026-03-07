@@ -322,6 +322,7 @@ model Unidad {
   orientacion           String?
   precio                Float?
   moneda                String            @default("USD")
+  polygon               Json?
   geoJSON               String?
   centerLat             Float?
   centerLng             Float?

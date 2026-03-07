@@ -1,607 +1,291 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Loader } from "@googlemaps/js-api-loader";
 import {
-    Map as MapIcon, Layers as LayersIcon, Filter, ZoomIn, ZoomOut, Maximize,
-    Eye, EyeOff, Crosshair, X, ChevronRight, Image as ImageIcon, Globe,
+    Filter, ZoomIn, ZoomOut, Crosshair,
+    Layers as LayersIcon, Map as MapIcon,
+    Globe, Share2, Save
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     useMasterplanStore,
     useFilteredUnits,
-    MasterplanUnit,
+    MasterplanUnit
 } from "@/lib/masterplan-store";
+import { motion, AnimatePresence } from "framer-motion";
 import MasterplanSidePanel from "./masterplan-side-panel";
 import MasterplanFilters from "./masterplan-filters";
-import MasterplanComparator from "./masterplan-comparator";
-import OverlayEditor, { OverlayConfig } from "./overlay-editor";
-import Tour360Viewer from "./tour360-viewer";
+import PolygonEditorModal from "./PolygonEditorModal";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { updateProjectMapConfig } from "@/lib/actions/masterplan-actions";
 
-// ─── Status colors ───
-const STATUS_COLORS: Record<string, string> = {
-    DISPONIBLE: "#10b981",
-    BLOQUEADO: "#f59e0b",
-    RESERVADO: "#f97316",
-    VENDIDO: "#ef4444",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-    DISPONIBLE: "Disponible",
-    BLOQUEADO: "Bloqueado",
-    RESERVADO: "Reservado",
-    VENDIDO: "Vendido",
-};
-
-// ─── Demo lot data with geographic coordinates ───
-// Based on the "Ria" project near -33.094, -60.547
-function generateGeoUnits(): MasterplanUnit[] {
-    const etapas = [
-        { id: "e1", nombre: "Etapa 1" },
-        { id: "e2", nombre: "Etapa 2" },
-    ];
-    const manzanas = [
-        { id: "m1", nombre: "Mza A", etapaId: "e1" },
-        { id: "m2", nombre: "Mza B", etapaId: "e1" },
-        { id: "m3", nombre: "Mza C", etapaId: "e1" },
-        { id: "m4", nombre: "Mza D", etapaId: "e2" },
-        { id: "m5", nombre: "Mza E", etapaId: "e2" },
-    ];
-
-    const units: MasterplanUnit[] = [];
-    const estados: MasterplanUnit["estado"][] = [
-        "DISPONIBLE", "DISPONIBLE", "DISPONIBLE", "RESERVADO", "VENDIDO", "BLOQUEADO",
-    ];
-    let idx = 0;
-
-    // Generate lots in a grid pattern within geographic bounds
-    const baseLat = -33.0935;
-    const baseLng = -60.5480;
-    const lotLatSize = 0.00025;
-    const lotLngSize = 0.00035;
-    const gapLat = 0.00003;
-    const gapLng = 0.00004;
-
-    manzanas.forEach((mz, mi) => {
-        const etapa = etapas.find((e) => e.id === mz.etapaId)!;
-        const cols = 5;
-        const rows = mi < 3 ? 4 : 3;
-        const offsetLat = mi < 3 ? 0 : -(rows * (lotLatSize + gapLat) + 0.0006);
-        const offsetLng = (mi % 3) * (cols * (lotLngSize + gapLng) + 0.0006);
-
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                const lat = baseLat + offsetLat - r * (lotLatSize + gapLat);
-                const lng = baseLng + offsetLng + c * (lotLngSize + gapLng);
-
-                const num = `${mz.nombre.replace("Mza ", "")}-${String(idx % 20 + 1).padStart(2, "0")}`;
-                const estado = estados[idx % estados.length];
-                const esEsquina = (r === 0 || r === rows - 1) && (c === 0 || c === cols - 1);
-                const superficie = 400 + Math.floor(Math.random() * 300);
-                const precio = 35000 + Math.floor(Math.random() * 40000);
-
-                // Store lat/lng bounds in path as JSON (we'll parse later)
-                const bounds = JSON.stringify([
-                    [lat, lng],
-                    [lat - lotLatSize, lng],
-                    [lat - lotLatSize, lng + lotLngSize],
-                    [lat, lng + lotLngSize],
-                ]);
-
-                units.push({
-                    id: `unit-${idx}`,
-                    numero: num,
-                    tipo: "LOTE",
-                    superficie,
-                    frente: 12 + Math.floor(Math.random() * 10),
-                    fondo: 25 + Math.floor(Math.random() * 15),
-                    esEsquina,
-                    orientacion: ["N", "S", "E", "O", "NE", "SE"][idx % 6],
-                    precio,
-                    moneda: "USD",
-                    estado,
-                    etapaId: etapa.id,
-                    etapaNombre: etapa.nombre,
-                    manzanaId: mz.id,
-                    manzanaNombre: mz.nombre,
-                    tour360Url: estado === "DISPONIBLE" ? "/dashboard/tour360" : null,
-                    imagenes: [],
-                    responsable: estado === "VENDIDO" ? "Juan Pérez" : estado === "RESERVADO" ? "María López" : null,
-                    path: bounds,
-                    cx: lat - lotLatSize / 2,
-                    cy: lng + lotLngSize / 2,
-                });
-                idx++;
-            }
-        }
-    });
-
-    return units;
+if (typeof window !== "undefined") {
+    (window as any).updateProjectMapConfig = updateProjectMapConfig;
 }
+
+const ESTADO_COLORS: Record<string, { fill: string; stroke: string }> = {
+    DISPONIBLE: { fill: "#22c55e", stroke: "#16a34a" },
+    RESERVADO: { fill: "#f97316", stroke: "#ea580c" },
+    VENDIDO: { fill: "#ef4444", stroke: "#dc2626" },
+    BLOQUEADO: { fill: "#94a3b8", stroke: "#64748b" },
+};
 
 interface MasterplanMapProps {
     proyectoId: string;
     modo: "admin" | "public" | "inversor";
-    initialUnits?: MasterplanUnit[];
-    overlayImageUrl?: string;
     centerLat?: number;
     centerLng?: number;
+    initialUnits?: MasterplanUnit[];
 }
 
 export default function MasterplanMap({
     proyectoId,
     modo,
-    initialUnits = [],
-    overlayImageUrl,
-    centerLat = -33.0943,
-    centerLng = -60.5475,
+    centerLat = -31.4532,
+    centerLng = -64.4823,
+    initialUnits = []
 }: MasterplanMapProps) {
+    const mapRef = useRef<HTMLDivElement>(null);
+    const [map, setMap] = useState<google.maps.Map | null>(null);
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [mapType, setMapType] = useState<"satellite" | "roadmap">("satellite");
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
+
     const {
         units, setUnits,
         selectedUnitId, setSelectedUnitId,
-        hoveredUnitId, setHoveredUnitId,
-        comparisonIds, toggleComparison, clearComparison,
-        showComparator, setShowComparator,
         showFilters, setShowFilters,
     } = useMasterplanStore();
 
     const filteredUnits = useFilteredUnits();
-    const filteredIds = new Set(filteredUnits.map((u) => u.id));
-
-    const mapRef = useRef<HTMLDivElement>(null);
-    const leafletMapRef = useRef<any>(null);
-    const polygonsRef = useRef<Map<string, any>>(new Map());
-    const [isMapReady, setIsMapReady] = useState(false);
-    const [showOverlay, setShowOverlay] = useState(true);
-    const [mapView, setMapView] = useState<"satellite" | "street">("satellite");
-    const [tooltip, setTooltip] = useState<{ x: number; y: number; unit: MasterplanUnit } | null>(null);
-
-    // Overlay editor state
-    const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
-    const [isEditingOverlay, setIsEditingOverlay] = useState(false);
-    const [isLoadingOverlay, setIsLoadingOverlay] = useState(false);
-    const overlayLayerRef = useRef<any>(null);
-
-    // Tour 360 state
-    const [activeTour, setActiveTour] = useState<{ url: string; title: string } | null>(null);
+    const polygonsRef = useRef<Map<string, google.maps.Polygon>>(new Map());
 
     // Initialize units
     useEffect(() => {
-        if (initialUnits && initialUnits.length > 0) {
+        if (initialUnits.length > 0) {
             setUnits(initialUnits);
-        } else if (units.length === 0) {
-            setUnits(generateGeoUnits());
         }
-    }, [initialUnits, setUnits, units.length]);
+    }, [initialUnits, setUnits]);
 
-    // Load saved overlay config from API
+    // Load Google Maps
     useEffect(() => {
-        const loadOverlay = async () => {
-            setIsLoadingOverlay(true);
-            try {
-                const res = await fetch(`/api/proyectos/${proyectoId}/overlay`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.config) {
-                        setOverlayConfig(data.config);
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to load overlay config:", err);
-            } finally {
-                setIsLoadingOverlay(false);
-            }
-        };
-        loadOverlay();
-    }, [proyectoId]);
-
-    // Initialize Leaflet map
-    useEffect(() => {
-        if (!mapRef.current) return;
-
-        let isCanceled = false;
+        const loader = new Loader({
+            apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+            version: "weekly",
+        });
 
         const initMap = async () => {
-            // Check if map is already initialized on this ref
-            if (leafletMapRef.current) return;
-
-            // Also check if the DOM element already has a leaflet instance (defensive)
-            if ((mapRef.current as any)?._leaflet_id) {
-                return;
-            }
-
-            // const L = (await import("leaflet")).default;
-            const L: any = null;
-
-            if (isCanceled) return;
-
-            // Fix Leaflet default icon issue
-            delete (L.Icon.Default.prototype as any)._getIconUrl;
-            L.Icon.Default.mergeOptions({
-                iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-                iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-                shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-            });
-
-            // Double check before creating
-            if (!mapRef.current) return;
-
             try {
-                const map = L.map(mapRef.current, {
-                    center: [centerLat, centerLng],
-                    zoom: 17,
+                const { Map } = await loader.importLibrary("maps") as google.maps.MapsLibrary;
+
+                if (!mapRef.current) return;
+
+                const googleMap = new Map(mapRef.current, {
+                    center: { lat: centerLat, lng: centerLng },
+                    zoom: 16,
+                    mapTypeId: "satellite",
+                    tilt: 0,
+                    disableDefaultUI: true,
                     zoomControl: false,
-                    attributionControl: false,
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    fullscreenControl: false,
                 });
 
-                // Google satellite tile layer
-                const satellite = L.tileLayer(
-                    "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-                    { maxZoom: 21, subdomains: ["mt0", "mt1", "mt2", "mt3"] }
-                );
-
-                const streets = L.tileLayer(
-                    "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
-                    { maxZoom: 21, subdomains: ["mt0", "mt1", "mt2", "mt3"] }
-                );
-
-                const hybrid = L.tileLayer(
-                    "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-                    { maxZoom: 21, subdomains: ["mt0", "mt1", "mt2", "mt3"] }
-                );
-
-                satellite.addTo(map);
-
-                // Store references for layer switching
-                (map as any)._tileLayers = { satellite, streets, hybrid };
-                (map as any)._currentTile = satellite;
-
-                // Attribution
-                L.control.attribution({
-                    position: "bottomleft",
-                    prefix: "Seventoop | Leaflet"
-                }).addTo(map);
-
-                leafletMapRef.current = map;
-                setIsMapReady(true);
+                setMap(googleMap);
+                setIsLoaded(true);
             } catch (error) {
-                console.warn("Map initialization error:", error);
+                console.error("Error loading Google Maps:", error);
             }
         };
 
         initMap();
-
-        return () => {
-            isCanceled = true;
-            if (leafletMapRef.current) {
-                leafletMapRef.current.remove();
-                leafletMapRef.current = null;
-                setIsMapReady(false);
-            }
-        };
     }, [centerLat, centerLng]);
 
-    // Render saved overlay image on map (read-only mode)
+    // Draw Polygons
     useEffect(() => {
-        if (!isMapReady || !leafletMapRef.current || isEditingOverlay) return;
+        if (!map || !isLoaded) return;
 
-        const renderOverlay = async () => {
-            // const L = (await import("leaflet")).default;
-            const L: any = null;
-            const map = leafletMapRef.current!;
+        // Clear previous
+        polygonsRef.current.forEach(p => p.setMap(null));
+        polygonsRef.current.clear();
 
-            // Remove old overlay
-            if (overlayLayerRef.current) {
-                map.removeLayer(overlayLayerRef.current);
-                overlayLayerRef.current = null;
+        filteredUnits.forEach(unit => {
+            // Check for polygon data in 'polygon' (new) or 'path' (old/demo)
+            let paths = unit.polygon;
+            if (!paths && unit.path) {
+                try { paths = JSON.parse(unit.path); } catch { paths = null; }
             }
 
-            if (overlayConfig && overlayConfig.imageUrl && showOverlay) {
-                const overlay = L.imageOverlay(
-                    overlayConfig.imageUrl,
-                    overlayConfig.bounds!,
-                    {
-                        opacity: overlayConfig.opacity ?? 0.6,
-                        interactive: false,
-                    }
-                );
-                overlay.addTo(map);
+            if (!paths || !Array.isArray(paths) || paths.length < 3) return;
 
-                // Apply rotation (simple transform for MVP)
-                if (overlayConfig.rotation) {
-                    const el = overlay.getElement();
-                    if (el) {
-                        el.style.transformOrigin = "center center";
-                        // Note: Leaflet transforms for positioning, appending rotation might conflict
-                        // without specialized handling/plugin. 
-                        // For MVP Phase 1 we rely on bounds.
-                    }
-                }
+            const colors = ESTADO_COLORS[unit.estado] || ESTADO_COLORS.DISPONIBLE;
+            const isSelected = selectedUnitId === unit.id;
 
-                overlayLayerRef.current = overlay;
-            }
-        };
-
-        renderOverlay();
-    }, [isMapReady, overlayConfig, showOverlay, isEditingOverlay]);
-
-    // Draw lot polygons on map
-    useEffect(() => {
-        if (!isMapReady || !leafletMapRef.current || units.length === 0) return;
-
-        const drawPolygons = async () => {
-            // const L = (await import("leaflet")).default;
-            const L: any = null;
-            const map = leafletMapRef.current!;
-
-            // Clear old polygons
-            polygonsRef.current.forEach((poly) => map.removeLayer(poly));
-            polygonsRef.current.clear();
-
-            units.forEach((unit) => {
-                let coords: [number, number][];
-                try {
-                    // Try geoJSON first (from Blueprint Engine), then fallback to path (demo/SVG path)
-                    const source = (unit.geoJSON || unit.path) as string;
-                    coords = JSON.parse(source);
-                } catch {
-                    return; // Skip units without valid geo coordinates
-                }
-
-                const isFiltered = filteredIds.has(unit.id);
-                const color = STATUS_COLORS[unit.estado] || "#94a3b8";
-                const isSelected = selectedUnitId === unit.id;
-
-                const polygon = L.polygon(coords, {
-                    color: isSelected ? "#ffffff" : color,
-                    fillColor: color,
-                    fillOpacity: isFiltered ? 0.5 : 0.1,
-                    weight: isSelected ? 3 : 1,
-                    className: "lot-polygon",
-                });
-
-                // Tooltip
-                polygon.bindTooltip(
-                    `<div style="font-family: Inter, sans-serif; padding: 2px 0;">
-                        <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">Lote ${unit.numero}</div>
-                        <div style="font-size: 11px; color: #94a3b8;">
-                            ${unit.superficie ? `${unit.superficie} m²` : ""} 
-                            ${unit.precio ? `• $${unit.precio.toLocaleString()}` : ""}
-                        </div>
-                        <div style="margin-top: 4px; font-size: 10px; font-weight: 600; color: ${color}; text-transform: uppercase;">
-                            ${STATUS_LABELS[unit.estado]}
-                        </div>
-                    </div>`,
-                    { sticky: true, direction: "top", className: "lot-tooltip" }
-                );
-
-                // Click handler
-                polygon.on("click", () => {
-                    setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id);
-                });
-
-                // Context menu for comparison
-                polygon.on("contextmenu", (e: any) => {
-                    e.originalEvent.preventDefault();
-                    toggleComparison(unit.id);
-                });
-
-                polygon.addTo(map);
-                polygonsRef.current.set(unit.id, polygon);
-
-                // Add label
-                if (isFiltered) {
-                    const center = polygon.getBounds().getCenter();
-                    const label = L.marker(center, {
-                        icon: L.divIcon({
-                            className: "lot-label",
-                            html: `<span style="
-                                font-size: 10px; 
-                                font-weight: 600; 
-                                color: white; 
-                                text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-                                pointer-events: none;
-                            ">${unit.numero.split("-")[1] || unit.numero}</span>`,
-                            iconSize: [24, 14],
-                            iconAnchor: [12, 7],
-                        }),
-                        interactive: false,
-                    });
-                    label.addTo(map);
-                    polygonsRef.current.set(`label-${unit.id}`, label);
-                }
+            const polygon = new google.maps.Polygon({
+                paths: paths,
+                strokeColor: isSelected ? "#ffffff" : colors.stroke,
+                strokeOpacity: 0.9,
+                strokeWeight: isSelected ? 3 : 1.5,
+                fillColor: colors.fill,
+                fillOpacity: isSelected ? 0.7 : 0.4,
+                map: map,
+                zIndex: isSelected ? 10 : 1,
             });
-        };
 
-        drawPolygons();
-    }, [isMapReady, units, filteredIds, selectedUnitId]);
+            polygon.addListener("click", () => {
+                setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id);
+            });
 
-    // Toggle overlay visibility
-    const handleToggleOverlay = useCallback(() => {
-        setShowOverlay((prev) => !prev);
-    }, []);
+            polygon.addListener("mouseover", () => {
+                polygon.setOptions({ fillOpacity: 0.8 });
+            });
 
-    // Switch map view
-    const handleSwitchView = useCallback((view: "satellite" | "street") => {
-        const map = leafletMapRef.current;
-        if (!map) return;
-        const layers = (map as any)._tileLayers;
-        const current = (map as any)._currentTile;
-        if (current) map.removeLayer(current);
+            polygon.addListener("mouseout", () => {
+                polygon.setOptions({ fillOpacity: isSelected ? 0.7 : 0.4 });
+            });
 
-        const newLayer = view === "satellite" ? layers.satellite : layers.hybrid;
-        newLayer.addTo(map);
-        (map as any)._currentTile = newLayer;
-        setMapView(view);
-    }, []);
+            polygonsRef.current.set(unit.id, polygon);
+        });
+    }, [map, isLoaded, filteredUnits, selectedUnitId, setSelectedUnitId]);
 
-    // Zoom controls
-    const handleZoomIn = () => leafletMapRef.current?.zoomIn();
-    const handleZoomOut = () => leafletMapRef.current?.zoomOut();
-    const handleResetView = () => leafletMapRef.current?.setView([centerLat, centerLng], 17);
+    const toggleMapType = () => {
+        const newType = mapType === "satellite" ? "roadmap" : "satellite";
+        map?.setMapTypeId(newType);
+        setMapType(newType);
+    };
 
-    const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
+    const handleZoomIn = () => map?.setZoom((map.getZoom() || 16) + 1);
+    const handleZoomOut = () => map?.setZoom((map.getZoom() || 16) - 1);
+    const handleReset = () => map?.setCenter({ lat: centerLat, lng: centerLng });
+
+    const shareUrl = `https://www.google.com/maps/search/?api=1&query=${centerLat},${centerLng}`;
+
+    const selectedUnit = units.find(u => u.id === selectedUnitId);
 
     return (
-        <div className="relative w-full h-[calc(100vh-330px)] min-h-[500px] overflow-hidden bg-slate-900 border-x border-b border-slate-200 dark:border-slate-800">
-            {/* Leaflet CSS */}
-            <link
-                rel="stylesheet"
-                href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
-            />
+        <div className="relative w-full h-[calc(100vh-330px)] min-h-[500px] bg-slate-900 overflow-hidden border-x border-b border-slate-200 dark:border-slate-800">
+            {/* Map Canvas */}
+            <div ref={mapRef} className="w-full h-full" />
 
-            {/* Map container */}
-            <div ref={mapRef} className="w-full h-full z-0" />
+            {/* Controls Overlay */}
+            <div className="absolute top-4 left-4 z-10 flex gap-2">
+                <Button
+                    variant={showFilters ? "default" : "secondary"}
+                    size="sm"
+                    className="gap-2 shadow-lg"
+                    onClick={() => setShowFilters(!showFilters)}
+                >
+                    <Filter className="w-4 h-4" /> Filtros
+                </Button>
 
-            {/* Loading overlay */}
-            {!isMapReady && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/90">
-                    <div className="flex flex-col items-center gap-3">
-                        <div className="w-10 h-10 border-3 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm text-slate-300 font-medium">Cargando mapa interactivo...</span>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-2 shadow-lg"
+                    onClick={toggleMapType}
+                >
+                    {mapType === "satellite" ? <MapIcon className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                    {mapType === "satellite" ? "Mapa" : "Satélite"}
+                </Button>
+
+                {modo === "admin" && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="gap-2 shadow-lg bg-brand-600 text-white hover:bg-brand-500"
+                        onClick={() => setIsEditorOpen(true)}
+                    >
+                        <LayersIcon className="w-4 h-4" /> Dibujar Polígonos
+                    </Button>
+                )}
+            </div>
+
+            {/* Right Controls */}
+            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+                <div className="flex flex-col rounded-lg overflow-hidden shadow-lg border border-white/10">
+                    <button onClick={handleZoomIn} className="w-10 h-10 bg-white/90 dark:bg-slate-800/90 flex items-center justify-center hover:bg-white transition-colors">
+                        <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <button onClick={handleZoomOut} className="w-10 h-10 bg-white/90 dark:bg-slate-800/90 flex items-center justify-center hover:bg-white transition-colors border-t border-slate-200 dark:border-slate-700">
+                        <ZoomOut className="w-4 h-4" />
+                    </button>
+                </div>
+                <button
+                    onClick={handleReset}
+                    className="w-10 h-10 bg-white/90 dark:bg-slate-800/90 rounded-lg shadow-lg flex items-center justify-center hover:bg-white transition-colors border border-white/10"
+                >
+                    <Crosshair className="w-4 h-4" />
+                </button>
+                <a
+                    href={shareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-10 h-10 bg-white/90 dark:bg-slate-800/90 rounded-lg shadow-lg flex items-center justify-center hover:bg-white transition-colors border border-white/10"
+                    title="Ver en Google Maps"
+                >
+                    <Share2 className="w-4 h-4" />
+                </a>
+            </div>
+
+            {/* Legend */}
+            <div className="absolute bottom-4 left-4 z-10 bg-black/80 backdrop-blur-md p-3 rounded-xl border border-white/10 text-[10px] text-white flex gap-4">
+                {Object.entries(ESTADO_COLORS).map(([key, color]) => (
+                    <div key={key} className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded" style={{ backgroundColor: color.fill }} />
+                        <span className="font-medium uppercase tracking-wider">{key}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Admin Config Panel */}
+            {modo === "admin" && (
+                <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2 bg-white/90 dark:bg-slate-900/90 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-[200px]">
+                    <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">Configuración Inicial</h4>
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-lg">
+                            <span className="text-[9px] text-slate-500">Zoom: {map?.getZoom()}</span>
+                        </div>
+                        <Button
+                            variant="default"
+                            size="sm"
+                            className="w-full text-[10px] h-7 bg-brand-600 hover:bg-brand-500"
+                            onClick={async () => {
+                                const center = map?.getCenter();
+                                const zoom = map?.getZoom();
+                                if (center && zoom) {
+                                    const res = await (window as any).updateProjectMapConfig(proyectoId, {
+                                        lat: center.lat(),
+                                        lng: center.lng(),
+                                        zoom: zoom
+                                    });
+                                    if (res.success) toast.success("Configuración guardada");
+                                    else toast.error("Error al guardar");
+                                }
+                            }}
+                        >
+                            <Save className="w-3 h-3 mr-1" /> Guardar Vista Actual
+                        </Button>
                     </div>
                 </div>
             )}
 
-            {/* Top controls */}
-            <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2">
-                <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={cn(
-                        "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg backdrop-blur-sm transition-all",
-                        showFilters
-                            ? "bg-brand-500 text-white"
-                            : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700"
-                    )}
-                >
-                    <Filter className="w-3.5 h-3.5" />Filtros
-                </button>
-
-                {/* Overlay toggle (when saved overlay exists) */}
-                {overlayConfig && (
-                    <button
-                        onClick={handleToggleOverlay}
-                        className={cn(
-                            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg backdrop-blur-sm transition-all",
-                            showOverlay
-                                ? "bg-brand-500 text-white"
-                                : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200"
-                        )}
-                    >
-                        {showOverlay ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                        Plano
-                    </button>
-                )}
-
-                {/* Admin: edit overlay button */}
-                {modo === "admin" && overlayConfig && (
-                    <button
-                        onClick={() => setIsEditingOverlay(true)}
-                        className={cn(
-                            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg backdrop-blur-sm transition-all",
-                            isEditingOverlay
-                                ? "bg-indigo-500 text-white"
-                                : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700"
-                        )}
-                    >
-                        <LayersIcon className="w-3.5 h-3.5" />
-                        Ajustar Plano
-                    </button>
-                )}
-
-                {/* Map view toggle */}
-                <div className="flex rounded-xl overflow-hidden shadow-lg">
-                    <button
-                        onClick={() => handleSwitchView("satellite")}
-                        className={cn(
-                            "px-3 py-2 text-xs font-semibold backdrop-blur-sm transition-all",
-                            mapView === "satellite"
-                                ? "bg-brand-500 text-white"
-                                : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200"
-                        )}
-                    >
-                        Satélite
-                    </button>
-                    <button
-                        onClick={() => handleSwitchView("street")}
-                        className={cn(
-                            "px-3 py-2 text-xs font-semibold backdrop-blur-sm transition-all",
-                            mapView === "street"
-                                ? "bg-brand-500 text-white"
-                                : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200"
-                        )}
-                    >
-                        Híbrido
-                    </button>
-                </div>
-            </div>
-
-            {/* Zoom controls */}
-            <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-1">
-                <button onClick={handleZoomIn} className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
-                    <ZoomIn className="w-4 h-4" />
-                </button>
-                <button onClick={handleZoomOut} className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
-                    <ZoomOut className="w-4 h-4" />
-                </button>
-                <button onClick={handleResetView} className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm" title="Resetear Vista">
-                    <Crosshair className="w-4 h-4" />
-                </button>
-            </div>
-
-
-            {/* Legend */}
-            <div className="absolute bottom-4 right-4 z-[1000] bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg px-3 py-2">
-                <div className="flex items-center gap-3">
-                    {Object.entries(STATUS_COLORS).map(([key, color]) => (
-                        <div key={key} className="flex items-center gap-1.5">
-                            <div className="w-3 h-3 rounded" style={{ backgroundColor: color }} />
-                            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">{STATUS_LABELS[key]}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Comparison floating button */}
-            <AnimatePresence>
-                {comparisonIds.length > 0 && (
-                    <motion.div
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: 20, opacity: 0 }}
-                        className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000]"
-                    >
-                        <div className="flex items-center gap-2 bg-brand-500 text-white rounded-xl shadow-xl px-4 py-2.5">
-                            <button
-                                onClick={() => setShowComparator(true)}
-                                className="text-sm font-semibold hover:underline"
-                            >
-                                Comparar {comparisonIds.length} unidad{comparisonIds.length > 1 ? "es" : ""}
-                            </button>
-                            <button onClick={clearComparison} className="p-0.5 hover:bg-white/20 rounded">
-                                <X className="w-3.5 h-3.5" />
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Filters sidebar */}
+            {/* Modals & Panels */}
             <AnimatePresence>
                 {showFilters && (
                     <motion.div
                         initial={{ x: -300, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: -300, opacity: 0 }}
-                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="absolute top-14 left-4 bottom-4 z-[1000] w-[260px]"
+                        className="absolute top-16 left-4 z-20 w-80"
                     >
                         <MasterplanFilters onClose={() => setShowFilters(false)} />
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Side Panel */}
             <AnimatePresence>
                 {selectedUnit && (
                     <MasterplanSidePanel
@@ -612,78 +296,24 @@ export default function MasterplanMap({
                 )}
             </AnimatePresence>
 
-            {/* Comparator Modal */}
-            <AnimatePresence>
-                {showComparator && (
-                    <MasterplanComparator
-                        units={units.filter((u) => comparisonIds.includes(u.id))}
-                        onClose={() => setShowComparator(false)}
-                        onRemove={(id) => toggleComparison(id)}
-                    />
-                )}
-            </AnimatePresence>
-
-            {/* Overlay Editor */}
-            <AnimatePresence>
-                {isEditingOverlay && isMapReady && leafletMapRef.current && (
-                    <OverlayEditor
-                        proyectoId={proyectoId}
-                        map={leafletMapRef.current}
-                        existingConfig={overlayConfig}
-                        onSave={(config) => {
-                            setOverlayConfig(config);
-                            setIsEditingOverlay(false);
-                        }}
-                        onCancel={() => setIsEditingOverlay(false)}
-                        onDelete={() => {
-                            setOverlayConfig(null);
-                            setIsEditingOverlay(false);
-                        }}
-                    />
-                )}
-            </AnimatePresence>
-
-            {/* Tour 360 Viewer Modal */}
-            <AnimatePresence>
-                {activeTour && (
-                    <Tour360Viewer
-                        imageUrl={activeTour.url}
-                        title={activeTour.title}
-                        onClose={() => setActiveTour(null)}
-                    />
-                )}
-            </AnimatePresence>
-
-            {/* Custom styles */}
-            <style jsx global>{`
-                .lot-tooltip {
-                    background: rgba(15, 23, 42, 0.95) !important;
-                    border: 1px solid rgba(100, 116, 139, 0.3) !important;
-                    border-radius: 12px !important;
-                    padding: 8px 12px !important;
-                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4) !important;
-                    color: white !important;
-                }
-                .lot-tooltip::before {
-                    border-top-color: rgba(15, 23, 42, 0.95) !important;
-                }
-                .lot-label {
-                    background: transparent !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                }
-                .lot-polygon {
-                    transition: fill-opacity 0.2s, stroke-width 0.15s;
-                    cursor: pointer;
-                }
-                .lot-polygon:hover {
-                    fill-opacity: 0.7 !important;
-                    stroke-width: 2 !important;
-                }
-                .leaflet-container {
-                    font-family: Inter, system-ui, sans-serif;
-                }
-            `}</style>
+            {isEditorOpen && (
+                <PolygonEditorModal
+                    isOpen={isEditorOpen}
+                    onClose={() => setIsEditorOpen(false)}
+                    proyecto={{
+                        id: proyectoId,
+                        nombre: "Proyecto", // Would be better to pass real name
+                        lat: centerLat,
+                        lng: centerLng,
+                        zoom: 16
+                    }}
+                    unidades={units as any}
+                    onSave={() => {
+                        // We could re-fetch or just close
+                        toast.success("Mapa actualizado");
+                    }}
+                />
+            )}
         </div>
     );
 }
