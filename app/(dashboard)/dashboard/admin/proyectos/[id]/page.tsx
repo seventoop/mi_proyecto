@@ -149,14 +149,17 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     const tabs = [
         { id: "info", label: "Info General", icon: FileText },
+        { id: "archivos", label: "Archivos Técnicos", icon: Package },
         { id: "docs", label: "Documentación", icon: FileText },
         { id: "pagos", label: "Pagos", icon: DollarSign },
-        { id: "reservas", label: "Reservas", icon: CalendarClock }, // ADDED
+        { id: "reservas", label: "Reservas", icon: CalendarClock },
         { id: "masterplan", label: "Masterplan", icon: Layers },
+        { id: "planos", label: "Motor de Planos", icon: Layers },
         { id: "mapa", label: "Mapa Interactivo", icon: MapPin },
         { id: "tour360", label: "Tour 360°", icon: Globe },
         { id: "etapas", label: "Etapas y Manzanas", icon: Package },
         { id: "inventario", label: "Inventario", icon: Home },
+        { id: "metricas", label: "Métricas", icon: BarChart3 },
         { id: "inversion", label: "Inversión & Escrow", icon: TrendingUp },
     ];
 
@@ -206,25 +209,37 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 ))}
             </div>
 
-            {/* Tabs Navigation */}
-            <div className="border-b border-slate-200 dark:border-slate-700">
-                <div className="flex gap-1 overflow-x-auto pb-px">
-                    {tabs.map((tab) => (
-                        <Link
-                            key={tab.id}
-                            href={`?tab=${tab.id}`}
-                            className={cn(
-                                "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap",
-                                activeTab === tab.id
-                                    ? "border-brand-orange text-brand-orange"
-                                    : "border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-600"
-                            )}
-                        >
-                            <tab.icon className="w-4 h-4" />
+            {/* Tabs Navigation - Card Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {tabs.map((tab) => (
+                    <Link
+                        key={tab.id}
+                        href={`?tab=${tab.id}`}
+                        className={cn(
+                            "glass-card p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 group hover:scale-[1.02]",
+                            activeTab === tab.id
+                                ? "ring-2 ring-brand-orange bg-brand-orange/10 shadow-lg shadow-brand-orange/5"
+                                : "hover:bg-slate-800/40"
+                        )}
+                    >
+                        <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                            activeTab === tab.id
+                                ? "bg-brand-orange text-white"
+                                : "bg-slate-800 text-slate-400 group-hover:text-brand-orange"
+                        )}>
+                            <tab.icon className="w-5 h-5" />
+                        </div>
+                        <span className={cn(
+                            "text-xs font-bold text-center transition-colors",
+                            activeTab === tab.id
+                                ? "text-brand-orange"
+                                : "text-slate-400 group-hover:text-slate-200"
+                        )}>
                             {tab.label}
-                        </Link>
-                    ))}
-                </div>
+                        </span>
+                    </Link>
+                ))}
             </div>
 
             {/* Tab Content */}
@@ -268,13 +283,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             etapa.manzanas.flatMap((manzana: any) =>
                                 manzana.unidades.map((u: any) => ({
                                     id: u.id,
-                                    numero: u.funcional, // Assuming 'funcional' is the visible number
+                                    numero: u.numero,
                                     tipo: u.tipo as any,
                                     superficie: u.superficie,
-                                    frente: 0, // Mock or add to schema if needed
-                                    fondo: 0,
-                                    esEsquina: false,
-                                    orientacion: "N", // Mock
+                                    frente: u.frente || 0,
+                                    fondo: u.fondo || 0,
+                                    esEsquina: u.esEsquina,
+                                    orientacion: u.orientacion || "N",
                                     precio: u.precio,
                                     moneda: u.moneda,
                                     estado: u.estado as any,
@@ -282,10 +297,10 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     etapaNombre: etapa.nombre,
                                     manzanaId: manzana.id,
                                     manzanaNombre: manzana.nombre,
-                                    tour360Url: null,
+                                    tour360Url: u.tour360Url,
                                     imagenes: [],
                                     responsable: null,
-                                    path: "[]", // Needs geolocation data in schema for real polygons
+                                    polygon: u.polygon,
                                     cx: 0,
                                     cy: 0
                                 }))
@@ -326,6 +341,46 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         reservas={reservasProyecto}
                         userRole={userRole}
                     />
+                )}
+
+                {activeTab === "archivos" && (
+                    <div className="glass-card p-6">
+                        <h2 className="text-lg font-bold mb-4">Archivos Técnicos</h2>
+                        <DocumentosManager
+                            proyectoId={proyecto.id}
+                            documentos={proyecto.archivosTecnicos || []}
+                            userRole={userRole}
+                        />
+                    </div>
+                )}
+
+                {activeTab === "planos" && (
+                    <div className="glass-card p-6">
+                        <h2 className="text-lg font-bold mb-4 text-slate-800 dark:text-white">Motor de Planos</h2>
+                        <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
+                    </div>
+                )}
+
+                {activeTab === "metricas" && (
+                    <div className="glass-card p-6">
+                        <h2 className="text-lg font-bold mb-4">Métricas del Proyecto</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
+                                <TrendingUp className="w-8 h-8 text-brand-orange" />
+                                <div>
+                                    <p className="text-sm text-slate-500 underline">ROI Proyectado</p>
+                                    <p className="text-2xl font-black">18.5%</p>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
+                                <BarChart3 className="w-8 h-8 text-emerald-500" />
+                                <div>
+                                    <p className="text-sm text-slate-500 underline">Velocidad de Venta</p>
+                                    <p className="text-2xl font-black">4.2 unidades/mes</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

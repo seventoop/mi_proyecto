@@ -144,24 +144,25 @@ async function main() {
             },
             etapas: {
                 create: [{
-                    nombre: "Etapa Unica",
+                    nombre: "Etapa 1",
                     orden: 1,
+                    estado: "EN_CURSO",
                     manzanas: {
                         create: [{
-                            nombre: "Manzana 01",
+                            nombre: "Manzana A",
                             unidades: {
                                 create: [
                                     {
-                                        numero: "01", tipo: "LOTE", superficie: 1200, precio: 35000, estado: "DISPONIBLE",
-                                        polygon: [{ lat: -31.4530, lng: -64.4820 }, { lat: -31.4532, lng: -64.4820 }, { lat: -31.4532, lng: -64.4822 }, { lat: -31.4530, lng: -64.4822 }]
+                                        numero: "A-01", tipo: "LOTE", superficie: 500, precio: 45000, estado: "DISPONIBLE",
+                                        polygon: [{ lat: -31.453050, lng: -64.482050 }, { lat: -31.453250, lng: -64.482050 }, { lat: -31.453250, lng: -64.482250 }, { lat: -31.453050, lng: -64.482250 }]
                                     },
                                     {
-                                        numero: "02", tipo: "LOTE", superficie: 1100, precio: 32000, estado: "RESERVADA",
-                                        polygon: [{ lat: -31.4533, lng: -64.4820 }, { lat: -31.4535, lng: -64.4820 }, { lat: -31.4535, lng: -64.4822 }, { lat: -31.4533, lng: -64.4822 }]
+                                        numero: "A-02", tipo: "LOTE", superficie: 500, precio: 38000, estado: "RESERVADA",
+                                        polygon: [{ lat: -31.453350, lng: -64.482050 }, { lat: -31.453550, lng: -64.482050 }, { lat: -31.453550, lng: -64.482250 }, { lat: -31.453350, lng: -64.482250 }]
                                     },
                                     {
-                                        numero: "03", tipo: "LOTE", superficie: 1500, precio: 45000, estado: "VENDIDA",
-                                        polygon: [{ lat: -31.4536, lng: -64.4820 }, { lat: -31.4538, lng: -64.4820 }, { lat: -31.4538, lng: -64.4822 }, { lat: -31.4536, lng: -64.4822 }]
+                                        numero: "A-03", tipo: "LOTE", superficie: 500, precio: 42000, estado: "VENDIDA",
+                                        polygon: [{ lat: -31.453650, lng: -64.482050 }, { lat: -31.453850, lng: -64.482050 }, { lat: -31.453850, lng: -64.482250 }, { lat: -31.453650, lng: -64.482250 }]
                                     }
                                 ]
                             }
