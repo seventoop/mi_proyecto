@@ -34,7 +34,10 @@ export async function getDeveloperDashboardData(userId: string) {
         ] = await Promise.all([
             // Per-project stats for the panel
             prisma.proyecto.findMany({
-                where: { creadoPorId: userId },
+                where: {
+                    creadoPorId: userId,
+                    deletedAt: null
+                },
                 select: {
                     id: true,
                     nombre: true,

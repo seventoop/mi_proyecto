@@ -120,6 +120,7 @@ export async function getInvestmentOpportunities() {
                     invertible: true,
                     estado: { notIn: ['VENDIDO', 'SUSPENDIDO'] },
                     visibilityStatus: 'PUBLICADO',
+                    deletedAt: null,
                     OR: [
                         { isDemo: false },
                         { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] }

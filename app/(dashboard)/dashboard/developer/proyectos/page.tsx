@@ -18,7 +18,10 @@ export default async function ProyectosPage() {
 
     // Fetch developer-specific projects from DB
     const proyectos = await prisma.proyecto.findMany({
-        where: { creadoPorId: userId },
+        where: {
+            creadoPorId: userId,
+            deletedAt: null
+        },
         include: {
             etapas: {
                 include: {

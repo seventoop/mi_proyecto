@@ -15,6 +15,7 @@ export default async function AdminProyectosPage() {
     }
 
     const proyectos = await prisma.proyecto.findMany({
+        where: { deletedAt: null },
         include: {
             organization: {
                 select: { id: true, nombre: true, planId: true, planRef: true }

@@ -8,6 +8,7 @@ export async function GET() {
             where: {
                 visibilityStatus: "PUBLICADO",
                 estado: { not: "SUSPENDIDO" },
+                deletedAt: null,
                 OR: [
                     { isDemo: false },
                     {
