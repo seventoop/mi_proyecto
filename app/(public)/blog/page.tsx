@@ -1,5 +1,6 @@
 import { getNoticias } from "@/lib/actions/noticias";
 import Link from "next/link";
+import Image from "next/image";
 import { BookOpen, Calendar, ArrowRight, Tag, Sparkles } from "lucide-react";
 import MediaBanner from "@/components/public/media-banner";
 
@@ -35,10 +36,12 @@ export default async function BlogPage() {
                         noticias.map((post: any) => (
                             <article key={post.id} className="group bg-white dark:bg-black border border-slate-200 dark:border-white/10 rounded-[2.5rem] overflow-hidden hover:border-brand-orange/50 transition-all hover:shadow-2xl hover:shadow-brand-orange/10">
                                 <Link href={`/blog/${post.slug}`} className="block relative h-64 overflow-hidden">
-                                    <img
+                                    <Image
                                         src={post.imagenUrl || "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?q=80&w=2070&auto=format&fit=crop"}
                                         alt={post.titulo}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                        fill
+                                        className="object-cover group-hover:scale-110 transition-transform duration-700"
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                     />
                                     <div className="absolute top-4 left-4 px-3 py-1.5 rounded-xl bg-brand-orange/90 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider">
                                         {post.categoria}

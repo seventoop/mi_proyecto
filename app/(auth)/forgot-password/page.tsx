@@ -10,6 +10,7 @@ export default function ForgotPasswordPage() {
     const [email, setEmail] = useState("");
     const [isPending, startTransition] = useTransition();
     const [isSent, setIsSent] = useState(false);
+    const [serverMsg, setServerMsg] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -17,8 +18,8 @@ export default function ForgotPasswordPage() {
         startTransition(async () => {
             const res = await requestPasswordReset(email);
             if (res.success) {
+                setServerMsg(res.message || "Si el email existe, se enviarán las instrucciones.");
                 setIsSent(true);
-                toast.success(res.message);
             } else {
                 toast.error(res.error || "Error al solicitar el restablecimiento");
             }
@@ -31,9 +32,9 @@ export default function ForgotPasswordPage() {
                 <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-6">
                     <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">¡Instrucciones enviadas!</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">Solicitud procesada</h2>
                 <p className="text-slate-400 mb-8">
-                    Si el correo <b>{email}</b> está registrado, recibirás un link para restablecer tu contraseña en unos minutos.
+                    {serverMsg}
                 </p>
                 <Link
                     href="/login"
@@ -79,12 +80,6 @@ export default function ForgotPasswordPage() {
                             required
                         />
                     </div>
-                </div>
-
-                {/* INFO: El sistema de envío requiere RESEND_API_KEY en .env */}
-                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs italic leading-relaxed">
-                    Nota: El flujo automatizado está listo para activarse. Por ahora, si experimentas demoras, contacta a
-                    <a href="mailto:soporte@seventoop.com" className="ml-1 underline hover:text-amber-300">soporte@seventoop.com</a>.
                 </div>
 
                 <button

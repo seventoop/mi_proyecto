@@ -9,7 +9,7 @@ if (typeof setInterval !== 'undefined') {
     setInterval(() => {
         const now = Date.now();
         const windowMs = 15 * 60 * 1000;
-        for (const [ip, data] of loginAttempts.entries()) {
+        for (const [ip, data] of Array.from(loginAttempts.entries())) {
             if (now - data.firstAttempt > windowMs) {
                 loginAttempts.delete(ip);
             }

@@ -30,7 +30,11 @@ async function getProjects() {
         const projectsWithPrices = await Promise.all(
             projects.map(async (p) => ({
                 ...p,
-                _count: { unidades: 0 },
+                _count: {
+                    unidades: await db.unidad.count({
+                        where: { manzana: { etapa: { proyectoId: p.id } } },
+                    }),
+                },
                 unidades: [],
             }))
         );

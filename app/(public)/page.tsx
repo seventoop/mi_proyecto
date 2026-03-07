@@ -1,4 +1,25 @@
+import type { Metadata } from "next";
 import Hero from "@/components/public/hero";
+
+export const metadata: Metadata = {
+    title: "Seventoop — Inversiones Inmobiliarias",
+    description: "Descubrí proyectos inmobiliarios premium. Invertí en m², comprá tu lote y seguí tu inversión en tiempo real.",
+    keywords: ["inversiones", "inmobiliaria", "lotes", "m2", "Argentina"],
+    openGraph: {
+        title: "Seventoop — Inversiones Inmobiliarias",
+        description: "Proyectos inmobiliarios premium con seguimiento en tiempo real.",
+        url: "https://seventoop.com",
+        siteName: "Seventoop",
+        images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Seventoop — Inversiones Inmobiliarias" }],
+        locale: "es_AR",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Seventoop — Inversiones Inmobiliarias",
+        description: "Proyectos inmobiliarios premium.",
+    },
+};
 import MediaBanner from "@/components/public/media-banner";
 import EarlyAccess from "@/components/public/early-access";
 import HashAutoScroll from "@/components/public/hash-auto-scroll";

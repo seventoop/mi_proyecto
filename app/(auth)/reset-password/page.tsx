@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Lock, Loader2, CheckCircle2, ShieldAlert } from "lucide-react";
 import { resetPassword } from "@/lib/actions/auth-actions";
 import { toast } from "sonner";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const token = searchParams.get("token");
@@ -138,5 +138,17 @@ export default function ResetPasswordPage() {
                 </button>
             </form>
         </div>
+    );
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+            </div>
+        }>
+            <ResetPasswordContent />
+        </Suspense>
     );
 }

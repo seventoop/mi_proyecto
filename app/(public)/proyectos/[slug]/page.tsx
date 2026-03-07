@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Metadata } from "next";
 import { ArrowRight, MapPin, Check, Building2, Trees, Shield } from "lucide-react";
 import { db } from "@/lib/db";
@@ -10,8 +11,8 @@ import PublicProjectGallery from "@/components/public/project-gallery";
 
 // Helper to find project by slug or ID
 async function getProject(slug: string) {
-    let project = await db.proyecto.findUnique({
-        where: { slug },
+    let project = await db.proyecto.findFirst({
+        where: { slug, visibilityStatus: "PUBLICADO" },
         include: {
             _count: { select: { leads: true, etapas: true } },
             tours: true,
@@ -27,8 +28,8 @@ async function getProject(slug: string) {
     });
 
     if (!project && slug.length === 25) { // Cuid length check approx
-        project = await db.proyecto.findUnique({
-            where: { id: slug },
+        project = await db.proyecto.findFirst({
+            where: { id: slug, visibilityStatus: "PUBLICADO" },
             include: {
                 _count: { select: { leads: true, etapas: true } },
                 tours: true,
@@ -73,10 +74,13 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 {/* Background */}
                 <div className="absolute inset-0 z-0">
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent z-10" />
-                    <img
+                    <Image
                         src={(project as any).imagenes?.find((img: any) => img.esPrincipal)?.url || project.imagenPortada || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop"}
                         alt={project.nombre}
-                        className="w-full h-full object-cover animate-zoom-in"
+                        fill
+                        className="object-cover animate-zoom-in"
+                        priority
+                        sizes="100vw"
                     />
                 </div>
 
