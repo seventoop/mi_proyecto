@@ -231,21 +231,21 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             </div>
 
             {/* Tabs Navigation */}
-            <div className="w-full overflow-x-auto scrollbar-hide mb-6">
-                <div className="flex gap-1 min-w-max bg-slate-900/60 border border-white/8 rounded-xl p-1">
+            <div className="w-full mb-6">
+                <div className="flex w-full bg-slate-900/60 border border-white/8 rounded-xl p-1 gap-1">
                     {tabs.map((tab) => (
                         <Link
                             key={tab.id}
                             href={`?tab=${tab.id}`}
                             className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+                                "flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-lg text-xs font-medium transition-all",
                                 activeTab === tab.id
                                     ? "bg-brand-orange text-white shadow-md"
                                     : "text-slate-400 hover:text-white hover:bg-white/5"
                             )}
                         >
                             {tab.icon && <tab.icon className="w-4 h-4 shrink-0" />}
-                            <span>{tab.label}</span>
+                            <span className="truncate w-full text-center leading-tight px-1">{tab.label}</span>
                         </Link>
                     ))}
                 </div>
