@@ -506,9 +506,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         </h3>
                                         <Link
                                             href={`/dashboard/proyectos/${proyecto.id}/editar`}
-                                            className="flex items-center gap-1.5 text-xs font-bold text-brand-500 hover:text-brand-400 transition-colors px-3 py-1.5 rounded-lg border border-brand-500/20 hover:bg-brand-500/5"
+                                            className="flex items-center gap-2 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 px-4 py-2 rounded-xl transition-all shadow-md shadow-brand-500/30 hover:shadow-brand-500/50 hover:scale-[1.02] active:scale-[0.98]"
                                         >
-                                            <Edit3 className="w-3.5 h-3.5" />
+                                            <Edit3 className="w-4 h-4" />
                                             Editar proyecto
                                         </Link>
                                     </div>
@@ -619,19 +619,24 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                 </div>
 
                                 {(!proyecto.descripcion || !proyecto.ubicacion) && (
-                                    <div className="flex items-start gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                                    <Link
+                                        href={`/dashboard/proyectos/${proyecto.id}/editar`}
+                                        className="flex items-start gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl hover:bg-amber-500/10 hover:border-amber-500/40 transition-all group"
+                                    >
                                         <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                                        <div>
+                                        <div className="flex-1">
                                             <p className="text-sm font-bold text-amber-600 dark:text-amber-400">
                                                 Información incompleta
                                             </p>
                                             <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
                                                 {!proyecto.ubicacion && "Falta la ubicación del proyecto. "}
                                                 {!proyecto.descripcion && "Falta la descripción. "}
-                                                Editá el proyecto para completar estos campos.
+                                                <span className="underline underline-offset-2 group-hover:text-amber-400 transition-colors">
+                                                    Tocá acá para completar estos campos →
+                                                </span>
                                             </p>
                                         </div>
-                                    </div>
+                                    </Link>
                                 )}
                             </div>
                         )}
