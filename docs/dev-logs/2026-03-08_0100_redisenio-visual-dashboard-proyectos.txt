@@ -1,0 +1,192 @@
+================================================================================
+REDISEÑO VISUAL — DASHBOARD DE PROYECTO — FLUJO GUIADO
+Proyecto: seventoop
+Fecha: 2026-03-08
+================================================================================
+
+RESUMEN EJECUTIVO
+-----------------
+Se rediseñó completamente la experiencia visual de la sección
+Dashboard → Proyectos → [Proyecto].
+
+El cambio central: reemplazar el sistema de tabs planos (11 tabs sin jerarquía)
+por un flujo guiado de 7 pasos con stepper lateral en desktop y tabs horizontales
+en mobile. Toda la lógica existente se mantuvo intacta.
+
+================================================================================
+1. ESTRUCTURA ANTERIOR — PROBLEMAS DETECTADOS
+================================================================================
+
+TABS ORIGINALES (11):
+  Info General | Archivos Técnicos | Documentación | Pagos | Masterplan |
+  Motor de Planos | Mapa Interactivo | Tour 360° | Etapas y Manzanas |
+  Inventario | Métricas
+
+PROBLEMAS DE UX:
+  - Sin jerarquía visual: todos los tabs eran iguales en importancia
+  - Sin guía para el usuario: no había indicación de por dónde empezar
+  - Funciones prematuras: Tour 360° y Mapa Interactivo aparecían igual que Info
+    aunque el usuario no hubiera cargado nada aún
+  - Tabs sin contenido: "Pagos" y "Métricas" estaban en el array pero sin bloque
+    de contenido — seleccionarlos mostraba pantalla en blanco (BUG)
+  - Stats prominentes al inicio: las métricas de lotes dominaban la vista
+    aunque el proyecto estuviera vacío
+  - "Etapas y Manzanas" mostraba solo lectura, sin el CRUD completo
+    (EtapasManager no estaba importado)
+  - Sin navegación entre pasos (no había "Anterior" / "Siguiente")
+  - Sin indicador de progreso de configuración
+
+================================================================================
+2. NUEVA ESTRUCTURA — 7 PASOS GUIADOS
+================================================================================
+
+PASO 1 — Información General (tab=info) [REQUERIDO]
+  Completado si: nombre + ubicación + descripción presentes
+  Contenido: ficha completa del proyecto, botón Editar, alerta si falta info
+
+PASO 2 — Plano del Proyecto (tab=blueprint) [Opcional]
+  Completado si: proyecto.masterplanSVG presente
+  Contenido: BlueprintEngine + banner informativo (formatos, peso máximo, hints DXF)
+
+PASO 3 — Masterplan (tab=masterplan) [Opcional]
+  Completado si: proyecto.overlayBounds presente
+  Contenido: MasterplanViewer + guía de calibración + alerta si falta plano (Paso 2)
+
+PASO 4 — Lotes e Inventario (tab=lotes) [Opcional]
+  Completado si: total de unidades > 0
+  Contenido: EtapasManager (CRUD completo) + InventarioServer si hay lotes
+  Unifica: etapas + manzanas + inventario en un solo paso coherente
+
+PASO 5 — Tour 360° (tab=tour360) [Opcional]
+  Completado si: tours.length > 0
+  Contenido: Tour360TabWrapper + banner con specs técnicas
+
+PASO 6 — Mapa Interactivo (tab=mapa) [Opcional]
+  Completado si: (manual — siempre false)
+  Contenido: MasterplanMap + avisos si faltan lotes o tour
+
+PASO 7 — Comercial (tab=comercial) [Opcional]
+  Completado si: pagos.length > 0 || documentacion.length > 0
+  Contenido: Métricas + Pagos + Archivos Técnicos + Documentación
+  Unifica: pagos + archivos + docs + métricas en una sola vista
+
+================================================================================
+3. NUEVOS ELEMENTOS VISUALES
+================================================================================
+
+BARRA DE PROGRESO:
+  - Muestra "X / 7 pasos completados"
+  - Barra de color brand con width animado
+  - Texto dinámico: completo vs. en progreso
+
+STEPPER LATERAL (desktop ≥ lg):
+  - Sidebar sticky de 256px
+  - Cada paso: número/check + título + descripción corta
+  - Estado visual:
+    * Completado: círculo verde con checkmark
+    * Activo: fondo brand-500
+    * Pendiente: círculo gris neutro
+  - Badge "REQ" en rojo para paso obligatorio incompleto
+  - Badge "LISTO" en verde para pasos completados
+  - Líneas conectoras entre pasos
+
+TABS HORIZONTALES (mobile):
+  - Scroll horizontal, min-w-max
+  - Mismo sistema de estado visual adaptado
+
+BANNER DE GUÍA POR PASO:
+  - Siempre visible en la parte superior del contenido
+  - Ícono del paso + número + label "Paso X de 7"
+  - Badges: "Opcional", "Completado"
+  - Texto de guía específico por paso
+
+BANNERS INFORMATIVOS (Info Box):
+  - En pasos 2, 3, 4, 5, 6: box gris con specs técnicas y hints
+  - En paso 3: alerta amber si el Paso 2 no está completo
+  - En paso 6: avisos si faltan lotes o tour
+
+NAVEGACIÓN ENTRE PASOS (footer del contenido):
+  - Botón "← Paso N: Nombre" para ir al anterior
+  - Botón "Paso N: Nombre →" para ir al siguiente (botón brand)
+  - Al final: mensaje "Todos los pasos revisados"
+
+STATS BAR (pie de página):
+  - Movida al fondo de la página, debajo de todo el contenido
+  - Label "Resumen del inventario"
+  - Mismos 7 indicadores: Total, Disponibles, Reservados, Vendidos,
+    Valor Total, Vendido, Avance
+
+================================================================================
+4. ARCHIVOS MODIFICADOS
+================================================================================
+
+MODIFICADO:
+  app/(dashboard)/dashboard/proyectos/[id]/page.tsx
+    - Reemplazo completo del layout y navegación
+    - Nuevo: stepper sidebar + mobile tabs
+    - Nuevo: barra de progreso
+    - Nuevo: banners de guía por paso
+    - Nuevo: navegación Anterior/Siguiente
+    - Nuevo: EtapasManager (CRUD completo) en Paso 4
+    - Nuevo: métricas + pagos + archivos + docs unificados en Paso 7
+    - Nuevo: tab backward-compat (etapas→lotes, pagos→comercial, etc.)
+    - Fix: tabs "pagos" y "metricas" ya no muestran pantalla en blanco
+    - Stats bar movida al fondo
+
+IMPORTS AGREGADOS:
+  - EtapasManager (dynamic, ssr: false)
+
+IMPORTS ELIMINADOS:
+  - useMasterplanStore (no se usaba en el componente)
+  - MasterplanUnit (no se usaba)
+  - Íconos no utilizados (Edit3, Save, X, Plus, Trash2, ChevronDown,
+    ChevronRight, Upload, Image, Home, Package, DollarSign, LayoutDashboard)
+    → reemplazados por el conjunto correcto para el nuevo diseño
+
+================================================================================
+5. QUÉ QUEDÓ IGUAL (lógica intacta)
+================================================================================
+
+  - Fetching de datos (prisma.proyecto.findUnique con todos los includes)
+  - Security check (ADMIN o propietario)
+  - Cálculo de stats (total, disponibles, reservadas, vendidas, valores)
+  - Todos los componentes existentes (MasterplanMap, MasterplanViewer,
+    BlueprintEngine, Tour360TabWrapper, ProjectDocsTab, ProjectPaymentsTab,
+    ProjectTechnicalFiles, InventarioServer)
+  - URL-based navigation (searchParams.tab)
+  - Clases CSS del sistema (glass-card, brand-500, animate-fade-in)
+
+================================================================================
+6. BUGS CORREGIDOS
+================================================================================
+
+  BUG 1 — Tabs sin contenido:
+    "pagos" y "metricas" estaban listados en el array `tabs` pero no tenían
+    bloque de contenido. Seleccionarlos mostraba pantalla vacía.
+    SOLUCIÓN: Unificados en Paso 7 "Comercial" con contenido completo.
+
+  BUG 2 — EtapasManager no importado:
+    La pestaña "Etapas y Manzanas" mostraba solo una vista de lectura de etapas
+    sin poder crear ni editar. EtapasManager (con CRUD completo) nunca fue
+    importado en el componente original.
+    SOLUCIÓN: EtapasManager importado dinámicamente y usado en Paso 4.
+
+  BUG 3 — Imports no usados:
+    useMasterplanStore y MasterplanUnit importados pero nunca referenciados.
+    SOLUCIÓN: Eliminados.
+
+================================================================================
+7. PENDIENTES / PRÓXIMOS PASOS
+================================================================================
+
+  - Agregar librería de mapas real (Google Maps o Mapbox) para Paso 3 y 6
+  - Implementar auto-generación de lotes desde DXF calibrado (Paso 3→4)
+  - Agregar página /dashboard/proyectos/[id]/editar para el link del Paso 1
+    (actualmente el link existe pero la ruta puede no existir)
+  - Considerar animación de transición entre pasos (framer-motion)
+  - Agregar tooltip en cada step del stepper con más detalle
+  - Tour 360° upscaler podría tener su propio sub-tab dentro del Paso 5
+
+================================================================================
+FIN DEL REGISTRO
+================================================================================
