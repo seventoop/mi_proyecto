@@ -1,600 +1,517 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
-import { ZoomIn, ZoomOut, RotateCcw, Edit3, Undo2, Redo2, Grid3x3, Save, Square, Layers } from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
-import { updateUnidadPolygon } from "@/lib/actions/blueprint";
+import React, { useRef, useState, useCallback, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { updateUnidadPolygon } from "@/lib/actions/blueprint";
+import { parseDXF } from "@/lib/dxf-parser";
+import {
+    FolderOpen, RefreshCw, Edit3, Undo2, Redo2, Grid, Save,
+    Minus, Plus, RotateCcw, Loader2
+} from "lucide-react";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface BlueprintUnit {
     id: string;
     numero: string;
-    tipo?: string;
+    tipo: string;
     superficie?: number | null;
     frente?: number | null;
     fondo?: number | null;
+    esEsquina?: boolean | null;
+    orientacion?: string | null;
     precio?: number | null;
-    moneda?: string;
+    moneda?: string | null;
     estado: string;
     polygon?: any;
     bloqueadoHasta?: Date | string | null;
+    manzanaNombre?: string | null;
+    manzanaId?: string | null;
 }
-
-interface Point { x: number; y: number }
 
 interface BlueprintEngineProps {
     unidades: BlueprintUnit[];
     proyectoId: string;
     onLoteClick: (u: BlueprintUnit) => void;
     mode: "2d" | "3d";
+    centerLat?: number;
+    centerLng?: number;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Layout Constants ─────────────────────────────────────────────────────────
 
-const ESTADO_FILL: Record<string, string> = {
-    DISPONIBLE:          "#22c55e",
-    RESERVADO:           "#f59e0b",
-    RESERVADA:           "#f59e0b",
-    RESERVADA_PENDIENTE: "#f59e0b",
-    VENDIDO:             "#ef4444",
-    VENDIDA:             "#ef4444",
-    BLOQUEADO:           "#6b7280",
+const LOT_W = 76;
+const LOT_H = 138;
+const GAP = 3;
+const STREET_H = 58;
+const MARGIN = 64;
+
+// ─── CAD Colors ───────────────────────────────────────────────────────────────
+
+const COLORS: Record<string, { fill: string; stroke: string; text: string }> = {
+    DISPONIBLE:          { fill: "#0a2a2a", stroke: "#00bcd4", text: "#00bcd4" },
+    RESERVADO:           { fill: "#2a1a00", stroke: "#f59e0b", text: "#f59e0b" },
+    RESERVADA:           { fill: "#2a1a00", stroke: "#f59e0b", text: "#f59e0b" },
+    RESERVADA_PENDIENTE: { fill: "#2a1a00", stroke: "#fb923c", text: "#fb923c" },
+    VENDIDO:             { fill: "#2a0a0a", stroke: "#ef4444", text: "#ef4444" },
+    VENDIDA:             { fill: "#2a0a0a", stroke: "#ef4444", text: "#ef4444" },
+    BLOQUEADO:           { fill: "#181818", stroke: "#6b7280", text: "#6b7280" },
 };
+const DEFAULT_COLOR = { fill: "#0a2a2a", stroke: "#00bcd4", text: "#00bcd4" };
 
-const LOTE_W = 80;
-const LOTE_H = 140;
-const COLS = 12;
-const STREET = 40;
+// ─── Grouping ─────────────────────────────────────────────────────────────────
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function normalizePoly(raw: any): Point[] | null {
-    if (!Array.isArray(raw) || raw.length < 3) return null;
-    // If geo ({lat,lng}) → convert to pixels later via bbox
-    if (typeof raw[0].lat === "number") return raw as any;
-    if (typeof raw[0].x === "number") return raw as Point[];
-    return null;
+function groupByManzana(units: BlueprintUnit[]): Map<string, BlueprintUnit[]> {
+    const map = new Map<string, BlueprintUnit[]>();
+    for (const u of units) {
+        const key = u.manzanaNombre || u.numero.match(/^([A-Za-z]+)/)?.[1] || "A";
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(u);
+    }
+    map.forEach((arr, k) => {
+        map.set(k, arr.sort((a, b) => {
+            const na = parseInt(a.numero.replace(/\D/g, "")) || 0;
+            const nb = parseInt(b.numero.replace(/\D/g, "")) || 0;
+            return na - nb;
+        }));
+    });
+    return map;
 }
 
-function geoToPixels(pts: Array<{ lat: number; lng: number }>, bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number; w: number; h: number }): Point[] {
-    return pts.map(p => ({
-        x: ((p.lng - bbox.minLng) / (bbox.maxLng - bbox.minLng || 1)) * bbox.w,
-        y: ((bbox.maxLat - p.lat) / (bbox.maxLat - bbox.minLat || 1)) * bbox.h,
-    }));
+// ─── Layout Types ─────────────────────────────────────────────────────────────
+
+interface LayoutLot { unit: BlueprintUnit; x: number; y: number; w: number; h: number; }
+interface LayoutManzana { nombre: string; lots: LayoutLot[]; y: number; totalW: number; }
+
+function computeLayout(groups: Map<string, BlueprintUnit[]>): {
+    manzanas: LayoutManzana[]; svgW: number; svgH: number;
+} {
+    const names = Array.from(groups.keys()).sort();
+    let curY = MARGIN + 20;
+    const manzanas: LayoutManzana[] = [];
+    let maxW = 0;
+
+    names.forEach((nombre, mi) => {
+        const units = groups.get(nombre)!;
+        const lots: LayoutLot[] = units.map((unit, i) => ({
+            unit, x: MARGIN + i * (LOT_W + GAP), y: curY, w: LOT_W, h: LOT_H,
+        }));
+        const totalW = units.length * (LOT_W + GAP) - GAP;
+        maxW = Math.max(maxW, totalW);
+        manzanas.push({ nombre, lots, y: curY, totalW });
+        curY += LOT_H + (mi < names.length - 1 ? STREET_H : 0);
+    });
+
+    return {
+        manzanas,
+        svgW: maxW + MARGIN * 2 + 40,
+        svgH: curY + MARGIN + 40,
+    };
 }
 
-function polyCenter(pts: Point[]): Point {
-    const sx = pts.reduce((s, p) => s + p.x, 0);
-    const sy = pts.reduce((s, p) => s + p.y, 0);
-    return { x: sx / pts.length, y: sy / pts.length };
+// ─── Compass Rose ─────────────────────────────────────────────────────────────
+
+function CompassRose({ x, y }: { x: number; y: number }) {
+    return (
+        <g transform={`translate(${x},${y})`}>
+            <circle r={28} fill="#0d1117" stroke="#1e2a3a" strokeWidth={1} />
+            <polygon points="0,-22 5,-8 -5,-8" fill="#00bcd4" />
+            <polygon points="0,22 5,8 -5,8" fill="#1e2a3a" />
+            <line x1={0} y1={-22} x2={0} y2={22} stroke="#1e2a3a" strokeWidth={0.5} />
+            <line x1={-22} y1={0} x2={22} y2={0} stroke="#1e2a3a" strokeWidth={0.5} />
+            <text x={0} y={-26} textAnchor="middle" fill="#00bcd4" fontSize={9} fontFamily="monospace" fontWeight="bold">N</text>
+            <text x={0} y={36} textAnchor="middle" fill="#475569" fontSize={8} fontFamily="monospace">S</text>
+            <text x={30} y={4} textAnchor="start" fill="#475569" fontSize={8} fontFamily="monospace">E</text>
+            <text x={-30} y={4} textAnchor="end" fill="#475569" fontSize={8} fontFamily="monospace">O</text>
+        </g>
+    );
 }
 
-function ptsToStr(pts: Point[]) {
-    return pts.map(p => `${p.x},${p.y}`).join(" ");
+// ─── Single Lot ───────────────────────────────────────────────────────────────
+
+function LotRect({ lot, editMode, isSelected, onClick }: {
+    lot: LayoutLot; editMode: boolean; isSelected: boolean; onClick: () => void;
+}) {
+    const c = COLORS[lot.unit.estado] || DEFAULT_COLOR;
+    const { x, y, w, h, unit } = lot;
+    const numText = unit.numero.replace(/^[A-Za-z]+-?/, "") || unit.numero;
+    const sup = unit.superficie ? `${unit.superficie}m²` : "";
+    const frente = unit.frente ? `${unit.frente.toFixed(2).replace(".", ",")}` : "10,00";
+    const fondo = unit.fondo ? `${unit.fondo.toFixed(2).replace(".", ",")}` : "33,04";
+
+    return (
+        <g>
+            <rect x={x} y={y} width={w} height={h} fill={c.fill}
+                stroke={c.stroke} strokeWidth={isSelected ? 2 : 1}
+                style={{ cursor: "pointer" }} onClick={onClick} />
+
+            <text x={x + w / 2} y={y + h / 2 - 8} textAnchor="middle"
+                fill={c.text} fontSize={18} fontFamily="monospace" fontWeight="bold"
+                style={{ pointerEvents: "none" }}>{numText}</text>
+
+            {sup && <text x={x + w / 2} y={y + h / 2 + 10} textAnchor="middle"
+                fill={c.text} fontSize={9} fontFamily="monospace" opacity={0.8}
+                style={{ pointerEvents: "none" }}>{sup}</text>}
+
+            <text x={x + w / 2} y={y + h / 2 + 24} textAnchor="middle"
+                fill={c.text} fontSize={8} fontFamily="monospace" opacity={0.6}
+                style={{ pointerEvents: "none" }}>{unit.estado.substring(0, 4).toUpperCase()}</text>
+
+            {/* Frente dim (below) */}
+            <line x1={x} y1={y + h + 6} x2={x + w} y2={y + h + 6} stroke="#1e2a3a" strokeWidth={0.5} />
+            <line x1={x} y1={y + h + 3} x2={x} y2={y + h + 9} stroke="#1e2a3a" strokeWidth={0.5} />
+            <line x1={x + w} y1={y + h + 3} x2={x + w} y2={y + h + 9} stroke="#1e2a3a" strokeWidth={0.5} />
+            <text x={x + w / 2} y={y + h + 16} textAnchor="middle" fill="#334155" fontSize={7} fontFamily="monospace">{frente}</text>
+
+            {/* Fondo dim (right) */}
+            <line x1={x + w + 5} y1={y} x2={x + w + 5} y2={y + h} stroke="#1e2a3a" strokeWidth={0.5} />
+            <line x1={x + w + 2} y1={y} x2={x + w + 8} y2={y} stroke="#1e2a3a" strokeWidth={0.5} />
+            <line x1={x + w + 2} y1={y + h} x2={x + w + 8} y2={y + h} stroke="#1e2a3a" strokeWidth={0.5} />
+            <text x={x + w + 14} y={y + h / 2 + 3} textAnchor="middle" fill="#334155" fontSize={7} fontFamily="monospace"
+                transform={`rotate(-90, ${x + w + 14}, ${y + h / 2 + 3})`}>{fondo}</text>
+
+            {/* Edit handles */}
+            {editMode && isSelected && [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([hx, hy], i) => (
+                <circle key={i} cx={hx} cy={hy} r={5} fill="#00bcd4" stroke="#0d1117" strokeWidth={1.5} style={{ cursor: "crosshair" }} />
+            ))}
+        </g>
+    );
 }
 
-function snap(v: number, gridOn: boolean) {
-    return gridOn ? Math.round(v / 10) * 10 : v;
-}
+// ─── Main Component ───────────────────────────────────────────────────────────
 
-// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
-
-export default function BlueprintEngine({ unidades, proyectoId, onLoteClick, mode }: BlueprintEngineProps) {
-    // ── 2D state ──
-    const svgRef = useRef<SVGSVGElement>(null);
-    const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
-    const [zoom, setZoom] = useState(1);
-    const [isEditing, setIsEditing] = useState(false);
-    const [snapOn, setSnapOn] = useState(false);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
-
-    // polygons state: map unitId → Point[]
-    const [polygons, setPolygons] = useState<Map<string, Point[]>>(new Map());
-    const [history, setHistory] = useState<Map<string, Point[]>[]>([]);
-    const [histIdx, setHistIdx] = useState(-1);
-
-    // drag
-    const dragRef = useRef<{ type: "pan" | "vertex" | "poly"; unitId?: string; vertIdx?: number; startX: number; startY: number; startPan?: Point; startPoly?: Point[] } | null>(null);
-    const [saving, setSaving] = useState(false);
-
-    // ── 3D state ──
+export default function BlueprintEngine({
+    unidades, proyectoId, onLoteClick, mode, centerLat = -31.4532, centerLng = -64.4823
+}: BlueprintEngineProps) {
     const canvasRef = useRef<HTMLDivElement>(null);
-    const threeRef = useRef<{ cleanup: () => void } | null>(null);
 
-    // ─── Build pixel polygons from units ────────────────────────────────────
+    // Pan/zoom
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(1);
+    const isPanning = useRef(false);
+    const panStart = useRef({ x: 0, y: 0 });
 
-    useEffect(() => {
-        const map = new Map<string, Point[]>();
+    // UI state
+    const [editMode, setEditMode] = useState(false);
+    const [snapEnabled, setSnapEnabled] = useState(true);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [history, setHistory] = useState<any[]>([]);
+    const [future, setFuture] = useState<any[]>([]);
+    const [saving, setSaving] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [dxfImporting, setDxfImporting] = useState(false);
+    const [dxfPreview, setDxfPreview] = useState<{ count: number; lotes: ReturnType<typeof parseDXF> } | null>(null);
 
-        // Collect all geo polygons to compute bbox
-        const geoPts: Array<{ lat: number; lng: number }> = [];
-        unidades.forEach(u => {
-            const raw = normalizePoly(u.polygon);
-            if (raw && typeof (raw[0] as any).lat === "number") {
-                (raw as any[]).forEach((p: any) => geoPts.push(p));
-            }
-        });
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-        let bbox = { minLat: 0, maxLat: 1, minLng: 0, maxLng: 1, w: 900, h: 600 };
-        if (geoPts.length > 0) {
-            const lats = geoPts.map(p => p.lat);
-            const lngs = geoPts.map(p => p.lng);
-            const minLat = Math.min(...lats);
-            const maxLat = Math.max(...lats);
-            const minLng = Math.min(...lngs);
-            const maxLng = Math.max(...lngs);
-            bbox = { minLat, maxLat, minLng, maxLng, w: 900, h: 600 };
-        }
+    const groups = groupByManzana(unidades);
+    const { manzanas, svgW, svgH } = computeLayout(groups);
 
-        unidades.forEach((u, idx) => {
-            const raw = normalizePoly(u.polygon);
-            if (raw && typeof (raw[0] as any).lat === "number") {
-                map.set(u.id, geoToPixels(raw as any[], bbox));
-            } else if (raw && typeof (raw[0] as any).x === "number") {
-                map.set(u.id, raw as Point[]);
-            } else {
-                // Auto-grid
-                const row = Math.floor(idx / COLS);
-                const col = idx % COLS;
-                const streetOffset = row >= 1 ? STREET : 0;
-                const x = col * (LOTE_W + 4) + 10;
-                const y = row * (LOTE_H + 4) + 10 + streetOffset;
-                map.set(u.id, [
-                    { x, y },
-                    { x: x + LOTE_W, y },
-                    { x: x + LOTE_W, y: y + LOTE_H },
-                    { x, y: y + LOTE_H },
-                ]);
-            }
-        });
-
-        setPolygons(map);
-        setHistory([new Map(map)]);
-        setHistIdx(0);
-    }, [unidades]);
-
-    // ─── History helpers ─────────────────────────────────────────────────────
-
-    const pushHistory = useCallback((next: Map<string, Point[]>) => {
-        setHistory(h => {
-            const trimmed = h.slice(0, histIdx + 1);
-            const capped = [...trimmed, next].slice(-20);
-            setHistIdx(capped.length - 1);
-            return capped;
-        });
-    }, [histIdx]);
-
-    const undo = () => {
-        if (histIdx <= 0) return;
-        const prev = history[histIdx - 1];
-        setPolygons(new Map(prev));
-        setHistIdx(i => i - 1);
+    const stats = {
+        disp: unidades.filter(u => u.estado === "DISPONIBLE").length,
+        res:  unidades.filter(u => ["RESERVADO","RESERVADA","RESERVADA_PENDIENTE"].includes(u.estado)).length,
+        vend: unidades.filter(u => ["VENDIDO","VENDIDA"].includes(u.estado)).length,
     };
 
-    const redo = () => {
-        if (histIdx >= history.length - 1) return;
-        const next = history[histIdx + 1];
-        setPolygons(new Map(next));
-        setHistIdx(i => i + 1);
+    // ── Pan/Zoom handlers ─────────────────────────────────────────────────────
+
+    const onMouseDown = (e: React.MouseEvent) => {
+        if (e.button !== 0 || editMode) return;
+        isPanning.current = true;
+        panStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+        e.currentTarget.setAttribute("style", "cursor:grabbing");
     };
-
-    // Keyboard shortcuts
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); undo(); }
-            if ((e.ctrlKey || e.metaKey) && e.key === "y") { e.preventDefault(); redo(); }
-        };
-        window.addEventListener("keydown", handler);
-        return () => window.removeEventListener("keydown", handler);
-    }, [histIdx, history]);
-
-    // ─── SVG mouse events ────────────────────────────────────────────────────
-
-    const getSVGPoint = (e: React.MouseEvent | MouseEvent): Point => {
-        const svg = svgRef.current;
-        if (!svg) return { x: 0, y: 0 };
-        const rect = svg.getBoundingClientRect();
-        return {
-            x: (e.clientX - rect.left - pan.x) / zoom,
-            y: (e.clientY - rect.top - pan.y) / zoom,
-        };
+    const onMouseMove = (e: React.MouseEvent) => {
+        if (!isPanning.current) return;
+        setPan({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
     };
-
-    const onSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-        if ((e.target as SVGElement).dataset.role !== "bg") return;
-        dragRef.current = { type: "pan", startX: e.clientX, startY: e.clientY, startPan: { ...pan } };
+    const onMouseUp = (e: React.MouseEvent) => {
+        isPanning.current = false;
+        e.currentTarget.setAttribute("style", "cursor:grab");
     };
-
-    const onPolyMouseDown = (e: React.MouseEvent, unitId: string) => {
-        if (!isEditing) return;
-        e.stopPropagation();
-        const svgPt = getSVGPoint(e);
-        dragRef.current = { type: "poly", unitId, startX: svgPt.x, startY: svgPt.y, startPoly: polygons.get(unitId)?.map(p => ({ ...p })) };
-    };
-
-    const onHandleMouseDown = (e: React.MouseEvent, unitId: string, vertIdx: number) => {
-        e.stopPropagation();
-        dragRef.current = { type: "vertex", unitId, vertIdx, startX: e.clientX, startY: e.clientY };
-    };
-
-    const onMouseMove = useCallback((e: MouseEvent) => {
-        const drag = dragRef.current;
-        if (!drag) return;
-
-        if (drag.type === "pan" && drag.startPan) {
-            setPan({ x: drag.startPan.x + e.clientX - drag.startX, y: drag.startPan.y + e.clientY - drag.startY });
-        } else if (drag.type === "vertex" && drag.unitId !== undefined && drag.vertIdx !== undefined) {
-            const svgPt = getSVGPoint(e);
-            setPolygons(prev => {
-                const poly = prev.get(drag.unitId!)?.map(p => ({ ...p }));
-                if (!poly) return prev;
-                poly[drag.vertIdx!] = { x: snap(svgPt.x, snapOn), y: snap(svgPt.y, snapOn) };
-                return new Map(prev).set(drag.unitId!, poly);
-            });
-        } else if (drag.type === "poly" && drag.unitId && drag.startPoly) {
-            const svgPt = getSVGPoint(e);
-            const dx = svgPt.x - drag.startX;
-            const dy = svgPt.y - drag.startY;
-            setPolygons(prev => {
-                const moved = drag.startPoly!.map(p => ({ x: snap(p.x + dx, snapOn), y: snap(p.y + dy, snapOn) }));
-                return new Map(prev).set(drag.unitId!, moved);
-            });
-        }
-    }, [pan, zoom, snapOn]);
-
-    const onMouseUp = useCallback(() => {
-        if (dragRef.current && (dragRef.current.type === "vertex" || dragRef.current.type === "poly")) {
-            pushHistory(new Map(polygons));
-        }
-        dragRef.current = null;
-    }, [polygons, pushHistory]);
-
-    useEffect(() => {
-        window.addEventListener("mousemove", onMouseMove);
-        window.addEventListener("mouseup", onMouseUp);
-        return () => {
-            window.removeEventListener("mousemove", onMouseMove);
-            window.removeEventListener("mouseup", onMouseUp);
-        };
-    }, [onMouseMove, onMouseUp]);
-
-    const onWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    const onWheel = (e: React.WheelEvent) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        setZoom(z => Math.max(0.2, Math.min(5, z * delta)));
+        setZoom(z => Math.max(0.15, Math.min(5, z * (e.deltaY > 0 ? 0.9 : 1.1))));
     };
 
-    const handleSave = async () => {
+    // ── DXF ───────────────────────────────────────────────────────────────────
+
+    const handleDXFFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setDxfImporting(true);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const lotes = parseDXF(ev.target?.result as string);
+                if (lotes.length === 0) toast.error("No se detectaron polígonos en el DXF");
+                else setDxfPreview({ count: lotes.length, lotes });
+            } catch { toast.error("Error al parsear el DXF"); }
+            setDxfImporting(false);
+        };
+        reader.readAsText(file);
+        e.target.value = "";
+    };
+
+    const confirmDXFImport = useCallback(async () => {
+        if (!dxfPreview) return;
+        setDxfPreview(null);
         setSaving(true);
-        const unitsWithPoly = unidades.filter(u => u.polygon);
-        let ok = 0;
-        for (const u of unitsWithPoly) {
-            const pts = polygons.get(u.id);
-            if (!pts || pts.length < 3) continue;
-            // If original polygon was geo-based, we keep geo; otherwise send px coords as fallback
-            const original = normalizePoly(u.polygon);
-            if (original && typeof (original[0] as any).lat === "number") {
-                // We don't convert back - just skip (pixel edit doesn't update geo polygon)
-                ok++;
-                continue;
-            }
-            const res = await updateUnidadPolygon(u.id, pts.map(p => ({ lat: p.y, lng: p.x })));
-            if (res.success) ok++;
+        const allX = dxfPreview.lotes.flatMap(l => l.points.map(p => p.x));
+        const allY = dxfPreview.lotes.flatMap(l => l.points.map(p => p.y));
+        const maxX = Math.max(...allX) || 1;
+        const maxY = Math.max(...allY) || 1;
+        const cosLat = Math.cos((centerLat * Math.PI) / 180);
+        const scale = 10 / (maxX / Math.max(dxfPreview.lotes.length, 1)); // ~10m per lot
+        let updated = 0;
+        for (const lote of dxfPreview.lotes) {
+            const unit = unidades.find(u => u.numero.replace(/\D/g, "") === lote.numero);
+            if (!unit) continue;
+            const polygon = lote.points.map(p => ({
+                lat: centerLat + ((-p.y + maxY / 2) * scale) / 111000,
+                lng: centerLng + ((p.x - maxX / 2) * scale) / (111000 * cosLat),
+            }));
+            await updateUnidadPolygon(unit.id, polygon);
+            updated++;
         }
         setSaving(false);
-        toast.success(`${ok} polígono(s) guardado(s)`);
-    };
+        toast.success(`Plano importado: ${updated} lotes actualizados`);
+    }, [dxfPreview, unidades, centerLat, centerLng]);
 
-    // ─── Stats ───────────────────────────────────────────────────────────────
+    // ── Sync ──────────────────────────────────────────────────────────────────
 
-    const counts = unidades.reduce((acc, u) => {
-        const k = ["DISPONIBLE", "RESERVADO", "RESERVADA", "VENDIDO", "VENDIDA", "BLOQUEADO"].includes(u.estado)
-            ? (["RESERVADO", "RESERVADA", "RESERVADA_PENDIENTE"].includes(u.estado) ? "RESERVADO" : ["VENDIDO", "VENDIDA"].includes(u.estado) ? "VENDIDO" : u.estado)
-            : "OTRO";
-        acc[k] = (acc[k] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
+    const handleSync = useCallback(async () => {
+        setSyncing(true);
+        const cosLat = Math.cos((centerLat * Math.PI) / 180);
+        const metersPerPx = 10 / LOT_W;
+        const svgCX = svgW / 2, svgCY = svgH / 2;
+        let updated = 0;
+        for (const manzana of manzanas) {
+            for (const lot of manzana.lots) {
+                if (lot.unit.polygon) continue;
+                const { x, y, w, h } = lot;
+                const polygon = [
+                    { px: x,     py: y },
+                    { px: x + w, py: y },
+                    { px: x + w, py: y + h },
+                    { px: x,     py: y + h },
+                ].map(c => ({
+                    lat: centerLat + ((svgCY - c.py) * metersPerPx) / 111000,
+                    lng: centerLng + ((c.px - svgCX) * metersPerPx) / (111000 * cosLat),
+                }));
+                await updateUnidadPolygon(lot.unit.id, polygon);
+                updated++;
+            }
+        }
+        setSyncing(false);
+        toast.success(`Sincronizado: ${updated} lotes actualizados en Masterplan`);
+    }, [manzanas, svgW, svgH, centerLat, centerLng]);
 
-    // ─── 3D Renderer ─────────────────────────────────────────────────────────
+    // ── 3D Mode ───────────────────────────────────────────────────────────────
 
     useEffect(() => {
         if (mode !== "3d" || !canvasRef.current) return;
+        let renderer: any, animId: number;
 
-        let animId: number;
-        let mounted = true;
-
-        (async () => {
+        const init = async () => {
             const THREE = await import("three");
-            const { OrbitControls } = await import("three/examples/jsm/controls/OrbitControls.js");
-
-            if (!mounted || !canvasRef.current) return;
-
-            const container = canvasRef.current;
-            const w = container.clientWidth;
-            const h = container.clientHeight || 500;
-
-            const renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(w, h);
-            renderer.setClearColor(0x0f172a);
-            container.appendChild(renderer.domElement);
-
+            const { OrbitControls } = await import("three/examples/jsm/controls/OrbitControls.js" as any);
+            const W = canvasRef.current!.clientWidth || 800;
+            const H = 500;
             const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 1000);
-            camera.position.set(0, 80, 120);
-
+            scene.background = new THREE.Color(0x0d1117);
+            const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 10000);
+            camera.position.set(0, 400, 600);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(W, H);
+            canvasRef.current!.appendChild(renderer.domElement);
             const controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.minDistance = 5;
-            controls.maxDistance = 300;
-
-            // Lighting
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-            dir.position.set(50, 100, 50);
-            scene.add(dir);
-
-            // Ground
-            const ground = new THREE.Mesh(
-                new THREE.PlaneGeometry(600, 600),
-                new THREE.MeshPhongMaterial({ color: 0x1a1a2e })
-            );
-            ground.rotation.x = -Math.PI / 2;
-            scene.add(ground);
-
-            // Lotes
-            const maxPrice = Math.max(...unidades.map(u => u.precio || 0), 1);
-            unidades.forEach((u, idx) => {
-                const color = new THREE.Color(ESTADO_FILL[u.estado] || "#94a3b8");
-                const extH = 2 + ((u.precio || 0) / maxPrice) * 6;
-                const row = Math.floor(idx / COLS);
-                const col = idx % COLS;
-                const x = (col - COLS / 2) * 12;
-                const z = (row - 1) * 18;
-
-                let geo: any;
-                const pts2D = polygons.get(u.id);
-                if (pts2D && pts2D.length >= 3) {
-                    const shape = new THREE.Shape();
-                    shape.moveTo(pts2D[0].x / 50, pts2D[0].y / 50);
-                    pts2D.slice(1).forEach(p => shape.lineTo(p.x / 50, p.y / 50));
-                    shape.closePath();
-                    geo = new THREE.ExtrudeGeometry(shape, { depth: extH, bevelEnabled: false });
-                } else {
-                    geo = new THREE.BoxGeometry(10, extH, 15);
-                }
-
-                const mat = new THREE.MeshPhongMaterial({ color, shininess: 60 });
+            scene.add(new THREE.GridHelper(1200, 60, 0x1e2a3a, 0x1e2a3a));
+            unidades.forEach((unit, i) => {
+                const c = COLORS[unit.estado] || DEFAULT_COLOR;
+                const geo: any = new THREE.BoxGeometry(LOT_W * 0.5, 8, LOT_H * 0.5);
+                const mat = new THREE.MeshPhongMaterial({ color: new THREE.Color(c.stroke), transparent: true, opacity: 0.85 });
                 const mesh = new THREE.Mesh(geo, mat);
-                if (pts2D && pts2D.length >= 3) {
-                    const cx = pts2D.reduce((s, p) => s + p.x, 0) / pts2D.length / 50;
-                    const cy = pts2D.reduce((s, p) => s + p.y, 0) / pts2D.length / 50;
-                    mesh.position.set(cx - 9, 0, cy - 6);
-                } else {
-                    mesh.position.set(x, extH / 2, z);
-                }
-                (mesh as any)._unitId = u.id;
+                mesh.position.set((i % 12) * (LOT_W * 0.5 + 4) - 250, 4, Math.floor(i / 12) * (LOT_H * 0.5 + 30) - 100);
                 scene.add(mesh);
             });
-
-            // Raycaster for click
-            const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2();
-            const onClick = (e: MouseEvent) => {
-                const rect = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-                raycaster.setFromCamera(mouse, camera);
-                const hits = raycaster.intersectObjects(scene.children);
-                for (const hit of hits) {
-                    const uid = (hit.object as any)._unitId;
-                    if (uid) {
-                        const u = unidades.find(u => u.id === uid);
-                        if (u) onLoteClick(u);
-                        break;
-                    }
-                }
-            };
-            renderer.domElement.addEventListener("click", onClick);
-
-            const animate = () => {
-                if (!mounted) return;
-                animId = requestAnimationFrame(animate);
-                controls.update();
-                renderer.render(scene, camera);
-            };
+            scene.add(new THREE.DirectionalLight(0xffffff, 1).position.set(100, 200, 100) as any);
+            scene.add(new THREE.AmbientLight(0x334155, 1));
+            const animate = () => { animId = requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); };
             animate();
-
-            threeRef.current = {
-                cleanup: () => {
-                    mounted = false;
-                    cancelAnimationFrame(animId);
-                    renderer.domElement.removeEventListener("click", onClick);
-                    renderer.dispose();
-                    if (container.contains(renderer.domElement)) {
-                        container.removeChild(renderer.domElement);
-                    }
-                }
-            };
-        })();
-
-        return () => {
-            mounted = false;
-            threeRef.current?.cleanup();
-            threeRef.current = null;
         };
-    }, [mode, unidades, polygons, onLoteClick]);
+        init().catch(console.error);
+        return () => {
+            if (animId) cancelAnimationFrame(animId);
+            if (renderer) { renderer.dispose(); if (canvasRef.current?.contains(renderer.domElement)) canvasRef.current.removeChild(renderer.domElement); }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode]);
 
-    // ─── Toolbar ─────────────────────────────────────────────────────────────
+    // ── 3D render ─────────────────────────────────────────────────────────────
 
-    const Toolbar = () => (
-        <div className="flex flex-wrap items-center gap-2 p-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-            {mode === "2d" && (
-                <>
-                    <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                        <button onClick={() => setZoom(z => Math.min(5, z * 1.2))} className="px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold">
-                            <ZoomIn className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setZoom(z => Math.max(0.2, z * 0.8))} className="px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 border-l border-slate-200 dark:border-slate-700 text-xs font-bold">
-                            <ZoomOut className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 border-l border-slate-200 dark:border-slate-700 text-xs font-bold">
-                            <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
-                    </div>
-
-                    <div className="w-px h-6 bg-slate-200 dark:bg-slate-700" />
-
-                    <button
-                        onClick={() => setIsEditing(e => !e)}
-                        className={cn("px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors",
-                            isEditing ? "bg-brand-orange text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700")}
-                    >
-                        <Edit3 className="w-3.5 h-3.5" /> {isEditing ? "Editando" : "Editar"}
-                    </button>
-                    <button onClick={undo} disabled={histIdx <= 0} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 disabled:opacity-40 flex items-center gap-1.5">
-                        <Undo2 className="w-3.5 h-3.5" /> Undo
-                    </button>
-                    <button onClick={redo} disabled={histIdx >= history.length - 1} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 disabled:opacity-40 flex items-center gap-1.5">
-                        <Redo2 className="w-3.5 h-3.5" /> Redo
-                    </button>
-                    <button
-                        onClick={() => setSnapOn(s => !s)}
-                        className={cn("px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors",
-                            snapOn ? "bg-blue-500 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300")}
-                    >
-                        <Grid3x3 className="w-3.5 h-3.5" /> Snap
-                    </button>
-                    {isEditing && (
-                        <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-1.5">
-                            <Save className="w-3.5 h-3.5" /> {saving ? "Guardando..." : "Guardar"}
-                        </button>
-                    )}
-                    <div className="w-px h-6 bg-slate-200 dark:bg-slate-700" />
-                </>
-            )}
-
-            {/* Stat counts */}
-            <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-500">
-                <span className="text-emerald-500">{counts.DISPONIBLE || 0} disponibles</span>
-                <span>·</span>
-                <span className="text-amber-500">{counts.RESERVADO || 0} reservados</span>
-                <span>·</span>
-                <span className="text-rose-500">{counts.VENDIDO || 0} vendidos</span>
-                {counts.BLOQUEADO > 0 && <><span>·</span><span className="text-slate-400">{counts.BLOQUEADO} bloqueados</span></>}
-            </div>
-
-            <div className="ml-auto flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                {/* Mode switcher is handled by parent via `mode` prop; show current mode */}
-                <span className={cn("px-3 py-1.5 text-xs font-bold", mode === "2d" ? "bg-brand-orange text-white" : "text-slate-400")}>
-                    <Square className="w-3.5 h-3.5 inline mr-1" />2D
-                </span>
-                <span className={cn("px-3 py-1.5 text-xs font-bold border-l border-slate-200 dark:border-slate-700", mode === "3d" ? "bg-brand-orange text-white" : "text-slate-400")}>
-                    <Layers className="w-3.5 h-3.5 inline mr-1" />3D
-                </span>
-            </div>
-        </div>
-    );
-
-    // ─── Legend ───────────────────────────────────────────────────────────────
-
-    const Legend = () => (
-        <div className="flex flex-wrap gap-4 px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800 text-xs font-medium">
-            {Object.entries({ DISPONIBLE: "#22c55e", RESERVADO: "#f59e0b", VENDIDO: "#ef4444", BLOQUEADO: "#6b7280" }).map(([k, c]) => (
-                <span key={k} className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                    <span className="w-3 h-3 rounded" style={{ backgroundColor: c }} />
-                    {k.charAt(0) + k.slice(1).toLowerCase()}
-                </span>
-            ))}
-        </div>
-    );
-
-    // ─── 2D SVG Render ───────────────────────────────────────────────────────
-
-    if (mode === "2d") {
+    if (mode === "3d") {
         return (
-            <div className="flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
-                <Toolbar />
-                <div className="relative flex-1 overflow-hidden" style={{ height: "calc(100vh - 420px)", minHeight: 400 }}>
-                    <svg
-                        ref={svgRef}
-                        className="w-full h-full cursor-grab active:cursor-grabbing select-none"
-                        style={{ background: "#0f172a" }}
-                        onMouseDown={onSVGMouseDown}
-                        onWheel={onWheel}
-                    >
-                        <rect data-role="bg" x="-99999" y="-99999" width="999999" height="999999" fill="transparent" />
-                        <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
-                            {unidades.map((u) => {
-                                const pts = polygons.get(u.id);
-                                if (!pts || pts.length < 3) return null;
-                                const fill = ESTADO_FILL[u.estado] || "#94a3b8";
-                                const center = polyCenter(pts);
-                                const isSelected = selectedId === u.id;
-
-                                return (
-                                    <g key={u.id}>
-                                        <polygon
-                                            points={ptsToStr(pts)}
-                                            fill={fill}
-                                            fillOpacity={0.75}
-                                            stroke={isSelected ? "#ffffff" : "white"}
-                                            strokeWidth={isSelected ? 2 : 1}
-                                            style={{ cursor: isEditing ? "move" : "pointer", filter: isSelected ? "brightness(1.2)" : undefined }}
-                                            onClick={(e) => { e.stopPropagation(); setSelectedId(u.id); onLoteClick(u); }}
-                                            onMouseDown={(e) => onPolyMouseDown(e, u.id)}
-                                            onMouseEnter={(e) => { if (!isEditing) (e.target as SVGElement).style.filter = "brightness(1.15)"; }}
-                                            onMouseLeave={(e) => { (e.target as SVGElement).style.filter = ""; }}
-                                        />
-
-                                        {/* Labels */}
-                                        <text x={center.x} y={center.y - 10} textAnchor="middle" fontSize={12} fontWeight="bold" fill="white" pointerEvents="none">
-                                            {u.numero}
-                                        </text>
-                                        {u.superficie && (
-                                            <text x={center.x} y={center.y + 4} textAnchor="middle" fontSize={10} fill="white" pointerEvents="none">
-                                                {u.superficie} m²
-                                            </text>
-                                        )}
-                                        {u.precio && (
-                                            <text x={center.x} y={center.y + 16} textAnchor="middle" fontSize={9} fill="rgba(255,255,255,0.8)" pointerEvents="none">
-                                                {formatCurrency(u.precio)}
-                                            </text>
-                                        )}
-
-                                        {/* Vertex handles when editing */}
-                                        {isEditing && pts.map((pt, vi) => (
-                                            <circle
-                                                key={vi}
-                                                cx={pt.x}
-                                                cy={pt.y}
-                                                r={6}
-                                                fill="white"
-                                                stroke="#f97316"
-                                                strokeWidth={2}
-                                                style={{ cursor: "crosshair" }}
-                                                onMouseDown={(e) => { e.stopPropagation(); onHandleMouseDown(e, u.id, vi); }}
-                                            />
-                                        ))}
-                                    </g>
-                                );
-                            })}
-                        </g>
-                    </svg>
-                </div>
-                <Legend />
+            <div className="w-full rounded-2xl overflow-hidden border border-slate-800" style={{ height: 500, background: "#0d1117" }}>
+                <div ref={canvasRef} className="w-full h-full" />
             </div>
         );
     }
 
-    // ─── 3D Render ────────────────────────────────────────────────────────────
+    // ── 2D render ─────────────────────────────────────────────────────────────
 
     return (
-        <div className="flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <Toolbar />
-            <div ref={canvasRef} className="w-full" style={{ height: "calc(100vh - 380px)", minHeight: 500, background: "#0f172a" }} />
-            <Legend />
+        <div className="flex flex-col gap-2">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center gap-1 bg-[#0d1117] border border-[#1e2a3a] rounded-xl px-3 py-2">
+                <input ref={fileInputRef} type="file" accept=".dxf,.dwg" className="hidden" onChange={handleDXFFile} />
+                <button onClick={() => fileInputRef.current?.click()} disabled={dxfImporting}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1e2a3a] text-cyan-400 hover:bg-[#243040] text-xs font-mono transition-colors">
+                    {dxfImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5" />}
+                    Cargar DXF/DWG
+                </button>
+                <button onClick={handleSync} disabled={syncing}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1e2a3a] text-cyan-400 hover:bg-[#243040] text-xs font-mono transition-colors">
+                    {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                    Sincronizar Masterplan
+                </button>
+                <div className="w-px h-4 bg-[#1e2a3a] mx-1" />
+                <button onClick={() => setEditMode(e => !e)}
+                    className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono transition-colors",
+                        editMode ? "bg-cyan-500 text-black" : "bg-[#1e2a3a] text-slate-400 hover:bg-[#243040]")}>
+                    <Edit3 className="w-3.5 h-3.5" /> Editar
+                </button>
+                <button onClick={() => { if (history.length) { setFuture(f => [history.at(-1), ...f]); setHistory(h => h.slice(0, -1)); } }}
+                    disabled={!history.length}
+                    className="p-1.5 rounded-lg bg-[#1e2a3a] text-slate-400 hover:bg-[#243040] disabled:opacity-30 transition-colors">
+                    <Undo2 className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => { if (future.length) { setHistory(h => [...h, future[0]]); setFuture(f => f.slice(1)); } }}
+                    disabled={!future.length}
+                    className="p-1.5 rounded-lg bg-[#1e2a3a] text-slate-400 hover:bg-[#243040] disabled:opacity-30 transition-colors">
+                    <Redo2 className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => setSnapEnabled(s => !s)}
+                    className={cn("flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono transition-colors",
+                        snapEnabled ? "bg-cyan-900/40 text-cyan-400" : "bg-[#1e2a3a] text-slate-500")}>
+                    <Grid className="w-3.5 h-3.5" /> Snap
+                </button>
+                <div className="w-px h-4 bg-[#1e2a3a] mx-1" />
+                <button onClick={() => setZoom(z => Math.min(5, z * 1.2))} className="p-1.5 rounded-lg bg-[#1e2a3a] text-slate-400 hover:bg-[#243040] transition-colors"><Plus className="w-3.5 h-3.5" /></button>
+                <span className="text-xs font-mono text-slate-500 w-10 text-center">{Math.round(zoom * 100)}%</span>
+                <button onClick={() => setZoom(z => Math.max(0.15, z * 0.8))} className="p-1.5 rounded-lg bg-[#1e2a3a] text-slate-400 hover:bg-[#243040] transition-colors"><Minus className="w-3.5 h-3.5" /></button>
+                <button onClick={() => { setPan({ x: 0, y: 0 }); setZoom(1); }} className="p-1.5 rounded-lg bg-[#1e2a3a] text-slate-400 hover:bg-[#243040] transition-colors"><RotateCcw className="w-3.5 h-3.5" /></button>
+                <div className="ml-auto flex items-center gap-3 text-xs font-mono">
+                    <span className="text-cyan-400">{stats.disp} disp</span>
+                    <span className="text-amber-400">{stats.res} res</span>
+                    <span className="text-red-400">{stats.vend} vend</span>
+                </div>
+            </div>
+
+            {/* DXF Confirm */}
+            {dxfPreview && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl w-80">
+                        <h3 className="font-bold text-white mb-2">Importar DXF</h3>
+                        <p className="text-slate-400 text-sm mb-4">Se detectaron <strong className="text-cyan-400">{dxfPreview.count}</strong> polígonos. ¿Importar como polígonos de lotes?</p>
+                        <div className="flex gap-2">
+                            <button onClick={confirmDXFImport} className="flex-1 py-2 rounded-xl bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400">Importar</button>
+                            <button onClick={() => setDxfPreview(null)} className="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-700">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SVG Canvas */}
+            <div
+                className="relative w-full overflow-hidden rounded-2xl border border-[#1e2a3a]"
+                style={{ height: 520, background: "#0d1117", cursor: editMode ? "default" : "grab" }}
+                onMouseDown={onMouseDown}
+                onMouseMove={onMouseMove}
+                onMouseUp={onMouseUp}
+                onMouseLeave={onMouseUp}
+                onWheel={onWheel}
+            >
+                <svg
+                    width="100%" height="100%"
+                    viewBox={`0 0 ${svgW} ${svgH}`}
+                    style={{ transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})`, transformOrigin: "center center" }}
+                >
+                    {/* Dot grid */}
+                    <defs>
+                        <pattern id="cad-grid" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <circle cx="1" cy="1" r="0.8" fill="#1e2a3a" opacity="0.5" />
+                        </pattern>
+                    </defs>
+                    <rect x={0} y={0} width={svgW} height={svgH} fill="url(#cad-grid)" />
+
+                    {/* Manzanas + lots */}
+                    {manzanas.map((manzana, mi) => (
+                        <g key={manzana.nombre}>
+                            <text x={MARGIN} y={manzana.y - 8} fill="#334155" fontSize={10}
+                                fontFamily="monospace" fontWeight="bold" letterSpacing={2}>
+                                MZ {manzana.nombre.toUpperCase()}
+                            </text>
+
+                            {manzana.lots.map(lot => (
+                                <LotRect
+                                    key={lot.unit.id}
+                                    lot={lot}
+                                    editMode={editMode}
+                                    isSelected={selectedId === lot.unit.id}
+                                    onClick={() => {
+                                        setSelectedId(id => id === lot.unit.id ? null : lot.unit.id);
+                                        onLoteClick(lot.unit);
+                                    }}
+                                />
+                            ))}
+
+                            {/* Street between manzanas */}
+                            {mi < manzanas.length - 1 && (
+                                <g>
+                                    <rect x={MARGIN} y={manzana.y + LOT_H + GAP}
+                                        width={manzana.totalW} height={STREET_H - GAP * 2}
+                                        fill="#0a1520" stroke="#1e2a3a" strokeWidth={0.5} strokeDasharray="4,4" />
+                                    <text x={MARGIN + manzana.totalW / 2} y={manzana.y + LOT_H + GAP + (STREET_H - GAP * 2) / 2 + 4}
+                                        textAnchor="middle" fill="#334155" fontSize={9} fontFamily="monospace">
+                                        CALLE — 17,85 m
+                                    </text>
+                                </g>
+                            )}
+                        </g>
+                    ))}
+
+                    {/* Total width dim */}
+                    {manzanas.length > 0 && (() => {
+                        const last = manzanas[manzanas.length - 1];
+                        const dimY = last.y + LOT_H + 34;
+                        const x0 = MARGIN, x1 = MARGIN + last.totalW;
+                        return (
+                            <g>
+                                <line x1={x0} y1={dimY} x2={x1} y2={dimY} stroke="#1e2a3a" strokeWidth={1} />
+                                <line x1={x0} y1={dimY - 4} x2={x0} y2={dimY + 4} stroke="#1e2a3a" strokeWidth={1} />
+                                <line x1={x1} y1={dimY - 4} x2={x1} y2={dimY + 4} stroke="#1e2a3a" strokeWidth={1} />
+                                <text x={(x0 + x1) / 2} y={dimY + 12} textAnchor="middle" fill="#334155" fontSize={8} fontFamily="monospace">
+                                    {(last.lots.length * 10 + Math.max(last.lots.length - 1, 0) * 0.4).toFixed(2).replace(".", ",")} m total
+                                </text>
+                            </g>
+                        );
+                    })()}
+
+                    {/* Compass rose */}
+                    <CompassRose x={svgW - 48} y={48} />
+
+                    {/* Title */}
+                    <text x={MARGIN} y={svgH - 10} fill="#1e2a3a" fontSize={8} fontFamily="monospace">
+                        PLANO DE LOTEAMIENTO · Motor de Planos AI
+                    </text>
+                </svg>
+                <div className="absolute bottom-2 right-2 text-[9px] font-mono text-slate-700">
+                    scroll=zoom · drag=pan · click=ficha
+                </div>
+            </div>
         </div>
     );
 }

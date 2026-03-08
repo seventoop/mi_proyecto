@@ -534,15 +534,17 @@ model Tour360 {
 }
 
 model TourScene {
-  id        String    @id @default(cuid())
-  tourId    String
-  title     String
-  imageUrl  String
-  isDefault Boolean   @default(false)
-  order     Int       @default(0)
-  category  String    @default("RAW")
-  hotspots  Hotspot[]
-  tour      Tour360   @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  tourId            String
+  title             String
+  imageUrl          String
+  thumbnailUrl      String?
+  pannellumHotspots Json?
+  isDefault         Boolean   @default(false)
+  order             Int       @default(0)
+  category          String    @default("RAW")
+  hotspots          Hotspot[]
+  tour              Tour360   @relation(fields: [tourId], references: [id], onDelete: Cascade)
 
   @@index([tourId])
   @@map("tour_scenes")

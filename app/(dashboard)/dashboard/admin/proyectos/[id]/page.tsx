@@ -230,35 +230,21 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 ))}
             </div>
 
-            {/* Tabs Navigation - Card Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {/* Tabs Navigation — compact horizontal bar */}
+            <div className="flex flex-wrap gap-1 bg-slate-900/50 border border-white/5 rounded-xl p-1">
                 {tabs.map((tab) => (
                     <Link
                         key={tab.id}
                         href={`?tab=${tab.id}`}
                         className={cn(
-                            "glass-card p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 group hover:scale-[1.02]",
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap",
                             activeTab === tab.id
-                                ? "ring-2 ring-brand-orange bg-brand-orange/10 shadow-lg shadow-brand-orange/5"
-                                : "hover:bg-slate-800/40"
+                                ? "bg-brand-orange text-white shadow-sm"
+                                : "text-slate-400 hover:text-white hover:bg-white/5"
                         )}
                     >
-                        <div className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                            activeTab === tab.id
-                                ? "bg-brand-orange text-white"
-                                : "bg-slate-800 text-slate-400 group-hover:text-brand-orange"
-                        )}>
-                            <tab.icon className="w-5 h-5" />
-                        </div>
-                        <span className={cn(
-                            "text-xs font-bold text-center transition-colors",
-                            activeTab === tab.id
-                                ? "text-brand-orange"
-                                : "text-slate-400 group-hover:text-slate-200"
-                        )}>
-                            {tab.label}
-                        </span>
+                        <tab.icon className="w-3.5 h-3.5 shrink-0" />
+                        {tab.label}
                     </Link>
                 ))}
             </div>
@@ -337,10 +323,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 {activeTab === "tour360" && (
                     <Tour360Viewer
                         proyectoId={proyecto.id}
-                        tour360Url={(proyecto as any).tour360Url}
+                        tourId={proyecto.tours?.[0]?.id}
                         unidades={proyecto.etapas.flatMap((e: any) => e.manzanas.flatMap((m: any) => m.unidades))}
                         isAdmin={userRole === "ADMIN" || userRole === "DESARROLLADOR"}
-                        tours={proyecto.tours || []}
                     />
                 )}
 
@@ -387,9 +372,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                 {activeTab === "planos" && (
                     <PlanosTab
-                        unidades={proyecto.etapas.flatMap((e: any) => e.manzanas.flatMap((m: any) => m.unidades))}
+                        unidades={proyecto.etapas.flatMap((e: any) => e.manzanas.flatMap((m: any) =>
+                            m.unidades.map((u: any) => ({ ...u, manzanaNombre: m.nombre, manzanaId: m.id }))
+                        ))}
                         proyectoId={proyecto.id}
                         tour360Url={(proyecto as any).tour360Url}
+                        centerLat={proyecto.mapCenterLat || -31.4532}
+                        centerLng={proyecto.mapCenterLng || -64.4823}
                     />
                 )}
 

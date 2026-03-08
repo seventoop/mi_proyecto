@@ -14,9 +14,11 @@ interface PlanosTabProps {
     unidades: BlueprintUnit[];
     proyectoId: string;
     tour360Url?: string | null;
+    centerLat?: number;
+    centerLng?: number;
 }
 
-export default function PlanosTab({ unidades, proyectoId, tour360Url }: PlanosTabProps) {
+export default function PlanosTab({ unidades, proyectoId, tour360Url, centerLat, centerLng }: PlanosTabProps) {
     const [mode, setMode] = useState<"2d" | "3d">("2d");
     const [selectedLote, setSelectedLote] = useState<LoteInfo | null>(null);
 
@@ -54,6 +56,8 @@ export default function PlanosTab({ unidades, proyectoId, tour360Url }: PlanosTa
                 proyectoId={proyectoId}
                 onLoteClick={(u) => setSelectedLote(u as LoteInfo)}
                 mode={mode}
+                centerLat={centerLat}
+                centerLng={centerLng}
             />
 
             {selectedLote && (
