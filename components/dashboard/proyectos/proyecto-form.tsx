@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { X, Save, Building2, MapPin, DollarSign, Calendar, AlertCircle, Image as ImageIcon, Upload, Shield, Archive, Trash2, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createProyecto, updateProyecto } from "@/lib/actions/proyectos";
@@ -37,6 +37,9 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [file, setFile] = useState<File | null>(null);
+    const [showUrlInput, setShowUrlInput] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [form, setForm] = useState({
         nombre: proyecto?.nombre || "",
@@ -98,11 +101,21 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
         setForm((prev) => ({ ...prev, [key]: value }));
     };
 
+    const ALLOWED_IMAGE_TYPES = [
+        "image/jpeg", "image/jpg", "image/png",
+        "image/webp", "image/gif", "image/avif",
+    ];
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            setFile(selectedFile);
+        if (!selectedFile) return;
+        if (!ALLOWED_IMAGE_TYPES.includes(selectedFile.type)) {
+            toast.error("Solo se aceptan imágenes: JPG, PNG, WEBP, GIF o AVIF");
+            e.target.value = "";
+            return;
         }
+        setFile(selectedFile);
+        updateForm("imagenPortada", "");
     };
 
     const handleSave = async () => {
@@ -204,47 +217,20 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {/* Preview */}
-                    <div className="rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 flex flex-col items-center justify-center min-h-[220px] relative overflow-hidden group">
-                        {(form.imagenPortada || file) ? (
-                            <div className="relative w-full h-full flex items-center justify-center">
-                                <img
-                                    src={file ? URL.createObjectURL(file) : form.imagenPortada}
-                                    alt="Preview"
-                                    className="max-h-[200px] w-auto rounded-lg shadow-md object-cover"
-                                    onError={(e) => (e.currentTarget.src = "")}
-                                />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                    <button
-                                        onClick={() => { setFile(null); updateForm("imagenPortada", ""); }}
-                                        className="p-2.5 bg-rose-500 text-white rounded-xl hover:scale-110 transition-transform shadow-lg flex items-center gap-2 text-xs font-bold"
-                                        title="Eliminar"
-                                    >
-                                        <Trash2 className="w-4 h-4" /> ELIMINAR
-                                    </button>
-                                    <a
-                                        href={file ? URL.createObjectURL(file) : form.imagenPortada}
-                                        download
-                                        target="_blank"
-                                        className="p-2.5 bg-white text-slate-900 rounded-xl hover:scale-110 transition-transform shadow-lg flex items-center gap-2 text-xs font-bold"
-                                        title="Descargar"
-                                    >
-                                        <Download className="w-4 h-4" /> DESCARGAR
-                                    </a>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center text-slate-400">
-                                <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                <span className="text-xs font-bold uppercase tracking-widest">Imagen de Portada</span>
-                                <p className="text-[10px] mt-1 opacity-60">Se mostrará en los listados públicos</p>
-                            </div>
-                        )}
-                    </div>
+                <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+                    {/* Hidden file input — triggered by clicking the preview area */}
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept=".jpg,.jpeg,.png,.webp,.gif,.avif"
+                        onChange={handleFileChange}
+                    />
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Información Básica */}
+
+                        {/* 1. Nombre */}
                         <div className="md:col-span-2">
                             <label className={labelClass}>
                                 <Building2 className="w-4 h-4 inline mr-1" />
@@ -260,40 +246,45 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                             {errors.nombre && <span className="text-xs text-rose-400 mt-1 block">{errors.nombre}</span>}
                         </div>
 
-                        <div className="md:col-span-2">
-                            <label className={labelClass}>Gestión de Portada</label>
-                            <div className="flex flex-col gap-3">
-                                <div className="flex flex-col md:flex-row gap-3">
-                                    <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl cursor-pointer transition-all text-sm font-bold shadow-lg shadow-brand-500/20">
-                                        <Upload className="w-4 h-4" />
-                                        {file || form.imagenPortada ? "Importar Nueva" : "Importar Portada"}
-                                        <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
-                                    </label>
-                                    {(file || form.imagenPortada) && (
-                                        <a
-                                            href={file ? URL.createObjectURL(file) : form.imagenPortada}
-                                            download
-                                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-200 transition-all"
-                                        >
-                                            <Download className="w-4 h-4" /> Descargar
-                                        </a>
-                                    )}
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <input
-                                        type="url"
-                                        value={form.imagenPortada}
-                                        onChange={(e) => { updateForm("imagenPortada", e.target.value); setFile(null); }}
-                                        placeholder="O pega una URL externa (https://...)"
-                                        className={inputClass}
-                                    />
-                                    <p className="text-[10px] text-slate-500 font-medium px-1">
-                                        Desde teléfono o computadora. Formatos: JPG/PNG/WEBP y PDF/DWG/ZIP.
-                                    </p>
-                                </div>
-                            </div>
+                        {/* 2. Ubicación + Tipo */}
+                        <div>
+                            <label className={labelClass}>
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                Ubicación *
+                            </label>
+                            <input
+                                type="text"
+                                value={form.ubicacion}
+                                onChange={(e) => updateForm("ubicacion", e.target.value)}
+                                placeholder="Ciudad, Provincia"
+                                className={cn(inputClass, errors.ubicacion && "border-rose-400")}
+                            />
+                            {errors.ubicacion && <span className="text-xs text-rose-400 mt-1 block">{errors.ubicacion}</span>}
                         </div>
 
+                        <div>
+                            <label className={labelClass}>Tipo de Proyecto</label>
+                            <select value={form.tipo} onChange={(e) => updateForm("tipo", e.target.value)} className={inputClass}>
+                                {tipoOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* 3. Estado */}
+                        <div>
+                            <label className={labelClass}>Estado</label>
+                            <select value={form.estado} onChange={(e) => updateForm("estado", e.target.value)} className={inputClass}>
+                                {estadoOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Spacer to keep grid aligned */}
+                        <div className="hidden md:block" />
+
+                        {/* 4. Descripción */}
                         <div className="md:col-span-2">
                             <div className="flex items-center justify-between mb-1.5">
                                 <label className="text-sm font-medium text-slate-900 dark:text-slate-400">Descripción</label>
@@ -315,49 +306,124 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                             />
                         </div>
 
-                        <div>
+                        {/* 5. Imagen de Portada — área clickeable unificada */}
+                        <div className="md:col-span-2">
                             <label className={labelClass}>
-                                <MapPin className="w-4 h-4 inline mr-1" />
-                                Ubicación *
+                                <ImageIcon className="w-4 h-4 inline mr-1" />
+                                Imagen de Portada
+                                <span className="text-slate-400 font-normal ml-1">(opcional)</span>
                             </label>
-                            <input
-                                type="text"
-                                value={form.ubicacion}
-                                onChange={(e) => updateForm("ubicacion", e.target.value)}
-                                placeholder="Ciudad, Provincia"
-                                className={cn(inputClass, errors.ubicacion && "border-rose-400")}
-                            />
-                            {errors.ubicacion && <span className="text-xs text-rose-400 mt-1 block">{errors.ubicacion}</span>}
+
+                            {/* Clickable preview area */}
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className={cn(
+                                    "rounded-xl border-2 border-dashed bg-slate-50 dark:bg-slate-800/50 flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer transition-all duration-200",
+                                    (form.imagenPortada || file)
+                                        ? "border-brand-500/40 min-h-[200px] hover:border-brand-500"
+                                        : "border-slate-300 dark:border-slate-700 min-h-[160px] hover:border-brand-500/60 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                )}
+                            >
+                                {(form.imagenPortada || file) ? (
+                                    <>
+                                        <img
+                                            src={file ? URL.createObjectURL(file) : form.imagenPortada}
+                                            alt="Preview portada"
+                                            className="max-h-[190px] w-auto rounded-lg shadow-md object-cover"
+                                            onError={(e) => (e.currentTarget.src = "")}
+                                        />
+                                        {/* Hover overlay */}
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                            <Upload className="w-6 h-6 text-white" />
+                                            <span className="text-white text-xs font-bold">Cambiar imagen</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="text-center text-slate-400 px-6 py-4 pointer-events-none">
+                                        <Upload className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                                        <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                                            Hacé clic para subir una imagen
+                                        </p>
+                                        <p className="text-[11px] mt-1 text-slate-400">
+                                            JPG, PNG, WEBP, GIF · Se mostrará en los listados públicos
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Actions row when image is loaded */}
+                            {(form.imagenPortada || file) && (
+                                <div className="flex items-center gap-3 mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="flex items-center gap-1.5 text-xs font-bold text-brand-500 hover:text-brand-400 transition-colors"
+                                    >
+                                        <Upload className="w-3.5 h-3.5" /> Cambiar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setFile(null); updateForm("imagenPortada", ""); }}
+                                        className="flex items-center gap-1.5 text-xs font-bold text-rose-500 hover:text-rose-400 transition-colors"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                                    </button>
+                                    {form.imagenPortada && !file && (
+                                        <a
+                                            href={form.imagenPortada}
+                                            download
+                                            target="_blank"
+                                            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-400 transition-colors"
+                                        >
+                                            <Download className="w-3.5 h-3.5" /> Descargar
+                                        </a>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Optional URL input */}
+                            <button
+                                type="button"
+                                onClick={() => setShowUrlInput(v => !v)}
+                                className="mt-2 text-[11px] text-slate-400 hover:text-brand-500 transition-colors font-medium"
+                            >
+                                {showUrlInput ? "▲ Ocultar" : "▼ O pegá una URL de imagen externa"}
+                            </button>
+                            {showUrlInput && (
+                                <input
+                                    type="url"
+                                    value={file ? "" : form.imagenPortada}
+                                    onChange={(e) => { updateForm("imagenPortada", e.target.value); setFile(null); }}
+                                    placeholder="https://..."
+                                    className={cn(inputClass, "mt-2")}
+                                />
+                            )}
                         </div>
 
-                        <div>
-                            <label className={labelClass}>Slug (URL amigable)</label>
-                            <input
-                                type="text"
-                                value={form.slug}
-                                onChange={(e) => updateForm("slug", e.target.value)}
-                                placeholder="Se genera automáticamente"
-                                className={inputClass}
-                            />
-                            <p className="text-xs text-slate-500 mt-1">Opcional. Si no se especifica, se genera del nombre.</p>
-                        </div>
-
-                        <div>
-                            <label className={labelClass}>Tipo de Proyecto</label>
-                            <select value={form.tipo} onChange={(e) => updateForm("tipo", e.target.value)} className={inputClass}>
-                                {tipoOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className={labelClass}>Estado</label>
-                            <select value={form.estado} onChange={(e) => updateForm("estado", e.target.value)} className={inputClass}>
-                                {estadoOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
+                        {/* 6. Opciones avanzadas — Slug */}
+                        <div className="md:col-span-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowAdvanced(v => !v)}
+                                className="text-xs font-bold text-slate-400 hover:text-brand-500 transition-colors flex items-center gap-1"
+                            >
+                                {showAdvanced ? "▲" : "▼"} Opciones avanzadas
+                            </button>
+                            {showAdvanced && (
+                                <div className="mt-3">
+                                    <label className={labelClass}>Slug (URL amigable)</label>
+                                    <input
+                                        type="text"
+                                        value={form.slug}
+                                        onChange={(e) => updateForm("slug", e.target.value)}
+                                        placeholder="Se genera automáticamente del nombre"
+                                        className={inputClass}
+                                    />
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Opcional. Si no se especifica, se genera del nombre.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Configuración de Mapa */}
@@ -551,19 +617,23 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
                     {kycStatus !== "VERIFICADO" && !proyecto?.isDemo && (
-                        <div className="flex-1 flex items-center gap-2 text-rose-500 text-[10px] font-black uppercase tracking-widest animate-pulse">
-                            <AlertCircle className="w-4 h-4" />
-                            {isNew ? "Modo Demo Activo - Puedes publicar 1 proyecto" : "KYC Verificado requerido para cambios oficiales"}
+                        <div className="flex-1 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            {isNew
+                                ? "Modo demo · podés crear 1 proyecto"
+                                : "KYC requerido para cambios oficiales"}
                         </div>
                     )}
                     {riskLevel === "high" && (
-                        <div className="flex-1 flex items-center gap-2 text-amber-500 text-[10px] font-black uppercase tracking-widest">
-                            <Shield className="w-4 h-4" />
-                            Sujeto a revisión manual (Riesgo Alto)
+                        <div className="flex-1 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
+                            <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            Sujeto a revisión manual (riesgo alto)
                         </div>
                     )}
-                    <button onClick={onClose}
-                        className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                    <button
+                        onClick={onClose}
+                        className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                    >
                         Cancelar
                     </button>
                     <button
@@ -571,10 +641,15 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                         disabled={loading || (kycStatus !== "VERIFICADO" && !isNew && !proyecto?.isDemo)}
                         className={cn(
                             "px-5 py-2.5 rounded-xl font-semibold text-sm shadow-glow transition-all disabled:opacity-50 flex items-center gap-2",
-                            (kycStatus === "VERIFICADO" || isNew || proyecto?.isDemo) ? "gradient-brand text-white shadow-glow" : "bg-slate-200 dark:bg-slate-800 text-slate-400"
+                            (kycStatus === "VERIFICADO" || isNew || proyecto?.isDemo)
+                                ? "gradient-brand text-white shadow-glow"
+                                : "bg-slate-200 dark:bg-slate-800 text-slate-400"
                         )}
                     >
-                        {loading ? "Guardando..." : <><Save className="w-4 h-4" /> {isNew ? "Crear Proyecto (Demo)" : "Guardar Cambios"}</>}
+                        {loading
+                            ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>
+                            : <><Save className="w-4 h-4" /> {isNew ? "Crear Proyecto" : "Guardar Cambios"}</>
+                        }
                     </button>
                 </div>
             </div>
