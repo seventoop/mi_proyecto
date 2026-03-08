@@ -474,8 +474,8 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                 {/* Content area */}
                 <div className="flex-1 min-w-0">
-                    {/* Active step guidance banner */}
-                    <div className="flex items-start gap-3 p-4 bg-brand-500/5 border border-brand-500/15 rounded-2xl mb-5">
+                    {/* Active step guidance banner — hidden on blueprint tab to maximise viewer space */}
+                    <div className={cn("flex items-start gap-3 p-4 bg-brand-500/5 border border-brand-500/15 rounded-2xl mb-5", activeTab === "blueprint" && "hidden")}>
                         <div className="p-2 bg-brand-500/10 rounded-xl shrink-0">
                             {(() => {
                                 const Icon = activeStep.icon;
@@ -658,34 +658,8 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                         {/* ── PASO 2: PLANO ── */}
                         {activeTab === "blueprint" && (
-                            <div className="space-y-4">
-                                <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                                    <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
-                                    <div className="space-y-1.5 text-slate-600 dark:text-slate-400">
-                                        <p>
-                                            <strong className="text-slate-800 dark:text-slate-200">
-                                                Formatos soportados:
-                                            </strong>{" "}
-                                            DXF (AutoCAD, QGIS, Civil 3D) y SVG.
-                                        </p>
-                                        <p>
-                                            <strong className="text-slate-800 dark:text-slate-200">
-                                                El sistema detecta:
-                                            </strong>{" "}
-                                            LWPOLYLINE, LINE, CIRCLE y TEXT. Usá capas separadas para
-                                            lotes, calles y manzanas.
-                                        </p>
-                                        <p>
-                                            <strong className="text-slate-800 dark:text-slate-200">
-                                                Peso máximo:
-                                            </strong>{" "}
-                                            50 MB por archivo.
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="animate-fade-in h-[calc(100vh-380px)] min-h-[500px]">
-                                    <BlueprintEngine proyectoId={proyecto.id} />
-                                </div>
+                            <div className="animate-fade-in h-[calc(100vh-220px)] min-h-[600px]">
+                                <BlueprintEngine proyectoId={proyecto.id} />
                             </div>
                         )}
 

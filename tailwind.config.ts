@@ -13,6 +13,17 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
         brand: {
+          50:  '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          300: '#fdba74',
+          400: '#fb923c',
+          500: '#F97316',
+          600: '#EA6C0A',
+          700: '#c2410c',
+          800: '#9a3412',
+          900: '#7c2d12',
+          // named aliases (legacy)
           orange: '#F97316',
           orangeDark: '#EA6C0A',
           gray: '#3D4A5C',

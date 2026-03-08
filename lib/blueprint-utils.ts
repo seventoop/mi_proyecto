@@ -2,6 +2,32 @@ export interface ExtractedPath {
     id: string;
     pathData: string;
     center: { x: number; y: number };
+    lotNumber?: string;   // matched from MTEXT/TEXT label
+    areaSqm?: number;     // Shoelace formula — in drawing units²
+}
+
+// ─── Shoelace formula: polygon area in drawing units² ────────────────────────
+function shoelaceArea(vertices: { x: number; y: number }[]): number {
+    let area = 0;
+    const n = vertices.length;
+    for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        area += vertices[i].x * vertices[j].y;
+        area -= vertices[j].x * vertices[i].y;
+    }
+    return Math.abs(area) / 2;
+}
+
+// ─── Strip RTF-like MTEXT formatting codes ───────────────────────────────────
+function cleanMText(raw: string): string {
+    return raw
+        .replace(/\{\\[^;]*;/g, '')   // {\fFont; or {\pXXX;
+        .replace(/\{/g, '')
+        .replace(/\}/g, '')
+        .replace(/\\P/gi, ' ')         // paragraph break
+        .replace(/\\~/g, ' ')          // non-breaking space
+        .replace(/\\\\/g, '')
+        .trim();
 }
 
 /**
@@ -14,13 +40,9 @@ export function parseBlueprintSVG(svgString: string): ExtractedPath[] {
     const doc = parser.parseFromString(svgString, "image/svg+xml");
     const paths: ExtractedPath[] = [];
 
-    // Extract paths, polygons, and rects
     const elements = doc.querySelectorAll("path, polygon, rect");
-
     elements.forEach((el, index) => {
         let d = "";
-        let bbox = { x: 0, y: 0, width: 0, height: 0 };
-
         if (el.tagName === "path") {
             d = el.getAttribute("d") || "";
         } else if (el.tagName === "polygon") {
@@ -33,32 +55,22 @@ export function parseBlueprintSVG(svgString: string): ExtractedPath[] {
             const h = parseFloat(el.getAttribute("height") || "0");
             d = `M ${x} ${y} H ${x + w} V ${y + h} H ${x} Z`;
         }
-
         if (d) {
-            // We use a simplified center calculation based on the element's ID or position
-            // In a real scenario, we'd use getBBox() but that requires the element to be in the DOM
-            // For now, we'll try to extract coordinates from the path string as a fallback
             const coords = d.match(/[-+]?[0-9]*\.?[0-9]+/g);
             let cx = 0, cy = 0;
             if (coords && coords.length >= 2) {
                 cx = parseFloat(coords[0]);
                 cy = parseFloat(coords[1]);
             }
-
-            paths.push({
-                id: el.getAttribute("id") || `path-${index}`,
-                pathData: d,
-                center: { x: cx, y: cy }
-            });
+            paths.push({ id: el.getAttribute("id") || `path-${index}`, pathData: d, center: { x: cx, y: cy } });
         }
     });
-
     return paths;
 }
 
 /**
- * Parses DXF content and converts it to a set of SVG paths
- * Focuses on LWPOLYLINE and POLYLINE entities (standard for lots)
+ * Parses DXF content → SVG paths with lot numbers (MTEXT) and polygon areas (Shoelace).
+ * Supports: LWPOLYLINE, POLYLINE, LINE, CIRCLE, ARC, TEXT, MTEXT
  */
 export function parseBlueprintDXF(dxfString: string): { svg: string; paths: ExtractedPath[] } {
     const lines = dxfString.split(/\r?\n/);
@@ -70,12 +82,12 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
     let inPolyline = false;
     let viewbox = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
 
-    // LINE coords
+    // Entity state vars
     let lx1 = 0, ly1 = 0, lx2 = 0, ly2 = 0;
-    // CIRCLE coords
     let ccx = 0, ccy = 0, cr = 0;
-    // TEXT details
-    let tx = 0, ty = 0, txt = "", tHeight = 10;
+    let ax = 0, ay = 0, ar = 0, aStart = 0, aEnd = 0;
+    let tx = 0, ty = 0, txt = "", tHeight = 2.5;
+    let mx = 0, my = 0, mtxt = "", mtHeight = 2.5;
 
     const updateViewbox = (x: number, y: number) => {
         if (x < viewbox.minX) viewbox.minX = x;
@@ -89,9 +101,10 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
         if (data.vertices) data.vertices.forEach((v: any) => updateViewbox(v.x, v.y));
         if (data.x1 !== undefined) { updateViewbox(data.x1, data.y1); updateViewbox(data.x2, data.y2); }
         if (data.cx !== undefined) { updateViewbox(data.cx - data.r, data.cy - data.r); updateViewbox(data.cx + data.r, data.cy + data.r); }
-        if (data.x !== undefined) updateViewbox(data.x, data.y);
+        if (data.x !== undefined && data.text === undefined) updateViewbox(data.x, data.y);
     };
 
+    // ─── Main DXF parse loop ──────────────────────────────────────────────────
     for (let i = 0; i < lines.length; i++) {
         const code = lines[i].trim();
         const value = lines[i + 1]?.trim();
@@ -99,17 +112,24 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
 
         if (code === "0") {
             const nextEntity = value;
+            // Flush current entity
             if (currentEntity === "LWPOLYLINE" && vertices.length > 0) {
-                collectEntity("LWPOLYLINE", { vertices, isClosed });
+                collectEntity("LWPOLYLINE", { vertices: [...vertices], isClosed });
             } else if (currentEntity === "LINE") {
                 collectEntity("LINE", { x1: lx1, y1: ly1, x2: lx2, y2: ly2 });
             } else if (currentEntity === "CIRCLE" && cr > 0) {
                 collectEntity("CIRCLE", { cx: ccx, cy: ccy, r: cr });
-            } else if (currentEntity === "TEXT") {
+            } else if (currentEntity === "ARC" && ar > 0) {
+                collectEntity("ARC", { cx: ax, cy: ay, r: ar, startAngle: aStart, endAngle: aEnd });
+                ar = 0;
+            } else if (currentEntity === "TEXT" && txt.trim()) {
                 collectEntity("TEXT", { x: tx, y: ty, text: txt, height: tHeight });
                 txt = "";
+            } else if (currentEntity === "MTEXT" && mtxt.trim()) {
+                collectEntity("MTEXT", { x: mx, y: my, text: mtxt, height: mtHeight });
+                mtxt = "";
             } else if (currentEntity === "SEQEND" && inPolyline && vertices.length > 0) {
-                collectEntity("POLYLINE", { vertices, isClosed });
+                collectEntity("POLYLINE", { vertices: [...vertices], isClosed });
                 inPolyline = false;
             }
             vertices = []; isClosed = false;
@@ -119,6 +139,7 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
         }
 
         if (code === "8") { currentLayer = value; i++; continue; }
+
         if (currentEntity === "LWPOLYLINE") {
             if (code === "10") vertices.push({ x: parseFloat(value), y: 0 });
             else if (code === "20" && vertices.length > 0) vertices[vertices.length - 1].y = parseFloat(value);
@@ -132,26 +153,95 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
         } else if (currentEntity === "CIRCLE") {
             if (code === "10") ccx = parseFloat(value); else if (code === "20") ccy = parseFloat(value);
             else if (code === "40") cr = parseFloat(value);
+        } else if (currentEntity === "ARC") {
+            if (code === "10") ax = parseFloat(value); else if (code === "20") ay = parseFloat(value);
+            else if (code === "40") ar = parseFloat(value);
+            else if (code === "50") aStart = parseFloat(value);
+            else if (code === "51") aEnd = parseFloat(value);
         } else if (currentEntity === "TEXT") {
             if (code === "10") tx = parseFloat(value); else if (code === "20") ty = parseFloat(value);
-            else if (code === "1") txt = value; else if (code === "40") tHeight = parseFloat(value);
+            else if (code === "40") tHeight = parseFloat(value);
+            else if (code === "1") { txt = value; i++; continue; } // skip value from being re-read as code
+        } else if (currentEntity === "MTEXT") {
+            if (code === "10") mx = parseFloat(value); else if (code === "20") my = parseFloat(value);
+            else if (code === "40") mtHeight = parseFloat(value);
+            else if (code === "1" || code === "3") { mtxt += value; i++; continue; } // skip value
         } else if (currentEntity === "POLYLINE" && inPolyline) {
             if (code === "70") isClosed = (parseInt(value) & 1) === 1;
         }
     }
 
-    // Process and Flip Y
+    // ─── Coordinate transform setup ──────────────────────────────────────────
     const width = viewbox.maxX - viewbox.minX || 1000;
     const height = viewbox.maxY - viewbox.minY || 1000;
     const padding = Math.max(width, height) * 0.05;
     const vMinX = viewbox.minX - padding;
-    const vMinY = viewbox.minY - padding;
     const vHeight = height + padding * 2;
-
     const flipY = (y: number) => viewbox.maxY - (y - viewbox.minY);
 
+    // ─── Step 1: compute closed polygon centroids + areas ────────────────────
+    const closedPolyMeta = new Map<number, { cx: number; cy: number; area: number }>();
+    rawEntities.forEach((ent, idx) => {
+        if (ent.type.includes("POLYLINE") && ent.isClosed && ent.vertices?.length >= 3) {
+            const cx = ent.vertices.reduce((s: number, v: any) => s + v.x, 0) / ent.vertices.length;
+            const cy = ent.vertices.reduce((s: number, v: any) => s + v.y, 0) / ent.vertices.length;
+            const area = shoelaceArea(ent.vertices);
+            closedPolyMeta.set(idx, { cx, cy, area });
+        }
+    });
+
+    // ─── Step 2: match each text label to nearest polygon centroid ───────────
+    // Only match labels that look like lot identifiers (short integers or alphanumeric IDs, max 6 chars)
+    const polygonLabels = new Map<number, string>();
+    const textLabels = rawEntities.filter(
+        ent => (ent.type === "TEXT" || ent.type === "MTEXT") && ent.text?.trim()
+    );
+
+    // Pass 1: for each unique label text, find the single closest polygon
+    // This prevents the same label appearing on multiple polygons (duplicates)
+    const labelBestMatch = new Map<string, { idx: number; dist: number }>();
+
+    for (const label of textLabels) {
+        const clean = cleanMText(label.text);
+        if (!clean) continue;
+        // Must be a short identifier (≤6 chars), no spaces, no decimal measurements
+        if (clean.length > 6) continue;
+        if (!/^[A-Za-z0-9áéíóúÁÉÍÓÚ\-]+$/.test(clean)) continue;
+        if (/^\d+\.\d+$/.test(clean)) continue;
+
+        let minDist = Infinity, bestIdx = -1;
+        for (const [idx, { cx, cy }] of closedPolyMeta) {
+            const dist = Math.hypot(label.x - cx, label.y - cy);
+            if (dist < minDist) { minDist = dist; bestIdx = idx; }
+        }
+        if (bestIdx < 0) continue;
+
+        // Distance threshold: 1.5× polygon "radius"
+        const meta = closedPolyMeta.get(bestIdx)!;
+        if (minDist > Math.sqrt(meta.area) * 1.5 + 0.5) continue;
+
+        // Keep only the closest match per unique label value
+        const existing = labelBestMatch.get(clean);
+        if (!existing || minDist < existing.dist) {
+            labelBestMatch.set(clean, { idx: bestIdx, dist: minDist });
+        }
+    }
+
+    // Pass 2: assign labels to polygons — strictly 1:1 (closest wins both ways)
+    const sortedMatches = [...labelBestMatch.entries()].sort((a, b) => a[1].dist - b[1].dist);
+    for (const [label, { idx }] of sortedMatches) {
+        if (!polygonLabels.has(idx)) {
+            polygonLabels.set(idx, label);
+        }
+    }
+
+    // ─── Step 3: build SVG elements ──────────────────────────────────────────
     const paths: ExtractedPath[] = [];
-    const svgElements: string[] = [];
+    const pathElements: string[] = [];
+    const textElements: string[] = [];
+    const labelElements: string[] = [];
+    const labelFontSize = Math.min(width, height) / 60;
+    const strokeW = width / 1500;
 
     rawEntities.forEach((ent, idx) => {
         let d = "";
@@ -162,40 +252,102 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
             d = `M ${entVertices[0].x} ${entVertices[0].y}`;
             for (let j = 1; j < entVertices.length; j++) d += ` L ${entVertices[j].x} ${entVertices[j].y}`;
             if (ent.isClosed) d += " Z";
+
         } else if (ent.type === "LINE") {
             entVertices = [{ x: ent.x1, y: flipY(ent.y1) }, { x: ent.x2, y: flipY(ent.y2) }];
             d = `M ${entVertices[0].x} ${entVertices[0].y} L ${entVertices[1].x} ${entVertices[1].y}`;
+
         } else if (ent.type === "CIRCLE") {
             const fcy = flipY(ent.cy);
             d = `M ${ent.cx - ent.r},${fcy} a ${ent.r},${ent.r} 0 1,0 ${ent.r * 2},0 a ${ent.r},${ent.r} 0 1,0 ${-ent.r * 2},0`;
             entVertices = [{ x: ent.cx, y: fcy }];
-        } else if (ent.type === "TEXT") {
-            const fty = flipY(ent.y);
-            svgElements.push(`<text x="${ent.x}" y="${fty}" font-size="${ent.height}" fill="#94a3b8" font-family="sans-serif">${ent.text}</text>`);
+
+        } else if (ent.type === "ARC") {
+            const fcy = flipY(ent.cy);
+            const startRad = (ent.startAngle * Math.PI) / 180;
+            const endRad = (ent.endAngle * Math.PI) / 180;
+            const sx = ent.cx + ent.r * Math.cos(startRad);
+            const sy = fcy - ent.r * Math.sin(startRad);  // Y-flipped
+            const ex = ent.cx + ent.r * Math.cos(endRad);
+            const ey = fcy - ent.r * Math.sin(endRad);
+            let angleDiff = ent.endAngle - ent.startAngle;
+            if (angleDiff < 0) angleDiff += 360;
+            const largeArc = angleDiff > 180 ? 1 : 0;
+            d = `M ${sx},${sy} A ${ent.r},${ent.r} 0 ${largeArc},0 ${ex},${ey}`;
+            entVertices = [{ x: ent.cx, y: fcy }];
+
+        } else if (ent.type === "TEXT" || ent.type === "MTEXT") {
+            const clean = cleanMText(ent.text);
+            if (clean) {
+                const fty = flipY(ent.y);
+                textElements.push(
+                    `<text x="${ent.x}" y="${fty}" class="dxf-text" font-size="${ent.height || labelFontSize}" fill="#94a3b8" font-family="sans-serif" pointer-events="none">${clean}</text>`
+                );
+            }
         }
 
-        if (d) {
-            const cx = entVertices.reduce((sum, v) => sum + v.x, 0) / entVertices.length;
-            const cy = entVertices.reduce((sum, v) => sum + v.y, 0) / entVertices.length;
+        if (!d) return;
 
-            // Smart filling: don't fill giant blocks (area > 80% viewbox)
-            // Estimation of area for polygons (simplified for rectangles/small shapes)
-            let shouldFill = d.includes("Z");
-            if (shouldFill && entVertices.length >= 4) {
-                const area = Math.abs(width * height); // Total area
-                // If it's roughly the size of the whole viewbox, don't fill
-                const entWidth = Math.max(...entVertices.map(v => v.x)) - Math.min(...entVertices.map(v => v.x));
-                const entHeight = Math.max(...entVertices.map(v => v.y)) - Math.min(...entVertices.map(v => v.y));
-                if (entWidth * entHeight > width * height * 0.7) shouldFill = false;
+        const cx = entVertices.reduce((s, v) => s + v.x, 0) / entVertices.length;
+        const cy = entVertices.reduce((s, v) => s + v.y, 0) / entVertices.length;
+        const lotNumber = polygonLabels.get(idx);
+        const polyMeta = closedPolyMeta.get(idx);
+        const area = polyMeta?.area;
+
+        // Smart fill: skip giant border/frame polygons
+        let shouldFill = d.includes("Z");
+        if (shouldFill && entVertices.length >= 3) {
+            const entW = Math.max(...entVertices.map(v => v.x)) - Math.min(...entVertices.map(v => v.x));
+            const entH = Math.max(...entVertices.map(v => v.y)) - Math.min(...entVertices.map(v => v.y));
+            if (entW * entH > width * height * 0.4 || entW > width * 0.7 || entH > height * 0.7) {
+                shouldFill = false;
             }
+        }
 
-            paths.push({ id: `dxf-${idx}-${ent.layer}`, pathData: d, center: { x: cx, y: cy } });
-            svgElements.push(`<path id="dxf-${idx}-${ent.layer}" d="${d}" fill="${shouldFill ? "rgba(16, 185, 129, 0.15)" : "none"}" stroke="#10b981" stroke-width="${width / 1500}" vector-effect="non-scaling-stroke" />`);
+        paths.push({
+            id: `dxf-${idx}-${ent.layer}`,
+            pathData: d,
+            center: { x: cx, y: cy },
+            lotNumber,
+            areaSqm: area,
+        });
+
+        const dataAttrs = lotNumber
+            ? ` data-lot="${lotNumber}" data-area="${area?.toFixed(4) ?? ''}"`
+            : '';
+
+        pathElements.push(
+            `<path id="dxf-${idx}-${ent.layer}" d="${d}"${dataAttrs} fill="${shouldFill ? "rgba(16, 185, 129, 0.15)" : "none"}" stroke="#10b981" stroke-width="${strokeW}" vector-effect="non-scaling-stroke" />`
+        );
+
+        // Lot number label centered on the polygon (analysis mode)
+        // Adaptive font size: fit inside the polygon, never exceed global labelFontSize
+        if (lotNumber) {
+            let fontSize = labelFontSize;
+            if (entVertices.length >= 3) {
+                const xs = entVertices.map(v => v.x), ys = entVertices.map(v => v.y);
+                const pW = Math.max(...xs) - Math.min(...xs);
+                const pH = Math.max(...ys) - Math.min(...ys);
+                fontSize = Math.min(pW * 0.35, pH * 0.45, labelFontSize);
+                fontSize = Math.max(fontSize, labelFontSize * 0.3); // floor
+            }
+            // Approx text width for monospace: 0.62em per char + padding
+            const approxW = fontSize * 0.62 * lotNumber.length + fontSize * 0.6;
+            const approxH = fontSize * 1.3;
+            const rx = approxH * 0.3;
+            labelElements.push(
+                `<g class="lot-label" pointer-events="none">` +
+                `<rect x="${cx - approxW / 2}" y="${cy - approxH / 2}" width="${approxW}" height="${approxH}" rx="${rx}" fill="rgba(0,0,0,0.65)" />` +
+                `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="${fontSize}" fill="#10b981" font-family="monospace" font-weight="bold">${lotNumber}</text>` +
+                `</g>`
+            );
         }
     });
 
     const svg = `<svg viewBox="${vMinX} ${viewbox.minY - padding} ${width + padding * 2} ${vHeight}" xmlns="http://www.w3.org/2000/svg">
-${svgElements.join("\n")}
+${pathElements.join("\n")}
+${textElements.join("\n")}
+${labelElements.join("\n")}
 </svg>`;
 
     return { svg, paths };
@@ -203,14 +355,12 @@ ${svgElements.join("\n")}
 
 /**
  * Projects SVG coordinates to Lat/Lng based on overlay bounds
- * This is the magic that puts the "AutoCAD" on Google Maps
  */
 export function svgToGeoJSON(paths: ExtractedPath[], bounds: [[number, number], [number, number]]) {
     const [sw, ne] = bounds;
     const latDiff = ne[0] - sw[0];
     const lngDiff = ne[1] - sw[1];
 
-    // Calculate source bounds of the paths
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     paths.forEach(p => {
         if (p.center.x < minX) minX = p.center.x;
@@ -231,7 +381,7 @@ export function svgToGeoJSON(paths: ExtractedPath[], bounds: [[number, number], 
                 type: "Point",
                 coordinates: [
                     sw[1] + ((p.center.x - minX) / sourceWidth) * lngDiff,
-                    sw[0] + (1 - (p.center.y - minY) / sourceHeight) * latDiff // Lat is usually inverted relative to SVG
+                    sw[0] + (1 - (p.center.y - minY) / sourceHeight) * latDiff,
                 ]
             }
         }))
