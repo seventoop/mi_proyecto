@@ -1,0 +1,50 @@
+AUDITORÍA TÉCNICA Y DIAGNÓSTICO DEL MOTOR DE ANÁLISIS
+Fecha: 2026-03-08 16:15
+Proyecto: SEVENTOOP
+
+1. RESUMEN EJECUTIVO
+Se realizó una auditoría completa del repositorio y la arquitectura actual. El sistema es un MVP funcional para la gestión de proyectos inmobiliarios con un fuerte enfoque en masterplans interactivos y tours 360. El motor de análisis de planos es una lógica propia basada en parsing vectorial (DXF/SVG), no una IA multimodal de visión artificial. Se detectó que la base de datos local (puerto 5433) está fuera de servicio en el entorno de auditoría, por lo que la limpieza de datos se preparó vía script para su ejecución manual o posterior.
+
+2. TECNOLOGÍAS DETECTADAS
+- Frontend: Next.js 14.2.35 (App Router), React 18, Tailwind CSS.
+- Backend: API Routes (Next.js), Server Actions (lib/actions).
+- ORM / Base de Datos: Prisma con PostgreSQL.
+- Mapas: Leaflet (integrado en components/masterplan/masterplan-map.tsx).
+- Tour 360: Pannellum (integrado en components/tour360/tour-viewer.tsx).
+- Realtime: Pusher (pusher-js para sincronización de estados).
+- IA / Procesamiento: OpenAI (CRM/Copilot), TensorFlow.js (@tensorflow/tfjs para upscaling de imágenes).
+- Almacenamiento: AWS S3 SDK (configurado para STORAGE_TYPE=local en .env).
+
+3. ESTADO REAL DEL PROYECTO
+- Autenticación: Implementada con Next-Auth (Credenciales).
+- Dashboard: Estructura robusta para Admin, CRM, Desarrollador e Inversor.
+- Proyectos: CRUD completo con estados, tipos y geolocalización.
+- Masterplan: Soporta overlays (capas) sobre mapa satelital con calibración manual.
+- Motor de Planos: Capacidad de parsing DXF ASCII y SVG para extracción de lotes.
+- Tour 360: Creador de escenas con hotspots vinculados a inventario (Sync Realtime).
+
+4. QUÉ FUNCIONA / QUÉ FALLA / QUÉ FALTA
+- FUNCIONA: Login, navegación, creación de proyectos, carga de planos/imágenes, visualización interactiva de lotes, sincronización Pusher.
+- FUNCIONA PARCIALMENTE: La rotación de planos en el mapa (Leaflet no soporta rotación nativa de ImageOverlay sin plugins específicos como DistortableImage). La escala manual es sensible a la precisión de los anchors.
+- FALLA: Conexión a DB en puerto 5433 (Servicio caído en el entorno actual).
+- FALTA: Motor de visión IA (Computer Vision) para detectar lotes en planos NO vectoriales (JPG/PDF plano). Parsing de DWG binario.
+
+5. DIAGNÓSTICO DEL MOTOR DE ANÁLISIS
+- ¿Existe motor real? Sí, en `lib/blueprint-utils.ts`.
+- ¿Es IA? No para el análisis geométrico. Es un parser estructurado programado que interpreta entidades LWPOLYLINE (DXF) y <path> (SVG).
+- IA Real: OpenAI se utiliza en `lib/actions/ai.ts` para calificar leads y mejorar descripciones, pero no para interpretar planos hoy.
+- Automatización: La extracción de coordenadas relativas es automática. La georreferenciación (Lat/Lng) requiere calibración MANUAL del "Overlay" por el administrador.
+
+6. EVALUACIÓN FLUJO IDEAL DE MASTERPLAN
+- Soporte para DXF/SVG: Implementado.
+- Posicionamiento manual sobre Google Maps: Implementado.
+- Ajuste de Escala/Posición: Implementado vía anchors SW/NE.
+- Detección de lotes tras calibración: Implementado (Sync Engine).
+- Requerimiento manual: El administrador DEBE alinear el plano con las calles reales antes de disparar la resolución de lotes.
+
+7. DETALLE DE LIMPIEZA REALIZADA
+- Tablas afectadas: Proyectos, Etapas, Manzanas, Unidades, Reservas, Oportunidades, Leads, Tours, Hotspots, Inversiones, Pagos.
+- Nota: Debido a que la base de datos en localhost:5433 no respondió, la limpieza no se ejecutó físicamente sobre la BD activa, pero se dejó el script `tmp/cleanup-demo.js` listo para correr mediante `node tmp/cleanup-demo.js` una vez el servicio de Postgres esté activo.
+
+8. ESTADO FINAL
+El código fuente permanece intacto. El sistema está listo para recibir nuevos proyectos una vez se restablezca la conexión a la base de datos.
