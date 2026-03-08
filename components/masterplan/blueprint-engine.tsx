@@ -17,7 +17,21 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     const [svgContent, setSvgContent] = useState<string | null>(null);
     const [extractedPaths, setExtractedPaths] = useState<any[]>([]);
     const [isDXF, setIsDXF] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const units = useMasterplanStore((s) => s.units);
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const droppedFile = e.dataTransfer.files?.[0];
+        if (!droppedFile) return;
+        // Reuse existing handler by creating a synthetic event-like object
+        const syntheticEvent = {
+            target: { files: e.dataTransfer.files }
+        } as React.ChangeEvent<HTMLInputElement>;
+        handleFileUpload(syntheticEvent);
+    };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const uploadedFile = e.target.files?.[0];
@@ -142,11 +156,20 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <label className="cursor-pointer bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept=".svg,.dxf"
+                        onChange={handleFileUpload}
+                    />
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="cursor-pointer bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                    >
                         <Upload className="w-3 h-3" />
                         Subir DXF/SVG
-                        <input type="file" className="hidden" accept=".svg,.dxf" onChange={handleFileUpload} />
-                    </label>
+                    </button>
 
                     {stats && (
                         <button
@@ -164,14 +187,36 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
             {/* Main Workspace */}
             <div className="flex-1 flex overflow-hidden">
                 {/* Visualizer */}
-                <div className="flex-1 relative bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-8 overflow-auto">
+                <div
+                    className={cn(
+                        "flex-1 relative flex items-center justify-center p-8 overflow-auto transition-colors duration-200",
+                        !svgContent
+                            ? isDragging
+                                ? "bg-brand-500/10 border-2 border-dashed border-brand-500 cursor-copy"
+                                : "bg-slate-100 dark:bg-slate-950 cursor-pointer"
+                            : "bg-slate-100 dark:bg-slate-950"
+                    )}
+                    onClick={() => !svgContent && fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                    onDrop={handleDrop}
+                >
                     {!svgContent ? (
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                                <Upload className="w-8 h-8 text-slate-300" />
+                        <div className="text-center pointer-events-none select-none">
+                            <div className={cn(
+                                "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm transition-colors",
+                                isDragging
+                                    ? "bg-brand-500/20"
+                                    : "bg-white dark:bg-slate-900"
+                            )}>
+                                <Upload className={cn("w-8 h-8 transition-colors", isDragging ? "text-brand-500" : "text-slate-300")} />
                             </div>
-                            <p className="text-sm font-medium text-slate-400">Arrastra tu plano aquí para comenzar</p>
-                            <p className="text-[10px] text-slate-400 mt-1">Formatos compatibles: DXF, SVG, DWG (vía export)</p>
+                            <p className={cn("text-sm font-medium transition-colors", isDragging ? "text-brand-500" : "text-slate-400")}>
+                                {isDragging ? "Soltá para cargar el plano" : "Hacé clic o arrastrá tu plano aquí"}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                                Formatos compatibles: DXF, SVG · Máximo 20 MB
+                            </p>
                         </div>
                     ) : (
                         <div className="relative bg-white dark:bg-slate-900 p-8 shadow-2xl rounded-sm border border-slate-200 dark:border-slate-800">

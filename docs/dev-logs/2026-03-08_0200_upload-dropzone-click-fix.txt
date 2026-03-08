@@ -1,0 +1,131 @@
+================================================================================
+CORRECCIÓN UX GLOBAL — DRAG & DROP + CLICK EN ZONAS DE CARGA
+Proyecto: seventoop
+Fecha: 2026-03-08
+================================================================================
+
+RESUMEN DEL PROBLEMA
+--------------------
+Varias zonas de drag & drop en el sistema eran visualmente interactivas
+pero no respondían al click del usuario. El estándar UX correcto es que
+toda zona de drop también funcione como botón que abre el explorador de archivos.
+
+================================================================================
+COMPONENTES REVISADOS
+================================================================================
+
+1. components/masterplan/blueprint-engine.tsx
+   ESTADO ANTES:  Zona visual "Arrastra tu plano aquí" completamente muerta.
+                  Sin drag-drop real. Sin onClick. Solo funcionaba el botón
+                  "Subir DXF/SVG" del toolbar.
+   ESTADO DESPUÉS: CORREGIDO (ver detalle abajo)
+
+2. components/dashboard/proyectos/project-gallery-manager.tsx
+   ESTADO ANTES:  Label wrapper funcionaba para click, PERO tenía
+                  capture="environment" que forzaba cámara en móvil.
+                  Estado vacío "La galería está vacía" no era clickeable.
+   ESTADO DESPUÉS: CORREGIDO (ver detalle abajo)
+
+3. components/ui/file-uploader.tsx
+   ESTADO: YA CORRECTO — tiene useRef + onClick + drag-drop completo.
+
+4. components/tour360/tour-creator.tsx
+   ESTADO: YA CORRECTO — tiene useRef + onClick + drag-drop completo con
+           feedback visual de estado.
+
+5. components/dashboard/proyectos/project-technical-files.tsx
+   ESTADO: YA CORRECTO — tiene useRef + onClick en botón.
+
+6. components/dashboard/proyectos/documentos-manager.tsx
+   ESTADO: YA CORRECTO — input file visible directamente (no es dropzone).
+
+7. components/dashboard/banners/banner-form.tsx
+   ESTADO: YA CORRECTO — label wrapper funciona para click.
+
+8. components/dashboard/banners/developer-banner-form.tsx
+   ESTADO: YA CORRECTO — label wrapper funciona para click.
+
+9. components/public/testimonio-form.tsx
+   ESTADO: YA CORRECTO — label wrapper funciona para click.
+
+================================================================================
+DETALLE DE CORRECCIONES
+================================================================================
+
+── ARCHIVO 1: blueprint-engine.tsx ──────────────────────────────────────────
+
+Problema:
+  La zona central del componente mostraba "Arrastra tu plano aquí para comenzar"
+  con un ícono de Upload, pero:
+  - No tenía ningún handler de drag (onDragOver, onDragLeave, onDrop)
+  - No tenía onClick
+  - El input file estaba encapsulado en el botón del toolbar solamente
+
+Cambios aplicados:
+  1. Agregado estado: isDragging (boolean)
+  2. Agregado: fileInputRef = useRef<HTMLInputElement>(null)
+  3. Creado handleDrop() que llama a handleFileUpload con los archivos del drop
+  4. Input file movido a elemento hidden con ref (fuera del label)
+  5. Botón "Subir DXF/SVG" ahora usa onClick → fileInputRef.current?.click()
+  6. Zona central ahora tiene:
+     - onClick → fileInputRef.current?.click() (solo cuando no hay SVG)
+     - onDragOver → setIsDragging(true)
+     - onDragLeave → setIsDragging(false)
+     - onDrop → handleDrop()
+  7. Feedback visual al arrastrar:
+     - Fondo cambia a brand-500/10
+     - Borde punteado brand-500
+     - Ícono cambia a brand-500
+     - Texto cambia a "Soltá para cargar el plano"
+  8. Texto actualizado: "Hacé clic o arrastrá tu plano aquí · Máximo 20 MB"
+  9. cursor: pointer cuando no hay SVG cargado
+
+── ARCHIVO 2: project-gallery-manager.tsx ───────────────────────────────────
+
+Problema 1: capture="environment" en el input file
+  En dispositivos móviles, capture="environment" fuerza la apertura de la
+  cámara en lugar de permitir elegir desde la galería de fotos. Incorrecto
+  para imágenes de un proyecto inmobiliario.
+
+Problema 2: Estado vacío no era clickeable
+  Cuando la galería está vacía, aparecía "La galería está vacía" como div
+  estático. No invitaba al usuario a subir imágenes.
+
+Cambios aplicados:
+  1. Agregado fileInputRef = useRef<HTMLInputElement>(null)
+  2. Input file extraído del label a elemento hidden con ref
+  3. capture="environment" eliminado
+  4. Botón "Importar" ahora usa onClick → fileInputRef.current?.click()
+  5. Estado vacío convertido en área clickeable:
+     - onClick → fileInputRef.current?.click()
+     - Hover: borde brand-500, fondo brand-500/5
+     - Ícono: anima a brand-500 en hover
+     - Texto cambia a "Hacé clic para subir imágenes"
+     - Subtexto: "JPG, PNG, WEBP · Máximo 20 MB por imagen"
+
+================================================================================
+PATRÓN UX APLICADO
+================================================================================
+
+Patrón estándar para todos los dropzones del sistema:
+
+  1. Input file hidden con useRef<HTMLInputElement>
+  2. Zona visual: onClick → inputRef.current?.click()
+  3. Zona visual: onDragOver → setIsDragging(true) + e.preventDefault()
+  4. Zona visual: onDragLeave → setIsDragging(false)
+  5. Zona visual: onDrop → extrae archivos + llama handler + setIsDragging(false)
+  6. Feedback visual en estado de drag (color, borde, texto dinámico)
+  7. cursor: pointer siempre visible en la zona
+
+Soporta AMBOS métodos: click Y drag & drop.
+
+================================================================================
+ARCHIVOS MODIFICADOS
+================================================================================
+
+  components/masterplan/blueprint-engine.tsx
+  components/dashboard/proyectos/project-gallery-manager.tsx
+
+================================================================================
+FIN DEL REGISTRO
+================================================================================
