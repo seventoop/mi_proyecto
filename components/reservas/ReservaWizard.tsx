@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, ChevronRight, Calendar, DollarSign, Check, User } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { iniciarReserva } from "@/lib/actions/reservas";
 
 interface WizardUnit {
     id: string;
@@ -16,13 +17,14 @@ interface WizardUnit {
 
 interface ReservaWizardProps {
     unidad: WizardUnit;
+    proyectoId: string;
     onClose: () => void;
     onSuccess: () => void;
 }
 
 const STEPS = ["Confirmar lote", "Información", "Confirmación"];
 
-export default function ReservaWizard({ unidad, onClose, onSuccess }: ReservaWizardProps) {
+export default function ReservaWizard({ unidad, proyectoId, onClose, onSuccess }: ReservaWizardProps) {
     const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);
 
@@ -41,10 +43,21 @@ export default function ReservaWizard({ unidad, onClose, onSuccess }: ReservaWiz
     const handleSubmit = async () => {
         setLoading(true);
         try {
-            // Simplified: show success — in production call createReserva action with leadId lookup
-            await new Promise(r => setTimeout(r, 800));
-            toast.success(`Reserva iniciada para Lote #${unidad.numero}`);
-            onSuccess();
+            const res = await iniciarReserva({
+                unidadId: unidad.id,
+                proyectoId,
+                compradorNombre: form.compradorNombre,
+                compradorEmail: form.compradorEmail || undefined,
+                notas: form.notas || undefined,
+                montoSena: form.montoSena ? Number(form.montoSena) : undefined,
+                fechaVencimiento: form.fechaVencimiento,
+            });
+            if (res.success) {
+                toast.success(`Reserva iniciada para Lote #${unidad.numero}`);
+                onSuccess();
+            } else {
+                toast.error(res.error || "Error al crear la reserva");
+            }
         } catch {
             toast.error("Error al crear la reserva");
         } finally {

@@ -70,6 +70,7 @@ model User {
   pagos               Pago[]
   proyectosCreados    Proyecto[]         @relation("ProyectoCreador")
   reservasVendedor    Reserva[]          @relation("VendedorReserva")
+  reservasComoComprador Reserva[]        @relation("ReservasComprador")
   tareas              Tarea[]
   unidadesResponsable Unidad[]           @relation("ResponsableUnidad")
   organization        Organization?      @relation(fields: [orgId], references: [id])
@@ -472,8 +473,12 @@ model Tarea {
 model Reserva {
   id                String   @id @default(cuid())
   unidadId          String
-  leadId            String
+  leadId            String?
   vendedorId        String
+  compradorId       String?
+  compradorNombre   String?
+  compradorEmail    String?
+  notas             String?
   fechaInicio       DateTime @default(now())
   fechaVencimiento  DateTime
   montoSena         Decimal? @db.Decimal(18, 2)
@@ -482,12 +487,14 @@ model Reserva {
   estado            String   @default("ACTIVA")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  lead              Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead              Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  comprador         User?    @relation("ReservasComprador", fields: [compradorId], references: [id])
   unidad            Unidad   @relation(fields: [unidadId], references: [id], onDelete: Cascade)
   vendedor          User     @relation("VendedorReserva", fields: [vendedorId], references: [id], onDelete: Cascade)
 
   @@index([unidadId])
   @@index([leadId])
+  @@index([compradorId])
   @@index([vendedorId])
   @@index([estado])
   @@index([createdAt])

@@ -9,8 +9,8 @@ import {
 import { cn, formatCurrency } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import InventarioServer from "@/components/dashboard/proyectos/inventario-server";
-import ReservasList from "@/components/dashboard/reservas/reservas-list";
-import { getReservasProyecto } from "@/lib/actions/reservas";
+import { getReservasByProyecto } from "@/lib/actions/reservas";
+const ReservasTab = dynamic(() => import("@/components/reservas/ReservasTab"), { ssr: false });
 
 const ProjectDocsTab = dynamic(() => import("@/components/dashboard/proyectos/project-docs-tab"), { ssr: false });
 const EtapasManager = dynamic(() => import("@/components/dashboard/proyectos/etapas-manager"), { ssr: false });
@@ -164,8 +164,8 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     const pctVendido = total > 0 ? Math.round(((vendidas + reservadas) / total) * 100) : 0;
 
-    // Fetch reservas if tab is active (or always if lightweight)
-    const reservasRes = await getReservasProyecto(params.id);
+    // Fetch reservas
+    const reservasRes = await getReservasByProyecto(params.id);
     const reservasProyecto = reservasRes.success ? (reservasRes.data || []) : [];
 
     const tabs = [
@@ -360,8 +360,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 )}
 
                 {activeTab === "reservas" && (
-                    <ReservasList
-                        reservas={reservasProyecto}
+                    <ReservasTab
+                        proyectoId={proyecto.id}
+                        initialReservas={reservasProyecto as any}
                         userRole={userRole}
                     />
                 )}
@@ -392,27 +393,70 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     />
                 )}
 
-                {activeTab === "metricas" && (
-                    <div className="glass-card p-6">
-                        <h2 className="text-lg font-bold mb-4">Métricas del Proyecto</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
-                                <TrendingUp className="w-8 h-8 text-brand-orange" />
-                                <div>
-                                    <p className="text-sm text-slate-500 underline">ROI Proyectado</p>
-                                    <p className="text-2xl font-black">18.5%</p>
+                {activeTab === "metricas" && (() => {
+                    const roiPct = valorTotal > 0 ? ((valorVendido / valorTotal) * 100).toFixed(1) : "0.0";
+                    // Velocity: vendidas / months since project created (min 1 month)
+                    const createdMs = proyecto.createdAt ? new Date(proyecto.createdAt).getTime() : Date.now();
+                    const monthsElapsed = Math.max(1, Math.round((Date.now() - createdMs) / (1000 * 60 * 60 * 24 * 30)));
+                    const velocidad = (vendidas / monthsElapsed).toFixed(1);
+                    const pctDisponible = total > 0 ? Math.round((disponibles / total) * 100) : 0;
+                    const valorReservadoFmt = formatCurrency(valorReservado);
+                    return (
+                        <div className="glass-card p-6 space-y-6">
+                            <h2 className="text-lg font-bold">Métricas del Proyecto</h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
+                                    <TrendingUp className="w-8 h-8 text-brand-orange shrink-0" />
+                                    <div>
+                                        <p className="text-xs text-slate-500">ROI Realizado</p>
+                                        <p className="text-2xl font-black">{roiPct}%</p>
+                                        <p className="text-xs text-slate-400">{formatCurrency(valorVendido)} vendido de {formatCurrency(valorTotal)}</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
-                                <BarChart3 className="w-8 h-8 text-emerald-500" />
-                                <div>
-                                    <p className="text-sm text-slate-500 underline">Velocidad de Venta</p>
-                                    <p className="text-2xl font-black">4.2 unidades/mes</p>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
+                                    <BarChart3 className="w-8 h-8 text-emerald-500 shrink-0" />
+                                    <div>
+                                        <p className="text-xs text-slate-500">Velocidad de Venta</p>
+                                        <p className="text-2xl font-black">{velocidad} u/mes</p>
+                                        <p className="text-xs text-slate-400">{vendidas} vendidas en {monthsElapsed} mes{monthsElapsed !== 1 ? "es" : ""}</p>
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
+                                    <Building2 className="w-8 h-8 text-blue-400 shrink-0" />
+                                    <div>
+                                        <p className="text-xs text-slate-500">Stock Disponible</p>
+                                        <p className="text-2xl font-black">{pctDisponible}%</p>
+                                        <p className="text-xs text-slate-400">{disponibles} de {total} unidades</p>
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
+                                    <DollarSign className="w-8 h-8 text-amber-500 shrink-0" />
+                                    <div>
+                                        <p className="text-xs text-slate-500">En Reserva</p>
+                                        <p className="text-2xl font-black">{valorReservadoFmt}</p>
+                                        <p className="text-xs text-slate-400">{reservadas} unidades reservadas</p>
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
+                                    <TrendingUp className="w-8 h-8 text-slate-400 shrink-0" />
+                                    <div>
+                                        <p className="text-xs text-slate-500">Avance General</p>
+                                        <p className="text-2xl font-black">{pctVendido}%</p>
+                                        <p className="text-xs text-slate-400">{vendidas + reservadas} de {total} comprometidas</p>
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-4">
+                                    <BarChart3 className="w-8 h-8 text-rose-400 shrink-0" />
+                                    <div>
+                                        <p className="text-xs text-slate-500">Reservas Activas</p>
+                                        <p className="text-2xl font-black">{reservasProyecto.length}</p>
+                                        <p className="text-xs text-slate-400">contratos en curso</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
         </div>
     );

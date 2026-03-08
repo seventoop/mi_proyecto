@@ -19,7 +19,7 @@ import MasterplanFilters from "./masterplan-filters";
 import PolygonEditorModal from "./PolygonEditorModal";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { updateProjectMapConfig } from "@/lib/actions/masterplan-actions";
+import { updateProjectMapConfig, updateProyectoOverlayBounds } from "@/lib/actions/masterplan-actions";
 
 if (typeof window !== "undefined") {
     (window as any).updateProjectMapConfig = updateProjectMapConfig;
@@ -32,12 +32,21 @@ const ESTADO_COLORS: Record<string, { fill: string; stroke: string }> = {
     BLOQUEADO: { fill: "#94a3b8", stroke: "#64748b" },
 };
 
+type CornerKey = "nw" | "ne" | "se" | "sw";
+interface OverlayBounds {
+    nw: { lat: number; lng: number };
+    ne: { lat: number; lng: number };
+    se: { lat: number; lng: number };
+    sw: { lat: number; lng: number };
+}
+
 interface MasterplanMapProps {
     proyectoId: string;
     modo: "admin" | "public" | "inversor";
     centerLat?: number;
     centerLng?: number;
     initialUnits?: MasterplanUnit[];
+    initialOverlayBounds?: OverlayBounds | null;
 }
 
 export default function MasterplanMap({
@@ -45,7 +54,8 @@ export default function MasterplanMap({
     modo,
     centerLat = -31.4532,
     centerLng = -64.4823,
-    initialUnits = []
+    initialUnits = [],
+    initialOverlayBounds = null,
 }: MasterplanMapProps) {
     const mapRef = useRef<HTMLDivElement>(null);
     const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -53,6 +63,12 @@ export default function MasterplanMap({
     const [mapType, setMapType] = useState<"satellite" | "roadmap">("satellite");
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+
+    // Overlay 4-corner handles
+    const [showOverlay, setShowOverlay] = useState(false);
+    const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(initialOverlayBounds);
+    const handleMarkersRef = useRef<Map<CornerKey, google.maps.Marker>>(new Map());
+    const overlayRectRef = useRef<google.maps.Polygon | null>(null);
 
     const {
         units, setUnits,
@@ -171,6 +187,86 @@ export default function MasterplanMap({
         });
     }, [map, isLoaded, filteredUnits, selectedUnitId, setSelectedUnitId]);
 
+    // Overlay handles effect
+    useEffect(() => {
+        if (!map || !isLoaded || modo !== "admin") return;
+
+        // Cleanup previous
+        handleMarkersRef.current.forEach(m => m.setMap(null));
+        handleMarkersRef.current.clear();
+        overlayRectRef.current?.setMap(null);
+        overlayRectRef.current = null;
+
+        if (!showOverlay) return;
+
+        const bounds: OverlayBounds = overlayBounds ?? {
+            nw: { lat: centerLat + 0.001, lng: centerLng - 0.001 },
+            ne: { lat: centerLat + 0.001, lng: centerLng + 0.001 },
+            se: { lat: centerLat - 0.001, lng: centerLng + 0.001 },
+            sw: { lat: centerLat - 0.001, lng: centerLng - 0.001 },
+        };
+
+        const currentBounds = { ...bounds };
+
+        const drawRect = () => {
+            overlayRectRef.current?.setMap(null);
+            overlayRectRef.current = new google.maps.Polygon({
+                paths: [currentBounds.nw, currentBounds.ne, currentBounds.se, currentBounds.sw],
+                strokeColor: "#f97316",
+                strokeWeight: 2,
+                fillColor: "#f97316",
+                fillOpacity: 0.08,
+                map,
+                zIndex: 5,
+            });
+        };
+
+        const corners: CornerKey[] = ["nw", "ne", "se", "sw"];
+        const labels: Record<CornerKey, string> = { nw: "NO", ne: "NE", se: "SE", sw: "SO" };
+
+        corners.forEach(corner => {
+            const marker = new google.maps.Marker({
+                position: currentBounds[corner],
+                map,
+                draggable: true,
+                zIndex: 10,
+                label: { text: labels[corner], color: "#fff", fontSize: "10px", fontWeight: "bold" },
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 10,
+                    fillColor: "#f97316",
+                    fillOpacity: 1,
+                    strokeColor: "#fff",
+                    strokeWeight: 2,
+                },
+                title: `Arrastra para ajustar esquina ${labels[corner]}`,
+            });
+
+            marker.addListener("drag", (e: google.maps.MapMouseEvent) => {
+                if (e.latLng) {
+                    currentBounds[corner] = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+                    drawRect();
+                }
+            });
+
+            marker.addListener("dragend", () => {
+                setOverlayBounds({ ...currentBounds });
+            });
+
+            handleMarkersRef.current.set(corner, marker);
+        });
+
+        drawRect();
+
+        return () => {
+            handleMarkersRef.current.forEach(m => m.setMap(null));
+            handleMarkersRef.current.clear();
+            overlayRectRef.current?.setMap(null);
+            overlayRectRef.current = null;
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [map, isLoaded, showOverlay]);
+
     const toggleMapType = () => {
         const newType = mapType === "satellite" ? "roadmap" : "satellite";
         map?.setMapTypeId(newType);
@@ -212,14 +308,39 @@ export default function MasterplanMap({
                 </Button>
 
                 {modo === "admin" && (
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        className="gap-2 shadow-lg bg-brand-600 text-white hover:bg-brand-500"
-                        onClick={() => setIsEditorOpen(true)}
-                    >
-                        <LayersIcon className="w-4 h-4" /> Dibujar Polígonos
-                    </Button>
+                    <>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-2 shadow-lg bg-brand-600 text-white hover:bg-brand-500"
+                            onClick={() => setIsEditorOpen(true)}
+                        >
+                            <LayersIcon className="w-4 h-4" /> Dibujar Polígonos
+                        </Button>
+                        <Button
+                            variant={showOverlay ? "default" : "secondary"}
+                            size="sm"
+                            className="gap-2 shadow-lg"
+                            onClick={() => setShowOverlay(v => !v)}
+                            title="4 handles de esquina para definir área de overlay"
+                        >
+                            <MapIcon className="w-4 h-4" /> {showOverlay ? "Ocultar Handles" : "Overlay Handles"}
+                        </Button>
+                        {showOverlay && overlayBounds && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                className="gap-2 shadow-lg bg-emerald-600 text-white hover:bg-emerald-500"
+                                onClick={async () => {
+                                    const res = await updateProyectoOverlayBounds(proyectoId, overlayBounds);
+                                    if (res.success) toast.success("Bounds del overlay guardados");
+                                    else toast.error("Error al guardar");
+                                }}
+                            >
+                                <Save className="w-4 h-4" /> Guardar Overlay
+                            </Button>
+                        )}
+                    </>
                 )}
             </div>
 
