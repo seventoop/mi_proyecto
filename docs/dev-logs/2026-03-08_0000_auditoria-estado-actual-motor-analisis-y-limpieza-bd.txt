@@ -1,0 +1,280 @@
+================================================================================
+AUDITORÍA DE ESTADO ACTUAL — MOTOR DE ANÁLISIS — LIMPIEZA DE BASE DE DATOS
+Proyecto: seventoop
+Fecha: 2026-03-08
+================================================================================
+
+RESUMEN EJECUTIVO
+-----------------
+Se realizó una auditoría técnica completa del proyecto inmobiliario "seventoop",
+diagnóstico del motor de análisis de planos y lotes, evaluación del flujo ideal
+de masterplan, revisión del modelo de datos de unidades/lotes, y limpieza
+controlada de todos los datos de proyectos demo cargados en la base de datos.
+El sistema quedó funcionando con login operativo, sin proyectos de prueba,
+listo para crear nuevos proyectos desde cero.
+
+================================================================================
+1. TECNOLOGÍAS DETECTADAS
+================================================================================
+
+Framework:        Next.js 14.2.35 (App Router)
+Auth:             NextAuth.js v4
+ORM / DB:         Prisma 5.22 + PostgreSQL 15 (Docker, puerto 5433)
+UI:               Radix UI + Tailwind CSS + Framer Motion
+Estado:           Zustand
+Tour 360:         Pannellum (cargado via <Script> dinámico, no npm package)
+Mapas:            NINGUNO instalado — solo lat/lng en DB + SVG custom
+AI:               OpenAI API (GPT — texto, no visión)
+Real-time:        Pusher.js
+Storage:          S3-compatible (AWS/R2/MinIO) + fallback local
+PDF:              jsPDF + jsPDF-AutoTable
+Upscaling:        TensorFlow.js + upscaler (client-side)
+Email:            Resend
+Monitoring:       Sentry (sin DSN en dev)
+Parser DXF/SVG:   Custom propio en lib/blueprint-utils.ts
+
+================================================================================
+2. QUÉ EXISTE HOY
+================================================================================
+
+MÓDULO                                  ESTADO
+--------------------------------------  --------
+Login / sesión / roles                  Completo
+Panel admin                             Completo
+Roles: ADMIN, VENDEDOR, INVERSOR, DEV   Completo
+Multi-tenant (Organization)             Modelado (no 100% integrado)
+Proyectos CRUD                          Completo
+Etapas → Manzanas → Unidades            Completo (modelo + UI)
+Masterplan SVG overlay                  Parcial (sin mapa satelital base)
+Overlay editor (pos/escala/rotación)    Completo (overlay-editor.tsx)
+Blueprint engine                        Completo (blueprint-engine.tsx)
+Parser DXF → SVG                        Completo (lib/blueprint-utils.ts)
+Parser SVG nativo                       Completo (lib/blueprint-utils.ts)
+Sync blueprint vía API                  Completo (/api/proyectos/[id]/blueprint/sync)
+Tour 360 (escenas + hotspots)           Completo
+Reservas + generación PDF               Completo
+Estados de unidades                     Completo (DISPONIBLE/BLOQUEADO/RESERVADO/VENDIDO)
+CRM (leads, oportunidades, tareas)      Completo
+Sistema de inversiones + escrow         Modelado y funcional
+Wallet inversor                         Completo
+KYC                                     Completo
+Notificaciones                          Completo
+AI copilot (OpenAI)                     Completo (solo texto — leads/copilot)
+Upscaling imágenes 360                  Completo (TensorFlow.js)
+Export galería ZIP                      Completo
+Cron jobs (demo expiry, reservas)       Completo
+Audit log                               Completo
+
+================================================================================
+3. QUÉ FUNCIONA / QUÉ FALLA / QUÉ FALTA
+================================================================================
+
+FUNCIONA:
+- Login, sesión, guards, roles
+- CRUD completo proyectos, etapas, manzanas, unidades
+- Tour 360 con Pannellum (escenas, hotspots, upscaling)
+- Reservas + PDF
+- CRM completo
+- Parser DXF y SVG custom
+- Overlay editor (posición/escala/rotación)
+- Storage local (dev) y S3 (prod)
+- Notificaciones, audit logs, pagos, wallet
+
+FUNCIONA PARCIALMENTE:
+- Masterplan interactivo — el overlay y blueprint engine existen
+  pero NO hay librería de mapas satelital real instalada
+- Multi-tenant — Organization existe pero no está en todos los flujos
+- AI integration — solo texto (leads/copilot), no visión ni planos
+
+NO FUNCIONA / NO EXISTE:
+- Mapa satelital real (Google Maps / Mapbox / Leaflet) — nada instalado
+- Detección automática de lotes desde DXF (parser extrae entidades
+  pero no genera lotes automáticamente en la DB)
+- Georreferenciación real de planos DXF sobre mapa satelital
+- Visión por IA para análisis de planos/imágenes
+- Relación directa Unidad ↔ punto de tour 360 georreferenciado
+
+================================================================================
+4. MOTOR ACTUAL / FUTURO DE ANÁLISIS DE LOTES / PLANOS / IMÁGENES
+================================================================================
+
+¿Existe hoy un motor real de análisis? → PARCIALMENTE
+
+Parser DXF:
+  - Existe en lib/blueprint-utils.ts
+  - Extrae entidades: LWPOLYLINE, POLYLINE, LINE, CIRCLE, TEXT
+  - Convierte a SVG para visualización
+  - Custom (no usa librería externa como dxf-parser)
+
+Parser SVG:
+  - Existe en lib/blueprint-utils.ts
+  - Usa DOMParser nativo del browser
+  - Extrae paths, polygons, rectangles
+
+IA de visión: NO EXISTE
+  - OpenAI está integrado solo para texto (leads, copilot)
+  - No hay endpoints de OpenAI Vision, Claude Vision, ni Google Vision
+
+Detección automática de lotes: NO EXISTE
+  - El parser lee entidades DXF pero no crea lotes en la DB
+  - Los lotes se crean manualmente via UI de manzanas/unidades
+
+Georreferenciación automática: NO EXISTE
+  - Se hace manualmente via overlay bounds en el overlay editor
+
+Configuración manual del admin: SÍ EXISTE
+  - El admin puede posicionar, escalar y rotar el plano sobre coordenadas
+
+CONCLUSIÓN:
+El sistema hoy depende de:
+  1. Parsing DXF/SVG custom (conversión a SVG visual)
+  2. Configuración manual del admin (posicionamiento/calibración)
+  3. Creación manual de lotes (no automática desde DXF)
+No hay IA de visión, no hay detección automática.
+
+Para el futuro ideal, el flujo sería:
+  1. Subir DXF → parser extrae polígonos
+  2. Admin calibra sobre mapa satelital (ya existe)
+  3. Sistema convierte polígonos calibrados → lotes en DB (falta)
+  4. Opcionalmente: IA de visión para validar o enriquecer datos (futuro)
+
+================================================================================
+5. EVALUACIÓN DEL FLUJO IDEAL DE MASTERPLAN
+================================================================================
+
+PASO                                          ESTADO
+--------------------------------------------  ---------------------------
+1. Entrar como admin                          ✅ Existe
+2. Crear/abrir proyecto                       ✅ Existe
+3. Ir al módulo masterplan                    ✅ Ruta /dashboard/masterplan/
+4. Subir DXF/PDF                              ⚠️  DXF y SVG sí; PDF no parsea
+5. Ver imagen aérea satelital real            ❌ No existe (sin lib mapas)
+6. Posicionar plano sobre terreno             ⚠️  Overlay editor existe sin mapa base real
+7. Ajustar posición/escala/rotación           ✅ Existe en overlay-editor.tsx
+8. Ejecutar resolución post-calibración       ❌ No existe como flujo explícito
+9. Detectar/construir lotes desde plano       ❌ No automático
+10. Asignar ID/nombre/m2 a cada lote          ✅ Manual via UI
+11. Generar entidades individuales por lote   ✅ CRUD existe, no automático
+12. Asociar lote con estado comercial         ✅ Existe
+
+BLOQUEANTE PRINCIPAL: falta librería de mapas satelital (Google Maps o Mapbox).
+Una vez agregada, el resto del flujo es alcanzable con trabajo moderado.
+
+FORMA TÉCNICA CORRECTA PARA IMPLEMENTAR:
+- Instalar @react-google-maps/api o mapbox-gl
+- Integrar mapa satelital como base del masterplan
+- Conectar overlay editor al mapa real (ya tiene lat/lng/zoom/overlayBounds)
+- Agregar función "resolver lotes desde DXF" post-calibración:
+    parseBlueprintDXF → extraer polígonos → aplicar transformación
+    geográfica (escala+rotación+offset) → crear Unidad por polígono en DB
+
+================================================================================
+6. MODELO DE DATOS ACTUAL VS FALTANTE PARA LOTES (Unidad)
+================================================================================
+
+CAMPO                     ESTADO EN DB
+------------------------  --------------------------
+id                        ✅ Existe
+numero (nombre/número)    ✅ Existe
+estado                    ✅ Existe (4 valores)
+superficie (m²)           ✅ Existe (Float?)
+frente / fondo            ✅ Existe
+geoJSON (polígono)        ✅ Existe (String? — JSON serializado)
+coordenadasMasterplan     ✅ Existe (String?)
+centerLat / centerLng     ✅ Existe
+proyectoId (directo)      ❌ FALTA — hoy es indirecto: unidad→manzana→etapa→proyecto
+faseId (directo)          ⚠️  Indirecto via manzana→etapa
+Relación Tour 360         ✅ Existe (tours Tour360[], tourHotspots Hotspot[])
+Relación masterplan       ⚠️  Parcial via coordenadasMasterplan y geoJSON
+precio / moneda           ✅ Existe
+financiacion              ✅ Existe
+esEsquina / orientacion   ✅ Existe
+Polígono tipado           ❌ FALTA — geoJSON es String?, sin validación de tipo
+
+RECOMENDACIÓN FUTURA:
+Agregar campo proyectoId directo en Unidad para facilitar queries.
+Tipar geoJSON como estructura validada (Zod schema o tipo GeoJSON estándar).
+
+================================================================================
+7. RIESGOS / DEUDA TÉCNICA
+================================================================================
+
+CRÍTICO:
+- Sin mapa satelital: módulo más visible del producto sin librería de mapas
+
+ALTO:
+- 41+ errores TypeScript: Decimal Prisma ↔ number (compila pero es deuda real)
+- proyectoId indirecto en Unidad: dificulta queries directas a escala
+- Parser DXF custom sin test suite: puede fallar con DXFs complejos
+
+MEDIO:
+- TensorFlow.js client-side: bundle muy pesado para upscaling
+- Storage local en dev: uploads se pierden si se limpia public/uploads/
+- Sentry sin DSN: errores en producción no se capturan
+- Hotspot requiere unidadId mandatory: impide hotspots sin unidad asociada
+
+BAJO:
+- Multi-tenant parcialmente integrado
+- ESLint: no-unused-vars pendiente
+- Sentry: deprecation warnings en sentry.server.config.ts
+
+================================================================================
+8. DETALLE DE LIMPIEZA REALIZADA EN BASE DE DATOS
+================================================================================
+
+FECHA/HORA:     2026-03-08
+CONTENEDOR:     seventoop_postgres
+BASE DE DATOS:  seventoop
+USUARIO DB:     usuario
+
+PROYECTOS ELIMINADOS:
+  - "Barrio Los Álamos"  (id: cmm6071vo0003108f5s12zs4m, estado: EN_VENTA)
+  - "Reserva Geodevia"   (id: cmm6071wd0008108fkr00i7ly, estado: PLANIFICACION)
+
+REGISTROS ELIMINADOS (en orden de integridad referencial):
+  tour_hotspots:      0 registros
+  tour_scenes:        0 registros
+  tours_360:          0 registros
+  historial_unidades: 0 registros
+  reservas:           0 registros
+  oportunidades:      0 registros
+  inversiones:        1 registro
+  hitos_escrow:       3 registros
+  documentacion:      0 registros
+  proyecto_archivos:  0 registros
+  proyecto_imagenes:  0 registros
+  testimonios:        0 registros
+  tareas:             0 registros
+  leads:              0 registros
+  pagos:              0 registros
+  unidades:           1 registro
+  manzanas:           1 registro
+  etapas:             1 registro
+  proyectos:          2 registros
+
+NO TOCADO:
+  users:              3 registros (intactos)
+  organizations:      0 (ya estaban vacías)
+  system_config:      intacto
+  audit_logs:         intacto
+  banners:            intacto
+  noticias:           intacto
+  notificaciones:     intacto
+  pagos sin proyecto: intactos
+
+================================================================================
+9. ESTADO FINAL DEL SISTEMA TRAS LIMPIEZA
+================================================================================
+
+- Login:              ✅ Operativo (3 usuarios intactos)
+- Proyectos demo:     ✅ Eliminados (0 proyectos en DB)
+- Código fuente:      ✅ Sin cambios
+- Migraciones:        ✅ Sin cambios
+- Estructura Prisma:  ✅ Sin cambios
+- Assets:             ✅ Sin cambios
+- Configuración:      ✅ Sin cambios
+- Sistema:            ✅ Listo para crear proyectos desde cero
+
+================================================================================
+FIN DEL REGISTRO
+================================================================================
