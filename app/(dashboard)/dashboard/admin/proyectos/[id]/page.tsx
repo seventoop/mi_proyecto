@@ -230,23 +230,25 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 ))}
             </div>
 
-            {/* Tabs Navigation — compact horizontal bar */}
-            <div className="flex flex-wrap gap-1 bg-slate-900/50 border border-white/5 rounded-xl p-1">
-                {tabs.map((tab) => (
-                    <Link
-                        key={tab.id}
-                        href={`?tab=${tab.id}`}
-                        className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap",
-                            activeTab === tab.id
-                                ? "bg-brand-orange text-white shadow-sm"
-                                : "text-slate-400 hover:text-white hover:bg-white/5"
-                        )}
-                    >
-                        <tab.icon className="w-3.5 h-3.5 shrink-0" />
-                        {tab.label}
-                    </Link>
-                ))}
+            {/* Tabs Navigation */}
+            <div className="w-full overflow-x-auto scrollbar-hide mb-6">
+                <div className="flex gap-1 min-w-max bg-slate-900/60 border border-white/8 rounded-xl p-1">
+                    {tabs.map((tab) => (
+                        <Link
+                            key={tab.id}
+                            href={`?tab=${tab.id}`}
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+                                activeTab === tab.id
+                                    ? "bg-brand-orange text-white shadow-md"
+                                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                            )}
+                        >
+                            {tab.icon && <tab.icon className="w-4 h-4 shrink-0" />}
+                            <span>{tab.label}</span>
+                        </Link>
+                    ))}
+                </div>
             </div>
 
             {/* Tab Content */}
