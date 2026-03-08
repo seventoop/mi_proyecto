@@ -307,26 +307,41 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 </div>
             </div>
 
-            {/* Progress bar */}
+            {/* Progress bar — 7 segmentos discretos */}
             <div className="glass-card p-4 mb-6">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                         Configuración del proyecto
                     </span>
-                    <span className="text-sm font-bold text-brand-500">
+                    <span className={cn(
+                        "text-sm font-bold",
+                        completedCount === 7 ? "text-emerald-500" : "text-brand-500"
+                    )}>
                         {completedCount} / 7 pasos completados
                     </span>
                 </div>
-                <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                        className="h-full bg-gradient-to-r from-brand-500 to-brand-400 rounded-full transition-all duration-500"
-                        style={{ width: `${progressPct}%` }}
-                    />
+
+                {/* Segmented bar */}
+                <div className="flex gap-1.5">
+                    {stepsCompletion.map((done, idx) => (
+                        <div
+                            key={idx}
+                            className={cn(
+                                "flex-1 h-3 rounded-full transition-all duration-300",
+                                done
+                                    ? "bg-brand-500 shadow-sm shadow-brand-500/40"
+                                    : "bg-slate-200 dark:bg-slate-700"
+                            )}
+                        />
+                    ))}
                 </div>
+
                 <p className="text-xs text-slate-500 mt-2">
                     {completedCount === 7
                         ? "✅ Proyecto completamente configurado y listo para publicar."
-                        : "Completá los pasos para tener el proyecto publicado y visible."}
+                        : completedCount === 0
+                        ? "Completá los pasos para tener el proyecto publicado y visible."
+                        : `${7 - completedCount} paso${7 - completedCount !== 1 ? "s" : ""} restante${7 - completedCount !== 1 ? "s" : ""} para completar la configuración.`}
                 </p>
             </div>
 

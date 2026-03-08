@@ -345,7 +345,10 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                                             Hacé clic para subir una imagen
                                         </p>
                                         <p className="text-[11px] mt-1 text-slate-400">
-                                            JPG, PNG, WEBP, GIF · Se mostrará en los listados públicos
+                                            JPG, PNG, WEBP, GIF · Máximo 20 MB
+                                        </p>
+                                        <p className="text-[10px] mt-0.5 text-slate-500">
+                                            Se mostrará en los listados públicos
                                         </p>
                                     </div>
                                 )}
