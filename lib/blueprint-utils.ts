@@ -1,5 +1,7 @@
 export interface ExtractedPath {
     id: string;
+    /** Sequential 1-based ID assigned by spatial reading order (top-left → right → down) */
+    internalId?: number;
     pathData: string;
     center: { x: number; y: number };
     lotNumber?: string;   // matched from MTEXT/TEXT label
@@ -349,6 +351,24 @@ ${pathElements.join("\n")}
 ${textElements.join("\n")}
 ${labelElements.join("\n")}
 </svg>`;
+
+    // ─── Assign internalIds in reading order (top-left → right → down) ───────
+    // Only for closed polygons (actual lot shapes). Uses SVG Y: small Y = top.
+    const closedPaths = paths.filter(p => p.pathData.includes("Z"));
+    if (closedPaths.length > 0) {
+        const allCY = closedPaths.map(p => p.center.y);
+        const minCY = Math.min(...allCY);
+        const maxCY = Math.max(...allCY);
+        // Row height threshold: 5% of total height, minimum 5 units
+        const rowH = Math.max((maxCY - minCY) * 0.05, 5);
+        closedPaths
+            .sort((a, b) => {
+                const rowA = Math.round(a.center.y / rowH);
+                const rowB = Math.round(b.center.y / rowH);
+                return rowA !== rowB ? rowA - rowB : a.center.x - b.center.x;
+            })
+            .forEach((p, i) => { p.internalId = i + 1; });
+    }
 
     return { svg, paths };
 }

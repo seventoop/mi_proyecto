@@ -96,6 +96,10 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
         const records: LotRecord[] = paths
             .filter(p => p.lotNumber)
             .sort((a, b) => {
+                // Prefer spatial reading order (internalId) when available
+                if (a.internalId !== undefined && b.internalId !== undefined) {
+                    return a.internalId - b.internalId;
+                }
                 const n1 = parseInt(a.lotNumber!), n2 = parseInt(b.lotNumber!);
                 return isNaN(n1) || isNaN(n2) ? (a.lotNumber!).localeCompare(b.lotNumber!) : n1 - n2;
             })
@@ -196,14 +200,43 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
         if (!svgContent || extractedPaths.length === 0) return;
         setProcessing(true);
         try {
+            // Build quick lookup: pathId → lot management data
+            const lotDataMap = new Map<string, LotRecord>();
+            lotRecords.forEach(r => lotDataMap.set(r.pathId, r));
+
             const res = await fetch(`/api/proyectos/${proyectoId}/blueprint/sync`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ svgContent, units: extractedPaths.map(p => ({ id: units.find(u => u.numero === p.id.replace("path-", ""))?.id || p.id, pathData: p.pathData, center: p.center })) })
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    svgContent,
+                    paths: extractedPaths.map(p => {
+                        const ld = lotDataMap.get(p.id);
+                        return {
+                            internalId: p.internalId,
+                            lotNumber: p.lotNumber,
+                            pathData: p.pathData,
+                            center: p.center,
+                            areaSqm: p.areaSqm,
+                            estado: ld?.estado ?? "DISPONIBLE",
+                            precio: ld?.precio ? parseFloat(ld.precio) : null,
+                            frente: ld?.frente ? parseFloat(ld.frente) : null,
+                            fondo: ld?.fondo ? parseFloat(ld.fondo) : null,
+                        };
+                    }),
+                }),
             });
-            if (res.ok) alert("Plano sincronizado con éxito.");
-            else throw new Error();
-        } catch { alert("Error al sincronizar."); }
-        finally { setProcessing(false); }
+            if (res.ok) {
+                const data = await res.json();
+                alert(`Plano sincronizado con éxito.\n${data.created ?? 0} unidades creadas, ${data.updated ?? 0} actualizadas.`);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || "Error del servidor");
+            }
+        } catch (e: any) {
+            alert(`Error al sincronizar: ${e.message}`);
+        } finally {
+            setProcessing(false);
+        }
     };
 
     const handleFullscreen = useCallback(() => {
@@ -551,10 +584,10 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
                     {/* Table */}
                     <div className="flex-1 overflow-auto">
-                        <table className="w-full text-xs min-w-[700px]">
+                        <table className="w-full text-xs min-w-[760px]">
                             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 z-10">
                                 <tr>
-                                    {["N° Lote", "Superficie", "Frente (m)", "Fondo (m)", "Estado", "Precio (USD)", "Observaciones"].map(h => (
+                                    {["#", "N° Lote", "Superficie", "Frente (m)", "Fondo (m)", "Estado", "Precio (USD)", "Observaciones"].map(h => (
                                         <th key={h} className="text-left px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap border-b border-slate-200 dark:border-slate-700">
                                             {h}
                                         </th>
@@ -562,9 +595,11 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredLots.map((lot) => {
+                                {filteredLots.map((lot, tableIdx) => {
                                     const isActive = activeLotNumber === lot.lotNumber;
                                     const cfg = ESTADO_CONFIG[lot.estado];
+                                    // Look up internalId from extractedPaths
+                                    const pathMeta = extractedPaths.find(p => p.id === lot.pathId);
                                     return (
                                         <tr
                                             key={lot.pathId}
@@ -575,6 +610,10 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                                                     ? "bg-orange-50 dark:bg-orange-500/5"
                                                     : "hover:bg-slate-50 dark:hover:bg-slate-800/40")}
                                         >
+                                            {/* Internal order # */}
+                                            <td className="px-3 py-1.5 text-slate-400 text-[10px] font-mono whitespace-nowrap">
+                                                {pathMeta?.internalId ?? tableIdx + 1}
+                                            </td>
                                             {/* N° Lote */}
                                             <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
                                                 {isActive && <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-400 mr-1.5 align-middle" />}

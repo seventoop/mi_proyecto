@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useRef, useState, useEffect } from "react";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ZoomIn, ZoomOut, Maximize, Filter, Layers as LayersIcon,
@@ -19,6 +19,28 @@ import MasterplanFilters from "./masterplan-filters";
 import MasterplanComparator from "./masterplan-comparator";
 import { getProjectBlueprintData } from "@/lib/actions/unidades";
 import { getPusherClient, CHANNELS, EVENTS } from "@/lib/pusher";
+
+// ─── Zoom wiring component (must live inside TransformWrapper to use useControls) ───
+function ZoomButtonWiring() {
+    const { zoomIn, zoomOut, resetTransform } = useControls();
+    useEffect(() => {
+        const ziBtn = document.getElementById("zoom-in-btn");
+        const zoBtn = document.getElementById("zoom-out-btn");
+        const zrBtn = document.getElementById("zoom-reset-btn");
+        const hZi = () => zoomIn(0.5);
+        const hZo = () => zoomOut(0.5);
+        const hZr = () => resetTransform();
+        ziBtn?.addEventListener("click", hZi);
+        zoBtn?.addEventListener("click", hZo);
+        zrBtn?.addEventListener("click", hZr);
+        return () => {
+            ziBtn?.removeEventListener("click", hZi);
+            zoBtn?.removeEventListener("click", hZo);
+            zrBtn?.removeEventListener("click", hZr);
+        };
+    }, [zoomIn, zoomOut, resetTransform]);
+    return null;
+}
 
 // ─── Status colors ───
 const STATUS_COLORS: Record<string, string> = {
@@ -332,52 +354,32 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                 panning={{ velocityDisabled: true }}
                 onZoomStop={(ref) => setZoom(ref.state.scale)}
             >
-                {({ zoomIn, zoomOut, resetTransform }) => {
-                    useEffect(() => {
-                        const ziBtn = document.getElementById("zoom-in-btn");
-                        const zoBtn = document.getElementById("zoom-out-btn");
-                        const zrBtn = document.getElementById("zoom-reset-btn");
-                        const hZi = () => zoomIn(0.5);
-                        const hZo = () => zoomOut(0.5);
-                        const hZr = () => resetTransform();
-                        ziBtn?.addEventListener("click", hZi);
-                        zoBtn?.addEventListener("click", hZo);
-                        zrBtn?.addEventListener("click", hZr);
-                        return () => {
-                            ziBtn?.removeEventListener("click", hZi);
-                            zoBtn?.removeEventListener("click", hZo);
-                            zrBtn?.removeEventListener("click", hZr);
-                        };
-                    }, [zoomIn, zoomOut, resetTransform]);
+                <ZoomButtonWiring />
+                <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full">
+                    <svg viewBox="0 0 1000 800" className="w-full h-full" style={{ minWidth: 1000, minHeight: 800 }}>
+                        <defs>
+                            <pattern id="mp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-slate-700" />
+                            </pattern>
+                        </defs>
+                        <rect width="1000" height="800" fill="url(#mp-grid)" />
 
-                    return (
-                        <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full">
-                            <svg viewBox="0 0 1000 800" className="w-full h-full" style={{ minWidth: 1000, minHeight: 800 }}>
-                                <defs>
-                                    <pattern id="mp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-slate-700" />
-                                    </pattern>
-                                </defs>
-                                <rect width="1000" height="800" fill="url(#mp-grid)" />
-
-                                {units.map((unit) => (
-                                    <UnitPolygon
-                                        key={unit.id}
-                                        unit={unit}
-                                        isFiltered={filteredIds.has(unit.id)}
-                                        isSelected={selectedUnitId === unit.id}
-                                        isHovered={hoveredUnitId === unit.id}
-                                        isComparing={comparisonIds.includes(unit.id)}
-                                        onMouseEnter={handleUnitHover}
-                                        onMouseLeave={handleUnitLeave}
-                                        onClick={() => setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id)}
-                                        onCompareToggle={(e) => { e.stopPropagation(); toggleComparison(unit.id); }}
-                                    />
-                                ))}
-                            </svg>
-                        </TransformComponent>
-                    );
-                }}
+                        {units.map((unit) => (
+                            <UnitPolygon
+                                key={unit.id}
+                                unit={unit}
+                                isFiltered={filteredIds.has(unit.id)}
+                                isSelected={selectedUnitId === unit.id}
+                                isHovered={hoveredUnitId === unit.id}
+                                isComparing={comparisonIds.includes(unit.id)}
+                                onMouseEnter={handleUnitHover}
+                                onMouseLeave={handleUnitLeave}
+                                onClick={() => setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id)}
+                                onCompareToggle={(e) => { e.stopPropagation(); toggleComparison(unit.id); }}
+                            />
+                        ))}
+                    </svg>
+                </TransformComponent>
             </TransformWrapper>
 
             {/* Tooltip */}

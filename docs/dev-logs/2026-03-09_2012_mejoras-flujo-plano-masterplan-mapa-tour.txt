@@ -1,0 +1,301 @@
+================================================================================
+DEV LOG — 2026-03-09 20:12
+MEJORAS: FLUJO DE PLANO · MASTERPLAN · MAPA · TOUR
+Rama: work/copia-main-de-dani
+================================================================================
+
+RESUMEN TÉCNICO
+---------------
+Se realizó un diagnóstico completo del sistema de planos (Motor DXF/SVG),
+sincronización, masterplan comercial y flujo de datos. Se identificaron y
+corrigieron 4 problemas críticos que impedían que la sincronización funcionase.
+
+
+================================================================================
+DIAGNÓSTICO DEL SISTEMA
+================================================================================
+
+1. ALTA DEL DESARROLLO
+   - Componente: /app/(dashboard)/dashboard/admin/proyectos/
+   - Modelo Prisma: Proyecto (cuid automático = projectId)
+   - Endpoint: /api/proyectos/[id]
+   - El projectId se genera en el momento de creación del proyecto con cuid()
+
+2. MOTOR DE PLANOS
+   - Componente: /components/masterplan/blueprint-engine.tsx
+   - Parser: parseBlueprintDXF() en /lib/blueprint-utils.ts
+   - Detección de polígonos: LWPOLYLINE + POLYLINE con flag isClosed
+   - Detección de lotes: matching por proximidad de TEXT/MTEXT a centroides
+   - Detección de textos: entidades TEXT y MTEXT con limpieza RTF (cleanMText)
+
+   ESTADO DE DATOS:
+   - Todo en estado local React (useState) en blueprint-engine.tsx
+   - Los datos de la tabla (frente, fondo, precio, estado) NO se persistían
+   - Solo se guardaba el SVG al sincronizar, no los datos de gestión de lotes
+
+
+================================================================================
+PROBLEMAS IDENTIFICADOS Y SOLUCIONES
+================================================================================
+
+PROBLEMA 1: SYNC COMPLETAMENTE ROTO PARA ARCHIVOS DXF
+-------------------------------------------------------
+Causa raíz: handleSync() en blueprint-engine.tsx construía el payload así:
+  units.find(u => u.numero === p.id.replace("path-", ""))?.id || p.id
+
+Para DXF, p.id es "dxf-5-LOTES" (no tiene "path-"), por lo que:
+  - replace("path-", "") no cambia nada
+  - findUnique nunca matchea con un numero de unidad
+  - El fallback es p.id = "dxf-5-LOTES" (NO es un ID de base de datos)
+  - prisma.unidad.update({ where: { id: "dxf-5-LOTES" } }) → falla silencioso/500
+
+Solución:
+  - handleSync ahora envía { internalId, lotNumber, pathData, center, areaSqm,
+    estado, precio, frente, fondo } para cada path
+  - El endpoint ahora usa numero = lotNumber ?? `L${internalId}` como clave de
+    búsqueda en la manzana (findFirst por manzanaId + numero)
+  - Se usa upsert (create si no existe, update si ya existe)
+
+PROBLEMA 2: SIN internalId — NUMERACIÓN DESDE DXF
+--------------------------------------------------
+Causa raíz: Los números de lote venían directamente de los labels TEXT/MTEXT
+del DXF. Si el DXF tiene lotes numerados 140+, eso es lo que mostraba el
+sistema. No había ningún ID secuencial propio del sistema.
+
+Solución:
+  - Se agrega campo internalId?: number a ExtractedPath en blueprint-utils.ts
+  - Al final de parseBlueprintDXF(), se asignan internalIds en orden de lectura:
+    * Solo para polígonos cerrados (shapes reales de lotes)
+    * Sort por fila (threshold 5% de altura total) luego por X ascendente
+    * Resultado: numeración 1, 2, 3... de arriba-izquierda a abajo-derecha
+  - La tabla de lotes muestra una columna "#" con el internalId (orden espacial)
+  - La columna "N° Lote" sigue mostrando el número del DXF (referencia técnica)
+
+PROBLEMA 3: PROYECCIÓN DE COORDENADAS HARDCODEADA
+--------------------------------------------------
+Causa raíz: El endpoint usaba 1000 como escala fija:
+  const lat = sw[0] + (u.center.y / 1000) * latDiff;
+  const lng = sw[1] + (u.center.x / 1000) * lngDiff;
+  Esto daba coordenadas geográficas incorrectas en casi todos los casos.
+
+Solución:
+  - El nuevo endpoint calcula el bounding box real de los paths (minCX, maxCX,
+    minCY, maxCY) y proyecta proporcionalmente dentro de los overlayBounds
+  - Corrección del eje Y: SVG top (pequeño Y) = norte (lat alta), SVG bottom =
+    sur (lat baja). La fórmula correcta es:
+      lat = neLat - ((p.center.y - minCY) / svgH) * latDiff
+      lng = swLng + ((p.center.x - minCX) / svgW) * lngDiff
+
+PROBLEMA 4: DATOS DE GESTIÓN DE LOTES NO SE ENVIABAN AL SYNC
+-------------------------------------------------------------
+Causa raíz: El payload de sync solo enviaba { id, pathData, center }.
+La información de estado, precio, frente, fondo ingresada en la tabla
+se perdía completamente al sincronizar.
+
+Solución:
+  - handleSync() construye un Map<pathId, LotRecord> para lookup O(1)
+  - Incluye en el payload: estado, precio, frente, fondo de cada lote
+  - El endpoint persiste estos valores en la base de datos al crear/actualizar
+
+PROBLEMA 5: BUG DE HOOKS EN MASTERPLAN VIEWER
+---------------------------------------------
+Causa raíz: En masterplan-viewer.tsx, el TransformWrapper usaba render props
+con useEffect() llamado dentro del callback (no en un componente React):
+  {({ zoomIn, zoomOut, resetTransform }) => {
+    useEffect(...);  ← VIOLA REGLAS DE HOOKS
+    return <TransformComponent />;
+  }}
+
+Solución:
+  - Se extrae la lógica en un componente proper: function ZoomButtonWiring()
+  - Usa useControls() de react-zoom-pan-pinch (correcto, dentro de TransformWrapper)
+  - Se coloca como <ZoomButtonWiring /> dentro del TransformWrapper
+  - Esto garantiza que los botones de zoom funcionen correctamente en todo
+    momento, sin warnings de React ni comportamiento inconsistente
+
+
+================================================================================
+ARQUITECTURA ACTUALIZADA
+================================================================================
+
+FLUJO DE SINCRONIZACIÓN (CORREGIDO):
+  1. Usuario carga DXF/SVG → parseBlueprintDXF() → paths con internalId
+  2. Usuario edita tabla (estado, precio, frente, fondo)
+  3. Usuario click "Sincronizar":
+     a. handleSync() ensambla payload completo con todos los datos
+     b. POST /api/proyectos/[id]/blueprint/sync
+     c. Endpoint verifica/crea Etapa y Manzana por defecto si no existen
+     d. Guarda SVG en Proyecto.masterplanSVG
+     e. Para cada path con lotNumber o internalId:
+        - Busca Unidad por manzanaId + numero
+        - Si existe → update (coordenadasMasterplan, geoJSON, datos)
+        - Si no existe → create
+     f. Retorna { created, updated } para feedback al usuario
+
+ESTRUCTURA DE DATOS POR UNIDAD:
+  - numero: lotNumber del DXF (ej: "15") o "L{internalId}" si no hay label
+  - coordenadasMasterplan: { path, center, internalId } (JSON)
+  - geoJSON: { type: "Point", coordinates: [lng, lat] } (JSON)
+  - superficie, frente, fondo, precio, estado: datos comerciales
+
+FUENTE ÚNICA DE VERDAD:
+  Proyecto.masterplanSVG → SVG del plano
+  Unidad.coordenadasMasterplan → geometría de cada lote
+  Unidad.estado → estado comercial en tiempo real (sync via Pusher)
+
+
+================================================================================
+MEJORAS DE UX/UI
+================================================================================
+
+1. TABLA DE LOTES
+   - Nueva columna "#" con internalId (orden espacial ↑→ ↓)
+   - Permite entender el orden de lectura vs el número del DXF
+   - Sort por internalId en lugar de por número del DXF
+
+2. FEEDBACK DE SINCRONIZACIÓN
+   - Antes: alert genérico "Plano sincronizado con éxito"
+   - Ahora: "X unidades creadas, Y actualizadas" (información real)
+   - Errores más descriptivos con el mensaje del servidor
+
+3. ZOOM BUTTONS (masterplan viewer)
+   - Corrección de la lógica de hooks → botones funcionan correctamente
+   - Sin warnings de React en consola
+
+
+================================================================================
+INVESTIGACIÓN: GOOGLE MAPS (PARTE 5)
+================================================================================
+
+Estado actual: El sistema usa Leaflet.js (masterplan-map.tsx) con overlayBounds
+para superponer el plano sobre el mapa. No usa Google Maps API.
+
+Para integrar Google Maps en el futuro se necesitaría:
+
+APIs requeridas:
+  - Maps JavaScript API (mapa base)
+  - Maps Static API (alternativa para imágenes estáticas)
+
+Cómo superponer el plano:
+  - Usar google.maps.GroundOverlay para superponer el SVG/PNG del plano
+  - Alternativa: SVG overlay custom implementando google.maps.OverlayView
+  - El GroundOverlay acepta imageBounds: { north, south, east, west }
+  - El usuario puede mover/escalar con los overlayBounds guardados en BD
+
+Requisito de interactividad (mover, escalar, rotar):
+  - google.maps.OverlayView con GroundOverlay no soporta rotación nativa
+  - Para rotación: usar SVGOverlay custom o Three.js + Google Maps
+  - Alternativa más simple: mantener Leaflet (que sí soporta rotación de overlays
+    via leaflet-rotate o imageOverlay con transform CSS)
+
+Conclusión: Leaflet es suficiente para el caso de uso actual. Google Maps
+agregaría complejidad sin beneficio tangible vs Leaflet en este contexto.
+Si se requiere Google Maps específicamente, usar OverlayView + SVG es el camino.
+
+
+================================================================================
+ARCHIVOS MODIFICADOS
+================================================================================
+
+1. lib/blueprint-utils.ts
+   - Agregado campo internalId?: number a ExtractedPath
+   - Agregada asignación de internalIds al final de parseBlueprintDXF()
+     (sort espacial: top-left → right → down)
+
+2. components/masterplan/blueprint-engine.tsx
+   - Corregido initLotRecords(): sort por internalId cuando disponible
+   - Corregido handleSync(): payload completo (lotNumber, internalId, areaSqm,
+     estado, precio, frente, fondo)
+   - Feedback mejorado post-sync (created/updated count)
+   - Tabla: nueva columna "#" con internalId
+
+3. app/api/proyectos/[id]/blueprint/sync/route.ts
+   - Reescritura completa del endpoint
+   - Auto-crea Etapa + Manzana por defecto si el proyecto no tiene ninguna
+   - Upsert de unidades por numero en manzana (create/update)
+   - Proyección de coordenadas corregida (bounding box real del SVG)
+   - Persiste estado, precio, frente, fondo desde el payload
+   - Retorna { created, updated } en la respuesta
+
+4. components/masterplan/masterplan-viewer.tsx
+   - Nuevo componente ZoomButtonWiring() para cumplir reglas de hooks
+   - Eliminado useEffect() dentro del render prop de TransformWrapper
+
+5. docs/dev-logs/2026-03-09_2012_mejoras-flujo-plano-masterplan-mapa-tour.txt
+   - Este archivo
+
+
+================================================================================
+MODELOS PRISMA AFECTADOS
+================================================================================
+
+No se modificó el schema.prisma. Los modelos usados son:
+
+- Proyecto: masterplanSVG (actualizado en sync)
+- Etapa: se crea una por defecto si no existe
+- Manzana: se crea una por defecto si no existe
+- Unidad: upsert en sync (numero, tipo, superficie, frente, fondo, precio,
+  moneda, estado, coordenadasMasterplan, geoJSON)
+
+Campos de Unidad relevantes al plano:
+  - numero: identificador del lote (lotNumber del DXF o "L{internalId}")
+  - coordenadasMasterplan: JSON { path, center, internalId }
+  - geoJSON: JSON { type: "Point", coordinates: [lng, lat] }
+  - superficie, frente, fondo: dimensiones en metros
+  - estado: DISPONIBLE | BLOQUEADO | RESERVADO | VENDIDO | SUSPENDIDO
+
+
+================================================================================
+OPTIMIZACIONES DE PERFORMANCE
+================================================================================
+
+1. handleSync(): Se reemplazó N iteraciones de Array.find() (O(n²)) por un
+   Map<pathId, LotRecord> para lookup O(1) en el assembly del payload.
+
+2. masterplan-viewer.tsx: Corrección de hooks elimina renders adicionales
+   causados por la violación de Rules of Hooks.
+
+3. blueprint-utils.ts: internalId assignment es O(n log n) (sort) realizado
+   una sola vez al parsear el DXF, no en cada render.
+
+
+================================================================================
+PASOS DE VALIDACIÓN MANUAL
+================================================================================
+
+1. VALIDAR SYNC DXF:
+   a. Ir a un proyecto en modo admin
+   b. Abrir el Motor de Planos
+   c. Cargar un archivo DXF con lotes
+   d. Verificar que la columna "#" aparece con números secuenciales
+   e. El "#" debe seguir orden de lectura (↑→ ↓), no el número del DXF
+   f. Modificar estado/precio de algunos lotes en la tabla
+   g. Click "Sincronizar"
+   h. Verificar que el alert muestra "X creadas, Y actualizadas"
+   i. Ir a la BD y verificar que las Unidades se crearon correctamente
+
+2. VALIDAR PROYECCIÓN GEOGRÁFICA:
+   a. Si el proyecto tiene overlayBounds configurado, verificar que los
+      centerLat/centerLng de las unidades quedan dentro del bounding box
+   b. Abrir masterplan-map.tsx y verificar que los polígonos están en posición
+
+3. VALIDAR ZOOM BUTTONS:
+   a. Ir al Masterplan Viewer
+   b. Verificar que los botones +, -, reset funcionan al primer click
+   c. Verificar que NO hay warnings en la consola de React sobre hooks
+
+4. VALIDAR ETAPA/MANZANA AUTO-CREATE:
+   a. Crear un proyecto nuevo sin etapas/manzanas
+   b. Sincronizar un plano
+   c. Verificar que se crea automáticamente "Etapa 1" → "Manzana A"
+   d. Las unidades deben quedar en esa manzana
+
+5. VALIDAR DATOS PERSISTIDOS:
+   a. Cargar DXF, editar precios y estados en la tabla
+   b. Sincronizar
+   c. Recargar la página
+   d. Abrir Masterplan Viewer y verificar que los estados se ven correctamente
+
+================================================================================
+FIN DEL LOG
+================================================================================
