@@ -201,8 +201,8 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
         setProcessing(true);
         try {
             // Build quick lookup: pathId → lot management data
-            const lotDataMap = new Map<string, LotRecord>();
-            lotRecords.forEach(r => lotDataMap.set(r.pathId, r));
+            const lotDataMap: Record<string, LotRecord> = {};
+            lotRecords.forEach(r => { lotDataMap[r.pathId] = r; });
 
             const res = await fetch(`/api/proyectos/${proyectoId}/blueprint/sync`, {
                 method: "POST",
@@ -210,7 +210,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                 body: JSON.stringify({
                     svgContent,
                     paths: extractedPaths.map(p => {
-                        const ld = lotDataMap.get(p.id);
+                        const ld = lotDataMap[p.id];
                         return {
                             internalId: p.internalId,
                             lotNumber: p.lotNumber,

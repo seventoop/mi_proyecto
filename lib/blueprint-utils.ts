@@ -212,7 +212,7 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
         if (/^\d+\.\d+$/.test(clean)) continue;
 
         let minDist = Infinity, bestIdx = -1;
-        for (const [idx, { cx, cy }] of closedPolyMeta) {
+        for (const [idx, { cx, cy }] of Array.from(closedPolyMeta)) {
             const dist = Math.hypot(label.x - cx, label.y - cy);
             if (dist < minDist) { minDist = dist; bestIdx = idx; }
         }
@@ -230,7 +230,7 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
     }
 
     // Pass 2: assign labels to polygons — strictly 1:1 (closest wins both ways)
-    const sortedMatches = [...labelBestMatch.entries()].sort((a, b) => a[1].dist - b[1].dist);
+    const sortedMatches = Array.from(labelBestMatch.entries()).sort((a, b) => a[1].dist - b[1].dist);
     for (const [label, { idx }] of sortedMatches) {
         if (!polygonLabels.has(idx)) {
             polygonLabels.set(idx, label);
