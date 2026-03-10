@@ -5,8 +5,8 @@ import { authOptions } from "@/lib/auth";
 import BlueprintEngine from "@/components/masterplan/blueprint-engine";
 import {
     ArrowLeft, Building2, MapPin, FileText, BarChart3, Layers, Home,
-    Package, Globe, DollarSign, Archive, AlertCircle, LayoutDashboard,
-    CheckCircle2, Info, ChevronRight, Camera, Edit3,
+    Globe, DollarSign, Archive, AlertCircle, LayoutDashboard,
+    CheckCircle2, Info, ChevronRight, Camera, Edit3, Users,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -67,8 +67,9 @@ interface PageProps {
 export default async function ProyectoDetailPage({ params, searchParams }: PageProps) {
     // Map legacy tab IDs to new step IDs
     const tabMap: Record<string, string> = {
-        etapas: "lotes",
-        inventario: "lotes",
+        etapas: "masterplan",
+        inventario: "masterplan",
+        lotes: "masterplan",
         archivos: "comercial",
         docs: "comercial",
         pagos: "comercial",
@@ -154,12 +155,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     // Step completion
     const step1Done = !!(proyecto.nombre && proyecto.ubicacion && proyecto.descripcion);
     const step2Done = !!proyecto.masterplanSVG;
-    const step3Done = !!proyecto.overlayBounds;
-    const step4Done = total > 0;
+    const step3Done = total > 0;
+    const step4Done = !!proyecto.overlayBounds;
     const step5Done = proyecto.tours.length > 0;
-    const step6Done = false;
-    const step7Done =
+    const step6Done =
         proyecto.pagos.length > 0 || proyecto.documentacion.length > 0;
+    const step7Done = proyecto._count.leads > 0;
 
     const stepsCompletion = [
         step1Done, step2Done, step3Done, step4Done,
@@ -195,23 +196,23 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             id: "masterplan",
             num: 3,
             label: "Masterplan",
-            desc: "Posicioná el plano sobre el mapa",
+            desc: "Gestión del inventario y lotes",
             required: false,
             icon: Layers,
             done: step3Done,
             guidance:
-                "Cargá el plano encima del mapa real del terreno. Ajustá posición, escala y rotación hasta que el plano coincida con el terreno.",
+                "Visualizá el plano del loteo, gestioná etapas, manzanas y lotes. Este paso centraliza todo el inventario del proyecto.",
         },
         {
-            id: "lotes",
+            id: "mapa",
             num: 4,
-            label: "Lotes e Inventario",
-            desc: "Etapas, manzanas y lotes",
+            label: "Mapa Interactivo",
+            desc: "Posicioná el plano sobre el terreno",
             required: false,
-            icon: Package,
+            icon: Globe,
             done: step4Done,
             guidance:
-                "Creá las etapas del proyecto, luego las manzanas dentro de cada etapa, y finalmente los lotes con sus dimensiones y precio.",
+                "Georreferenciá el proyecto en el mapa real. Calibrá el overlay del plano sobre el terreno para que los lotes queden ubicados correctamente.",
         },
         {
             id: "tour360",
@@ -225,26 +226,26 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 "Subí las imágenes panorámicas 360° para el recorrido virtual. Podés continuar sin este paso y cargarlo más adelante.",
         },
         {
-            id: "mapa",
-            num: 6,
-            label: "Mapa Interactivo",
-            desc: "Conectá tour y masterplan",
-            required: false,
-            icon: Globe,
-            done: step6Done,
-            guidance:
-                "Ubicá los puntos de vista del Tour 360° sobre el masterplan para que los compradores naveguen entre el mapa y el recorrido.",
-        },
-        {
             id: "comercial",
-            num: 7,
+            num: 6,
             label: "Comercial",
-            desc: "Pagos, archivos y métricas",
+            desc: "Pagos, documentación y métricas",
             required: false,
             icon: DollarSign,
-            done: step7Done,
+            done: step6Done,
             guidance:
                 "Gestioná los pagos, archivos técnicos, documentación legal y revisá las métricas de ventas del proyecto.",
+        },
+        {
+            id: "crm",
+            num: 7,
+            label: "CRM / Gestión",
+            desc: "Leads, reservas y oportunidades",
+            required: false,
+            icon: Users,
+            done: step7Done,
+            guidance:
+                "Seguí los leads y reservas asociados a este proyecto. Gestioná el embudo comercial y las oportunidades de venta.",
         },
     ];
 
@@ -669,23 +670,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                         {/* ── PASO 3: MASTERPLAN ── */}
                         {activeTab === "masterplan" && (
-                            <div className="space-y-4">
-                                <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                                    <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
-                                    <div className="space-y-1.5 text-slate-600 dark:text-slate-400">
-                                        <p>
-                                            <strong className="text-slate-800 dark:text-slate-200">
-                                                Cómo calibrar:
-                                            </strong>{" "}
-                                            Cargá el plano y posicionalo sobre el mapa real. Usá los
-                                            controles para mover, escalar y rotar.
-                                        </p>
-                                        <p>
-                                            Una vez calibrado, los lotes quedarán georreferenciados y
-                                            conectados con el inventario.
-                                        </p>
-                                    </div>
-                                </div>
+                            <div className="space-y-6">
                                 {!step2Done && (
                                     <div className="flex items-start gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
                                         <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
@@ -694,15 +679,14 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                 Plano no cargado
                                             </p>
                                             <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
-                                                Para posicionar el masterplan necesitás primero subir el
-                                                plano en el{" "}
+                                                Subí el plano DXF en el{" "}
                                                 <Link
                                                     href="?tab=blueprint"
                                                     className="underline font-bold"
                                                 >
                                                     Paso 2 — Plano del Proyecto
-                                                </Link>
-                                                .
+                                                </Link>{" "}
+                                                para verlo en el masterplan.
                                             </p>
                                         </div>
                                     </div>
@@ -710,29 +694,6 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                 <ResizableContainer defaultHeight={620} minHeight={420}>
                                     <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
                                 </ResizableContainer>
-                            </div>
-                        )}
-
-                        {/* ── PASO 4: LOTES E INVENTARIO ── */}
-                        {activeTab === "lotes" && (
-                            <div className="space-y-6">
-                                <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                                    <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
-                                    <div className="space-y-1.5 text-slate-600 dark:text-slate-400">
-                                        <p>
-                                            <strong className="text-slate-800 dark:text-slate-200">
-                                                Estructura:
-                                            </strong>{" "}
-                                            Proyecto → Etapas → Manzanas → Lotes.
-                                        </p>
-                                        <p>
-                                            Creá primero las <strong>etapas</strong> (fases del
-                                            proyecto), luego las <strong>manzanas</strong> dentro de
-                                            cada etapa, y finalmente los <strong>lotes</strong> con
-                                            sus dimensiones, precio y estado.
-                                        </p>
-                                    </div>
-                                </div>
 
                                 <EtapasManager
                                     proyectoId={proyecto.id}
@@ -792,7 +753,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* ── PASO 6: MAPA INTERACTIVO ── */}
+                        {/* ── PASO 4: MAPA INTERACTIVO ── */}
                         {activeTab === "mapa" && (
                             <div className="space-y-4">
                                 <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
@@ -802,18 +763,18 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                             <strong className="text-slate-800 dark:text-slate-200">
                                                 Mapa interactivo:
                                             </strong>{" "}
-                                            Visualizá los lotes georreferenciados y conectalos con el
-                                            Tour 360°. Los compradores podrán ver el estado de cada
-                                            lote y navegar entre el mapa y el recorrido.
+                                            Georreferenciá el proyecto en el mapa real. Calibrá el
+                                            overlay del plano sobre el terreno para que los lotes
+                                            queden ubicados correctamente.
                                         </p>
-                                        {!step4Done && (
+                                        {!step3Done && (
                                             <p className="text-amber-500 font-medium">
                                                 ⚠ Primero creá los lotes en el{" "}
                                                 <Link
-                                                    href="?tab=lotes"
+                                                    href="?tab=masterplan"
                                                     className="underline font-bold"
                                                 >
-                                                    Paso 4
+                                                    Paso 3 — Masterplan
                                                 </Link>{" "}
                                                 para verlos en el mapa.
                                             </p>
@@ -838,7 +799,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* ── PASO 7: COMERCIAL ── */}
+                        {/* ── PASO 6: COMERCIAL ── */}
                         {activeTab === "comercial" && (
                             <div className="space-y-6">
                                 {/* Métricas */}
@@ -1030,6 +991,64 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         docStatus={proyecto.documentacionEstado || "PENDIENTE"}
                                         userRole={userRole}
                                     />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── PASO 7: CRM / GESTIÓN ── */}
+                        {activeTab === "crm" && (
+                            <div className="space-y-6">
+                                <div className="glass-card p-6">
+                                    <div className="flex items-center gap-3 mb-5">
+                                        <div className="p-2.5 bg-brand-500/10 rounded-xl">
+                                            <Users className="w-5 h-5 text-brand-500" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-slate-800 dark:text-white">
+                                                Leads del Proyecto
+                                            </h3>
+                                            <p className="text-xs text-slate-500 mt-0.5">
+                                                Oportunidades y consultas asociadas a este proyecto.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {proyecto._count.leads === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                                            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                                                <Users className="w-7 h-7 text-slate-400" />
+                                            </div>
+                                            <p className="text-slate-600 dark:text-slate-400 font-medium">
+                                                Sin leads registrados
+                                            </p>
+                                            <p className="text-sm text-slate-400 mt-1 max-w-xs">
+                                                Los leads aparecerán aquí cuando los compradores
+                                                consulten por este proyecto.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-4 p-4 bg-brand-500/5 border border-brand-500/15 rounded-xl">
+                                            <div className="text-center">
+                                                <p className="text-3xl font-black text-brand-500">
+                                                    {proyecto._count.leads}
+                                                </p>
+                                                <p className="text-xs text-slate-500 mt-0.5">
+                                                    leads totales
+                                                </p>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                                                    Gestioná los leads desde el CRM global
+                                                </p>
+                                                <Link
+                                                    href="/dashboard/crm"
+                                                    className="text-xs text-brand-500 font-bold underline underline-offset-2 mt-1 inline-block"
+                                                >
+                                                    Ir al CRM →
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

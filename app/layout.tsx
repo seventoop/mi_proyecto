@@ -5,6 +5,11 @@ export const metadata: Metadata = {
   title: "Seventoop — Gestión Inmobiliaria",
   description:
     "Plataforma integral de gestión inmobiliaria para desarrollos, lotes, departamentos, leads y ventas.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/logo.png",
+  },
 };
 
 import { Providers } from "@/components/providers";

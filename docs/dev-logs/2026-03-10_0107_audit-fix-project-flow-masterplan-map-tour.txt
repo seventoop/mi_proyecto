@@ -1,0 +1,109 @@
+================================================================================
+DEV LOG — 2026-03-10 01:07
+PROYECTO: mi_proyecto (seventoop)
+RAMA: work/copia-main-de-dani
+TAREA: Auditoría y corrección del flujo de pasos del wizard de proyecto
+================================================================================
+
+── RESUMEN EJECUTIVO ────────────────────────────────────────────────────────────
+
+Auditoría completa del wizard de configuración de proyectos en
+app/(dashboard)/dashboard/proyectos/[id]/page.tsx.
+
+Problemas detectados y corregidos:
+  1. Orden incorrecto de los pasos (Lotes antes de Mapa, CRM ausente)
+  2. "Lotes e Inventario" era un paso independiente → absorbido en Masterplan
+  3. Criterios de step completion invertidos (step3Done ↔ step4Done)
+  4. step6Done siempre false → ahora evalúa datos reales
+  5. step7Done usaba datos comerciales → ahora evalúa leads
+  6. tabMap no redirigía URLs legacy "lotes" al paso correcto
+  7. Referencias cruzadas obsoletas en el paso Mapa (?tab=lotes, "Paso 4")
+  8. Favicon de SevenToop no estaba declarado en metadata
+
+── TABLA DE AUDITORÍA ───────────────────────────────────────────────────────────
+
+  Paso  | ID antes    | ID nuevo    | Estado
+  ──────┼─────────────┼─────────────┼─────────────────────────────────────
+  1     | info        | info        | Sin cambios
+  2     | blueprint   | blueprint   | Sin cambios
+  3     | masterplan  | masterplan  | ACTUALIZADO: desc, done, contenido
+  4     | lotes       | mapa        | RENOMBRADO + nuevo contenido
+  5     | tour360     | tour360     | Sin cambios (renumerado en UI)
+  6     | mapa        | comercial   | RENOMBRADO + nuevo contenido
+  7     | comercial   | crm         | NUEVO paso creado
+
+── CAMBIOS TÉCNICOS ─────────────────────────────────────────────────────────────
+
+  Archivos modificados:
+  ├── app/(dashboard)/dashboard/proyectos/[id]/page.tsx
+  │   ├── tabMap: etapas/inventario → "masterplan", lotes → "masterplan"
+  │   ├── step3Done: overlayBounds → total > 0 (tiene lotes)
+  │   ├── step4Done: total > 0 → overlayBounds (mapa calibrado)
+  │   ├── step6Done: false → pagos.length > 0 || documentacion.length > 0
+  │   ├── step7Done: pagos||docs → _count.leads > 0
+  │   ├── steps[]: reemplazado completo — 7 pasos correctos, sin "lotes"
+  │   ├── Paso 3 Masterplan: guidance actualizada, EtapasManager + InventarioServer agregados
+  │   ├── Bloque "lotes" (activeTab === "lotes"): ELIMINADO
+  │   ├── Paso Mapa: renumerado a Paso 4, fix cross-refs (?tab=masterplan, step3Done)
+  │   ├── Paso Comercial: renumerado a Paso 6
+  │   ├── Paso CRM: nuevo bloque activeTab === "crm" con leads count + link a /dashboard/crm
+  │   └── Import: Package eliminado (sin uso), Users ya estaba presente
+  │
+  └── app/layout.tsx
+      └── metadata.icons: icon/shortcut → /favicon.ico, apple → /logo.png
+
+── FLUJO ANTERIOR (con problemas) ──────────────────────────────────────────────
+
+  1 - Información General    ✓
+  2 - Plano del Proyecto     ✓
+  3 - Masterplan             ✗ (desc/done/contenido incorrectos — era solo viewer)
+  4 - Lotes e Inventario     ✗ (debía absorberse en Masterplan)
+  5 - Tour 360°              ✓
+  6 - Mapa Interactivo       ✗ (debía ser Paso 4, cross-refs a ?tab=lotes)
+  7 - Comercial              ✗ (debía ser Paso 6, faltaba CRM como Paso 7)
+
+── FLUJO NUEVO (post-auditoría) ─────────────────────────────────────────────────
+
+  1 - Información General    → step1Done: nombre + ubicacion + descripcion
+  2 - Plano del Proyecto     → step2Done: masterplanSVG presente
+  3 - Masterplan             → step3Done: total > 0 (tiene lotes sincronizados)
+                                Contenido: MasterplanViewer + EtapasManager + InventarioServer
+  4 - Mapa Interactivo       → step4Done: overlayBounds calibrado
+                                Contenido: MasterplanMap con ResizableContainer
+  5 - Tour 360°              → step5Done: tours.length > 0
+  6 - Comercial              → step6Done: pagos.length > 0 || documentacion.length > 0
+  7 - CRM / Gestión          → step7Done: _count.leads > 0
+                                Contenido: leads count + link a /dashboard/crm
+
+── REDIRECTS DE URLS LEGACY ─────────────────────────────────────────────────────
+
+  URL antigua                → Redirige a
+  ──────────────────────────────────────────
+  ?tab=etapas                → ?tab=masterplan
+  ?tab=inventario            → ?tab=masterplan
+  ?tab=lotes                 → ?tab=masterplan  (NUEVO)
+  ?tab=archivos              → ?tab=comercial
+  ?tab=docs                  → ?tab=comercial
+  ?tab=pagos                 → ?tab=comercial
+  ?tab=metricas              → ?tab=comercial
+
+── VALIDACIÓN MANUAL ────────────────────────────────────────────────────────────
+
+  [ ] 1. Sidebar muestra: Info / Plano / Masterplan / Mapa / Tour 360 / Comercial / CRM
+  [ ] 2. ?tab=lotes redirige a Masterplan (no 404, no página vacía)
+  [ ] 3. Paso 3 muestra: MasterplanViewer + EtapasManager + tabla inventario
+  [ ] 4. Paso 4 muestra: mapa satélite (ResizableContainer), advertencia si no hay lotes
+  [ ] 5. Paso 7 muestra: leads count si hay leads, empty state si no hay
+  [ ] 6. Progreso correcto: Paso 3 se marca ✓ cuando hay lotes, Paso 4 cuando hay overlayBounds
+  [ ] 7. Favicon SevenToop visible en pestaña del browser
+
+── PENDIENTES ───────────────────────────────────────────────────────────────────
+
+  1. CRM Paso 7: integrar componente de lista de leads filtrado por proyectoId
+     (actualmente muestra count + link al CRM global; requiere LeadsTable server component)
+  2. Mapa Paso 4: conectar tour360 hotspots en el mapa (pendiente desde log anterior)
+  3. Páginas de admin/developer: aplicar mismo reordenamiento de pasos en
+     app/(dashboard)/dashboard/admin/proyectos/[id]/page.tsx
+     app/(dashboard)/dashboard/developer/proyectos/[id]/page.tsx
+
+================================================================================
