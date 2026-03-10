@@ -116,6 +116,33 @@ export async function PUT(
     }
 }
 
+// PATCH /api/proyectos/[id] — partial update (map location, etc.)
+export async function PATCH(
+    request: Request,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const body = await request.json();
+        const data: Record<string, any> = {};
+        if (body.mapCenterLat != null) data.mapCenterLat = Number(body.mapCenterLat);
+        if (body.mapCenterLng != null) data.mapCenterLng = Number(body.mapCenterLng);
+        if (body.mapZoom != null) data.mapZoom = Number(body.mapZoom);
+
+        if (Object.keys(data).length === 0) {
+            return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+        }
+
+        const proyecto = await prisma.proyecto.update({
+            where: { id: params.id },
+            data,
+        });
+        return NextResponse.json({ success: true, proyecto });
+    } catch (error) {
+        console.error("Error patching proyecto:", error);
+        return NextResponse.json({ error: "Error al actualizar proyecto" }, { status: 500 });
+    }
+}
+
 // DELETE /api/proyectos/[id]
 export async function DELETE(
     request: Request,

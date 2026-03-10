@@ -1,0 +1,503 @@
+================================================================================
+AUDITORÍA TÉCNICA + REWORK DE FLUJO — 2026-03-10
+PROYECTO: mi_proyecto (seventoop)
+RAMA: work/copia-main-de-dani
+TIPO: Auditoría profunda + correcciones de código
+================================================================================
+
+── ÍNDICE ───────────────────────────────────────────────────────────────────────
+
+  PARTE 1  — Estado real del sistema (observaciones)
+  PARTE 2  — Tabla de auditoría
+  PARTE 3  — Pipeline: DXF → Masterplan → Mapa → Tour 360
+  PARTE 4  — Principio de parse único — verificación
+  PARTE 5  — Detección de lotes: análisis del parser
+  PARTE 6  — Problema visual en Paso 3 — diagnóstico y corrección
+  PARTE 7  — Paso 4 Mapa: diagnóstico y corrección
+  PARTE 8  — Orden de pasos — estado final
+  PARTE 9  — Favicon
+  PARTE 10 — UX/UI — observaciones y mejoras
+  PARTE 11 — Debug y performance
+  PARTE 12 — Cambios técnicos realizados
+  PARTE 13 — Riesgos remanentes
+
+================================================================================
+PARTE 1 — ESTADO REAL DEL SISTEMA
+================================================================================
+
+  Observaciones confirmadas por el usuario:
+
+  ✅ Paso 2: la carga de plano DXF/SVG funciona.
+  ✅ Paso 3: el plano SÍ aparece al cambiar de tab (persistencia parcial activa).
+  ⚠ Paso 3: el plano se ve "muy feo" — labels ilegibles, sobrecargado.
+  ⚠ Paso 4: el mapa aparece pero en Buenos Aires, no en la ubicación del proyecto.
+  ⚠ Paso 4: no hay forma de buscar ni confirmar la ubicación real del terreno.
+
+  HALLAZGO CLAVE — ¿por qué el plano sí persiste entre tabs?
+    El sistema ya tiene:
+      - GET /api/proyectos/[id]/blueprint → devuelve masterplanSVG + unidades
+      - useEffect en BlueprintEngine que restaura estado desde BD al montar
+    Por esto el plano aparece en Paso 3 sin necesidad de re-subir el archivo.
+    Esto es correcto y funciona bien.
+
+  HALLAZGO CLAVE — ¿por qué el mapa muestra "Buenos Aires"?
+    masterplan-map.tsx tenía hardcodeado:
+      centerLat = -33.0943, centerLng = -60.5475 (Villa Constitución, Santa Fe)
+    La página no pasaba los valores reales del proyecto.
+    Proyecto.mapCenterLat y Proyecto.mapCenterLng existen en BD pero no se usaban.
+
+  HALLAZGO CLAVE — ¿por qué el mapa mostraba lotes falsos?
+    La función generateGeoUnits() creaba 35 lotes ficticios near -33.094, -60.547.
+    Se usaba como fallback cuando no había lotes reales con geoJSON.
+    Los lotes reales del DB tienen path SVG (texto de SVG path),
+    no coordenadas lat/lng, por lo que el mapa los ignoraba silenciosamente.
+    Resultado: usuario veía lotes fake de una localidad aleatoria.
+
+================================================================================
+PARTE 2 — TABLA DE AUDITORÍA
+================================================================================
+
+  Requerimiento                  │ Estado anterior    │ Archivo                │ Acción
+  ───────────────────────────────┼────────────────────┼────────────────────────┼────────────────────────
+  Orden de pasos                 │ ✅ CORRECTO        │ page.tsx               │ Corregido en sesión anterior
+  Eliminación de Lotes Inventario│ ✅ CORRECTO        │ page.tsx               │ Absorbido en Masterplan
+  Masterplan como centro         │ ✅ CORRECTO        │ page.tsx               │ Viewer + EtapasManager + InventarioServer
+  Sincronización DXF/SVG         │ ✅ FUNCIONA        │ blueprint/sync/route.ts│ Sin cambios necesarios
+  Persistencia entre pasos       │ ✅ FUNCIONA        │ blueprint-engine.tsx   │ useEffect restaura desde BD
+  Parser de lotes                │ ✅ CORRECTO        │ blueprint-utils.ts     │ Ver análisis Parte 5
+  Visualización del Paso 3       │ ❌ ILEGIBLE        │ masterplan-viewer.tsx  │ CORREGIDO (ver Parte 6)
+  Mapa interactivo con búsqueda  │ ❌ NO EXISTÍA      │ masterplan-map.tsx     │ AGREGADO (Nominatim)
+  Búsqueda por coordenadas       │ ❌ NO EXISTÍA      │ masterplan-map.tsx     │ AGREGADO (inputs lat/lng)
+  Mapa usa coords del proyecto   │ ❌ HARDCODEADO     │ masterplan-map.tsx     │ CORREGIDO (prop centerLat/Lng/Zoom)
+  Datos demo en el mapa          │ ❌ LOTES FALSOS    │ masterplan-map.tsx     │ generateGeoUnits() ELIMINADO
+  Guardar ubicación en BD        │ ❌ NO EXISTÍA      │ api/proyectos/[id]     │ PATCH handler AGREGADO
+  Integración tour 360           │ ⚠ PARCIAL          │ Tour360 / TourScene    │ Sin lat/lng en escenas (pendiente)
+  Favicon                        │ ✅ CORREGIDO        │ app/layout.tsx         │ Corregido en sesión anterior
+
+================================================================================
+PARTE 3 — PIPELINE DE DATOS
+================================================================================
+
+  Flujo confirmado (estado después de correcciones):
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  [Paso 2] Archivo DXF/SVG                                               │
+  │       ↓  parseBlueprintDXF() — solo client-side                         │
+  │  ExtractedPath[] {pathData, center, lotNumber, internalId, areaSqm}     │
+  │       ↓  POST /api/proyectos/[id]/blueprint/sync                        │
+  │  BD: Unidad.coordenadasMasterplan {path, center, internalId, lotLabel}  │
+  │      Proyecto.masterplanSVG = full SVG string                           │
+  │       ↓                                                                 │
+  │  [Paso 3] MasterplanViewer — lee getProjectBlueprintData()              │
+  │           Renderiza paths SVG por Unidad                                │
+  │           EtapasManager + InventarioServer (inventario comercial)       │
+  │       ↓                                                                 │
+  │  [Paso 4] MasterplanMap — Leaflet con Google tile layers                │
+  │           Overlay (Proyecto.overlayUrl + overlayBounds)                 │
+  │           Lotes: solo si tienen geoJSON con lat/lng polygons            │
+  │           Búsqueda de ubicación: Nominatim + coordenadas manuales      │
+  │           Guardar posición: PATCH /api/proyectos/[id]                   │
+  │       ↓                                                                 │
+  │  [Paso 5] Tour360 — Pannellum + TourScene + Hotspot                     │
+  │           Hotspot.unidadId vincula punto de interés con lote            │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  Principio de parse único: ✅ RESPETADO
+    - DXF se parsea UNA VEZ en BlueprintEngine (cliente)
+    - MasterplanViewer y MasterplanMap consumen desde BD
+    - No hay re-parse del DXF en módulos de visualización
+
+================================================================================
+PARTE 4 — PRINCIPIO DE PARSE ÚNICO — VERIFICACIÓN
+================================================================================
+
+  ✅ lib/blueprint-utils.ts = único lugar de parsing DXF/SVG
+  ✅ Todos los módulos leen Unidad.coordenadasMasterplan de la BD
+  ✅ BlueprintEngine restaura estado desde BD al montar (no re-parsea)
+  ✅ MasterplanViewer usa getProjectBlueprintData() — nunca llama al parser
+  ✅ MasterplanMap usa las unidades del Zustand store — cargadas por MasterplanViewer
+
+  VIOLACIÓN PARCIAL (ya documentada):
+  ⚠ El mapa re-proyecta SVG coordinates → lat/lng en render time
+    porque no hay GeoJSON Polygon persistido por lote.
+    Fix completo: guardar geoPolygon al calibrar overlayBounds (ver reporte arquitectura).
+
+================================================================================
+PARTE 5 — DETECCIÓN DE LOTES: ANÁLISIS DEL PARSER
+================================================================================
+
+  Archivo: lib/blueprint-utils.ts
+
+  ─── ¿Cómo detecta lotes hoy? ───────────────────────────────────────────────
+
+  1. Parsea entidades DXF: LWPOLYLINE, POLYLINE, LINE, CIRCLE, ARC, TEXT, MTEXT
+  2. Filtra polígonos cerrados (isClosed = true, vertices >= 3)
+  3. Calcula centroide por promedio de vértices
+  4. Calcula área con fórmula de Shoelace (en unidades de dibujo)
+  5. Excluye polígonos gigantes (>40% del área total → border/frame del plano)
+  6. Matchea labels TEXT/MTEXT al polígono más cercano:
+     - Match 1:1 por distancia mínima al centroide
+     - Threshold: 1.5× radio del polígono + 0.5 unidades
+     - Solo labels cortas (≤6 chars), alfanuméricas, sin decimales
+  7. Asigna internalId en orden de lectura espacial (fila por fila, izq → der)
+     - Umbral de fila: 5% del rango vertical de centroides (mínimo 5 unidades)
+
+  ─── ¿Cómo genera IDs? ──────────────────────────────────────────────────────
+
+  internalId (1, 2, 3...): orden de lectura espacial — no depende del DXF
+  lotNumber / lotLabel: texto DXF del label más cercano (Ej: "140", "A-02")
+  id en ExtractedPath: `dxf-{entityIndex}-{layer}` (técnico, no visible)
+
+  ─── ¿Mezcla idInterno con número visible? ──────────────────────────────────
+
+  NO — están correctamente separados:
+    coordenadasMasterplan.internalId = orden espacial (1, 2, 3...)
+    Unidad.numero = texto del DXF ("140", "A-01") = lotLabel
+    MasterplanViewer muestra internalId como label primario
+
+  ─── ¿Hay duplicación? ──────────────────────────────────────────────────────
+
+  El algoritmo de label-matching usa "closest wins both ways":
+    - Por cada label único, guarda solo la distancia mínima al polígono
+    - Por cada polígono, solo acepta el primer label asignado
+    Esto garantiza 1:1. ✅
+
+  ─── Limitaciones del parser ────────────────────────────────────────────────
+
+  ⚠ SVG parseBlueprintSVG(): solo funciona client-side (guard window check)
+  ⚠ DXF parseBlueprintDXF(): también solo client-side (window guard)
+  ⚠ superfície calculada en unidades del DXF — no en m² reales a menos que
+    el DXF esté en escala 1:1 (1 unit = 1 metro)
+  ⚠ DXF original no se persiste — solo el SVG generado
+
+================================================================================
+PARTE 6 — PROBLEMA VISUAL EN EL PASO 3
+================================================================================
+
+  Síntoma: plano ilegible, labels que ocupan demasiado espacio, sobrecargado.
+
+  ─── Diagnóstico ─────────────────────────────────────────────────────────────
+
+  BUG 1 — fontSize fijo "6.5" en unidades SVG — no escala con el plano
+    El viewBox se calcula dinámicamente de las coordenadas reales del DXF.
+    Un plano típico puede tener coordenadas en el rango 0-500 o 0-50000.
+    Con viewBox 50000×30000 y fontSize="6.5", el texto es 6.5/50000 = 0.013%
+    de la altura → invisible.
+    Con viewBox 300×200 y fontSize="6.5", el texto es 6.5/200 = 3.25%
+    de la altura → OK.
+    Con viewBox 100×80 y fontSize="6.5", el texto es 6.5/80 = 8%
+    → demasiado grande, labels se superponen.
+    El fontSize fijo causaba ilegibilidad en ambos extremos.
+
+  BUG 2 — Grid rect hardcodeado width="1000" height="800"
+    El viewBox puede ser 50000×30000, pero el grid solo cubría 1000×800.
+    El 98% del fondo del SVG era negro/vacío sin grid.
+    Esto hacía que el fondo se vea raro con lotes flotando en el espacio.
+
+  BUG 3 — Labels visibles a TODOS los niveles de zoom
+    Sin threshold de zoom, al ver el plano completo con 50+ lotes,
+    todos los labels aparecían superpuestos, creando un bloque ilegible
+    de texto en el centro del plano.
+
+  ─── Correcciones aplicadas ──────────────────────────────────────────────────
+
+  FIX 1 — fontSize per-polygon desde bounding box
+    Cada UnitPolygon ahora calcula su propio fontSize:
+      - Extrae vértices del path SVG
+      - Calcula el bounding box del polígono (minX/maxX/minY/maxY)
+      - fontSize = Math.max(min(polyW, polyH) * 0.25, 1.5)
+    Resultado: a cualquier escala de DXF, el label ocupa ~25% del ancho
+    mínimo del polígono. Un lote de 20×15 unidades → fontSize ≈ 3.75.
+    Un lote de 200×150 unidades → fontSize ≈ 37.5. Proporcional siempre.
+
+  FIX 2 — Grid rect cubriendo el viewBox completo
+    La rect del grid ahora usa las coordenadas del viewBox:
+      <rect x={vbX} y={vbY} width={vbW} height={vbH} fill="url(#mp-grid)" />
+    El fondo cuadriculado cubre exactamente el área del plano.
+
+  FIX 3 — Labels solo visibles con zoom >= 0.75
+    Se agrega showLabels = zoom >= 0.75 (zoom viene del Zustand store).
+    Por debajo de ese zoom: solo polígonos coloreados por estado, sin texto.
+    Por encima: labels proporcionales por polígono.
+    Al hacer hover sobre cualquier lote, el tooltip siempre aparece.
+    Esto mantiene la legibilidad a todos los niveles de zoom.
+
+  FIX 4 — dominantBaseline="middle" en el texto
+    Se agrega dominantBaseline="middle" para centrado vertical correcto.
+    Se elimina el offset hardcodeado y={cy + 3} → y={cy}.
+
+  FIX 5 — zoom agregado al Zustand store destructure
+    El componente ahora lee `zoom` del store para calcular showLabels.
+
+================================================================================
+PARTE 7 — PASO 4 MAPA INTERACTIVO
+================================================================================
+
+  ─── Problemas encontrados ───────────────────────────────────────────────────
+
+  PROBLEMA 1 — Mapa en coordenadas incorrectas
+    Antes: centerLat = -33.0943, centerLng = -60.5475 (hardcoded en el component)
+    La página pasaba <MasterplanMap proyectoId=... modo="admin" /> sin pasar
+    las coordenadas. El mapa siempre arrancaba en la misma localidad aleatoria.
+
+  PROBLEMA 2 — Lotes demo siempre presentes
+    generateGeoUnits() generaba 35 lotes ficticios. El map cargaba estos datos
+    como fallback cuando no había "initialUnits" (que nunca se pasaban).
+    Los lotes reales del DB tienen SVG path strings, no lat/lng — se ignoraban.
+    Resultado: el usuario veía lotes ficticios en una localidad aleatoria,
+    nunca los lotes reales del proyecto.
+
+  PROBLEMA 3 — No había búsqueda de ubicación
+    El único control del mapa era zoom in/out/reset y satélite/híbrido.
+    No había forma de buscar ni confirmar la ubicación del terreno real.
+
+  PROBLEMA 4 — No había forma de persistir la ubicación
+    Aunque el usuario movía el mapa, la posición no se guardaba.
+    Al recargar, volvía a la misma ubicación hardcodeada.
+
+  ─── Correcciones aplicadas ──────────────────────────────────────────────────
+
+  FIX 1 — Eliminar generateGeoUnits()
+    La función (85 líneas) fue eliminada completamente.
+    El mapa no muestra lotes ficticios. Si no hay lotes con geoJSON,
+    el mapa muestra solo el satellite view y el overlay del plano.
+
+  FIX 2 — Props centerLat, centerLng, mapZoom desde el proyecto real
+    Se agrega mapZoom a la interface MasterplanMapProps.
+    Default cambia a lat/lng de Buenos Aires (coincide con Prisma default).
+    La inicialización de Leaflet usa mapZoom en lugar de zoom: 17.
+    handleResetView usa mapZoom en lugar de 17.
+
+  FIX 3 — page.tsx pasa las coords del proyecto
+    <MasterplanMap
+        proyectoId={proyecto.id}
+        modo="admin"
+        centerLat={proyecto.mapCenterLat ?? undefined}
+        centerLng={proyecto.mapCenterLng ?? undefined}
+        mapZoom={proyecto.mapZoom ?? undefined}
+    />
+    Ahora el mapa abre en las coordenadas guardadas del proyecto.
+
+  FIX 4 — Panel de configuración de ubicación (admin only)
+    Se agrega un botón "Configurar ubicación" que despliega un panel con:
+
+    a) Buscador por texto (Nominatim OpenStreetMap — gratuito, sin API key):
+       - Input de texto con debounce 500ms
+       - Llama https://nominatim.openstreetmap.org/search?q=...&format=json
+       - Muestra lista de resultados con display_name
+       - Click en resultado → map.flyTo(lat, lng, 16)
+
+    b) Inputs de latitud y longitud manual:
+       - Dos inputs numéricos (step 0.000001)
+       - Botón con icono Crosshair → map.flyTo(lat, lng)
+
+    c) Botón "Guardar posición del mapa":
+       - Lee map.getCenter() y map.getZoom()
+       - PATCH /api/proyectos/[id] con { mapCenterLat, mapCenterLng, mapZoom }
+       - Feedback visual: estado "Ubicación guardada" por 3 segundos
+
+  FIX 5 — PATCH handler en /api/proyectos/[id]/route.ts
+    Nuevo handler PATCH que acepta { mapCenterLat, mapCenterLng, mapZoom }.
+    Solo actualiza los campos presentes en el body.
+    Retorna { success: true, proyecto }.
+
+  ─── Flujo correcto del Paso 4 después de la corrección ─────────────────────
+
+  1. Usuario abre Paso 4. Mapa carga en las coordenadas guardadas del proyecto.
+  2. Si el proyecto tiene overlayBounds configurado, el plano aparece superpuesto.
+  3. Usuario puede buscar la ubicación correcta con texto o coordenadas.
+  4. Confirma con "Guardar posición del mapa" — queda persistida.
+  5. Próxima vez que abra el Paso 4, el mapa centra en esa ubicación.
+  6. (Futuro) Con geoPolygon persistido, los lotes también aparecen en el mapa.
+
+================================================================================
+PARTE 8 — ORDEN DE PASOS — ESTADO FINAL
+================================================================================
+
+  Pasos actuales (después de todas las correcciones):
+
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ Paso │ ID          │ step Done                  │ Contenido              │
+  ├──────┼─────────────┼────────────────────────────┼────────────────────────┤
+  │  1   │ info        │ nombre+ubicacion+desc       │ Datos del proyecto     │
+  │  2   │ blueprint   │ masterplanSVG presente      │ DXF/SVG parser         │
+  │  3   │ masterplan  │ total > 0 (hay lotes)       │ Viewer+Etapas+Inventario│
+  │  4   │ mapa        │ overlayBounds calibrado     │ Leaflet+búsqueda+overlay│
+  │  5   │ tour360     │ tours.length > 0            │ Pannellum 360          │
+  │  6   │ comercial   │ pagos||docs presentes       │ Pagos+archivos+métricas│
+  │  7   │ crm         │ leads > 0                   │ Leads + link CRM global│
+  └──────────────────────────────────────────────────────────────────────────┘
+
+  URL redirects (tabMap):
+    etapas     → masterplan
+    inventario → masterplan
+    lotes      → masterplan
+    archivos   → comercial
+    docs       → comercial
+    pagos      → comercial
+    metricas   → comercial
+
+================================================================================
+PARTE 9 — FAVICON
+================================================================================
+
+  Estado: ✅ CORREGIDO (sesión anterior)
+  Archivo: app/layout.tsx
+  Cambio: se agregó icons a metadata:
+    icons: {
+      icon: "/favicon.ico",
+      shortcut: "/favicon.ico",
+      apple: "/logo.png",
+    }
+  Archivo /app/favicon.ico: 25KB, formato ICO válido.
+  Archivo /public/logo.png: 330KB, PNG, logo SevenToop.
+
+================================================================================
+PARTE 10 — UX/UI — OBSERVACIONES
+================================================================================
+
+  ─── MasterplanViewer (Paso 3) ──────────────────────────────────────────────
+
+  ANTES:
+  - Labels ilegibles a zoom overview (todos superpuestos)
+  - Grid rect solo cubría 1000×800 (esquina superior izquierda del plano)
+  - FontSize fijo sin relación con el tamaño del polígono
+
+  DESPUÉS:
+  - Labels solo visibles a zoom >= 0.75 (evita "sopa de texto" al alejarse)
+  - Labels proporcionados al tamaño real del polígono
+  - Grid cubre el área completa del plano
+  - Tooltip siempre muestra info completa al hacer hover (no depende del zoom)
+  - Al hacer zoom in, los labels aparecen suavemente (transición en fill)
+
+  ─── MasterplanMap (Paso 4) ──────────────────────────────────────────────────
+
+  ANTES:
+  - Mapa en localidad aleatoria (hardcoded -33.09, -60.54)
+  - Lotes ficticios visibles
+  - Sin búsqueda de ubicación
+
+  DESPUÉS:
+  - Mapa en coordenadas reales del proyecto
+  - Sin datos ficticios (mapa limpio con solo satellite + overlay si existe)
+  - Botón "Configurar ubicación" con panel de búsqueda
+  - Feedback visual al guardar (badge verde "Ubicación guardada")
+
+  ─── Flujo general del wizard ───────────────────────────────────────────────
+
+  ✅ Navegación por steps correcta
+  ✅ Barra de progreso segmentada (7 segmentos)
+  ✅ Guidance banner contextual por paso
+  ✅ Botones prev/next en el footer
+  ✅ Mobile: scrollable tab bar horizontal
+
+================================================================================
+PARTE 11 — DEBUG Y PERFORMANCE
+================================================================================
+
+  ─── Problemas identificados ─────────────────────────────────────────────────
+
+  PROBLEMA — ZoomButtonWiring usa getElementById
+    La implementación actual conecta los botones de zoom usando
+    document.getElementById("zoom-in-btn") en un useEffect.
+    Esto requiere que los IDs existan en el DOM al montar.
+    Si el componente monta antes de que el DOM esté listo → botones sin función.
+    PERO: como está dentro de TransformWrapper y es un child component,
+    el montaje ocurre en el orden correcto. Funcional en la práctica.
+    Riesgo bajo — no se cambia en este rework.
+
+  PROBLEMA — locationTimerRef.current tipo
+    Actualizado a `ReturnType<typeof setTimeout>` para type safety en Node/browser.
+
+  ─── Performance del Masterplan Viewer ──────────────────────────────────────
+
+  UnitPolygon está envuelto en React.memo() ✅
+  Los handlers (onMouseEnter, onMouseLeave) son useCallback() ✅
+  svgViewBox calculado con useMemo() ✅
+  Filtrado via useFilteredUnits() optimizado con Zustand selectors ✅
+
+  Nueva adición (per-polygon fontSize):
+  - Se calcula el bounding box de cada path en el render del UnitPolygon.
+  - Esto es O(n_vertices) por polígono, una vez al montar.
+  - Para polígonos típicos de 4-8 vértices: 4-8 parseFloat operations.
+  - A 500 lotes: ~2000-4000 parseFloat operations. Negligible.
+  - React.memo evita re-calcular cuando el polígono no cambia.
+
+  ─── N+1 en sync (pendiente) ────────────────────────────────────────────────
+  El sync endpoint aún hace upsert individual por lote.
+  Para >100 lotes puede haber timeout. Ver reporte arquitectura.
+
+================================================================================
+PARTE 12 — CAMBIOS TÉCNICOS REALIZADOS
+================================================================================
+
+  Archivos modificados:
+  ├── components/masterplan/masterplan-viewer.tsx
+  │   ├── + zoom en useMasterplanStore destructure
+  │   ├── + showLabels = zoom >= 0.75 (threshold de visibilidad)
+  │   ├── + vbParts / vbX / vbY / vbW / vbH del svgViewBox
+  │   ├── UnitPolygon interface: + showLabels: boolean
+  │   ├── UnitPolygon: cálculo per-polygon fontSize (25% de min dimension)
+  │   ├── UnitPolygon text: fontSize dinámico, dominantBaseline="middle"
+  │   ├── UnitPolygon text: condición agregada showLabels
+  │   ├── UnitPolygon comparison dot: escala con fontSize
+  │   ├── SVG grid rect: x/y/width/height desde vbX/vbY/vbW/vbH
+  │   └── UnitPolygon call: + showLabels={showLabels}
+  │
+  ├── components/masterplan/masterplan-map.tsx
+  │   ├── Imports: + Search, MapPin, Check (lucide-react)
+  │   ├── ELIMINADO: generateGeoUnits() function (85 líneas de demo data)
+  │   ├── MasterplanMapProps: + mapZoom?: number
+  │   ├── Default params: centerLat=-34.6037, centerLng=-58.3816, mapZoom=15
+  │   ├── State: + showLocationPanel, locationQuery, locationResults
+  │   │          + manualLat, manualLng, isSavingLocation, locationSaved
+  │   │          + locationTimerRef
+  │   ├── useEffect initialize: ELIMINADO fallback generateGeoUnits()
+  │   ├── Leaflet init: zoom usa mapZoom prop (no hardcoded 17)
+  │   ├── handleResetView: usa mapZoom (no hardcoded 17)
+  │   ├── useEffect deps: + mapZoom
+  │   ├── + searchLocation() con debounce 500ms → Nominatim
+  │   ├── + flyToLocation() con map.flyTo + update state
+  │   ├── + saveMapLocation() → PATCH /api/proyectos/[id]
+  │   └── JSX: + Panel de ubicación (admin only) con buscador/coords/save
+  │
+  ├── app/(dashboard)/dashboard/proyectos/[id]/page.tsx
+  │   └── MasterplanMap: + centerLat/centerLng/mapZoom desde proyecto real
+  │
+  └── app/api/proyectos/[id]/route.ts
+      └── + PATCH handler para mapCenterLat/mapCenterLng/mapZoom
+
+  Archivos nuevos:
+  └── docs/dev-logs/audit_rework_flujo_proyecto_masterplan_mapa_tour.txt (este archivo)
+
+================================================================================
+PARTE 13 — RIESGOS REMANENTES (NO CAMBIADOS EN ESTE REWORK)
+================================================================================
+
+  Los siguientes riesgos fueron documentados en el reporte de arquitectura
+  (2026-03-10_0200_arquitectura-...) y quedan pendientes:
+
+  1. N+1 en sync endpoint — crítico para >100 lotes
+     Fix: prisma.$transaction([...upserts])
+
+  2. Lotes no aparecen en el mapa como polígonos reales
+     Los lotes tienen SVG path (coordenadas de dibujo), no GeoJSON lat/lng.
+     El mapa puede mostrar el overlay del plano, pero no los polígonos per lote.
+     Fix: al calibrar overlayBounds, calcular y persistir geoPolygon por lote.
+
+  3. TourScene sin coordenadas geográficas
+     Impide la integración bidireccional mapa ↔ tour.
+     Fix: agregar lat, lng, heading a TourScene.
+
+  4. masterplanSVG en tabla SQL (puede ser 1-2MB)
+     Fix: mover a blob/S3, guardar URL.
+
+  5. precio en Float en lugar de Decimal
+     Fix: migración de BD.
+
+  6. internalId / lotLabel enterrados en JSON string
+     Fix: promover a columnas directas en Unidad.
+
+================================================================================
+FIN DEL REPORTE
+================================================================================

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     Map as MapIcon, Layers as LayersIcon, Filter, ZoomIn, ZoomOut, Maximize,
     Eye, EyeOff, Crosshair, X, ChevronRight, Image as ImageIcon, Globe,
+    Search, MapPin, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -33,92 +34,6 @@ const STATUS_LABELS: Record<string, string> = {
     VENDIDO: "Vendido",
 };
 
-// ─── Demo lot data with geographic coordinates ───
-// Based on the "Ria" project near -33.094, -60.547
-function generateGeoUnits(): MasterplanUnit[] {
-    const etapas = [
-        { id: "e1", nombre: "Etapa 1" },
-        { id: "e2", nombre: "Etapa 2" },
-    ];
-    const manzanas = [
-        { id: "m1", nombre: "Mza A", etapaId: "e1" },
-        { id: "m2", nombre: "Mza B", etapaId: "e1" },
-        { id: "m3", nombre: "Mza C", etapaId: "e1" },
-        { id: "m4", nombre: "Mza D", etapaId: "e2" },
-        { id: "m5", nombre: "Mza E", etapaId: "e2" },
-    ];
-
-    const units: MasterplanUnit[] = [];
-    const estados: MasterplanUnit["estado"][] = [
-        "DISPONIBLE", "DISPONIBLE", "DISPONIBLE", "RESERVADO", "VENDIDO", "BLOQUEADO",
-    ];
-    let idx = 0;
-
-    // Generate lots in a grid pattern within geographic bounds
-    const baseLat = -33.0935;
-    const baseLng = -60.5480;
-    const lotLatSize = 0.00025;
-    const lotLngSize = 0.00035;
-    const gapLat = 0.00003;
-    const gapLng = 0.00004;
-
-    manzanas.forEach((mz, mi) => {
-        const etapa = etapas.find((e) => e.id === mz.etapaId)!;
-        const cols = 5;
-        const rows = mi < 3 ? 4 : 3;
-        const offsetLat = mi < 3 ? 0 : -(rows * (lotLatSize + gapLat) + 0.0006);
-        const offsetLng = (mi % 3) * (cols * (lotLngSize + gapLng) + 0.0006);
-
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                const lat = baseLat + offsetLat - r * (lotLatSize + gapLat);
-                const lng = baseLng + offsetLng + c * (lotLngSize + gapLng);
-
-                const num = `${mz.nombre.replace("Mza ", "")}-${String(idx % 20 + 1).padStart(2, "0")}`;
-                const estado = estados[idx % estados.length];
-                const esEsquina = (r === 0 || r === rows - 1) && (c === 0 || c === cols - 1);
-                const superficie = 400 + Math.floor(Math.random() * 300);
-                const precio = 35000 + Math.floor(Math.random() * 40000);
-
-                // Store lat/lng bounds in path as JSON (we'll parse later)
-                const bounds = JSON.stringify([
-                    [lat, lng],
-                    [lat - lotLatSize, lng],
-                    [lat - lotLatSize, lng + lotLngSize],
-                    [lat, lng + lotLngSize],
-                ]);
-
-                units.push({
-                    id: `unit-${idx}`,
-                    numero: num,
-                    tipo: "LOTE",
-                    superficie,
-                    frente: 12 + Math.floor(Math.random() * 10),
-                    fondo: 25 + Math.floor(Math.random() * 15),
-                    esEsquina,
-                    orientacion: ["N", "S", "E", "O", "NE", "SE"][idx % 6],
-                    precio,
-                    moneda: "USD",
-                    estado,
-                    etapaId: etapa.id,
-                    etapaNombre: etapa.nombre,
-                    manzanaId: mz.id,
-                    manzanaNombre: mz.nombre,
-                    tour360Url: estado === "DISPONIBLE" ? "/dashboard/tour360" : null,
-                    imagenes: [],
-                    responsable: estado === "VENDIDO" ? "Juan Pérez" : estado === "RESERVADO" ? "María López" : null,
-                    path: bounds,
-                    cx: lat - lotLatSize / 2,
-                    cy: lng + lotLngSize / 2,
-                });
-                idx++;
-            }
-        }
-    });
-
-    return units;
-}
-
 interface MasterplanMapProps {
     proyectoId: string;
     modo: "admin" | "public";
@@ -126,6 +41,7 @@ interface MasterplanMapProps {
     overlayImageUrl?: string;
     centerLat?: number;
     centerLng?: number;
+    mapZoom?: number;
 }
 
 export default function MasterplanMap({
@@ -133,8 +49,9 @@ export default function MasterplanMap({
     modo,
     initialUnits = [],
     overlayImageUrl,
-    centerLat = -33.0943,
-    centerLng = -60.5475,
+    centerLat = -34.6037,
+    centerLng = -58.3816,
+    mapZoom = 15,
 }: MasterplanMapProps) {
     const {
         units, setUnits,
@@ -165,14 +82,22 @@ export default function MasterplanMap({
     // Tour 360 state
     const [activeTour, setActiveTour] = useState<{ url: string; title: string } | null>(null);
 
-    // Initialize units
+    // Location search state
+    const [showLocationPanel, setShowLocationPanel] = useState(false);
+    const [locationQuery, setLocationQuery] = useState("");
+    const [locationResults, setLocationResults] = useState<{ display_name: string; lat: string; lon: string }[]>([]);
+    const [manualLat, setManualLat] = useState<string>("");
+    const [manualLng, setManualLng] = useState<string>("");
+    const [isSavingLocation, setIsSavingLocation] = useState(false);
+    const [locationSaved, setLocationSaved] = useState(false);
+    const locationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Initialize units from prop only — no demo data
     useEffect(() => {
         if (initialUnits && initialUnits.length > 0) {
             setUnits(initialUnits);
-        } else if (units.length === 0) {
-            setUnits(generateGeoUnits());
         }
-    }, [initialUnits, setUnits, units.length]);
+    }, [initialUnits, setUnits]);
 
     // Load saved overlay config from API
     useEffect(() => {
@@ -228,7 +153,7 @@ export default function MasterplanMap({
             try {
                 const map = L.map(mapRef.current, {
                     center: [centerLat, centerLng],
-                    zoom: 17,
+                    zoom: mapZoom,
                     zoomControl: false,
                     attributionControl: false,
                 });
@@ -278,7 +203,7 @@ export default function MasterplanMap({
                 setIsMapReady(false);
             }
         };
-    }, [centerLat, centerLng]);
+    }, [centerLat, centerLng, mapZoom]);
 
     // Render saved overlay image on map (read-only mode)
     useEffect(() => {
@@ -418,6 +343,50 @@ export default function MasterplanMap({
         setShowOverlay((prev) => !prev);
     }, []);
 
+    // ─── Location search (Nominatim) ─────────────────────────────────────────
+    const searchLocation = useCallback((query: string) => {
+        if (!query.trim() || query.length < 3) { setLocationResults([]); return; }
+        if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
+        locationTimerRef.current = setTimeout(async () => {
+            try {
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`,
+                    { headers: { "Accept-Language": "es,en" } }
+                );
+                if (res.ok) setLocationResults(await res.json());
+            } catch { /* silent */ }
+        }, 500);
+    }, []);
+
+    const flyToLocation = useCallback((lat: number, lng: number, zoom = 16) => {
+        if (!leafletMapRef.current) return;
+        leafletMapRef.current.flyTo([lat, lng], zoom, { animate: true, duration: 1.2 });
+        setManualLat(lat.toFixed(6));
+        setManualLng(lng.toFixed(6));
+        setLocationResults([]);
+        setLocationQuery("");
+    }, []);
+
+    const saveMapLocation = useCallback(async () => {
+        if (!leafletMapRef.current) return;
+        setIsSavingLocation(true);
+        try {
+            const center = leafletMapRef.current.getCenter();
+            const zoom = leafletMapRef.current.getZoom();
+            const res = await fetch(`/api/proyectos/${proyectoId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mapCenterLat: center.lat, mapCenterLng: center.lng, mapZoom: zoom }),
+            });
+            if (res.ok) {
+                setLocationSaved(true);
+                setTimeout(() => setLocationSaved(false), 3000);
+            }
+        } catch { /* silent */ } finally {
+            setIsSavingLocation(false);
+        }
+    }, [proyectoId]);
+
     // Switch map view
     const handleSwitchView = useCallback((view: "satellite" | "street") => {
         const map = leafletMapRef.current;
@@ -435,7 +404,7 @@ export default function MasterplanMap({
     // Zoom controls
     const handleZoomIn = () => leafletMapRef.current?.zoomIn();
     const handleZoomOut = () => leafletMapRef.current?.zoomOut();
-    const handleResetView = () => leafletMapRef.current?.setView([centerLat, centerLng], 17);
+    const handleResetView = () => leafletMapRef.current?.setView([centerLat, centerLng], mapZoom);
 
     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
 
@@ -546,6 +515,118 @@ export default function MasterplanMap({
                 </button>
             </div>
 
+
+            {/* ─── Location search panel (admin only) ─── */}
+            {modo === "admin" && (
+                <div className="absolute top-16 left-4 z-[1000]">
+                    <AnimatePresence mode="wait">
+                        {!showLocationPanel ? (
+                            <motion.button
+                                key="loc-btn"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setShowLocationPanel(true)}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg backdrop-blur-sm bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all"
+                            >
+                                <MapPin className="w-3.5 h-3.5" />
+                                Configurar ubicación
+                            </motion.button>
+                        ) : (
+                            <motion.div
+                                key="loc-panel"
+                                initial={{ opacity: 0, y: -8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -8 }}
+                                className="bg-white/97 dark:bg-slate-900/97 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-3 w-80"
+                            >
+                                <div className="flex items-center justify-between mb-2.5">
+                                    <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Ubicación del proyecto</span>
+                                    <button
+                                        onClick={() => { setShowLocationPanel(false); setLocationResults([]); setLocationQuery(""); }}
+                                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                                    >
+                                        <X className="w-3.5 h-3.5 text-slate-400" />
+                                    </button>
+                                </div>
+
+                                {/* Text search */}
+                                <div className="relative mb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar dirección, ciudad, barrio..."
+                                        value={locationQuery}
+                                        onChange={(e) => { setLocationQuery(e.target.value); searchLocation(e.target.value); }}
+                                        className="w-full text-xs pl-8 pr-3 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-brand-500 text-slate-800 dark:text-white placeholder-slate-400"
+                                    />
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                </div>
+
+                                {/* Nominatim results */}
+                                {locationResults.length > 0 && (
+                                    <div className="mb-2 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden max-h-40 overflow-y-auto">
+                                        {locationResults.map((r, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => flyToLocation(parseFloat(r.lat), parseFloat(r.lon))}
+                                                className="w-full text-left text-[11px] px-3 py-2 hover:bg-brand-500/10 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors leading-tight"
+                                            >
+                                                {r.display_name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Manual coordinates */}
+                                <div className="flex gap-1.5 mb-2">
+                                    <input
+                                        type="number"
+                                        placeholder="Latitud"
+                                        value={manualLat}
+                                        onChange={(e) => setManualLat(e.target.value)}
+                                        step="0.000001"
+                                        className="flex-1 text-xs px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-brand-500 text-slate-800 dark:text-white placeholder-slate-400"
+                                    />
+                                    <input
+                                        type="number"
+                                        placeholder="Longitud"
+                                        value={manualLng}
+                                        onChange={(e) => setManualLng(e.target.value)}
+                                        step="0.000001"
+                                        className="flex-1 text-xs px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-brand-500 text-slate-800 dark:text-white placeholder-slate-400"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            const lat = parseFloat(manualLat);
+                                            const lng = parseFloat(manualLng);
+                                            if (!isNaN(lat) && !isNaN(lng)) flyToLocation(lat, lng);
+                                        }}
+                                        title="Ir a coordenadas"
+                                        className="px-2.5 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white rounded-xl hover:bg-brand-500 hover:text-white transition-colors"
+                                    >
+                                        <Crosshair className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+
+                                {/* Save button */}
+                                <button
+                                    onClick={saveMapLocation}
+                                    disabled={isSavingLocation}
+                                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white text-xs font-bold rounded-xl transition-colors"
+                                >
+                                    {isSavingLocation ? (
+                                        <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                    ) : locationSaved ? (
+                                        <><Check className="w-3.5 h-3.5" /> Ubicación guardada</>
+                                    ) : (
+                                        <><MapIcon className="w-3.5 h-3.5" /> Guardar posición del mapa</>
+                                    )}
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            )}
 
             {/* Legend */}
             <div className="absolute bottom-4 right-4 z-[1000] bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg px-3 py-2">

@@ -794,7 +794,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     </div>
                                 </div>
                                 <ResizableContainer defaultHeight={580} minHeight={400}>
-                                    <MasterplanMap proyectoId={proyecto.id} modo="admin" />
+                                    <MasterplanMap
+                                        proyectoId={proyecto.id}
+                                        modo="admin"
+                                        centerLat={proyecto.mapCenterLat ?? undefined}
+                                        centerLng={proyecto.mapCenterLng ?? undefined}
+                                        mapZoom={proyecto.mapZoom ?? undefined}
+                                    />
                                 </ResizableContainer>
                             </div>
                         )}

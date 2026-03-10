@@ -1,0 +1,652 @@
+================================================================================
+REPORTE TÉCNICO DE ARQUITECTURA — 2026-03-10 02:00
+PROYECTO: mi_proyecto (seventoop)
+RAMA: work/copia-main-de-dani
+TIPO: Análisis arquitectónico — solo lectura, sin cambios de código
+================================================================================
+
+── ÍNDICE ───────────────────────────────────────────────────────────────────────
+
+  PARTE 1 — Pipeline de datos: DXF → Masterplan → Mapa → Tour 360
+  PARTE 2 — Principio de parse único: ¿se respeta?
+  PARTE 3 — Escalabilidad: 500 / 1000 / 3000 lotes
+  PARTE 4 — Estructura de datos del lote: estado actual vs. ideal
+  PARTE 5 — Geometría: cómo se guarda y por qué importa
+  PARTE 6 — Mapa interactivo: Leaflet vs. Google Maps
+  PARTE 7 — Tour 360: conexión con el mapa
+  PARTE 8 — Riesgos de arquitectura detectados
+  PARTE 9 — Plan de mejoras priorizado
+
+================================================================================
+PARTE 1 — PIPELINE DE DATOS
+================================================================================
+
+  Flujo real del sistema (estado actual):
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  Archivo DXF/SVG                                                        │
+  │       ↓                                                                 │
+  │  [CLIENT] parseBlueprintDXF() — lib/blueprint-utils.ts                 │
+  │       ├── extrae LWPOLYLINE, POLYLINE, LINE, CIRCLE, ARC                │
+  │       ├── extrae TEXT, MTEXT → labels de lotes                          │
+  │       ├── Shoelace formula → área de cada polígono                      │
+  │       ├── match texto → polígono (1:1 por distancia mínima)             │
+  │       ├── internalId: orden lectura (top-left → derecha → abajo)        │
+  │       └── genera SVG string con viewBox automático                      │
+  │       ↓                                                                 │
+  │  [CLIENT] ExtractedPath[] — estructura en memoria del browser           │
+  │       ├── id, pathData (SVG), center {x,y}, lotNumber, areaSqm         │
+  │       └── internalId asignado en lectura espacial                       │
+  │       ↓                                                                 │
+  │  [CLIENT] BlueprintEngine — usuario revisa tabla de lotes               │
+  │       ├── edita número, superficie, precio, estado, etapa/manzana       │
+  │       └── puede limpiar el estado (resetea todo)                        │
+  │       ↓  [POST /api/proyectos/[id]/blueprint/sync]                      │
+  │  [SERVER] sync/route.ts                                                 │
+  │       ├── guarda masterplanSVG en Proyecto.masterplanSVG                │
+  │       ├── por cada lote: crea/actualiza Unidad (upsert por numero)      │
+  │       │    ├── coordenadasMasterplan: {path, center, internalId, lotLabel} │
+  │       │    └── geoJSON: Point (centroide proyectado si hay overlayBounds)│
+  │       └── retorna { success, count }                                    │
+  │       ↓                                                                 │
+  │  [DB] PostgreSQL — Unidad[] con coordenadasMasterplan + geoJSON         │
+  │       ↓                          ↓                          ↓           │
+  │  [MasterplanViewer]        [MasterplanMap]           [Tour360]          │
+  │  SVG nativo                Leaflet + Google           Pannellum         │
+  │  paths desde DB            tiles sin API key          + Hotspots        │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  EVALUACIÓN DEL PIPELINE:
+
+  ✅ La separación parse / persistencia / consumo está conceptualmente bien.
+  ✅ Todos los módulos consumen de la BD — no hay re-parse del DXF original.
+  ✅ El SVG se genera una sola vez y se persiste en masterplanSVG.
+
+  ⚠ PROBLEMA 1 — El parse es 100% client-side.
+      parseBlueprintDXF() y parseBlueprintSVG() tienen guard:
+        `if (typeof window === "undefined") return [];`
+      Implicación: el DXF original no puede re-procesarse si hay un bug,
+      un cambio en la lógica de parsing, o si se quiere mejorar la detección.
+      El usuario debe volver a subir el archivo manualmente.
+
+  ⚠ PROBLEMA 2 — El DXF original no se persiste.
+      Solo el SVG generado se guarda. No hay forma de re-parsear desde el
+      servidor ni de auditar qué archivo se subió originalmente.
+
+  ⚠ PROBLEMA 3 — svgToGeoJSON() produce solo centroides (Point), no polígonos.
+      La función exporta GeoJSON con geometría `"type": "Point"` para el
+      centro de cada lote. Los vértices del polígono no se georreferencian.
+      Resultado: la MAP no puede renderizar los polígonos de lotes como
+      formas reales en el terreno — solo como marcadores de centroide.
+
+================================================================================
+PARTE 2 — PRINCIPIO DE PARSE ÚNICO
+================================================================================
+
+  El principio correcto: parsear una sola vez y que todos los módulos
+  consuman la misma estructura persistida.
+
+  ESTADO ACTUAL:
+
+  ✅ BlueprintEngine parsea el DXF UNA VEZ y lo envía al servidor.
+  ✅ MasterplanViewer lee desde BD (getProjectBlueprintData).
+  ✅ MasterplanMap lee desde BD (mismo endpoint).
+  ✅ BlueprintEngine restaura estado desde BD al montar (GET /blueprint).
+  ✅ No hay re-parse del DXF en los módulos de visualización.
+
+  SIN EMBARGO, hay un caso donde se viola el principio:
+
+  ⚠ VIOLACIÓN PARCIAL — Re-proyección en render time.
+      MasterplanMap recibe `coordenadasMasterplan.path` (SVG path string)
+      y re-proyecta las coordenadas SVG a lat/lng EN CADA RENDER usando
+      `overlayBounds`. Esta proyección debería hacerse una sola vez al
+      sincronizar y guardarse como GeoJSON Polygon en la BD.
+
+      Hoy el flujo es:
+        DB (SVG path) → cliente → proyectar usando overlayBounds → Leaflet
+
+      El flujo correcto sería:
+        DB (GeoJSON Polygon) → cliente → Leaflet directamente
+
+  ✅ POSITIVO — No hay duplicación del parser DXF.
+      Solo lib/blueprint-utils.ts contiene la lógica de parseo.
+      Todos los módulos usan esta misma fuente.
+
+  VEREDICTO: Se respeta el principio en la capa de parsing.
+  No se respeta en la capa de proyección geográfica.
+
+================================================================================
+PARTE 3 — ESCALABILIDAD
+================================================================================
+
+  Escenarios analizados: 100 lotes (actual), 500, 1000, 3000.
+
+  ─── 3.1 RENDER DEL PLANO (MasterplanViewer) ────────────────────────────────
+
+  Tecnología: SVG + React components.
+  Cada lote es un <path> + <text> + hover handler.
+  UnitPolygon está envuelto en React.memo() — bien.
+
+  100 lotes:   ✅ Sin problemas.
+  500 lotes:   ⚠ Lento. 500 SVG paths + hover interactions + filter = posible
+                  jank de 30-60ms en cada interacción. Aceptable pero notable.
+  1000 lotes:  ❌ SVG DOM con 1000+ elements + React reconciliation =
+                  lag perceptible. Cada cambio de `estado` via Pusher dispara
+                  re-render del componente afectado — bien. Pero el filtro
+                  `useFilteredUnits()` itera todos en el Zustand store.
+  3000 lotes:  ❌ SVG no es la tecnología correcta a esta escala.
+                  Necesita Canvas rendering (OffscreenCanvas + WebGL).
+
+  SOLUCIÓN para >500 lotes: migrar MasterplanViewer a Canvas (Konva.js o
+  fabric.js) para el rendering, manteniendo la lógica de datos en Zustand.
+
+  ─── 3.2 RENDER DEL MAPA (MasterplanMap) ────────────────────────────────────
+
+  Tecnología: Leaflet.js, polígonos como capas SVG internas.
+  Cada lote se agrega como `L.polygon().addTo(map)` en un loop.
+
+  100 lotes:   ✅ OK.
+  500 lotes:   ⚠ Leaflet SVG layers — posible lentitud al zoom in/out.
+  1000 lotes:  ❌ Leaflet SVG rendering degrada notablemente.
+                  Alternativa: usar Leaflet Canvas renderer o migrar a MapboxGL.
+  3000 lotes:  ❌ Leaflet SVG no escala. Requiere WebGL (MapboxGL, deck.gl).
+
+  SOLUCIÓN: Para >500 lotes, activar Leaflet Canvas renderer:
+    `L.canvas()` en lugar del renderer SVG por defecto.
+  Para >1000 lotes: migrar a MapboxGL JS con GeoJSON Layer Source.
+
+  ─── 3.3 RENDER DEL LISTADO (BlueprintEngine) ───────────────────────────────
+
+  Tecnología: tabla HTML en DOM con inputs controlados por React.
+  Cada fila tiene número, superficie, precio, estado, etapa, manzana.
+
+  100 lotes:   ✅ OK.
+  500 lotes:   ⚠ 500 inputs en DOM = render lento y memoria alta.
+  1000 lotes:  ❌ Inutilizable sin virtualización.
+  3000 lotes:  ❌ Crash del browser probable.
+
+  SOLUCIÓN: Virtualización con @tanstack/react-virtual o react-window.
+  Solo renderizar las ~20 filas visibles en el viewport.
+  Recomendado a partir de 200 lotes.
+
+  ─── 3.4 SINCRONIZACIÓN (sync/route.ts) ─────────────────────────────────────
+
+  El endpoint actual hace:
+    for (const lot of lots) {
+      await prisma.unidad.upsert(...)   ← N+1 queries
+    }
+
+  Cada `upsert` es una round-trip a la BD.
+
+  100 lotes:   ✅ ~2-5 segundos. Aceptable.
+  500 lotes:   ⚠ ~10-25 segundos. Usuario ve spinner largo.
+  1000 lotes:  ❌ ~20-50 segundos. Timeout probable (Vercel: 60s, 10s en Edge).
+  3000 lotes:  ❌ Timeout garantizado.
+
+  SOLUCIÓN:
+    1. Reemplazar el loop de upserts con prisma.$transaction([...])
+       pasando el array de operaciones — reduce N round-trips a 1 transacción.
+    2. Usar createMany() para inserciones nuevas, updateMany() para updates.
+    3. Para lotes muy grandes: dividir en chunks de 100 y hacer requests
+       paginados desde el cliente.
+
+  ─── 3.5 CONSULTAS A BASE DE DATOS ─────────────────────────────────────────
+
+  getProjectBlueprintData() hace:
+    prisma.unidad.findMany({ where: { manzana: { etapa: { proyectoId } } } })
+    sin paginación, sin límite.
+
+  La consulta trae el campo coordenadasMasterplan (JSON string largo).
+
+  100 lotes:   ✅ OK.
+  500 lotes:   ⚠ ~500 filas × ~2KB JSON = ~1MB de datos en una query.
+  1000 lotes:  ⚠ ~2MB. Lento en conexiones lentas.
+  3000 lotes:  ❌ ~6MB en una sola respuesta. Inaceptable.
+
+  SOLUCIÓN:
+    1. Separar los datos geométricos de los datos comerciales en dos queries:
+       - Query liviana: id, numero, estado, precio → para el listado
+       - Query geométrica: id, coordenadasMasterplan → para el viewer
+    2. Paginación en el listado (20 por página).
+    3. Mover el SVG del plano (masterplanSVG) fuera del modelo Proyecto
+       a un archivo en S3/blob — hoy puede ser 500KB-2MB por proyecto.
+
+  ─── TABLA RESUMEN ──────────────────────────────────────────────────────────
+
+  Componente       │ 100   │ 500   │ 1000  │ 3000
+  ─────────────────┼───────┼───────┼───────┼──────
+  MasterplanViewer │  ✅   │  ⚠   │  ❌   │  ❌
+  MasterplanMap    │  ✅   │  ⚠   │  ❌   │  ❌
+  BlueprintTable   │  ✅   │  ⚠   │  ❌   │  ❌
+  Sync endpoint    │  ✅   │  ⚠   │  ❌   │  ❌
+  DB query         │  ✅   │  ✅   │  ⚠   │  ❌
+
+================================================================================
+PARTE 4 — ESTRUCTURA DE DATOS DEL LOTE
+================================================================================
+
+  ESTRUCTURA ACTUAL (modelo Unidad en schema.prisma):
+
+    id                    String   @id @default(cuid())
+    manzanaId             String
+    numero                String               ← texto DXF ("140", "2A")
+    tipo                  String               ← "LOTE"
+    superficie            Float?               ← m² (sin escala calibrada)
+    frente                Float?
+    fondo                 Float?
+    esEsquina             Boolean
+    orientacion           String?
+    precio                Float?               ← ⚠ Float es incorrecto para moneda
+    moneda                String
+    geoJSON               String?              ← Point GeoJSON (solo centroide)
+    centerLat             Float?
+    centerLng             Float?
+    estado                String               ← DISPONIBLE/RESERVADA/VENDIDA/...
+    coordenadasMasterplan String?              ← JSON: {path, center, internalId, lotLabel}
+    tour360Url            String?
+    responsableId         String?
+
+  PROBLEMAS DETECTADOS:
+
+  1. `internalId` está enterrado en coordenadasMasterplan (JSON string).
+     No se puede filtrar/ordenar por internalId a nivel de BD.
+     Se requiere traer todos los registros y parsear en JS.
+
+  2. `lotLabel` (texto original del DXF) también está en el JSON.
+     Mismo problema — no indexable, no filtrable a nivel de BD.
+
+  3. `precio Float?` — los tipos float tienen errores de precisión.
+     $123,456.789 puede guardarse como $123,456.78900000001.
+     El modelo ya usa Decimal en otros lugares (Pago.monto, Inversion.montoTotal).
+     Esta inconsistencia es un bug potencial en reportes financieros.
+
+  4. `geoJSON String?` almacena solo el centroide (Point), no el polígono.
+     No existe campo para GeoJSON Polygon — imposible usar los datos
+     directamente en Leaflet, MapboxGL o análisis GIS.
+
+  5. `superfície` se calcula en "unidades de dibujo" del DXF, no en m².
+     Solo es correcta en m² si el DXF está en escala 1:1 (1 unidad = 1 metro).
+     La mayoría de los DXF de loteos no están en esa escala.
+     No existe coeficiente de escala en la BD para corregir esto.
+
+  ESTRUCTURA IDEAL (propuesta):
+
+    id                    String   @id @default(cuid())
+    manzanaId             String
+
+    // Identidad visual
+    internalId            Int?                 ← ✓ columna directa, indexable
+    lotLabel              String?              ← ✓ texto DXF, indexable
+    numero                String               ← número visible al comprador
+
+    // Dimensiones
+    tipo                  String   @default("LOTE")
+    superficie            Float?               ← m² (debe ser calibrado)
+    frente                Float?
+    fondo                 Float?
+    esEsquina             Boolean  @default(false)
+    orientacion           String?
+
+    // Comercial
+    precio                Decimal? @db.Decimal(18,2)   ← ✓ Decimal no Float
+    moneda                String   @default("USD")
+    estado                String   @default("DISPONIBLE")
+
+    // Geometría SVG (sistema del plano)
+    svgPath               String?              ← path SVG en unidades del DXF
+    svgCenterX            Float?               ← centroide X en unidades del DXF
+    svgCenterY            Float?               ← centroide Y en unidades del DXF
+
+    // Geometría geográfica (lat/lng) — se llena al calibrar en mapa
+    geoPolygon            String?              ← GeoJSON Polygon (vértices reales)
+    centerLat             Float?
+    centerLng             Float?
+
+    // Media y relaciones
+    imagenes              String?
+    tour360Url            String?
+    responsableId         String?
+
+  NOTA: Este cambio requeriría migración de BD. El campo coordenadasMasterplan
+  quedaría deprecado y sus datos migrados a svgPath, svgCenterX, svgCenterY,
+  internalId y lotLabel.
+
+================================================================================
+PARTE 5 — GEOMETRÍA
+================================================================================
+
+  SISTEMA USADO HOY:
+
+  ┌─────────────────────┬──────────────────────────────────────────────────┐
+  │ Campo               │ Formato                                          │
+  ├─────────────────────┼──────────────────────────────────────────────────┤
+  │ coordenadasMaster.. │ JSON: { path: "M x y L x y Z", center: {x,y},   │
+  │                     │        internalId: N, lotLabel: "140" }           │
+  │                     │ Coordenadas: SVG drawing units (Y-axis flipped)   │
+  ├─────────────────────┼──────────────────────────────────────────────────┤
+  │ geoJSON             │ GeoJSON Point Feature como string                 │
+  │                     │ { type:"Feature", geometry:{ type:"Point",        │
+  │                     │   coordinates:[lng, lat] } }                      │
+  │                     │ Solo el centroide. NO el polígono.                │
+  ├─────────────────────┼──────────────────────────────────────────────────┤
+  │ centerLat/Lng       │ Float escalares del centroide                     │
+  └─────────────────────┴──────────────────────────────────────────────────┘
+
+  SISTEMAS DE COORDENADAS EN JUEGO:
+
+  Sistema       │ Origen    │ Eje Y    │ Orden de par  │ Dónde se usa
+  ──────────────┼───────────┼──────────┼───────────────┼────────────────
+  DXF           │ variable  │ hacia ↑  │ x, y          │ archivo fuente
+  SVG           │ top-left  │ hacia ↓  │ x, y          │ pathData en BD
+  Leaflet       │ WGS84     │ hacia ↑  │ [lat, lng]    │ MasterplanMap
+  GeoJSON       │ WGS84     │ hacia ↑  │ [lng, lat]    │ geoJSON en BD
+  Pannellum 360 │ camera    │ pitch    │ pitch, yaw    │ Tour hotspots
+
+  La función flipY() en blueprint-utils.ts transforma DXF→SVG.
+  svgToGeoJSON() transforma SVG→GeoJSON (solo centroides).
+  MasterplanMap re-proyecta SVG→Leaflet en tiempo de render.
+
+  PARA RENDER EN CANVAS:
+  ✅ SVG path data en coordenadasMasterplan.path es usable directamente
+     en Canvas 2D con Path2D(pathData). Compatible.
+
+  PARA RENDER EN LEAFLET:
+  ⚠ Leaflet espera [[lat,lng], [lat,lng], ...] para L.polygon().
+     Hoy se re-proyectan los vértices del SVG path a lat/lng en cada render
+     usando overlayBounds. No hay GeoJSON Polygon guardado en BD.
+     Consecuencia: si overlayBounds cambia, todos los polígonos del mapa
+     se desalinean sin re-sincronizar.
+
+  PARA RENDER EN MAPA (CORRECTO):
+  El sistema debería guardar GeoJSON Polygon con coordenadas reales.
+  Esto se calcularía UNA VEZ al sincronizar (cuando el usuario calibra
+  el overlay en el mapa) y no necesitaría re-proyección en cada render.
+
+================================================================================
+PARTE 6 — MAPA INTERACTIVO
+================================================================================
+
+  IMPLEMENTACIÓN ACTUAL:
+    Librería: Leaflet 1.9.x (importado dinámicamente, ssr:false)
+    Tiles: Google satellite/hybrid/streets via URLs no oficiales
+      https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}
+    Sin API key.
+
+  ─── ¿ES LEAFLET LA OPCIÓN CORRECTA? ────────────────────────────────────────
+
+  Para el caso de uso actual (dev tool, loteos urbanos, <500 lotes):
+  ✅ Leaflet es adecuado.
+  ✅ Madurez y documentación excelentes.
+  ✅ Bajo peso inicial (~40KB gzip).
+  ✅ ImageOverlay + corner dragging funciona bien para calibración del plano.
+  ✅ L.polygon() + L.DivIcon cubre los requisitos del masterplan básico.
+
+  LIMITACIONES de Leaflet para escenarios futuros:
+  ❌ Sin soporte nativo para GeoJSON Polygon optimizado a escala (>500 formas).
+  ❌ Renderer SVG (default) se degrada con muchos polígonos.
+  ❌ No soporta extrusiones 3D ni visualizaciones de calor.
+  ❌ Sin clustering nativo de lotes (solo de marcadores).
+
+  ─── ¿GOOGLE MAPS SERÍA MEJOR? ──────────────────────────────────────────────
+
+  Para producción pública (compradores viendo el mapa):
+  ✅ Tiles oficiales con mejor calidad satellite.
+  ✅ Geocoding nativo (buscar dirección).
+  ✅ GroundOverlay para superponer el plano SVG con posición exacta.
+  ✅ Street View integrado.
+  ⚠ Requiere API key + billing habilitado en GCP.
+  ⚠ Costo: ~$7 / 1000 cargas de mapa (free tier: $200/mes).
+  ❌ Bundle más pesado (~200KB gzip).
+  ❌ Cambio de API — overlay editor necesita reimplementarse.
+
+  ─── ¿CONVIENE USAR AMBOS? ───────────────────────────────────────────────────
+
+  Estrategia recomendada:
+  - Admin/configuración (overlay editor, calibración): Leaflet (actual)
+  - Vista pública del proyecto (compradores): Google Maps JS API
+  - Migración no es urgente — Leaflet con tiles de Google funciona hoy
+
+  ─── VIABILIDAD DE SUPERPOSICIÓN DEL PLANO ─────────────────────────────────
+
+  Sistema actual:
+  - overlayUrl: URL del SVG del plano (imagen para el ImageOverlay)
+  - overlayBounds: [[sw_lat, sw_lng], [ne_lat, ne_lng]] — bounding box del plano
+  - overlayRotation: ángulo de rotación del overlay
+  - OverlayEditor: drag de esquinas para ajustar bounds
+
+  ✅ La arquitectura para calibrar el plano está bien diseñada.
+  ⚠ Leaflet ImageOverlay tiene limitación: no permite rotación arbitraria del
+     overlay. La rotación se simula con CSS transform, que desalinea el evento
+     de click respecto a la geometría visual.
+  ⚠ Una vez calibrado el overlay (bounds conocidos), los polígonos de lotes
+     deberían proyectarse al sistema geográfico UNA SOLA VEZ y persistirse.
+     Hoy se re-proyectan en cada render.
+
+================================================================================
+PARTE 7 — TOUR 360
+================================================================================
+
+  IMPLEMENTACIÓN ACTUAL:
+
+  Modelos:
+    Tour360 → TourScene[] → Hotspot[]
+    Hotspot { pitch, yaw, unidadId, type, text, targetSceneId }
+
+  Librería: Pannellum.js (CDN dinámico)
+  Upscaler: TensorFlow.js (cliente, experimental)
+  Overlay en 360: CSS 3D perspective transform sobre el viewer
+
+  ─── ¿TIENE POSICIÓN GEOGRÁFICA CADA ESCENA? ────────────────────────────────
+
+  ❌ TourScene NO tiene lat, lng ni heading.
+     No hay forma de saber dónde en el terreno fue tomada la foto panorámica.
+
+  ❌ Hotspot tiene pitch/yaw (coordenadas 360°) pero NO lat/lng.
+     No se puede renderizar la posición del hotspot sobre el mapa.
+
+  ❌ El vínculo entre mapa y tour es unidireccional:
+     - Tour → lote: Hotspot.unidadId vincula el hotspot con una Unidad ✅
+     - Mapa → tour: Para que al hacer click en un lote del mapa se abra el
+       tour en la escena correspondiente, se necesita que TourScene tenga
+       referencia a Unidad O que Unidad.tour360Url exista. El campo
+       tour360Url existe en Unidad ✅, pero es solo una URL string, no una
+       referencia a TourScene.
+
+  ─── ESTRUCTURA NECESARIA PARA INTEGRACIÓN COMPLETA ─────────────────────────
+
+  Para conectar Tour 360 con el mapa geográfico, TourScene necesita:
+
+    lat       Float?    ← posición GPS donde fue tomada la foto
+    lng       Float?
+    heading   Float?    ← dirección de la cámara en grados (norte = 0)
+    pitch     Float?    ← ángulo de elevación de la cámara (-90 a +90)
+
+  Esto permitiría:
+  1. Renderizar un marcador de "cámara" en el mapa para cada escena del tour.
+  2. Al hacer click en un lote del mapa → abrir el tour en la escena
+     más cercana geográficamente a ese lote.
+  3. Mostrar una flecha de dirección en el marcador del mapa.
+
+  ─── VÍNCULO ACTUAL DISPONIBLE ──────────────────────────────────────────────
+
+  Lo que SÍ funciona hoy:
+  ✅ Hotspot.unidadId → Unidad → estado/precio en tiempo real.
+  ✅ Tour360.unidadId → Tour específico para una unidad (opcional).
+  ✅ Unidad.tour360Url → link directo a un tour o escena externa.
+
+  Lo que FALTA para integración bidireccional mapa↔tour:
+  ❌ TourScene sin coordenadas geográficas.
+  ❌ Hotspot.unidadId es obligatorio — no puede existir un hotspot
+     de información general sin vincularlo a una unidad.
+     (Ej: hotspot "Entrada principal" no tiene lote asociado.)
+
+================================================================================
+PARTE 8 — RIESGOS DE ARQUITECTURA
+================================================================================
+
+  RIESGO 1 — CRÍTICO: N+1 queries en sincronización
+  ─────────────────────────────────────────────────
+  Archivo: app/api/proyectos/[id]/blueprint/sync/route.ts
+  El sync hace un `prisma.unidad.upsert()` dentro de un bucle for.
+  Cada upsert es una round-trip a la BD.
+  Para 500 lotes: 500 queries. Timeout probable en producción (Vercel 60s).
+  Impacto: ALTO. Ocurre en la operación central del wizard.
+  Fix: prisma.$transaction([...upserts]) o createMany/updateMany en batch.
+
+  RIESGO 2 — ALTO: Parse DXF solo client-side, sin persistencia del original
+  ──────────────────────────────────────────────────────────────────────────
+  El DXF original no se guarda en ningún lado.
+  Si hay un bug en el parser o mejoras futuras, el usuario debe re-subir el
+  archivo desde su computadora.
+  No hay auditoría de qué archivo fue subido.
+  Fix: guardar el DXF original en S3/blob al subir, con referencia en Proyecto.
+
+  RIESGO 3 — ALTO: masterplanSVG en columna SQL (puede ser 1-2MB)
+  ────────────────────────────────────────────────────────────────
+  Proyecto.masterplanSVG almacena el SVG completo del plano como string.
+  Cada query al proyecto carga este campo aunque no se use.
+  Un proyecto con DXF complejo puede tener 500KB-2MB de SVG.
+  Con 100 proyectos: la tabla proyectos podría pesar ~200MB solo en SVGs.
+  Fix: mover masterplanSVG a storage externo (S3), guardar solo la URL.
+
+  RIESGO 4 — ALTO: No hay GeoJSON Polygon persistido
+  ───────────────────────────────────────────────────
+  El mapa re-proyecta SVG → lat/lng en cada render usando overlayBounds.
+  Si overlayBounds cambia (el usuario re-calibra el plano), todos los
+  polígonos se desalinean con los datos guardados.
+  No hay consistencia entre lo visual en el mapa y lo guardado en BD.
+  Fix: al guardar/cambiar overlayBounds, re-proyectar TODOS los lotes
+  y persistir GeoJSON Polygon en un campo dedicado (geoPolygon).
+
+  RIESGO 5 — MEDIO: precio Float en lugar de Decimal
+  ───────────────────────────────────────────────────
+  Unidad.precio es `Float?`. Todos los demás modelos de dinero usan Decimal.
+  Los floats tienen errores de precisión en valores monetarios.
+  En reportes: la suma de 500 precios Float puede diferir del total real.
+  Fix: cambiar a `Decimal? @db.Decimal(18,2)`. Requiere migración.
+
+  RIESGO 6 — MEDIO: internalId y lotLabel no son columnas de BD
+  ──────────────────────────────────────────────────────────────
+  Ambos están dentro del string JSON de coordenadasMasterplan.
+  No se pueden filtrar, ordenar ni indexar a nivel de BD.
+  Para 3000 lotes: traer todo y parsear en JS es insostenible.
+  Fix: promover a columnas directas (ver estructura ideal en Parte 4).
+
+  RIESGO 7 — MEDIO: Hotspot.unidadId es obligatorio
+  ──────────────────────────────────────────────────
+  Cada hotspot del Tour 360 DEBE vincularse a una Unidad.
+  No es posible crear hotspots informativos genéricos (Ej: "Área de juegos",
+  "Acceso vehicular") sin inventar una unidad ficticia.
+  Fix: hacer unidadId opcional (`unidadId String?`).
+
+  RIESGO 8 — BAJO: TourScene sin coordenadas geográficas
+  ────────────────────────────────────────────────────────
+  Impide la integración bidireccional mapa↔tour.
+  No es un riesgo crítico hoy pero bloquea la feature de "vista del comprador".
+  Fix: agregar lat, lng, heading a TourScene (migración no breaking).
+
+  RIESGO 9 — BAJO: superfície en unidades de dibujo, no m²
+  ─────────────────────────────────────────────────────────
+  El parser calcula área con Shoelace formula en unidades DXF.
+  Si el DXF está en escala 1:1000 (1 unidad = 1mm), las superficies
+  calculadas serán 10⁶ veces más chicas que los m² reales.
+  No hay campo de escala ni coeficiente de calibración en el modelo.
+  Fix: agregar `dxfScale Float?` al modelo Proyecto y aplicarlo en el cálculo.
+
+  RIESGO 10 — BAJO: Leaflet tiles de Google sin API key
+  ─────────────────────────────────────────────────────
+  Funciona hoy. Viola Terms of Service de Google.
+  Sin SLA, sin rate limits oficiales — pueden romper las URLs sin aviso.
+  No crítico para desarrollo. Sí para producción con clientes reales.
+  Fix: usar Google Maps JS API oficial con API key o migrar a Mapbox.
+
+================================================================================
+PARTE 9 — PLAN DE MEJORAS PRIORIZADO
+================================================================================
+
+  PRIORIDAD CRÍTICA (bloquean proyectos grandes o producción real)
+
+  1. Sync en batch con transacción
+     Archivo: app/api/proyectos/[id]/blueprint/sync/route.ts
+     Cambio: prisma.$transaction([...upserts]) — 1 transacción en lugar de N
+     Impacto: permite sincronizar 500+ lotes sin timeout
+
+  2. Virtualización de la tabla en BlueprintEngine
+     Archivo: components/masterplan/blueprint-engine.tsx
+     Librería: @tanstack/react-virtual
+     Impacto: tabla funcional con 1000+ lotes
+
+  PRIORIDAD ALTA (mejoran consistencia de datos)
+
+  3. Persistir GeoJSON Polygon al calibrar overlay
+     Cuando overlayBounds se guarda, proyectar todos los lotes y guardar
+     GeoJSON Polygon en un campo dedicado.
+     Impacto: mapa lee polígonos directamente sin re-proyección
+
+  4. Agregar lat/lng/heading a TourScene
+     Migración: `ALTER TABLE tour_scenes ADD lat FLOAT, ADD lng FLOAT, ADD heading FLOAT`
+     Impacto: habilita integración bidireccional mapa↔tour
+
+  5. Promover internalId y lotLabel a columnas directas en Unidad
+     Migración: parse del JSON coordenadasMasterplan en script de migración
+     Impacto: filtros y ordenamiento a nivel de BD
+
+  PRIORIDAD MEDIA (calidad y mantenibilidad)
+
+  6. Mover masterplanSVG a storage externo
+     Guardar el SVG en S3/Vercel Blob, almacenar solo la URL en BD
+     Impacto: tabla proyectos más liviana, queries más rápidas
+
+  7. Guardar DXF original al subir
+     POST /blueprint: subir el DXF a S3, guardar URL en Proyecto.blueprintDxfUrl
+     Impacto: permite re-parsear sin re-upload
+
+  8. Cambiar precio de Float a Decimal en Unidad
+     Migración: `ALTER TABLE unidades ALTER COLUMN precio TYPE DECIMAL(18,2)`
+     Impacto: precisión financiera correcta
+
+  PRIORIDAD BAJA (escalabilidad futura)
+
+  9. Canvas rendering para MasterplanViewer (>500 lotes)
+     Migrar de SVG a Konva.js/fabric.js para renderizado en canvas
+     Solo necesario cuando proyectos reales superen 500 lotes
+
+  10. Leaflet Canvas renderer activado por defecto
+      L.canvas() en masterplan-map.tsx para mejorar performance a 500+ lotes
+      Cambio de 2 líneas de código, sin breaking changes
+
+  11. Hacer Hotspot.unidadId opcional
+      Migración: `ALTER TABLE tour_hotspots ALTER COLUMN unidad_id DROP NOT NULL`
+      Impacto: hotspots genéricos sin lote asociado
+
+  12. Campo dxfScale en Proyecto para calibrar superficies
+      Permite que el parser convierta unidades DXF a m² correctamente
+
+================================================================================
+ESTADO GENERAL DEL SISTEMA
+================================================================================
+
+  Fortalezas:
+  ✅ Pipeline claro: parse → persistencia → consumo (bien separado)
+  ✅ Un solo lugar de parseo (blueprint-utils.ts)
+  ✅ Zustand store correcto para estado cliente del masterplan
+  ✅ Real-time con Pusher para cambios de estado de lotes
+  ✅ ResizableContainer + fullscreen para viewers
+  ✅ Carga del blueprint desde BD al montar (persistencia entre tabs)
+  ✅ internalId para orden visual, lotLabel para trazabilidad al DXF
+  ✅ Modelo Tour360 bien estructurado con escenas y hotspots
+
+  Debilidades:
+  ❌ N+1 queries en sync — bloqueante para proyectos grandes
+  ❌ No hay GeoJSON Polygon persistido — polígonos se re-proyectan en render
+  ❌ TourScene sin coordenadas geográficas — sin integración bidireccional
+  ❌ precio en Float — inconsistencia financiera
+  ❌ masterplanSVG en tabla SQL — puede pesar MB por fila
+  ❌ internalId/lotLabel no indexables en BD
+
+  Calificación arquitectónica: 6.5/10
+  El sistema es correcto y funciona para proyectos de hasta ~100 lotes.
+  Con las correcciones priorizadas (especialmente batch sync + GeoJSON Polygon),
+  sería correcto para 500+ lotes y estaría listo para producción.
+
+================================================================================

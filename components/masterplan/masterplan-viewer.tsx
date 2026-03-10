@@ -102,7 +102,7 @@ const Tooltip = memo(function Tooltip({ data }: { data: TooltipData | null }) {
 
 // ─── Single Unit polygon ───
 const UnitPolygon = memo(function UnitPolygon({
-    unit, isFiltered, isSelected, isHovered, isComparing,
+    unit, isFiltered, isSelected, isHovered, isComparing, showLabels,
     onMouseEnter, onMouseLeave, onClick, onCompareToggle,
 }: {
     unit: MasterplanUnit;
@@ -110,6 +110,7 @@ const UnitPolygon = memo(function UnitPolygon({
     isSelected: boolean;
     isHovered: boolean;
     isComparing: boolean;
+    showLabels: boolean;
     onMouseEnter: (e: React.MouseEvent, unit: MasterplanUnit) => void;
     onMouseLeave: () => void;
     onClick: () => void;
@@ -137,10 +138,30 @@ const UnitPolygon = memo(function UnitPolygon({
 
     if (!path) return null;
 
+    // Per-polygon font size: ~25% of the polygon's shortest dimension
+    let fontSize = 6.5;
+    const pathNums = path.match(/-?[\d.]+(?:e[+-]?\d+)?/g);
+    if (pathNums && pathNums.length >= 4) {
+        let pMinX = Infinity, pMinY = Infinity, pMaxX = -Infinity, pMaxY = -Infinity;
+        for (let i = 0; i + 1 < pathNums.length; i += 2) {
+            const px = parseFloat(pathNums[i]), py = parseFloat(pathNums[i + 1]);
+            if (!isNaN(px) && !isNaN(py)) {
+                if (px < pMinX) pMinX = px;
+                if (px > pMaxX) pMaxX = px;
+                if (py < pMinY) pMinY = py;
+                if (py > pMaxY) pMaxY = py;
+            }
+        }
+        if (pMinX !== Infinity) {
+            fontSize = Math.max(Math.min(pMaxX - pMinX, pMaxY - pMinY) * 0.25, 1.5);
+        }
+    }
+
     const fillColor = STATUS_COLORS[unit.estado] || "#94a3b8";
     const opacity = isFiltered ? (isHovered ? 0.85 : 0.55) : 0.12;
     const strokeWidth = isSelected ? 2.5 : isComparing ? 2 : isHovered ? 1.5 : 0.5;
     const strokeColor = isSelected ? "#fff" : isComparing ? "#6366f1" : isHovered ? "#fff" : `${fillColor}80`;
+    const labelText = internalId != null ? String(internalId) : (unit.numero.split("-")[1] || unit.numero);
 
     return (
         <g
@@ -158,24 +179,23 @@ const UnitPolygon = memo(function UnitPolygon({
                 strokeWidth={strokeWidth}
                 style={{ transition: "fill-opacity 0.2s, stroke 0.2s, stroke-width 0.15s, fill 0.3s" }}
             />
-            {isFiltered && cx !== undefined && cy !== undefined && (
+            {isFiltered && showLabels && cx !== undefined && cy !== undefined && (
                 <text
                     x={cx}
-                    y={cy + 3}
+                    y={cy}
                     textAnchor="middle"
-                    fontSize="6.5"
+                    dominantBaseline="middle"
+                    fontSize={fontSize}
                     fontWeight={isSelected || isHovered ? 700 : 500}
                     fill={isHovered || isSelected ? "#fff" : fillColor}
                     className="pointer-events-none select-none"
                     style={{ transition: "fill 0.2s" }}
                 >
-                    {internalId != null
-                        ? String(internalId)
-                        : (unit.numero.split("-")[1] || unit.numero)}
+                    {labelText}
                 </text>
             )}
             {isComparing && cx !== undefined && cy !== undefined && (
-                <circle cx={cx + 14} cy={cy - 12} r={5} fill="#6366f1" stroke="#fff" strokeWidth={1} />
+                <circle cx={cx + fontSize * 2} cy={cy - fontSize * 1.8} r={fontSize * 0.75} fill="#6366f1" stroke="#fff" strokeWidth={fontSize * 0.15} />
             )}
         </g>
     );
@@ -196,7 +216,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
         showComparator, setShowComparator,
         showFilters, setShowFilters,
         layers, toggleLayer,
-        setZoom,
+        zoom, setZoom,
     } = useMasterplanStore();
 
     const units = useMasterplanStore(selectUnits);
@@ -287,6 +307,13 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
         const pad = Math.max(w, h) * 0.06;
         return `${minX - pad} ${minY - pad} ${w + pad * 2} ${h + pad * 2}`;
     }, [units]);
+
+    // Parse viewBox for use in grid rect
+    const vbParts = svgViewBox.split(" ").map(parseFloat);
+    const [vbX, vbY, vbW, vbH] = vbParts;
+
+    // Show labels only when reasonably zoomed in — avoids illegible label soup at overview
+    const showLabels = zoom >= 0.75;
 
     const handleExportExcel = async () => {
         const { utils, writeFile } = await import("xlsx");
@@ -399,7 +426,8 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                                 <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-slate-700" />
                             </pattern>
                         </defs>
-                        <rect width="1000" height="800" fill="url(#mp-grid)" />
+                        {/* Grid covers the full computed viewBox — not a fixed 1000×800 */}
+                        <rect x={vbX} y={vbY} width={vbW} height={vbH} fill="url(#mp-grid)" />
 
                         {units.map((unit) => (
                             <UnitPolygon
@@ -409,6 +437,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                                 isSelected={selectedUnitId === unit.id}
                                 isHovered={hoveredUnitId === unit.id}
                                 isComparing={comparisonIds.includes(unit.id)}
+                                showLabels={showLabels}
                                 onMouseEnter={handleUnitHover}
                                 onMouseLeave={handleUnitLeave}
                                 onClick={() => setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id)}
