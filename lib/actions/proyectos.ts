@@ -4,9 +4,10 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
+import { requireRole, requireAnyRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema, slugSchema } from "@/lib/validations";
+import { createNotification } from "./notifications";
 
 // ─── Scemas ───
 
@@ -31,6 +32,16 @@ const proyectoCreateSchema = z.object({
 });
 
 const proyectoUpdateSchema = proyectoCreateSchema.partial();
+
+const uploadDocumentoSchema = z.object({
+    proyectoId: idSchema,
+    nombre: z.string().min(1, "Nombre requerido").max(100),
+    tipo: z.string().min(1, "Tipo de documento requerido"),
+    categoria: z.string().default("GENERAL"),
+    url: z.string().url("URL de documento inválida"),
+    descripcion: z.string().max(500).optional(),
+    visiblePublicamente: z.boolean().default(false),
+});
 
 export async function getProyectos(params: {
     page?: number;
@@ -395,86 +406,6 @@ export async function updateDocumentacionStatus(id: string, documentacionEstado:
     }
 }
 
-// --- ACCIONES DE ARCHIVOS TÉCNICOS ---
-
-export async function getProyectoArchivos(proyectoId: string) {
-    try {
-        const archivos = await prisma.proyectoArchivo.findMany({
-            where: { proyectoId },
-            orderBy: { createdAt: "desc" }
-        });
-        return { success: true, data: archivos };
-    } catch (error) {
-        console.error("Error fetching project files:", error);
-        return { success: true, data: [] };
-    }
-}
-
-export async function addProyectoArchivo(data: {
-    proyectoId: string;
-    tipo: string;
-    nombre: string;
-    url: string;
-    visiblePublicamente: boolean;
-}) {
-    try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
-
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: data.proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
-
-        await prisma.proyectoArchivo.create({
-            data: {
-                proyectoId: data.proyectoId,
-                tipo: data.tipo,
-                nombre: data.nombre,
-                url: data.url,
-                visiblePublicamente: data.visiblePublicamente
-            }
-        });
-
-        revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
-        return { success: true };
-    } catch (error) {
-        console.error("Error adding project file:", error);
-        return { success: false, error: "Error al subir archivo técnico" };
-    }
-}
-
-export async function deleteProyectoArchivo(id: string, proyectoId: string) {
-    try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
-
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
-
-        await prisma.proyectoArchivo.delete({ where: { id } });
-
-        revalidatePath(`/dashboard/proyectos/${proyectoId}`);
-        return { success: true };
-    } catch (error) {
-        console.error("Error deleting project file:", error);
-        return { success: false, error: "Error al eliminar archivo" };
-    }
-}
 
 // --- ACCIONES DE GALERÍA PROFESIONAL ---
 
@@ -642,5 +573,144 @@ export async function setMainProyectoImagen(id: string, proyectoId: string) {
     } catch (error) {
         console.error("Error setting main image:", error);
         return { success: false, error: "Error al establecer imagen principal" };
+    }
+}
+
+// --- ACCIONES UNIFICADAS DE DOCUMENTACIÓN ---
+
+export async function addDocumentoProyecto(input: unknown) {
+    try {
+        const parsed = uploadDocumentoSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
+
+        const user = await requireProjectOwnership(data.proyectoId);
+
+        const documento = await prisma.documentacion.create({
+            data: {
+                proyectoId: data.proyectoId,
+                usuarioId: user.id,
+                nombre: data.nombre,
+                tipo: data.tipo,
+                categoria: data.categoria,
+                archivoUrl: data.url,
+                descripcion: data.descripcion,
+                visiblePublicamente: data.visiblePublicamente,
+                estado: "PENDIENTE",
+            } as any // Cast to any to handle schema sync if needed
+        });
+
+        revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
+        return { success: true, data: documento };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function updateEstadoDocumentoProyecto(id: string, status: "APROBADO" | "RECHAZADO", notas?: string) {
+    try {
+        await requireRole("ADMIN");
+
+        const doc = await (prisma.documentacion as any).findUnique({
+            where: { id },
+            select: { proyectoId: true, nombre: true }
+        });
+
+        if (!doc) return { success: false, error: "Documento no encontrado" };
+
+        await prisma.documentacion.update({
+            where: { id },
+            data: { 
+                estado: status,
+                comentarios: notas
+            }
+        });
+
+        if (doc.proyectoId) {
+            revalidatePath(`/dashboard/proyectos/${doc.proyectoId}`);
+            
+            // Revalidate project doc status if it's a critical doc
+            // Logic to update proyecto.documentacionEstado could go here if needed
+        }
+
+        return { success: true };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+/** @deprecated Use getDocumentosProyecto instead */
+export async function getProyectoArchivos(proyectoId: string) {
+    try {
+        const docs = await (prisma.documentacion as any).findMany({
+            where: { proyectoId, categoria: "TECNICO" }
+        });
+        return docs.map((d: any) => ({
+            id: d.id,
+            nombre: d.nombre || d.tipo,
+            archivoUrl: d.archivoUrl,
+            fechaSubida: d.createdAt
+        }));
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+/** @deprecated Use addDocumentoProyecto instead */
+export async function addProyectoArchivo(data: { proyectoId: string, nombre: string, archivoUrl: string }) {
+    return addDocumentoProyecto({
+        proyectoId: data.proyectoId,
+        nombre: data.nombre,
+        tipo: "PLANO",
+        categoria: "TECNICO",
+        url: data.archivoUrl
+    });
+}
+
+/** @deprecated Use deleteDocumentoProyecto instead */
+export async function deleteProyectoArchivo(id: string, proyectoId: string) {
+    return deleteDocumentoProyecto(id, proyectoId);
+}
+
+export async function deleteDocumentoProyecto(id: string, proyectoId: string) {
+    try {
+        await requireProjectOwnership(proyectoId);
+
+        await prisma.documentacion.delete({
+            where: { id, proyectoId }
+        });
+
+        revalidatePath(`/dashboard/proyectos/${proyectoId}`);
+        return { success: true };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function reviewAllProjectDocs(projectId: string, status: "APROBADO" | "RECHAZADO", notas?: string) {
+    try {
+        await requireRole("ADMIN");
+        
+        const project = await prisma.proyecto.update({
+            where: { id: projectId },
+            data: { documentacionEstado: status }
+        });
+
+        if (project.creadoPorId) {
+            await createNotification(
+                project.creadoPorId,
+                status === "APROBADO" ? "EXITO" : "ALERTA",
+                "Carpeta Técnica " + (status === "APROBADO" ? "Aprobada" : "Rechazada"),
+                notas || `La documentación de tu proyecto "${project.nombre}" ha sido marcada como ${status}.`,
+                `/dashboard/proyectos/${projectId}`
+            );
+        }
+
+        revalidatePath(`/dashboard/proyectos/${projectId}`);
+        return { success: true };
+    } catch (error) {
+        return handleGuardError(error);
     }
 }

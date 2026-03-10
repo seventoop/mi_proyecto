@@ -194,7 +194,6 @@ model Proyecto {
   oportunidades        Oportunidad[]
   pagos                Pago[]
   featureFlags         ProjectFeatureFlags?
-  archivosTecnicos     ProyectoArchivo[]
   imagenes             ProyectoImagen[]
   creadoPor            User?                @relation("ProyectoCreador", fields: [creadoPorId], references: [id])
   organization         Organization?        @relation(fields: [orgId], references: [id])
@@ -211,19 +210,7 @@ model Proyecto {
   @@map("proyectos")
 }
 
-model ProyectoArchivo {
-  id                  String   @id @default(cuid())
-  proyectoId          String
-  tipo                String
-  nombre              String
-  url                 String
-  visiblePublicamente Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  proyecto            Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-
-  @@index([proyectoId])
-  @@map("proyecto_archivos")
-}
+// El modelo ProyectoArchivo ha sido unificado con Documentacion
 
 model ProyectoImagen {
   id          String   @id @default(cuid())
@@ -608,18 +595,24 @@ model Testimonio {
 }
 
 model Documentacion {
-  id          String    @id @default(cuid())
-  tipo        String
-  archivoUrl  String
-  estado      String    @default("PENDIENTE")
-  comentarios String?
-  usuarioId   String?
-  proyectoId  String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  proyecto    Proyecto? @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  usuario     User?     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(cuid())
+  nombre              String?   // Para compatibilidad con ProyectoArchivo
+  tipo                String    // Ej: MUNICIPAL_APPROVAL, PLANO, CONTRATO
+  categoria           String    @default("GENERAL") // Ej: LEGAL, TECNICO, COMERCIAL
+  archivoUrl          String
+  estado              String    @default("PENDIENTE")
+  visiblePublicamente Boolean   @default(false)
+  comentarios         String?
+  usuarioId           String?
+  proyectoId          String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  proyecto            Proyecto? @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  usuario             User?     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
+  @@index([proyectoId])
+  @@index([usuarioId])
+  @@index([categoria])
   @@map("documentacion")
 }
 
