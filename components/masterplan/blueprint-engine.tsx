@@ -79,10 +79,96 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     const [showTable, setShowTable] = useState(false);
     const [scaleMeters, setScaleMeters] = useState<string>("1");
 
+    const [loadedFromDB, setLoadedFromDB] = useState(false);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const activeRowRef = useRef<HTMLTableRowElement>(null);
     const units = useMasterplanStore((s) => s.units);
+
+    // ─── Normalize DB estado → LotEstado ────────────────────────────────────
+    const normalizeEstado = (estado: string): LotEstado => {
+        const map: Record<string, LotEstado> = {
+            DISPONIBLE: "DISPONIBLE",
+            RESERVADA: "RESERVADO",
+            RESERVADO: "RESERVADO",
+            VENDIDA: "VENDIDO",
+            VENDIDO: "VENDIDO",
+            BLOQUEADO: "BLOQUEADO",
+            SUSPENDIDO: "BLOQUEADO",
+            SUSPENDIDA: "BLOQUEADO",
+        };
+        return map[estado] ?? "DISPONIBLE";
+    };
+
+    // ─── Load existing blueprint from DB on mount ────────────────────────────
+    useEffect(() => {
+        const loadExistingBlueprint = async () => {
+            try {
+                const res = await fetch(`/api/proyectos/${proyectoId}/blueprint`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                if (!data.masterplanSVG || !data.unidades?.length) return;
+
+                // Restore SVG
+                setSvgContent(data.masterplanSVG);
+                setIsDXF(false);
+
+                // Reconstruct extractedPaths from units stored in DB
+                const paths: ExtractedPath[] = (data.unidades as any[])
+                    .filter((u) => u.coordenadasMasterplan)
+                    .map((u, idx) => {
+                        try {
+                            const coords = JSON.parse(u.coordenadasMasterplan);
+                            return {
+                                id: `db-${u.id}`,
+                                pathData: coords.path ?? "",
+                                center: coords.center ?? { x: 0, y: 0 },
+                                lotNumber: u.numero,
+                                internalId: coords.internalId ?? (idx + 1),
+                                areaSqm: u.superficie ?? undefined,
+                            } as ExtractedPath;
+                        } catch {
+                            return null;
+                        }
+                    })
+                    .filter(Boolean) as ExtractedPath[];
+
+                setExtractedPaths(paths);
+
+                // Reconstruct lotRecords
+                const records: LotRecord[] = (data.unidades as any[])
+                    .filter((u) => u.numero && u.coordenadasMasterplan)
+                    .map((u, idx) => {
+                        let coordsData: any = {};
+                        try { coordsData = JSON.parse(u.coordenadasMasterplan); } catch {}
+                        return {
+                            pathId: `db-${u.id}`,
+                            lotNumber: u.numero,
+                            areaSqm: u.superficie ?? 0,
+                            frente: u.frente != null ? String(u.frente) : "",
+                            fondo: u.fondo != null ? String(u.fondo) : "",
+                            estado: normalizeEstado(u.estado),
+                            precio: u.precio != null ? String(u.precio) : "",
+                            observaciones: "",
+                        } as LotRecord;
+                    });
+
+                setLotRecords(records);
+                setStats({
+                    pathsFound: paths.length,
+                    labeled: paths.filter((p) => p.lotNumber).length,
+                });
+                setLoadedFromDB(true);
+                if (records.length > 0) setShowTable(true);
+            } catch {
+                // Silent fail — user can always re-upload the DXF
+            }
+        };
+
+        loadExistingBlueprint();
+    }, [proyectoId]);
 
     // Scroll active row into view
     useEffect(() => {
@@ -191,7 +277,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     const handleClear = () => {
         setFile(null); setSvgContent(null); setStats(null); setExtractedPaths([]);
         setLotRecords([]); setIsDXF(false); setViewMode("analysis");
-        setActiveLotNumber(null); setShowTable(false);
+        setActiveLotNumber(null); setShowTable(false); setLoadedFromDB(false);
         setTooltip({ visible: false, lot: "", area: "", x: 0, y: 0 });
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
@@ -331,6 +417,14 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                         <div className="hidden sm:flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
                             <FileText className="w-3 h-3 text-slate-400 shrink-0" />
                             <span className="text-xs text-slate-600 dark:text-slate-300 max-w-[120px] truncate">{file.name}</span>
+                        </div>
+                    )}
+
+                    {/* DB-loaded badge */}
+                    {loadedFromDB && !file && (
+                        <div className="hidden sm:flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                            <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Plano guardado</span>
                         </div>
                     )}
 

@@ -140,22 +140,27 @@ export async function getProjectBlueprintData(proyectoId: string) {
                 id: true,
                 numero: true,
                 superficie: true,
+                frente: true,
+                fondo: true,
                 precio: true,
                 moneda: true,
                 estado: true,
                 esEsquina: true,
                 orientacion: true,
                 tipo: true,
+                tour360Url: true,
                 coordenadasMasterplan: true,
                 manzana: {
                     select: {
+                        id: true,
                         nombre: true,
                         etapa: {
-                            select: { nombre: true }
+                            select: { id: true, nombre: true }
                         }
                     }
                 }
-            }
+            },
+            orderBy: { createdAt: "asc" }
         });
 
         return { success: true, data: unidades };

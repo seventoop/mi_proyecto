@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useRef, useState, useEffect } from "react";
+import { memo, useCallback, useRef, useState, useEffect, useMemo } from "react";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -119,6 +119,8 @@ const UnitPolygon = memo(function UnitPolygon({
     let path = unit.path;
     let cx = unit.cx;
     let cy = unit.cy;
+    let internalId: number | undefined;
+    let lotLabel: string | undefined;
 
     if (!path && (unit as any).coordenadasMasterplan) {
         try {
@@ -126,6 +128,8 @@ const UnitPolygon = memo(function UnitPolygon({
             path = coords.path;
             cx = coords.center?.x;
             cy = coords.center?.y;
+            internalId = coords.internalId;
+            lotLabel = coords.lotLabel ?? undefined;
         } catch (e) {
             return null;
         }
@@ -165,7 +169,9 @@ const UnitPolygon = memo(function UnitPolygon({
                     className="pointer-events-none select-none"
                     style={{ transition: "fill 0.2s" }}
                 >
-                    {unit.numero.split("-")[1] || unit.numero}
+                    {internalId != null
+                        ? String(internalId)
+                        : (unit.numero.split("-")[1] || unit.numero)}
                 </text>
             )}
             {isComparing && cx !== undefined && cy !== undefined && (
@@ -251,6 +257,37 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
 
     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
 
+    // ─── Dynamic viewBox: computed from actual unit geometry ─────────────────
+    const svgViewBox = useMemo(() => {
+        if (units.length === 0) return "0 0 1000 800";
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const u of units) {
+            let path = u.path;
+            if (!path && (u as any).coordenadasMasterplan) {
+                try {
+                    const c = JSON.parse((u as any).coordenadasMasterplan);
+                    path = c.path;
+                } catch {}
+            }
+            if (!path) continue;
+            const nums = path.match(/-?[\d.]+(?:e[+-]?\d+)?/gi);
+            if (!nums) continue;
+            for (let i = 0; i + 1 < nums.length; i += 2) {
+                const x = parseFloat(nums[i]), y = parseFloat(nums[i + 1]);
+                if (isNaN(x) || isNaN(y)) continue;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+        if (minX === Infinity) return "0 0 1000 800";
+        const w = maxX - minX || 1000;
+        const h = maxY - minY || 800;
+        const pad = Math.max(w, h) * 0.06;
+        return `${minX - pad} ${minY - pad} ${w + pad * 2} ${h + pad * 2}`;
+    }, [units]);
+
     const handleExportExcel = async () => {
         const { utils, writeFile } = await import("xlsx");
         const exportData = units.map(u => ({
@@ -284,7 +321,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
     }
 
     return (
-        <div className="relative w-full h-[calc(100vh-330px)] min-h-[600px] overflow-hidden bg-slate-100 dark:bg-slate-900/80 border-x border-b border-slate-200 dark:border-slate-800" ref={containerRef}>
+        <div className="relative w-full h-full min-h-[400px] overflow-hidden bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-b-2xl" ref={containerRef}>
             {/* Top controls */}
             <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
                 <button
@@ -356,7 +393,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
             >
                 <ZoomButtonWiring />
                 <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full">
-                    <svg viewBox="0 0 1000 800" className="w-full h-full" style={{ minWidth: 1000, minHeight: 800 }}>
+                    <svg viewBox={svgViewBox} className="w-full h-full" style={{ minWidth: 1000, minHeight: 800 }}>
                         <defs>
                             <pattern id="mp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
                                 <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-slate-700" />

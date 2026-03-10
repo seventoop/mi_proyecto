@@ -1,0 +1,233 @@
+================================================================================
+DEV LOG — 2026-03-10 12:00
+PROYECTO: mi_proyecto (seventoop)
+RAMA: work/copia-main-de-dani
+TAREA: Rework flujo DXF, masterplan, mapa, persistencia y performance
+================================================================================
+
+── RESUMEN EJECUTIVO ────────────────────────────────────────────────────────────
+
+Se realizó un rework profundo del flujo de creación de proyectos, abarcando:
+  1. Bug crítico: Leaflet totalmente comentado → mapa no cargaba (FIXED)
+  2. Bug de autorización: sync requería ADMIN, ahora permite dueño del proyecto
+  3. Persistencia real del plano DXF entre tabs/navegaciones
+  4. ViewBox dinámico en masterplan-viewer (antes hardcodeado 1000x800)
+  5. Contenedor redimensionable para mapa y masterplan
+  6. Numeración de lotes: separación de internalId vs lotLabel
+  7. Mejoras en getProjectBlueprintData (frente, fondo, tour360Url)
+  8. Nuevo endpoint GET /api/proyectos/[id]/blueprint
+
+── DIAGNÓSTICO TÉCNICO ──────────────────────────────────────────────────────────
+
+### BUG 1 — CRÍTICO: Mapa completamente roto (Leaflet comentado)
+Archivo: components/masterplan/masterplan-map.tsx
+Causa: Las 3 importaciones de Leaflet estaban comentadas y reemplazadas con
+       `const L: any = null;`. Esto hacía que cada intento de inicializar el mapa,
+       renderizar el overlay y dibujar polígonos fallara silenciosamente (null.map()).
+Fix: Descomentar los 3 imports de Leaflet dynamic.
+
+### BUG 2 — Sync requería ADMIN (desarrolladores no podían sincronizar)
+Archivo: app/api/proyectos/[id]/blueprint/sync/route.ts
+Causa: La verificación era `session.user.role !== "ADMIN"` sin verificar propiedad.
+Fix: Ahora permite ADMIN (acceso total) o cualquier usuario que sea dueño del
+     proyecto (creadoPorId === session.user.id).
+
+### BUG 3 — Pérdida de estado al cambiar de tab en Paso 2 (blueprint)
+Archivo: components/masterplan/blueprint-engine.tsx
+Causa: El estado (svgContent, extractedPaths, lotRecords) es local (useState).
+       Al cambiar de tab, el componente se desmonta → todo se pierde.
+Fix: Se agrega useEffect al montar que llama al nuevo GET /api/proyectos/[id]/blueprint.
+     Si existe masterplanSVG + unidades sincronizadas, reconstruye el estado desde la BD.
+     Badge "Plano guardado" indica que los datos vienen del servidor.
+
+### BUG 4 — ViewBox hardcodeado en masterplan-viewer
+Archivo: components/masterplan/masterplan-viewer.tsx
+Causa: `<svg viewBox="0 0 1000 800">` fijo. Las geometrías del DXF tienen coordenadas
+       en sistemas de dibujo que pueden ser 0-500, 0-2000, etc.
+       Resultado: los lotes se renderizaban fuera de la vista.
+Fix: useMemo calcula el viewBox dinámicamente desde las coordenadas reales de los
+     paths de las unidades. Padding de 6% del bounding box.
+
+### PROBLEMA 5 — Numeración de lotes "140 y pico"
+Causa: El DXF tiene textos "140", "141"... que el parser detecta como `lotNumber`.
+       El sistema los guarda como `numero` en la BD y los muestra tal cual.
+       El `internalId` (1, 2, 3...) existe pero solo se veía en la columna "#".
+Fix:
+  - En coordenadasMasterplan se guarda ahora también `lotLabel` (texto del DXF)
+  - En masterplan-viewer, el label del polígono muestra `internalId` si está disponible
+    (orden espacial 1, 2, 3...) en lugar del texto del DXF
+  - En blueprint-engine, la columna "#" muestra el internalId y "N° Lote" el texto DXF
+  - Claramente separados: internalId = posición lógica, numero = texto del DXF
+
+── FLUJO ANTERIOR (con problemas) ──────────────────────────────────────────────
+
+  Paso 2 (blueprint tab):
+    - Usuario sube DXF → parser detecta lotes → tabla editable
+    - Usuario toca "Sincronizar" → FALLA para developer (requería ADMIN)
+    - Si funciona, guarda SVG + unidades en BD
+    - Usuario cambia de tab y vuelve → ESTADO VACÍO (sube el DXF de nuevo)
+
+  Paso 3 (masterplan tab):
+    - Carga unidades desde BD ✓
+    - SVG viewBox fijo 1000x800 → si coordenadas del DXF son distintas, lotes invisibles
+    - Labels muestran texto del DXF ("140") no el orden lógico
+
+  Paso 4 (mapa tab):
+    - Leaflet comentado → mapa en blanco, sin tiles, sin nada
+    - Contenedor de altura fija, no redimensionable
+
+── FLUJO NUEVO (post-rework) ────────────────────────────────────────────────────
+
+  Paso 2 (blueprint tab):
+    - Al abrir el tab, carga automáticamente plano y lotes desde la BD
+    - Badge "Plano guardado" indica que los datos son persistidos
+    - Sincronizar funciona para developer (dueño del proyecto) y admin
+    - Guarda lotLabel (texto DXF) en coordenadasMasterplan para trazabilidad
+
+  Paso 3 (masterplan tab):
+    - ViewBox calculado dinámicamente desde coordenadas reales de los lotes
+    - Labels muestran internalId (1, 2, 3...) — orden de lectura
+    - frente, fondo, tour360Url incluidos en el fetch de datos
+    - Contenedor redimensionable (arrastrar borde inferior / esquina)
+    - Botón de pantalla completa
+
+  Paso 4 (mapa tab):
+    - Leaflet funciona correctamente (import descomentado)
+    - Google satellite/hybrid/street tiles funcionan
+    - Contenedor redimensionable igual que masterplan
+    - Botón de pantalla completa
+
+── CAMBIOS TÉCNICOS ─────────────────────────────────────────────────────────────
+
+  Archivos modificados:
+  ├── components/masterplan/masterplan-map.tsx
+  │   └── Uncomment Leaflet imports (3 lugares)
+  │   └── h-[calc(100vh-330px)] → h-full (compatible con ResizableContainer)
+  │
+  ├── components/masterplan/masterplan-viewer.tsx
+  │   └── useMemo import agregado
+  │   └── svgViewBox calculado dinámicamente desde coordenadas de units
+  │   └── UnitPolygon: label usa internalId cuando disponible
+  │   └── h-[calc(100vh-330px)] → h-full
+  │
+  ├── components/masterplan/blueprint-engine.tsx
+  │   └── normalizeEstado() helper para mapear estados DB → LotEstado
+  │   └── useEffect: carga blueprint desde DB al montar
+  │   └── loadedFromDB state + badge "Plano guardado"
+  │   └── handleClear resetea loadedFromDB
+  │
+  ├── app/api/proyectos/[id]/blueprint/sync/route.ts
+  │   └── Auth: ADMIN o dueño del proyecto (creadoPorId)
+  │   └── lotLabel guardado en coordenadasMasterplan JSON
+  │
+  ├── lib/actions/unidades.ts → getProjectBlueprintData
+  │   └── select: + frente, fondo, tour360Url, manzana.id, etapa.id
+  │   └── orderBy: createdAt asc
+  │
+  ├── app/(dashboard)/dashboard/proyectos/[id]/page.tsx
+  │   └── Import ResizableContainer
+  │   └── MasterplanViewer y MasterplanMap wrapped en ResizableContainer
+  │
+  ├── app/(dashboard)/dashboard/developer/proyectos/[id]/page.tsx
+  │   └── Mismo wrap con ResizableContainer
+  │
+  └── app/(dashboard)/dashboard/admin/proyectos/[id]/page.tsx
+      └── Mismo wrap con ResizableContainer
+      └── Removidos props hardcodeados inválidos (u.funcional, frente:0 mock)
+
+  Archivos nuevos:
+  ├── app/api/proyectos/[id]/blueprint/route.ts
+  │   └── GET: devuelve masterplanSVG + unidades del proyecto
+  │
+  └── components/ui/resizable-container.tsx
+      └── Resize por arrastre en borde inferior y esquina inferior-derecha
+      └── Fullscreen toggle
+      └── min/max/default height configurables
+
+── MODELOS PRISMA AFECTADOS ─────────────────────────────────────────────────────
+
+  Unidad.coordenadasMasterplan (String?):
+    Antes: { path, center, internalId }
+    Ahora: { path, center, internalId, lotLabel }   ← lotLabel = texto DXF original
+
+  No se requiere migración — campo JSON String, cambio backward compatible.
+
+── INVESTIGACIÓN GOOGLE MAPS ────────────────────────────────────────────────────
+
+  Estado actual: Se usa Leaflet con Google tile layers (sin API key oficial).
+    - Satellite: https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}
+    - Streets:   https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
+    - Hybrid:    https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}
+
+  Análisis de alternativas:
+
+  OPCIÓN A (actual): Leaflet + Google tiles sin API key
+    ✓ Funciona hoy sin costo
+    ✓ Hasta zoom 21
+    ✗ Términos de servicio de Google no lo permiten explícitamente
+    ✗ Sin acceso a Geocoding, Places, Directions
+    ✗ Sin soporte oficial
+
+  OPCIÓN B: Google Maps JavaScript API oficial
+    APIs necesarias: Maps JavaScript API + (opcional) Geocoding API
+    Costo: ~$0.007 por 1000 cargas de mapa, $5/1000 geocoding requests
+    Free tier: $200/mes crédito Google → ~28,000 cargas de mapa gratis
+    Lib: @react-google-maps/api o @vis.gl/react-google-maps
+    ✓ Términos claros, soporte oficial
+    ✓ Overlay de imágenes nativo (GroundOverlay)
+    ✓ Geocoding, Street View, satellite HD
+    ✗ Requiere API key + billing activado
+    Pendiente: requiere GOOGLE_MAPS_API_KEY en .env
+
+  OPCIÓN C: MapboxGL JS
+    ✓ Open source, mejor performance para polígonos grandes
+    ✓ Soporte nativo para GeoJSON overlays y SVG
+    ✗ Tiles de satelite requieren cuenta Mapbox (free tier 50k cargas/mes)
+    ✗ Cambio de biblioteca (mayor refactor)
+
+  RECOMENDACIÓN: Continuar con Leaflet (opción A) en desarrollo local y demo.
+  Para producción, migrar a Google Maps JS API (opción B) con API key.
+  No se requiere migrar la arquitectura — Leaflet y Google Maps tienen APIs similares.
+
+── OPTIMIZACIONES DE PERFORMANCE ───────────────────────────────────────────────
+
+  ✓ useMemo en svgViewBox — se recalcula solo cuando cambia units
+  ✓ UnitPolygon ya era memo() — sin cambio necesario
+  ✓ getProjectBlueprintData usa orderBy en DB — evita sort en cliente
+  ✓ normalizeEstado inline — sin overhead de importación
+  ✓ Blueprint se carga una vez al montar — no re-fetches en cada render
+
+  Pendiente (fuera de scope de este log):
+  - Para >200 lotes: virtualización de la tabla en blueprint-engine
+  - Para masterplan con muchos polígonos: canvas rendering en lugar de SVG
+  - Lazy load de Pusher solo cuando masterplan-viewer está activo
+
+── VALIDACIÓN MANUAL ────────────────────────────────────────────────────────────
+
+  [ ] 1. Ir a /dashboard/proyectos/[id]?tab=blueprint
+          → debe cargar plano desde BD si fue sincronizado antes
+          → badge "Plano guardado" debe aparecer
+  [ ] 2. Cambiar a otro tab y volver a blueprint
+          → plano debe seguir visible
+  [ ] 3. Tocar "Sincronizar" como developer (no admin)
+          → debe funcionar (antes daba 401)
+  [ ] 4. Ir a tab masterplan
+          → lotes deben verse (viewBox dinámico)
+          → labels muestran internalId (1, 2, 3...)
+          → borde inferior del contenedor arrastrable
+  [ ] 5. Ir a tab mapa
+          → mapa de satélite debe cargar (Leaflet descomentado)
+          → borde inferior arrastrable
+          → botón pantalla completa
+
+── PENDIENTES ───────────────────────────────────────────────────────────────────
+
+  1. Google Maps API key: decidir si usar tiles gratis (Leaflet) o migrar a API oficial
+  2. Overlay de plano en mapa: la lógica de OverlayEditor existe pero requiere
+     que las coordenadas del DXF estén georreferenciadas (overlayBounds en proyecto)
+  3. masterplan-viewer: la tabla de lotes (paso 3) todavía no tiene edición inline
+     de precios/estados como el blueprint-engine
+  4. Tour 360 hotspot: vincular puntos del mapa con escenas de tour
+  5. Virtualización de tabla para proyectos con >200 lotes
+
+================================================================================

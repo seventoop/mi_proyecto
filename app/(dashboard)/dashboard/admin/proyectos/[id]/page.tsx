@@ -46,6 +46,10 @@ const Tour360TabWrapper = dynamic(
     () => import("@/components/dashboard/proyectos/tour360-tab-wrapper"),
     { ssr: false }
 );
+const ResizableContainer = dynamic(
+    () => import("@/components/ui/resizable-container"),
+    { ssr: false }
+);
 
 
 interface PageProps {
@@ -259,43 +263,20 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 )}
 
                 {activeTab === "mapa" && (
-                    <MasterplanMap
-                        proyectoId={proyecto.id}
-                        modo="admin"
-                        centerLat={proyecto.mapCenterLat || -33.0943}
-                        centerLng={proyecto.mapCenterLng || -60.5475}
-                        initialUnits={proyecto.etapas.flatMap((etapa: any) =>
-                            etapa.manzanas.flatMap((manzana: any) =>
-                                manzana.unidades.map((u: any) => ({
-                                    id: u.id,
-                                    numero: u.funcional, // Assuming 'funcional' is the visible number
-                                    tipo: u.tipo as any,
-                                    superficie: u.superficie,
-                                    frente: 0, // Mock or add to schema if needed
-                                    fondo: 0,
-                                    esEsquina: false,
-                                    orientacion: "N", // Mock
-                                    precio: u.precio,
-                                    moneda: u.moneda,
-                                    estado: u.estado as any,
-                                    etapaId: etapa.id,
-                                    etapaNombre: etapa.nombre,
-                                    manzanaId: manzana.id,
-                                    manzanaNombre: manzana.nombre,
-                                    tour360Url: null,
-                                    imagenes: [],
-                                    responsable: null,
-                                    path: "[]", // Needs geolocation data in schema for real polygons
-                                    cx: 0,
-                                    cy: 0
-                                }))
-                            )
-                        )}
-                    />
+                    <ResizableContainer defaultHeight={580} minHeight={400}>
+                        <MasterplanMap
+                            proyectoId={proyecto.id}
+                            modo="admin"
+                            centerLat={proyecto.mapCenterLat || -33.0943}
+                            centerLng={proyecto.mapCenterLng || -60.5475}
+                        />
+                    </ResizableContainer>
                 )}
 
                 {activeTab === "masterplan" && (
-                    <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
+                    <ResizableContainer defaultHeight={620} minHeight={420}>
+                        <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
+                    </ResizableContainer>
                 )}
 
                 {activeTab === "tour360" && (

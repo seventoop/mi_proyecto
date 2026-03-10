@@ -210,8 +210,7 @@ export default function MasterplanMap({
                 return;
             }
 
-            // const L = (await import("leaflet")).default;
-            const L: any = null;
+            const L = (await import("leaflet")).default;
 
             if (isCanceled) return;
 
@@ -286,8 +285,7 @@ export default function MasterplanMap({
         if (!isMapReady || !leafletMapRef.current || isEditingOverlay) return;
 
         const renderOverlay = async () => {
-            // const L = (await import("leaflet")).default;
-            const L: any = null;
+            const L = (await import("leaflet")).default;
             const map = leafletMapRef.current!;
 
             // Remove old overlay
@@ -330,8 +328,7 @@ export default function MasterplanMap({
         if (!isMapReady || !leafletMapRef.current || units.length === 0) return;
 
         const drawPolygons = async () => {
-            // const L = (await import("leaflet")).default;
-            const L: any = null;
+            const L = (await import("leaflet")).default;
             const map = leafletMapRef.current!;
 
             // Clear old polygons
@@ -443,7 +440,7 @@ export default function MasterplanMap({
     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
 
     return (
-        <div className="relative w-full h-[calc(100vh-330px)] min-h-[500px] overflow-hidden bg-slate-900 border-x border-b border-slate-200 dark:border-slate-800">
+        <div className="relative w-full h-full min-h-[400px] overflow-hidden bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-b-2xl">
             {/* Leaflet CSS */}
             <link
                 rel="stylesheet"

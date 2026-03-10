@@ -54,6 +54,10 @@ const Tour360TabWrapper = dynamic(
     () => import("@/components/dashboard/proyectos/tour360-tab-wrapper"),
     { ssr: false }
 );
+const ResizableContainer = dynamic(
+    () => import("@/components/ui/resizable-container"),
+    { ssr: false }
+);
 
 interface PageProps {
     params: { id: string };
@@ -703,7 +707,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         </div>
                                     </div>
                                 )}
-                                <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
+                                <ResizableContainer defaultHeight={620} minHeight={420}>
+                                    <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
+                                </ResizableContainer>
                             </div>
                         )}
 
@@ -826,7 +832,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         )}
                                     </div>
                                 </div>
-                                <MasterplanMap proyectoId={proyecto.id} modo="admin" />
+                                <ResizableContainer defaultHeight={580} minHeight={400}>
+                                    <MasterplanMap proyectoId={proyecto.id} modo="admin" />
+                                </ResizableContainer>
                             </div>
                         )}
 

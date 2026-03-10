@@ -20,7 +20,7 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -32,9 +32,14 @@ export async function POST(
             return NextResponse.json({ error: "paths array is required" }, { status: 400 });
         }
 
-        // 1. Fetch project with overlay bounds and existing etapas/manzanas
-        const project = await prisma.proyecto.findUnique({
-            where: { id: params.id },
+        const isAdmin = (session.user as any).role === "ADMIN";
+
+        // 1. Fetch project — admins can access all, developers only their own
+        const project = await prisma.proyecto.findFirst({
+            where: {
+                id: params.id,
+                ...(isAdmin ? {} : { creadoPorId: session.user.id }),
+            },
             select: {
                 overlayBounds: true,
                 etapas: {
@@ -48,7 +53,7 @@ export async function POST(
         });
 
         if (!project) {
-            return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+            return NextResponse.json({ error: "Proyecto no encontrado o sin acceso" }, { status: 404 });
         }
 
         // 2. Ensure a manzana exists to place lots into
@@ -126,6 +131,7 @@ export async function POST(
                 path: p.pathData,
                 center: p.center,
                 internalId: p.internalId,
+                lotLabel: p.lotNumber ?? null,  // texto original del DXF
             });
 
             const validEstados = ["DISPONIBLE", "BLOQUEADO", "RESERVADO", "VENDIDO", "SUSPENDIDO"];
