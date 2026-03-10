@@ -2,6 +2,8 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Leaflet is a CJS-only package that Next.js can't resolve without explicit transpilation
+    transpilePackages: ["leaflet"],
     typescript: {
         ignoreBuildErrors: false,
     },
