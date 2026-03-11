@@ -34,11 +34,38 @@ interface SidePanelProps {
 }
 
 export default function MasterplanSidePanel({ unit, modo, onClose }: SidePanelProps) {
-    const { comparisonIds, toggleComparison } = useMasterplanStore();
+    const { comparisonIds, toggleComparison, updateUnitState } = useMasterplanStore();
     const isComparing = comparisonIds.includes(unit.id);
     const [isReservaModalOpen, setIsReservaModalOpen] = useState(false);
     const [historial, setHistorial] = useState<any[]>([]);
     const [loadingHistorial, setLoadingHistorial] = useState(false);
+    const [isChangingEstado, setIsChangingEstado] = useState(false);
+
+    // Extract internalId from coordenadasMasterplan
+    let internalId: number | undefined;
+    try {
+        if ((unit as any).coordenadasMasterplan) {
+            const coords = JSON.parse((unit as any).coordenadasMasterplan);
+            internalId = coords?.internalId;
+        }
+    } catch {}
+
+    const handleChangeEstado = async (nuevoEstado: string) => {
+        if (nuevoEstado === unit.estado || isChangingEstado) return;
+        setIsChangingEstado(true);
+        try {
+            const res = await fetch(`/api/unidades/${unit.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ estado: nuevoEstado, previousEstado: unit.estado }),
+            });
+            if (res.ok) {
+                updateUnitState(unit.id, { estado: nuevoEstado as MasterplanUnit["estado"] });
+            }
+        } catch { /* silent */ } finally {
+            setIsChangingEstado(false);
+        }
+    };
 
     useEffect(() => {
         if (modo === "admin" && unit.id) {
@@ -70,7 +97,7 @@ export default function MasterplanSidePanel({ unit, modo, onClose }: SidePanelPr
                             className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm"
                             style={{ backgroundColor: STATUS_COLORS[unit.estado] }}
                         >
-                            {unit.numero.split("-")[1] || unit.numero}
+                            {modo === "admin" && internalId != null ? `#${internalId}` : (unit.numero.split("-")[1] || unit.numero)}
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-800 dark:text-white">Lote {unit.numero}</h3>
@@ -107,35 +134,82 @@ export default function MasterplanSidePanel({ unit, modo, onClose }: SidePanelPr
                         ))}
                     </div>
 
-                    {/* Actions */}
-                    <div className="grid grid-cols-2 gap-2">
-                        {unit.estado === "DISPONIBLE" && (
-                            <button
-                                onClick={() => setIsReservaModalOpen(true)}
-                                className="col-span-2 px-4 py-2.5 rounded-xl gradient-brand text-white font-semibold text-sm shadow-glow hover:shadow-glow-lg transition-all"
-                            >
-                                Reservar unidad
-                            </button>
-                        )}
-                        <button
-                            onClick={() => generateUnitPDF(unit)}
-                            className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
-                        >
-                            <FileText className="w-3.5 h-3.5" />
-                            Ficha PDF
-                        </button>
-                        <button
-                            onClick={() => toggleComparison(unit.id)}
-                            className={cn(
-                                "px-4 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2",
-                                isComparing
-                                    ? "bg-brand-500/10 text-brand-400 ring-1 ring-brand-500/30"
-                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    {/* Actions — admin mode: gestión de estado */}
+                    {modo === "admin" ? (
+                        <div className="space-y-2.5">
+                            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                {isChangingEstado ? "Actualizando..." : "Cambiar Estado"}
+                            </h4>
+                            <div className="grid grid-cols-2 gap-1.5">
+                                {(Object.keys(STATUS_LABELS) as string[]).map((e) => (
+                                    <button
+                                        key={e}
+                                        disabled={unit.estado === e || isChangingEstado}
+                                        onClick={() => handleChangeEstado(e)}
+                                        className={cn(
+                                            "px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase border-2 transition-all",
+                                            unit.estado === e
+                                                ? "text-white border-transparent cursor-default"
+                                                : "bg-transparent border-transparent hover:border-current disabled:opacity-40 cursor-pointer",
+                                        )}
+                                        style={unit.estado === e
+                                            ? { backgroundColor: STATUS_COLORS[e] }
+                                            : { color: STATUS_COLORS[e] }}
+                                    >
+                                        {STATUS_LABELS[e]}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                                <button
+                                    onClick={() => generateUnitPDF(unit)}
+                                    className="flex-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-1.5"
+                                >
+                                    <FileText className="w-3.5 h-3.5" />Ficha PDF
+                                </button>
+                                <button
+                                    onClick={() => toggleComparison(unit.id)}
+                                    className={cn(
+                                        "flex-1 px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-center",
+                                        isComparing
+                                            ? "bg-brand-500/10 text-brand-400 ring-1 ring-brand-500/30"
+                                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    )}
+                                >
+                                    {isComparing ? "✓ Comparar" : "+ Comparar"}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                            {unit.estado === "DISPONIBLE" && (
+                                <button
+                                    onClick={() => setIsReservaModalOpen(true)}
+                                    className="col-span-2 px-4 py-2.5 rounded-xl gradient-brand text-white font-semibold text-sm shadow-glow hover:shadow-glow-lg transition-all"
+                                >
+                                    Reservar unidad
+                                </button>
                             )}
-                        >
-                            {isComparing ? "✓ Comparando" : "+ Comparar"}
-                        </button>
-                    </div>
+                            <button
+                                onClick={() => generateUnitPDF(unit)}
+                                className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                <FileText className="w-3.5 h-3.5" />
+                                Ficha PDF
+                            </button>
+                            <button
+                                onClick={() => toggleComparison(unit.id)}
+                                className={cn(
+                                    "px-4 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2",
+                                    isComparing
+                                        ? "bg-brand-500/10 text-brand-400 ring-1 ring-brand-500/30"
+                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                )}
+                            >
+                                {isComparing ? "✓ Comparando" : "+ Comparar"}
+                            </button>
+                        </div>
+                    )}
 
                     {/* Details */}
                     <div className="space-y-2">
@@ -147,6 +221,7 @@ export default function MasterplanSidePanel({ unit, modo, onClose }: SidePanelPr
                                 { label: "Fondo", value: unit.fondo ? `${unit.fondo} m` : "—" },
                                 { label: "Orientación", value: unit.orientacion || "—" },
                                 { label: "Esquina", value: unit.esEsquina ? "Sí ★" : "No" },
+                                { label: "ID Interno", value: internalId != null ? `#${internalId}` : "—" },
                                 { label: "ID Técnico", value: unit.id.slice(-8).toUpperCase() },
                             ].map((d) => (
                                 <div key={d.label} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">

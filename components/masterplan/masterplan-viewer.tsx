@@ -159,8 +159,8 @@ const UnitPolygon = memo(function UnitPolygon({
 
     const fillColor = STATUS_COLORS[unit.estado] || "#94a3b8";
     const opacity = isFiltered ? (isHovered ? 0.85 : 0.55) : 0.12;
-    const strokeWidth = isSelected ? 2.5 : isComparing ? 2 : isHovered ? 1.5 : 0.5;
-    const strokeColor = isSelected ? "#fff" : isComparing ? "#6366f1" : isHovered ? "#fff" : `${fillColor}80`;
+    const strokeWidth = isSelected ? 2.5 : isComparing ? 2 : isHovered ? 1.8 : 0.8;
+    const strokeColor = isSelected ? "#fff" : isComparing ? "#6366f1" : isHovered ? "#fff" : "rgba(255,255,255,0.35)";
     const labelText = internalId != null ? String(internalId) : (unit.numero.split("-")[1] || unit.numero);
 
     return (
@@ -186,10 +186,12 @@ const UnitPolygon = memo(function UnitPolygon({
                     textAnchor="middle"
                     dominantBaseline="middle"
                     fontSize={fontSize}
-                    fontWeight={isSelected || isHovered ? 700 : 500}
-                    fill={isHovered || isSelected ? "#fff" : fillColor}
+                    fontWeight="700"
+                    fill="#fff"
+                    stroke="rgba(0,0,0,0.65)"
+                    strokeWidth={fontSize * 0.2}
+                    paintOrder="stroke"
                     className="pointer-events-none select-none"
-                    style={{ transition: "fill 0.2s" }}
                 >
                     {labelText}
                 </text>

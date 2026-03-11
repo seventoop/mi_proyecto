@@ -50,6 +50,10 @@ const ResizableContainer = dynamic(
     () => import("@/components/ui/resizable-container"),
     { ssr: false }
 );
+const ResetProjectModal = dynamic(
+    () => import("@/components/dashboard/proyectos/reset-project-modal"),
+    { ssr: false }
+);
 
 
 interface PageProps {
@@ -189,6 +193,11 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         </div>
                     </div>
+                    {userRole === "ADMIN" && (
+                        <div className="flex-shrink-0">
+                            <ResetProjectModal proyectoId={proyecto.id} />
+                        </div>
+                    )}
                 </div>
             </div>
 
