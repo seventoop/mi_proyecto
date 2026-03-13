@@ -24,7 +24,9 @@
       "Bash(npm run:*)",
       "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npm run:*)",
       "Bash(cmd:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(claude auth:*)",
+      "Bash(git add:*)"
     ]
   }
 }
