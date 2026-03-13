@@ -3,6 +3,7 @@
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireRole, requireKYC, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { audit } from "@/lib/actions/audit";
 import { z } from "zod";
 import { generateReservaPDF } from "@/lib/pdf-generator";
 import { uploadFile } from "@/lib/storage";
@@ -186,6 +187,14 @@ export async function createReserva(input: unknown) {
             return newReserva;
         });
 
+        await audit({
+            userId: user.id,
+            action: "RESERVA_CREATED",
+            entity: "Reserva",
+            entityId: result.id,
+            details: { unidadId: data.unidadId, leadId: data.leadId, montoSena: data.montoSena },
+        });
+
         revalidatePath("/dashboard/developer/reservas");
         return { success: true, data: result };
     } catch (error: any) {
@@ -304,6 +313,14 @@ export async function approveReserva(reservaId: string) {
             return updatedReserva;
         });
 
+        await audit({
+            userId: adminOrDev.id,
+            action: "RESERVA_APPROVED",
+            entity: "Reserva",
+            entityId: reservaId,
+            details: { proyectoId, documentoUrl: result.documentoGenerado },
+        });
+
         revalidatePath("/dashboard/developer/reservas");
         revalidatePath("/dashboard/developer");
         return { success: true, documentoUrl: result.documentoGenerado };
@@ -364,6 +381,14 @@ export async function cancelReserva(reservaId: string) {
                 reserva.leadId ? `/dashboard/leads/${reserva.leadId}` : `/dashboard/proyectos`,
                 true // Send Email
             );
+        });
+
+        await audit({
+            userId: user.id,
+            action: "RESERVA_CANCELLED",
+            entity: "Reserva",
+            entityId: reservaId,
+            details: { unidadId: reserva.unidadId },
         });
 
         revalidatePath("/dashboard/developer/reservas");
@@ -486,7 +511,7 @@ export async function iniciarReserva(data: {
                 throw new Error("La unidad ya no está disponible");
             }
 
-            const reserva = await (tx.reserva as any).create({
+            const reserva = await tx.reserva.create({
                 data: {
                     unidadId: data.unidadId,
                     vendedorId: user.id,
@@ -529,7 +554,7 @@ export async function avanzarEstadoReserva(reservaId: string, nuevoEstado: strin
         const idParsed = idSchema.safeParse(reservaId);
         if (!idParsed.success) return { success: false, error: "ID inválido" };
 
-        const reserva = await (prisma.reserva as any).findUnique({
+        const reserva = await prisma.reserva.findUnique({
             where: { id: reservaId },
             include: { unidad: true }
         });
@@ -543,7 +568,7 @@ export async function avanzarEstadoReserva(reservaId: string, nuevoEstado: strin
         };
 
         await prisma.$transaction(async (tx) => {
-            await (tx.reserva as any).update({
+            await tx.reserva.update({
                 where: { id: reservaId },
                 data: { estado: nuevoEstado, ...(nuevoEstado === "VENDIDA" ? { estadoPago: "PAGADO" } : {}) }
             });
@@ -578,7 +603,7 @@ export async function getReservasByProyecto(proyectoId: string) {
 
         await requireProjectOwnership(proyectoId);
 
-        const reservas = await (prisma.reserva as any).findMany({
+        const reservas = await prisma.reserva.findMany({
             where: { unidad: { manzana: { etapa: { proyectoId } } } },
             orderBy: { createdAt: "desc" },
             include: {
