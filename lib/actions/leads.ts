@@ -348,20 +348,26 @@ export async function crearConsultaContacto(data: {
     nombre: string;
     email: string;
     telefono: string;
-    asunto: string;
+    asunto?: string;
     mensaje: string;
+    proyectoId?: string;
     origen?: string;
 }): Promise<ActionResponse> {
     try {
+        const mensajeFormateado = data.asunto
+            ? `[Asunto: ${data.asunto.toUpperCase()}] ${data.mensaje}`
+            : data.mensaje;
+
         await prisma.lead.create({
             data: {
                 nombre: data.nombre,
                 email: data.email,
                 telefono: data.telefono,
+                proyectoId: data.proyectoId || null,
                 origen: data.origen || "contacto",
                 canalOrigen: "WEB",
                 estado: "NUEVO",
-                mensaje: `[Asunto: ${data.asunto.toUpperCase()}] ${data.mensaje}`,
+                mensaje: mensajeFormateado,
             }
         });
 
