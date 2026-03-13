@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, handleGuardError, requireProjectOwnership } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
+import { headers } from "next/headers";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 // ─── Scemas ───
 
@@ -298,6 +300,20 @@ export async function crearLeadLanding(data: {
     origen?: string;
 }): Promise<ActionResponse> {
     try {
+        // Rate limiting: 5 submissions per IP per 10 minutes
+        const headersList = headers();
+        const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
+            || headersList.get("x-real-ip")
+            || "unknown";
+        const { allowed } = checkRateLimit(ip, {
+            limit: 5,
+            windowMs: 10 * 60 * 1000,
+            keyPrefix: "lead_landing:",
+        });
+        if (!allowed) {
+            return { success: false, error: "Demasiadas solicitudes. Intentá de nuevo en unos minutos." };
+        }
+
         const proyectosRelacionados = await prisma.proyecto.findFirst({
             where: {
                 estado: { in: ["ACTIVO", "PROXIMO"] },
@@ -354,6 +370,20 @@ export async function crearConsultaContacto(data: {
     origen?: string;
 }): Promise<ActionResponse> {
     try {
+        // Rate limiting: 5 submissions per IP per 10 minutes
+        const headersList = headers();
+        const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
+            || headersList.get("x-real-ip")
+            || "unknown";
+        const { allowed } = checkRateLimit(ip, {
+            limit: 5,
+            windowMs: 10 * 60 * 1000,
+            keyPrefix: "lead_contacto:",
+        });
+        if (!allowed) {
+            return { success: false, error: "Demasiadas solicitudes. Intentá de nuevo en unos minutos." };
+        }
+
         const mensajeFormateado = data.asunto
             ? `[Asunto: ${data.asunto.toUpperCase()}] ${data.mensaje}`
             : data.mensaje;
