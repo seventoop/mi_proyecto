@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
 
-// GET /api/proyectos/[id] — detalle completo
+// GET /api/proyectos/[id] — detalle completo (dashboard only — includes CRM data)
 export async function GET(
     request: Request,
     { params }: { params: { id: string } }
 ) {
     try {
+        await requireAuth();
+
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: params.id },
             include: {
@@ -75,11 +77,7 @@ export async function GET(
 
         return NextResponse.json({ ...proyecto, stats });
     } catch (error) {
-        console.error("Error fetching proyecto:", error);
-        return NextResponse.json(
-            { error: "Error al obtener proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
