@@ -55,8 +55,10 @@ model User {
   orgId               String?
   kycRequiredAt       DateTime?
   kycSubmittedAt      DateTime?
-  developerVerified   Boolean            @default(false)
-  auditLogs           AuditLog[]
+  developerVerified     Boolean            @default(false)
+  passwordResetToken    String?            @unique
+  passwordResetExpires  DateTime?
+  auditLogs             AuditLog[]
   bannersCreados      Banner[]           @relation("BannerCreador")
   blogPosts           BlogPost[]         @relation("BlogPostAutor")
   documentacion       Documentacion[]
