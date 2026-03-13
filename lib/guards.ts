@@ -1,9 +1,14 @@
 /**
- * Shared auth & authorization guards for Server Actions and API Routes.
- * 
+ * CANONICAL guards — use in Server Actions and API Route handlers.
+ * These throw AuthError on failure, which is caught by handleGuardError()
+ * (returns { success: false, error }) or handleApiGuardError() (returns NextResponse).
+ *
+ * DO NOT use in Server Components / page.tsx files.
+ * For those, use lib/auth/guards.ts (calls redirect() on failure).
+ *
  * Multi-tenant aware: All guards propagate orgId.
  * ADMIN is super-admin and bypasses org checks.
- * 
+ *
  * Usage:
  *   const user = await requireAuth();
  *   await requireRole("ADMIN");

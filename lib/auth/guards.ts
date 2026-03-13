@@ -4,7 +4,14 @@ import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
 /**
- * Centralized RBAC Guards for SevenToop Admin Matrix.
+ * PAGE-LEVEL guards — use in Server Components (app/page.tsx files).
+ * These call redirect() on failure, which is correct in RSC context.
+ *
+ * DO NOT use in API Route handlers or Server Actions.
+ * For those, use lib/guards.ts (throws AuthError → JSON response).
+ *
+ * Canonical guard file: lib/guards.ts
+ * This file: lib/auth/guards.ts (page-level redirects only)
  */
 
 export async function getSession() {
