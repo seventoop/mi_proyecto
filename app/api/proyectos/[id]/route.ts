@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
 
 // GET /api/proyectos/[id] — detalle completo
 export async function GET(
@@ -88,6 +89,8 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        await requireProjectOwnership(params.id);
+
         const body = await request.json();
 
         const proyecto = await prisma.proyecto.update({
@@ -108,11 +111,7 @@ export async function PUT(
 
         return NextResponse.json(proyecto);
     } catch (error) {
-        console.error("Error updating proyecto:", error);
-        return NextResponse.json(
-            { error: "Error al actualizar proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
