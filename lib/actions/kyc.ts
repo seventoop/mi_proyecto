@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { createNotification } from "./notifications";
+import { audit } from "./audit";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 
@@ -64,7 +65,7 @@ export async function updateKYCStatus(userId: string, status: "VERIFICADO" | "RE
         const idParsed = idSchema.safeParse(userId);
         if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
 
-        await requireRole("ADMIN");
+        const admin = await requireRole("ADMIN");
         await prisma.$transaction(async (tx) => {
             await tx.user.update({
                 where: { id: userId },
@@ -88,6 +89,14 @@ export async function updateKYCStatus(userId: string, status: "VERIFICADO" | "RE
                     true // Send Email
                 );
             }
+        });
+
+        await audit({
+            userId: admin.id,
+            action: `KYC_${status}`,
+            entity: "User",
+            entityId: userId,
+            details: { status, notas: notas ?? null },
         });
 
         revalidatePath("/dashboard/kyc");
