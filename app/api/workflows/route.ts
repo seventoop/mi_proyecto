@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAnyRole } from "@/lib/guards";
 import prisma from "@/lib/db";
 import { z } from "zod";
+import { checkPlanLimit } from "@/lib/saas/limits";
 
 const nodoSchema = z.object({
     tipo: z.enum(["WAIT", "AI_ACTION", "SEND_EMAIL", "UPDATE_LEAD", "CONDITION", "WEBHOOK"]),
@@ -50,6 +51,14 @@ export async function POST(request: Request) {
 
         if (!user.orgId && user.role !== "ADMIN") {
             return NextResponse.json({ error: "Usuario sin organización" }, { status: 400 });
+        }
+
+        // M5: Plan enforcement — check if org's plan includes workflows feature
+        if (user.orgId) {
+            const planCheck = await checkPlanLimit(user.orgId, "workflows");
+            if (!planCheck.allowed) {
+                return NextResponse.json({ error: planCheck.reason }, { status: 403 });
+            }
         }
 
         const body = await request.json();

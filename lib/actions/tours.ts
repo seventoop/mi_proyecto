@@ -3,6 +3,7 @@
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { checkPlanLimit } from "@/lib/saas/limits";
 import { z } from "zod";
 
 // ─── Schemas ───
@@ -143,7 +144,15 @@ export async function upsertTour(input: unknown) {
         }
 
         if (!proyectoId) return { success: false, error: "Proyecto ID requerido" };
-        await requireProjectOwnership(proyectoId);
+        const user = await requireProjectOwnership(proyectoId);
+
+        // M5: Plan enforcement — tour360 is a premium feature
+        if (user.orgId && !tourId) { // only on create, not update
+            const planCheck = await checkPlanLimit(user.orgId, "tour360");
+            if (!planCheck.allowed) {
+                return { success: false, error: planCheck.reason };
+            }
+        }
 
         // Perform complex sync in transaction
         const result = await prisma.$transaction(async (tx: any) => {
