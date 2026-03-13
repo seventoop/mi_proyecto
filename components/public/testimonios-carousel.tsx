@@ -70,46 +70,66 @@ export default function TestimoniosCarousel() {
             mediaUrl: null,
             createdAt: new Date(),
         },
+        {
+            id: '5',
+            texto: 'La integración con portales es automática. Publicamos una vez y estamos en todos lados. Eficiencia pura.',
+            autorNombre: 'Roberto Gómez',
+            autorTipo: 'Agente Senior',
+            rating: 5,
+            estado: 'APROBADO',
+            mediaUrl: null,
+            createdAt: new Date(),
+        },
+        {
+            id: '6',
+            texto: 'Excelente soporte técnico y constantes actualizaciones. Sienten que el producto evoluciona con nosotros.',
+            autorNombre: 'Mariana Costa',
+            autorTipo: 'Directora Comercial',
+            rating: 4,
+            estado: 'APROBADO',
+            mediaUrl: null,
+            createdAt: new Date(),
+        },
     ];
     const displayData = testimonios.length > 0 ? testimonios : fallback;
 
     if (displayData.length === 0) return null;
 
     return (
-        <div className="w-full max-w-[100vw] overflow-hidden lg:max-w-6xl mx-auto py-10 relative left-1/2 -translate-x-1/2 px-4 md:px-0">
-            <Swiper
-                effect={'coverflow'}
-                grabCursor={true}
-                centeredSlides={true}
-                loop={true}
-                speed={800}
-                autoplay={{
-                    delay: 4000,
-                    disableOnInteraction: false,
-                    pauseOnMouseEnter: true,
-                }}
-                coverflowEffect={{
-                    rotate: 20, // Gentle Y-axis rotation
-                    stretch: 0,
-                    depth: 150, // Perspective depth
-                    modifier: 1, // Effect multiplier
-                    slideShadows: false, // We use our own CSS shadows
-                }}
-                breakpoints={{
-                    320: {
-                        slidesPerView: 1.1, // Show a tiny bit of the next/prev on mobile
-                        coverflowEffect: {
-                            rotate: 0,
-                            depth: 100,
+        <div className="w-full py-10 overflow-hidden">
+            <div className="max-w-7xl mx-auto px-4 md:px-12 relative">
+                <Swiper
+                    effect={'coverflow'}
+                    grabCursor={true}
+                    centeredSlides={true}
+                    loop={true}
+                    speed={800}
+                    autoplay={{
+                        delay: 4000,
+                        disableOnInteraction: false,
+                        pauseOnMouseEnter: true,
+                    }}
+                    coverflowEffect={{
+                        rotate: 10,
+                        stretch: 0,
+                        depth: 60,
+                        modifier: 1,
+                        slideShadows: false,
+                    }}
+                    breakpoints={{
+                        320: {
+                            slidesPerView: 1.1,
+                            spaceBetween: 20
+                        },
+                        768: {
+                            slidesPerView: 2.2,
+                            spaceBetween: 30
+                        },
+                        1024: {
+                            slidesPerView: 3.2, // Back to 3 main slides + symmetrical peeks
+                            spaceBetween: 40
                         }
-                    },
-                    768: {
-                        slidesPerView: 2,
-                    },
-                    1024: {
-                        slidesPerView: 3, // 1 center, 2 sides on desktop
-                    }
-                }}
+                    }}
                 pagination={{
                     clickable: true,
                     dynamicBullets: true,
@@ -119,9 +139,9 @@ export default function TestimoniosCarousel() {
                 className="testimonios-swiper !pb-16"
             >
                 {displayData.map((t, idx) => (
-                    <SwiperSlide key={t.id || idx} className="py-10">
+                    <SwiperSlide key={t.id || idx} className="py-10 !h-auto flex">
                         {/* Slide content - The outer div handles the Swiper scaling, the inner div handles the card styling */}
-                        <div className="bg-card dark:bg-card/50 backdrop-blur-md border border-border shadow-2xl p-8 md:p-10 rounded-[2rem] flex flex-col h-full min-h-[350px] transition-all duration-300">
+                        <div className="bg-card dark:bg-card/50 backdrop-blur-md border border-border shadow-2xl p-8 md:p-10 rounded-[2rem] flex flex-col w-full h-full transition-all duration-300">
 
                             {/* Stars */}
                             <div className="flex justify-center gap-1 mb-6">
@@ -217,6 +237,7 @@ export default function TestimoniosCarousel() {
                     }
                 }
             `}</style>
+            </div>
         </div>
     );
 }
