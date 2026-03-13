@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
         }
 
         // 1. Strict Channel Name Validation
-        const userChannelRegex = /^private-user-([a-zA-Z0-9_\-]+)$/;
+        // User notification channels: "private-user-{userId}-notifications"
+        const userChannelRegex = /^private-user-([a-zA-Z0-9]+)-notifications$/;
         const projectChannelRegex = /^private-project-([a-zA-Z0-9_\-]+)$/;
 
         let authorized = false;
