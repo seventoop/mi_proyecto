@@ -18,9 +18,10 @@ interface ContactFormProps {
     proyectoId?: string;
     compact?: boolean;
     className?: string;
+    origen?: string;
 }
 
-export default function ContactForm({ proyectoId, compact, className }: ContactFormProps) {
+export default function ContactForm({ proyectoId, compact, className, origen }: ContactFormProps) {
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +42,7 @@ export default function ContactForm({ proyectoId, compact, className }: ContactF
                 body: JSON.stringify({
                     ...data,
                     proyectoId,
-                    origen: proyectoId ? "WEB_PROYECTO" : "WEB_CONTACTO",
+                    origen: origen || (proyectoId ? "WEB_PROYECTO" : "WEB_CONTACTO"),
                 }),
             });
 

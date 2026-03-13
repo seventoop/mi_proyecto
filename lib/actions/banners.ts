@@ -107,6 +107,20 @@ export async function getBanners(params: {
     }
 }
 
+export async function getBannersLanding() {
+    try {
+        const banners = await prisma.banner.findMany({
+            where: { estado: "ACTIVO" },
+            orderBy: { posicion: "asc" },
+        });
+
+        return { success: true, data: banners };
+    } catch (error) {
+        console.error("Error getBannersLanding:", error);
+        return { success: false, error: "Error fetching banners" };
+    }
+}
+
 // ─── Mutations ───
 
 export async function createBanner(input: unknown) {

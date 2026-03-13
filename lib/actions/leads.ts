@@ -277,3 +277,97 @@ export async function deleteLead(leadId: string) {
 export async function updateLeadStatus(leadId: string, status: string) {
     return updateLead(leadId, { estado: status });
 }
+
+export type ActionResponse = {
+    success: boolean;
+    error?: string;
+    data?: any;
+};
+
+export async function crearLeadLanding(data: {
+    nombre: string;
+    whatsapp: string;
+    provincia: string;
+    ciudad: string;
+    zona: string;
+    intencion: "VIVIR" | "INVERTIR";
+    categoriaProyecto: string;
+    subtipoProyecto: string;
+    presupuestoMinUsd: number;
+    presupuestoMaxUsd: number;
+    origen?: string;
+}): Promise<ActionResponse> {
+    try {
+        const proyectosRelacionados = await prisma.proyecto.findFirst({
+            where: {
+                estado: { in: ["ACTIVO", "PROXIMO"] },
+                OR: [
+                    { ubicacion: { contains: data.ciudad, mode: "insensitive" } },
+                    { ubicacion: { contains: data.provincia, mode: "insensitive" } },
+                    { ubicacion: { contains: data.zona, mode: "insensitive" } },
+                ]
+            }
+        });
+
+        const zonaSinOferta = !proyectosRelacionados;
+
+        // Metadata estructurada para CRM
+        const jsonMetadata = {
+            zonaFull: `${data.zona}, ${data.ciudad}, ${data.provincia}`,
+            zonaNivel: data.zona,
+            intencion: data.intencion,
+            categoriaProyecto: data.categoriaProyecto,
+            subtipoProyecto: data.subtipoProyecto,
+            presupuestoMinUsd: data.presupuestoMinUsd,
+            presupuestoMaxUsd: data.presupuestoMaxUsd,
+            zonaSinOferta
+        };
+
+        const mensajeFormateado = `Intención: ${data.intencion} | Busca: ${data.categoriaProyecto} (${data.subtipoProyecto}) | Presupuesto: USD ${data.presupuestoMinUsd} - ${data.presupuestoMaxUsd} | Zona: ${data.zona}, ${data.ciudad}, ${data.provincia} | Zona sin oferta: ${zonaSinOferta ? "Sí" : "No"}`;
+
+        await prisma.lead.create({
+            data: {
+                nombre: data.nombre,
+                telefono: data.whatsapp,
+                origen: data.origen || "formulario_landing",
+                canalOrigen: "WEB",
+                mensaje: mensajeFormateado,
+                estado: "NUEVO",
+                notas: JSON.stringify(jsonMetadata),
+            }
+        });
+
+        return { success: true };
+    } catch (e: any) {
+        console.error("Error creating landing lead:", e);
+        return { success: false, error: e.message || "Error al crear consulta" };
+    }
+}
+
+export async function crearConsultaContacto(data: {
+    nombre: string;
+    email: string;
+    telefono: string;
+    asunto: string;
+    mensaje: string;
+    origen?: string;
+}): Promise<ActionResponse> {
+    try {
+        await prisma.lead.create({
+            data: {
+                nombre: data.nombre,
+                email: data.email,
+                telefono: data.telefono,
+                origen: data.origen || "contacto",
+                canalOrigen: "WEB",
+                estado: "NUEVO",
+                mensaje: `[Asunto: ${data.asunto.toUpperCase()}] ${data.mensaje}`,
+            }
+        });
+
+        return { success: true };
+    } catch (e: any) {
+        console.error("Error creating contact lead:", e);
+        return { success: false, error: e.message || "Error al enviar la consulta" };
+    }
+}

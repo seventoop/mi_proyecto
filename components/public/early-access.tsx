@@ -31,7 +31,7 @@ const benefits = [
 
 export default function EarlyAccess() {
     return (
-        <section className="py-20 px-6 relative overflow-hidden bg-white dark:bg-black border-t border-slate-200/60 dark:border-white/5">
+        <section className="py-20 px-6 relative overflow-hidden bg-background border-t border-slate-200/60 dark:border-white/5">
             {/* Background */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-orange/5 rounded-full blur-[200px] pointer-events-none" />
 

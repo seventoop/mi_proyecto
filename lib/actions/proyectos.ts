@@ -622,7 +622,7 @@ export async function updateEstadoDocumentoProyecto(id: string, status: "APROBAD
 
         await prisma.documentacion.update({
             where: { id },
-            data: { 
+            data: {
                 estado: status,
                 comentarios: notas
             }
@@ -630,7 +630,7 @@ export async function updateEstadoDocumentoProyecto(id: string, status: "APROBAD
 
         if (doc.proyectoId) {
             revalidatePath(`/dashboard/proyectos/${doc.proyectoId}`);
-            
+
             // Revalidate project doc status if it's a critical doc
             // Logic to update proyecto.documentacionEstado could go here if needed
         }
@@ -692,7 +692,7 @@ export async function deleteDocumentoProyecto(id: string, proyectoId: string) {
 export async function reviewAllProjectDocs(projectId: string, status: "APROBADO" | "RECHAZADO", notas?: string) {
     try {
         await requireRole("ADMIN");
-        
+
         const project = await prisma.proyecto.update({
             where: { id: projectId },
             data: { documentacionEstado: status }
@@ -712,5 +712,66 @@ export async function reviewAllProjectDocs(projectId: string, status: "APROBADO"
         return { success: true };
     } catch (error) {
         return handleGuardError(error);
+    }
+}
+
+export async function getProyectosDestacados() {
+    try {
+        const proyectos = await prisma.proyecto.findMany({
+            where: {
+                visibilityStatus: "PUBLICADO",
+                estado: { in: ["ACTIVO", "PROXIMO"] }
+            },
+            take: 6,
+            orderBy: { createdAt: "desc" },
+            select: {
+                id: true,
+                nombre: true,
+                slug: true,
+                estado: true,
+                tipo: true,
+                precioM2Inversor: true,
+                imagenPortada: true,
+                ubicacion: true,
+            }
+        });
+
+        const data = proyectos.map(p => ({
+            ...p,
+            precioDesde: p.precioM2Inversor ? Number(p.precioM2Inversor) : null,
+            ciudad: p.ubicacion ? p.ubicacion.split(",")[0].trim() : "",
+            provincia: p.ubicacion && p.ubicacion.includes(",") ? p.ubicacion.split(",").pop()?.trim() : "",
+        }));
+
+        return data;
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
+}
+
+export async function getProyectoBySlug(slug: string) {
+    try {
+        const proyecto = await prisma.proyecto.findFirst({
+            where: {
+                slug,
+                visibilityStatus: "PUBLICADO"
+            },
+            include: {
+                imagenes: { orderBy: { orden: "asc" } },
+                tours: true,
+                documentacion: true,
+                etapas: {
+                    include: { manzanas: { include: { unidades: true } } },
+                    orderBy: { orden: "asc" }
+                }
+            }
+        });
+
+        if (!proyecto) return null;
+        return proyecto;
+    } catch (e) {
+        console.error("Error getProyectoBySlug:", e);
+        return null;
     }
 }

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Metadata } from "next";
@@ -62,7 +62,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
     const project = await getProject(params.slug);
 
     if (!project) {
-        notFound();
+        redirect("/proyectos");
     }
 
     const P = project as any;

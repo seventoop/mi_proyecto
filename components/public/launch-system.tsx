@@ -60,7 +60,7 @@ const steps = [
 
 export default function LaunchSystem() {
     return (
-        <section className="py-20 px-6 bg-white dark:bg-black relative overflow-hidden border-t border-slate-200/60 dark:border-white/5">
+        <section className="py-20 px-6 bg-background relative overflow-hidden border-t border-slate-200/60 dark:border-white/5 dark:border-t-0">
             {/* Background */}
             <div className="absolute top-1/3 left-0 w-[600px] h-[600px] bg-brand-orange/5 rounded-full blur-[200px] pointer-events-none" />
             <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-brand-yellow/5 rounded-full blur-[150px] pointer-events-none" />

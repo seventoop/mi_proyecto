@@ -6,12 +6,7 @@ import { useTheme } from "next-themes";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import NavbarLinks from "./navbar-links";
 
 interface NavItem {
@@ -48,22 +43,13 @@ export default function NavbarActions({ items }: { items: NavItem[] }) {
         <>
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-3">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl hover:bg-foreground/5 text-foreground/60 hover:text-brand-orange transition-colors text-xs font-bold">
-                            <Globe className="w-4 h-4" />
-                            <span>{lang.toUpperCase()}</span>
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-[120px]">
-                        <DropdownMenuItem onClick={() => changeLang("es")} className={cn("cursor-pointer font-semibold", lang === "es" && "text-brand-orange")}>
-                            🇦🇷 Español
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => changeLang("en")} className={cn("cursor-pointer font-semibold", lang === "en" && "text-brand-orange")}>
-                            🇺🇸 English
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <button 
+                    onClick={() => changeLang(lang === "es" ? "en" : "es")}
+                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl hover:bg-foreground/5 text-foreground/60 hover:text-brand-orange transition-colors text-xs font-bold"
+                >
+                    <Globe className="w-4 h-4" />
+                    <span>{lang.toUpperCase()}</span>
+                </button>
 
                 <button
                     onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

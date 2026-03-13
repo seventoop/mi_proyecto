@@ -1,0 +1,393 @@
+{
+  "nav": {
+    "inicio": "Inicio",
+    "proyectos": "Proyectos",
+    "comoFunciona": "Cómo funciona",
+    "desarrolladores": "Desarrolladores",
+    "blog": "Blog",
+    "testimonios": "Testimonios",
+    "contacto": "Contacto"
+  },
+  "common": {
+    "languageShort": "ES",
+    "languageName": "Español",
+    "englishName": "Inglés",
+    "spanishName": "Español",
+    "login": "Ingresar",
+    "dashboard": "Mi panel",
+    "logout": "Cerrar sesión",
+    "hello": "Hola",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
+    "goHome": "Ir al inicio"
+  },
+  "hero": {
+    "badge": "Infraestructura Inmobiliaria",
+    "title1": "El ecosistema para acceder a las mejores ",
+    "titleHighlight": "oportunidades reales",
+    "subtitle1": "Conectamos inversores y compradores con desarrolladores verificados. Explorá proyectos de alta calidad, interactuá con tecnología avanzada y ",
+    "subtitleHighlight": "accedé al mercado antes que el resto.",
+    "cta1": "Descubrir oportunidades",
+    "cta2": "Soy Desarrollador"
+  },
+  "search": {
+    "title": "¿Dónde te gustaría vivir o invertir?",
+    "provinceLabel": "Provincia",
+    "provinceAll": "Todas",
+    "provinceCaba": "Capital Federal",
+    "cityLabel": "Ciudad",
+    "cityPlaceholder": "Ej: Pilar",
+    "zoneLabel": "Zona",
+    "zoneAny": "Cualquiera",
+    "zoneNorth": "Norte",
+    "zoneSouth": "Sur",
+    "zoneEast": "Este",
+    "zoneWest": "Oeste",
+    "zoneCenter": "Centro",
+    "typeLabel": "Tipo",
+    "typeAny": "Cualquiera",
+    "typeUrbanization": "Urbanización abierta",
+    "typePrivateNeighborhood": "Barrio Privado",
+    "typeBuilding": "Edificio",
+    "typeCondo": "Condominio",
+    "priceLabel": "Precio",
+    "priceRange": "Rango",
+    "priceUpTo50": "Hasta $50k USD",
+    "price50to100": "$50k - $100k USD",
+    "priceOver100": "Más de $100k USD",
+    "submitButton": "Buscar Oportunidades"
+  },
+  "profile": {
+    "vipAccess": "Acceso VIP",
+    "title": "Encontrá la oportunidad perfecta para tu próxima inversión",
+    "description": "Dejanos tus datos y qué tipo de proyecto buscás. Te contactaremos cuando un desarrollo en tu zona encaje con tu perfil.",
+    "benefits": {
+      "zones": { "title": "Zonas Exclusivas", "desc": "Acceso a proyectos en áreas de alto crecimiento." },
+      "premium": { "title": "Desarrollos Premium", "desc": "Calidad constructiva y amenities de primer nivel." },
+      "profit": { "title": "Alta Rentabilidad", "desc": "Oportunidades reales de revalorización." },
+      "security": { "title": "Seguridad Jurídica", "desc": "Verificación documental completa previa." }
+    },
+    "form": {
+      "successTitle": "¡Solicitud Enviada!",
+      "successDesc": "Tu perfil de inversión ha sido registrado. Un asesor especializado se comunicará contigo vía WhatsApp a la brevedad.",
+      "sendAnother": "Enviar otra consulta",
+      "completeProfile": "Completá tu perfil",
+      "noProjectsWarning": "\"¿No hay proyectos en tu zona? No te preocupes, te avisaremos apenas se active una oportunidad en lista de espera.\"",
+      "fullName": "Nombre completo",
+      "fullNamePlaceholder": "Ej: Juan Pérez",
+      "whatsapp": "WhatsApp",
+      "whatsappPlaceholder": "+54 9 11...",
+      "province": "Provincia",
+      "provincePlaceholder": "Ej: Buenos Aires",
+      "city": "Ciudad",
+      "cityPlaceholder": "Ej: Pilar",
+      "zone": "Zona",
+      "zonePlaceholder": "Ej: Norte",
+      "liveOrInvest": "¿Cuál es tu intención?",
+      "toLive": "Para vivir",
+      "toInvest": "Para invertir",
+      "projectCategory": "Categoría de proyecto",
+      "projectSubtype": "Subtipo de proyecto",
+      "selectIntention": "Seleccioná intención...",
+      "selectCategory": "Seleccioná categoría...",
+      "selectSubtype": "Seleccioná subtipo...",
+      "categories": {
+        "lote": "Lotes / Urbanizaciones",
+        "depto": "Departamentos"
+      },
+      "subtypes": {
+        "lote": {
+          "abierto": "Barrio abierto",
+          "privado": "Barrio privado",
+          "country": "Country",
+          "club": "Club de campo",
+          "quinta": "Lote de quinta"
+        },
+        "depto": {
+          "pozo": "En pozo",
+          "condo": "Condominio",
+          "complejo": "Complejo residencial",
+          "torre": "Torre / Edificio"
+        }
+      },
+      "investmentBudget": "Presupuesto (USD)",
+      "budgetMin": "Mínimo",
+      "budgetMax": "Máximo",
+      "submitButton": "Solicitar Asesoramiento",
+      "privacy": "Tus datos están seguros con nosotros. No enviamos spam."
+    }
+  },
+  "featuredProjects": {
+    "title": "Proyectos Destacados",
+    "badge": "Oportunidades",
+    "emptyTitle": "Nuevos proyectos próximamente.",
+    "emptyDesc": "Estamos trabajando en nuevas oportunidades de inversión.",
+    "viewAll": "Ver todos",
+    "investmentFrom": "Inversión Desde",
+    "askPrice": "Consultar precios"
+  },
+  "howItWorks": {
+    "badge": "La Metodología",
+    "title": "El estándar SevenToop",
+    "description": "Desarrollamos el proceso completo de comercialización, desde la validación hasta la firma, todo integrado en una sola plataforma.",
+    "steps": {
+      "01": {
+        "title": "Creación del desarrollo",
+        "desc": "Se da de alta el proyecto con toda su información básica y legal estructurada."
+      },
+      "02": {
+        "title": "Carga del plano",
+        "desc": "El desarrollador sube los planos técnicos del masterplan de la urbanización o edificio."
+      },
+      "03": {
+        "title": "Validación e interpretación",
+        "desc": "Nuestro sistema procesa el documento asegurando que la geometría y el loteo sean precisos."
+      },
+      "04": {
+        "title": "Sincronización",
+        "desc": "Las unidades se emparejan con la base de datos de precios, estados e historial en tiempo real."
+      },
+      "05": {
+        "title": "Generación del Masterplan Comercial",
+        "desc": "Se renderiza una versión interactiva optimizada para inversores y compradores finales."
+      },
+      "06": {
+        "title": "Proyección en mapa real",
+        "desc": "El masterplan se ancla geográficamente para visualizar el entorno, accesos y ubicación exacta."
+      },
+      "07": {
+        "title": "Integración del Tour 360°",
+        "desc": "Se vinculan vistas aéreas envolventes con hotspots hacia las unidades y lotes generados."
+      },
+      "08": {
+        "title": "Activación de la comercialización",
+        "desc": "El proyecto se abre al mercado mediante nuestra comunidad VIP o el canal público de ventas."
+      }
+    }
+  },
+  "forDevelopers": {
+    "badge": "Para Empresas",
+    "title": "El Partner Tecnológico para tu Desarrollo",
+    "blocks": {
+      "infrastructure": {
+        "title": "Infraestructura Inmobiliaria",
+        "desc": "Digitalizamos tu proyecto: Masterplan interactivo, Tour Virtual 360°, y control de stock en tiempo real."
+      },
+      "community": {
+        "title": "Comunidad y Lanzamiento",
+        "desc": "Llegamos primero a inversores calificados y maximizamos el impacto del lanzamiento oficial."
+      },
+      "crm": {
+        "title": "CRM y Pipeline Comercial",
+        "desc": "Tu equipo de ventas operando en un entorno diseñado para cerrar operaciones inmobiliarias más rápido."
+      }
+    },
+    "trustedBy": "Empresas que confían en nuestra tecnología",
+    "publishButton": "Publicar mi desarrollo"
+  },
+  "community": {
+    "badge": "La Ventaja Oculta",
+    "title": "Llegá antes que el resto del mercado",
+    "description": "Sé parte de la red de inversores donde suceden las transacciones reales. Elegí tu nivel de participación.",
+    "tiers": {
+      "open": {
+        "name": "Comunidad Abierta",
+        "price": "Gratuita",
+        "desc": "Para quienes buscan estar al tanto del mercado inmobiliario y conocer nuevos desarrollos.",
+        "features": [
+          "Newsletter mensual",
+          "Novedades del sector",
+          "Aviso de lanzamientos públicos",
+          "Oportunidades generales de inversión"
+        ],
+        "ctaText": "Unirme gratis"
+      },
+      "vip": {
+        "name": "Comunidad VIP",
+        "price": "Acceso Exclusivo",
+        "desc": "Para inversores exigentes que buscan llegar primero a las mejores rentabilidades.",
+        "features": [
+          "Acceso anticipado a masterplans",
+          "Información prioritaria confidencial",
+          "Participación en preventas antes del mercado (friends & family)",
+          "Análisis directo con desarrolladores",
+          "Soporte prioritario"
+        ],
+        "ctaText": "Consultar ingreso"
+      }
+    }
+  },
+  "testimonials": {
+    "badge": "Voces de Nuestra Comunidad",
+    "title1": "Lo que dicen de ",
+    "titleHighlight": "Nosotros",
+    "description": "Historias reales de desarrolladores, inversores y familias que ya están construyendo su futuro con nuestra plataforma.",
+    "actions": {
+      "loading": "Cargando formulario...",
+      "shareExperience": "Compartir mi Experiencia"
+    },
+    "card": {
+      "property": "Propiedad",
+      "returns": "Retorno"
+    },
+    "mockData": [
+      {
+        "name": "Valeria Santoro",
+        "role": "Inversora Institucional",
+        "quote": "La transparencia de datos y los rendimientos proyectados son impecables. La plataforma 3D de SevenToop nos permitió analizar todo remotamente con total seguridad.",
+        "property": "Reserva Geodevia V",
+        "returns": "14.5% TIR"
+      },
+      {
+        "name": "Carlos Medina",
+        "role": "Broker Inmobiliario",
+        "quote": "Poder mostrar a mis clientes el Masterplan con disponibilidad en tiempo real cerró tres ventas el mes pasado. Es una ventaja competitiva brutal frente al sistema tradicional.",
+        "property": "Altos del Lago",
+        "returns": "Venta Directa"
+      },
+      {
+        "name": "Agustina Rivas",
+        "role": "Directora Comercial",
+        "quote": "Desde que digitalizamos nuestro desarrollo con SevenToop, la conversión de leads aumentó un 60%. La experiencia inmersiva vende sola.",
+        "property": "EcoVillage Canning",
+        "returns": "+60% Leads"
+      },
+      {
+        "name": "Ignacio Ferrer",
+        "role": "Inversor Privado",
+        "quote": "Acceder a oportunidades en fase Friends & Family desde mi membresía VIP duplicó mi rendimiento anual. La información técnica es exacta.",
+        "property": "Lomas de la Tahona",
+        "returns": "18% Anual"
+      },
+      {
+        "name": "Mariana Costa",
+        "role": "Socia Desarrolladora",
+        "quote": "Redujimos nuestros costos de marketing y agilizamos la preventa. SevenToop actúa como nuestro brazo tecnológico para comercialización premium.",
+        "property": "Zencity Sur",
+        "returns": "100% Preventa"
+      },
+      {
+        "name": "Lucas Perea",
+        "role": "Analista de Inversiones",
+        "quote": "El rigor técnico en la verificación de m2 y amenidades me da total tranquilidad al recomendar los proyectos en SevenToop a mis clientes corporativos.",
+        "property": "Madero Center",
+        "returns": "Validado 100%"
+      },
+      {
+        "name": "Florencia Giménez",
+        "role": "Compradora Particular",
+        "quote": "Compramos nuestro lote desde el exterior guiándonos solo por el tour 360. Cuando viajamos a ver el terreno presencialmente, era exactamente como se veía online.",
+        "property": "Residencial Bosques",
+        "returns": "Venta Cerrada"
+      },
+      {
+        "name": "Esteban Quiroga",
+        "role": "CEO Constructora",
+        "quote": "La herramienta de CRM integrada nos permite gestionar los avances de obra y las reservas en un solo lugar. Transformación digital absoluta.",
+        "property": "Campus Developer",
+        "returns": "Gestión 360°"
+      },
+      {
+        "name": "Sofía Armenta",
+        "role": "Gerente de Finanzas",
+        "quote": "Encontrar lotes con alto potencial de revalorización es fácil cuando puedes ver el flujo financiero proyectado lado a lado con el máster plan.",
+        "property": "Valle Escondido",
+        "returns": "12% TIR"
+      },
+      {
+        "name": "Héctor Silva",
+        "role": "Arquitecto Senior",
+        "quote": "Trabajar con desarrollos listados en SevenToop me da la pauta de que son proyectos serios y respaldados. Excelente curaduría.",
+        "property": "Partner Tecnológico",
+        "returns": "Aprobación"
+      },
+      {
+        "name": "Daniela Osorio",
+        "role": "Ejecutiva de Ventas",
+        "quote": "Mandar links del Masterplan a posibles compradores ahorra enormes cantidades de tiempo y preguntas. Entienden todo el entorno visualmente de inmediato.",
+        "property": "Barrio Joven",
+        "returns": "Ahorro de Tiempo"
+      },
+      {
+        "name": "Miguel Rodríguez",
+        "role": "Inversionista Semilla",
+        "quote": "El portafolio de preventas exclusivas tiene los mejores tickets de entrada que he visto en los últimos 5 años en la región centro.",
+        "property": "Torre Innova",
+        "returns": "Ticket VIP"
+      },
+      {
+        "name": "Camila Beltrán",
+        "role": "Familia Compradora",
+        "quote": "Buscábamos seguridad y un ecosistema que nos diera certezas antes de dar el ahorro de nuestra vida. SevenToop nos transmitió eso y más.",
+        "property": "Altos del Lago",
+        "returns": "Confianza"
+      },
+      {
+        "name": "Julián Viale",
+        "role": "Desarrollador Inmobiliario",
+        "quote": "Su motor 360 y la tecnología de renders aplicados al mapa real son de otro planeta. Subió la categoría completa de todo nuestro barrio.",
+        "property": "Pinares Sur",
+        "returns": "Premium Tier"
+      }
+    ]
+  },
+  "projects": {
+    "badge": "Desarrollos Verificados",
+    "title": "Proyectos en SevenToop",
+    "description": "Cada desarrollo publicado cuenta con masterplan interactivo, tours 360°, ficha técnica verificada y acceso desde la comunidad.",
+    "cta": {
+      "title": "¿Tenés un desarrollo para lanzar?",
+      "description": "Publicá tu proyecto con infraestructura profesional, visibilidad desde el día uno y comunidad activa.",
+      "developerButton": "Soy Desarrollador",
+      "communityButton": "Unirme a la Comunidad"
+    },
+    "filter": {
+      "searchPlaceholder": "Buscar por nombre o ubicación...",
+      "typeAll": "Tipo: Todos",
+      "typeUrbanization": "Urbanizaciones",
+      "typeBuilding": "Edificios",
+      "statusAll": "Estado: Todos",
+      "statusPlanning": "En Planificación",
+      "statusDeveloping": "En Desarrollo",
+      "statusDelivered": "Entregado",
+      "noResults": "No se encontraron proyectos",
+      "noResultsDesc": "Intenta ajustar los filtros de búsqueda.",
+      "clearFilters": "Limpiar filtros"
+    },
+    "card": {
+      "locationPending": "Ubicación pendiente",
+      "available": "Disponibles",
+      "from": "Desde",
+      "viewProject": "Ver Proyecto",
+      "defaultDescription": "Un desarrollo urbanístico diseñado para la vida moderna.",
+      "launch": "Lanzamiento"
+    }
+  },
+  "mediaBanner": {
+    "engineLabel": "SevenToop Media Engine",
+    "systemStatus": "SISTEMA DE CONTENIDOS DINÁMICOS V1.0"
+  },
+  "footer": {
+    "platform": "Plataforma",
+    "contact": "Contacto",
+    "legal": "Legal",
+    "links": {
+      "home": "Inicio",
+      "featured": "Proyectos Destacados",
+      "howItWorks": "Cómo Funciona",
+      "developers": "Para Desarrolladores",
+      "blog": "Blog y Novedades"
+    },
+    "contactLabels": {
+      "email": "Email",
+      "whatsapp": "WhatsApp",
+      "offices": "Oficinas"
+    },
+    "location": "Buenos Aires, Argentina",
+    "legalLinks": {
+      "terms": "Términos y Condiciones",
+      "privacy": "Política de Privacidad"
+    },
+    "rights": "Todos los derechos reservados."
+  }
+}

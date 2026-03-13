@@ -7,7 +7,19 @@ import * as Sentry from "@sentry/nextjs";
 import { requireRole, handleGuardError } from "@/lib/guards";
 import { idSchema } from "@/lib/validations";
 
-// ─── Scemas ───
+// ─── Scemas & Types ───
+
+export interface Testimonio {
+    id: string;
+    autorNombre: string;
+    autorTipo: string;
+    texto: string;
+    rating: number;
+    estado: string;
+    mediaUrl: string | null;
+    createdAt: Date;
+    proyecto?: { id: string; nombre: string } | null;
+}
 
 const testimonioCreateSchema = z.object({
     autorNombre: z.string().min(2, "Nombre requerido").max(100),
