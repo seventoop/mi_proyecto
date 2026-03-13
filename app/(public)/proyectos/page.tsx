@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import ProjectsFilter from "@/components/public/projects-filter";
 import { Building2, ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -22,28 +23,33 @@ async function getProjects() {
                 deletedAt: null,
                 OR: [
                     { isDemo: false },
-                    {
-                        isDemo: true,
-                        demoExpiresAt: { gt: new Date() }
-                    }
+                    { isDemo: true, demoExpiresAt: { gt: new Date() } }
                 ]
             },
             orderBy: { createdAt: "desc" },
         });
 
-        const projectsWithPrices = await Promise.all(
-            projects.map(async (p) => ({
-                ...p,
-                _count: {
-                    unidades: await db.unidad.count({
-                        where: { manzana: { etapa: { proyectoId: p.id } } },
-                    }),
-                },
-                unidades: [],
-            }))
-        );
+        if (projects.length === 0) return [];
 
-        return projectsWithPrices;
+        const ids = projects.map(p => p.id);
+
+        // Single query for all unit counts (avoids N+1)
+        const countRows = await db.$queryRaw<{ proyectoId: string; count: number }[]>`
+            SELECT e."proyectoId", COUNT(u.id)::int AS count
+            FROM unidades u
+            JOIN manzanas m ON u."manzanaId" = m.id
+            JOIN etapas e ON m."etapaId" = e.id
+            WHERE e."proyectoId" IN (${Prisma.join(ids)})
+            GROUP BY e."proyectoId"
+        `;
+
+        const countMap = new Map(countRows.map(r => [r.proyectoId, Number(r.count)]));
+
+        return projects.map(p => ({
+            ...p,
+            _count: { unidades: countMap.get(p.id) ?? 0 },
+            unidades: [] as { precio: number; moneda: string }[],
+        }));
     } catch (error) {
         return [];
     }
