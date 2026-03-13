@@ -29,13 +29,16 @@ export default function TestimoniosCarousel() {
     }, []);
 
     // Placeholder data in case DB is empty for visual testing of the 3D effect
-    const displayData = testimonios.length > 0 ? testimonios : [
+    const fallback: Testimonio[] = [
         {
             id: '1',
             texto: 'La plataforma nos permitió digitalizar todo el proceso de ventas de nuestro último desarrollo en tiempo récord. El Masterplan interactivo es un game changer.',
             autorNombre: 'Martín Suárez',
             autorTipo: 'Desarrollador',
             rating: 5,
+            estado: 'APROBADO',
+            mediaUrl: null,
+            createdAt: new Date(),
         },
         {
             id: '2',
@@ -43,6 +46,9 @@ export default function TestimoniosCarousel() {
             autorNombre: 'Carla Vanzini',
             autorTipo: 'Inversora Calificada',
             rating: 5,
+            estado: 'APROBADO',
+            mediaUrl: null,
+            createdAt: new Date(),
         },
         {
             id: '3',
@@ -50,6 +56,9 @@ export default function TestimoniosCarousel() {
             autorNombre: 'Andrés Gil',
             autorTipo: 'Comprador',
             rating: 4,
+            estado: 'APROBADO',
+            mediaUrl: null,
+            createdAt: new Date(),
         },
         {
             id: '4',
@@ -57,8 +66,12 @@ export default function TestimoniosCarousel() {
             autorNombre: 'Lucía Fernández',
             autorTipo: 'Broker Inmobiliario',
             rating: 5,
-        }
+            estado: 'APROBADO',
+            mediaUrl: null,
+            createdAt: new Date(),
+        },
     ];
+    const displayData = testimonios.length > 0 ? testimonios : fallback;
 
     if (displayData.length === 0) return null;
 

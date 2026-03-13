@@ -14,7 +14,7 @@ export interface Testimonio {
     autorNombre: string;
     autorTipo: string;
     texto: string;
-    rating: number;
+    rating: number | null;
     estado: string;
     mediaUrl: string | null;
     createdAt: Date;
