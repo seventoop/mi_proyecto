@@ -4,6 +4,9 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
 import { runWorkflow } from "@/lib/workflow-engine";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Schema validation for creating a lead
 const createLeadSchema = z.object({
@@ -18,6 +21,13 @@ const createLeadSchema = z.object({
 
 export async function POST(request: Request) {
     try {
+        // Rate limit: 10 lead creations per IP per 10 minutes (integration endpoint)
+        const ip = getClientIp(request);
+        const { allowed } = checkRateLimit(ip, { limit: 10, windowMs: 10 * 60 * 1000, keyPrefix: "crm_lead_post:" });
+        if (!allowed) {
+            return NextResponse.json({ message: "Demasiadas solicitudes" }, { status: 429 });
+        }
+
         const body = await request.json();
         const validation = createLeadSchema.safeParse(body);
 
@@ -30,6 +40,16 @@ export async function POST(request: Request) {
 
         const { nombre, email, telefono, origen, mensaje, proyectoId, unidadInteres } = validation.data;
 
+        // A2: Inherit orgId from project when proyectoId is provided
+        let orgId: string | null = null;
+        if (proyectoId) {
+            const proyecto = await db.proyecto.findUnique({
+                where: { id: proyectoId },
+                select: { orgId: true },
+            });
+            orgId = proyecto?.orgId ?? null;
+        }
+
         // Create Lead
         const lead = await db.lead.create({
             data: {
@@ -39,6 +59,7 @@ export async function POST(request: Request) {
                 origen,
                 proyectoId: proyectoId || null,
                 unidadInteres: unidadInteres ? JSON.stringify([unidadInteres]) : "[]",
+                orgId,
                 notas: mensaje
                     ? JSON.stringify([
                         {
@@ -97,12 +118,25 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const estado = searchParams.get("estado");
         const search = searchParams.get("search");
         const proyectoId = searchParams.get("proyectoId");
 
-        const where: Prisma.LeadWhereInput = {};
+        const sessionUser = session.user as any;
+        const isAdmin = sessionUser.role === "ADMIN" || sessionUser.role === "SUPERADMIN";
+
+        // A2: Multi-tenant org scoping
+        const where: Prisma.LeadWhereInput = isAdmin
+            ? {}
+            : sessionUser.orgId
+                ? { orgId: sessionUser.orgId }
+                : { asignadoAId: sessionUser.id }; // legacy fallback
 
         if (estado) {
             where.estado = estado as any;

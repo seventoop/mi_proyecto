@@ -6,7 +6,9 @@ import { authOptions } from "@/lib/auth";
 
 function hasLeadAccess(sessionUser: any, leadOrgId: string | null): boolean {
     if (sessionUser.role === "ADMIN" || sessionUser.role === "SUPERADMIN") return true;
-    if (!leadOrgId) return true; // legacy lead with no org
+    // A2: Leads without orgId are ADMIN-only after hardening.
+    // If legacy leads exist without orgId, run scripts/backfill-lead-orgid.ts first.
+    if (!leadOrgId) return false;
     return (sessionUser as any).orgId === leadOrgId;
 }
 

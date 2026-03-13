@@ -40,13 +40,20 @@ export async function getLeads(params: {
     try {
         const user = await requireAuth();
 
-        // Si es admin ve todos, si es vendedor/desarrollador ve solo los asignados o de sus proyectos
-        const where: any = user.role === "ADMIN" ? {} : {
-            OR: [
-                { asignadoAId: user.id },
-                { proyecto: { creadoPorId: user.id } }
-            ]
-        };
+        // Multi-tenant scoping:
+        // ADMIN/SUPERADMIN → see all leads
+        // Users with orgId → see all leads in their org (primary filter)
+        // Users without orgId (legacy) → see only leads assigned to them or their projects
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        const where: any = isAdmin ? {} :
+            user.orgId
+                ? { orgId: user.orgId }
+                : {
+                    OR: [
+                        { asignadoAId: user.id },
+                        { proyecto: { creadoPorId: user.id } }
+                    ]
+                };
 
         if (search) {
             const searchConditions = [
@@ -55,10 +62,13 @@ export async function getLeads(params: {
                 { telefono: { contains: search, mode: "insensitive" } }
             ];
 
-            if (user.role === "ADMIN") {
+            if (isAdmin) {
                 where.OR = searchConditions;
+            } else if (user.orgId) {
+                // org filter already set via where.orgId — add search as AND
+                where.AND = [{ OR: searchConditions }];
             } else {
-                // If already has OR from roles, we need to intersect or wrap
+                // Legacy fallback: intersect role conditions with search
                 const roleConditions = where.OR;
                 where.AND = [
                     { OR: roleConditions },
@@ -341,6 +351,10 @@ export async function crearLeadLanding(data: {
 
         const mensajeFormateado = `Intención: ${data.intencion} | Busca: ${data.categoriaProyecto} (${data.subtipoProyecto}) | Presupuesto: USD ${data.presupuestoMinUsd} - ${data.presupuestoMaxUsd} | Zona: ${data.zona}, ${data.ciudad}, ${data.provincia} | Zona sin oferta: ${zonaSinOferta ? "Sí" : "No"}`;
 
+        // A2: Assign orgId from env variable for platform-level landing leads.
+        // Set SEVENTOOP_MAIN_ORG_ID in .env to route public leads to a specific org.
+        const mainOrgId = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
+
         await prisma.lead.create({
             data: {
                 nombre: data.nombre,
@@ -350,6 +364,7 @@ export async function crearLeadLanding(data: {
                 mensaje: mensajeFormateado,
                 estado: "NUEVO",
                 notas: JSON.stringify(jsonMetadata),
+                orgId: mainOrgId,
             }
         });
 
@@ -388,6 +403,16 @@ export async function crearConsultaContacto(data: {
             ? `[Asunto: ${data.asunto.toUpperCase()}] ${data.mensaje}`
             : data.mensaje;
 
+        // A2: Inherit orgId from project (if proyectoId provided) or from env fallback.
+        let orgId: string | null = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
+        if (data.proyectoId) {
+            const proyecto = await prisma.proyecto.findUnique({
+                where: { id: data.proyectoId },
+                select: { orgId: true },
+            });
+            if (proyecto?.orgId) orgId = proyecto.orgId;
+        }
+
         await prisma.lead.create({
             data: {
                 nombre: data.nombre,
@@ -398,6 +423,7 @@ export async function crearConsultaContacto(data: {
                 canalOrigen: "WEB",
                 estado: "NUEVO",
                 mensaje: mensajeFormateado,
+                orgId,
             }
         });
 
