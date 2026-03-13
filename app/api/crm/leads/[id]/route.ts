@@ -4,6 +4,12 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+function hasLeadAccess(sessionUser: any, leadOrgId: string | null): boolean {
+    if (sessionUser.role === "ADMIN" || sessionUser.role === "SUPERADMIN") return true;
+    if (!leadOrgId) return true; // legacy lead with no org
+    return (sessionUser as any).orgId === leadOrgId;
+}
+
 const updateLeadSchema = z.object({
     nombre: z.string().min(1).optional(),
     email: z.string().email().optional().or(z.literal("")),
@@ -36,6 +42,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
             return NextResponse.json({ message: "Lead no encontrado" }, { status: 404 });
         }
 
+        if (!hasLeadAccess(session.user, lead.orgId)) {
+            return NextResponse.json({ message: "Lead no encontrado" }, { status: 404 });
+        }
+
         return NextResponse.json(lead);
     } catch (error) {
         console.error("Error fetching lead:", error);
@@ -47,6 +57,18 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     try {
         const session = await getServerSession(authOptions);
         if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+
+        // IDOR check: verify the lead belongs to the user's org before mutating
+        const existingLead = await db.lead.findUnique({
+            where: { id: params.id },
+            select: { orgId: true },
+        });
+        if (!existingLead) {
+            return NextResponse.json({ message: "Lead no encontrado" }, { status: 404 });
+        }
+        if (!hasLeadAccess(session.user, existingLead.orgId)) {
+            return NextResponse.json({ message: "Lead no encontrado" }, { status: 404 });
+        }
 
         const body = await request.json();
         const validation = updateLeadSchema.safeParse(body);
