@@ -90,7 +90,7 @@ export default function DocumentosManager({ proyectoId, documentos, userRole, do
             toast.success("Documento eliminado");
             router.refresh();
         } else {
-            toast.error(res.error);
+            toast.error((res as any).error || "Error al eliminar documento");
         }
     };
 
@@ -100,7 +100,7 @@ export default function DocumentosManager({ proyectoId, documentos, userRole, do
             toast.success(`Carpeta marcada como ${status}`);
             router.refresh();
         } else {
-            toast.error(res.error);
+            toast.error((res as any).error || "Error al revisar documentos");
         }
     };
 
