@@ -34,33 +34,7 @@ export default async function HomePage() {
 
     const dbBanners = (bannersRes.success && bannersRes.data) ? bannersRes.data : [];
     
-    // Test data: 1 video, 2 images
-    const testBanners = [
-        {
-            id: "test-video",
-            mediaUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-            tipo: "VIDEO",
-            titulo: "Premium Coastal Experience",
-            linkDestino: null,
-        },
-        {
-            id: "test-img-1",
-            mediaUrl: "/test-media/condo.png",
-            tipo: "IMAGEN",
-            titulo: "Departamentos Premium con Vista al Mar · Desde USD 120,000",
-            linkDestino: "/proyectos",
-        },
-        {
-            id: "test-img-2",
-            mediaUrl: "/test-media/urban.png",
-            tipo: "IMAGEN",
-            titulo: "Lotes en Urbanización Exclusiva · Financiación Propia",
-            linkDestino: "/proyectos",
-        }
-    ];
-
-    const banners = [...testBanners, ...dbBanners];
-    console.log(`[DEBUG] Banners (including test): ${banners.length}`);
+    const banners = bannersRes.success && bannersRes.data ? bannersRes.data : [];
 
     return (
         <main className="min-h-screen bg-background text-foreground">
