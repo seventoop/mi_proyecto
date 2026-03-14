@@ -13,10 +13,11 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // @security-waive: PUBLIC - open registration handler
   try {
     // Rate Limiting: Max 5 registrations per hour per IP
     const ip = getClientIp(req);
-    const { allowed } = checkRateLimit(ip, {
+    const { allowed } = await checkRateLimit(ip, {
       limit: 5,
       windowMs: 60 * 60 * 1000,
       keyPrefix: "register_",
