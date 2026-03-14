@@ -133,6 +133,8 @@ export async function processIncomingLeadMessage(input: unknown) {
                     proyectoId: data.proyectoId || null,
                     origen: "WHATSAPP",
                     canalOrigen: "WHATSAPP",
+                    // A2: assign platform org for inbound webhook leads
+                    orgId: process.env.SEVENTOOP_MAIN_ORG_ID ?? null,
                     automationStatus: "PILOT" as any
                 } as any,
                 include: { proyecto: true }
@@ -320,6 +322,8 @@ export async function joinOpenCommunity(input: unknown) {
                     telefono: formData.telefono,
                     communityType: 'OPEN' as any,
                     origen: 'LANDING_COMMUNITY',
+                    // A2: assign platform org for community landing leads
+                    orgId: process.env.SEVENTOOP_MAIN_ORG_ID ?? null,
                     automationStatus: 'PILOT' as any
                 } as any
             });

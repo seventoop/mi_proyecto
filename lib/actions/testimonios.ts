@@ -4,7 +4,7 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
-import { requireRole, handleGuardError } from "@/lib/guards";
+import { requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
 import { idSchema } from "@/lib/validations";
 
 // ─── Scemas & Types ───
@@ -85,7 +85,7 @@ export async function getTestimoniosAdmin(params: {
     pageSize?: number;
 } = {}) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const { page = 1, pageSize = 50 } = params;
         const skip = (page - 1) * pageSize;
 
@@ -153,7 +153,7 @@ export async function updateTestimonioStatus(id: string, estado: string) {
         const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) return { success: false, error: "ID de testimonio inválido" };
 
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         await prisma.testimonio.update({
             where: { id },
             data: { estado },
@@ -171,7 +171,7 @@ export async function deleteTestimonio(id: string) {
         const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) return { success: false, error: "ID de testimonio inválido" };
 
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         await prisma.testimonio.delete({ where: { id } });
         revalidatePath("/dashboard/admin/testimonios");
         return { success: true };
@@ -182,7 +182,7 @@ export async function deleteTestimonio(id: string) {
 
 export async function moderarTestimonio(input: unknown) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const parsed = moderationSchema.safeParse(input);
         if (!parsed.success) return { success: false, error: "Datos inválidos" };

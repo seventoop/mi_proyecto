@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, requireAnyRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 
@@ -108,7 +108,7 @@ export async function updatePaymentStatusAdmin(pagoId: string, status: "APROBADO
         const idP = idSchema.safeParse(pagoId);
         if (!idP.success) return { success: false, error: "ID de pago inválido" };
 
-        const admin = await requireRole("ADMIN");
+        const admin = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const result = await prisma.$transaction(async (tx) => {
             const pago = await tx.pago.findUnique({
@@ -167,7 +167,7 @@ export async function getAllPayments(
     status?: string
 ) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const where: any = {};
         if (status && status !== "ALL") where.estado = status;
 

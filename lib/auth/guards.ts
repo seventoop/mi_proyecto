@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
+import prisma from "@/lib/db";
 
 /**
  * PAGE-LEVEL guards — use in Server Components (app/page.tsx files).
@@ -28,6 +29,7 @@ export async function requireAuth() {
 
 export async function requireRole(allowedRoles: string[]) {
     const user = await requireAuth();
+    if (user.role === "SUPERADMIN") return user;
     if (!allowedRoles.includes(user.role)) {
         redirect("/dashboard");
     }
@@ -62,5 +64,57 @@ export function withAdminGuard<T extends any[], R>(handler: (...args: T) => Prom
             console.error("[AdminGuard Error]:", error);
             return { error: "Internal Server Error", status: 500 };
         }
+    };
+}
+
+/**
+ * Resolves the organization context for a page.
+ * 1. If user is ADMIN/SUPERADMIN, it looks for orgId in searchParams.
+ * 2. If orgId is present, it validates its existence.
+ * 3. Returns the resolved orgId or null if a selector should be shown.
+ */
+export async function resolveAdminOrgContext(searchParamsOrgId?: string) {
+    const user = await requireAuth();
+    const isAdministrative = user.role === "ADMIN" || user.role === "SUPERADMIN";
+
+    // 1. If not admin, use their session orgId
+    if (!isAdministrative) {
+        return {
+            orgId: user.orgId,
+            user,
+            needsSelection: !user.orgId
+        };
+    }
+
+    // 2. If admin and searchParamsOrgId is provided, validate it
+    if (searchParamsOrgId) {
+        const org = await prisma.organization.findUnique({
+            where: { id: searchParamsOrgId },
+            select: { id: true, nombre: true }
+        });
+
+        if (org) {
+            return {
+                orgId: org.id,
+                orgName: org.nombre,
+                user,
+                needsSelection: false
+            };
+        }
+        
+        // Invalid orgId provided by admin -> force reselection
+        return {
+            orgId: null,
+            user,
+            needsSelection: true,
+            error: "Organización no válida o no encontrada"
+        };
+    }
+
+    // 3. Admin without orgId in params -> needs selection
+    return {
+        orgId: null,
+        user,
+        needsSelection: true
     };
 }

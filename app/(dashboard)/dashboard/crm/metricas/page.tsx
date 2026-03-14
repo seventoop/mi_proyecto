@@ -1,17 +1,30 @@
-import { requireAuth, requireOrgAccess } from "@/lib/guards";
+import { resolveAdminOrgContext } from "@/lib/auth/guards";
 import { getCrmMetrics } from "@/lib/actions/crm-actions";
 import CrmMetricsClient from "@/components/dashboard/crm/crm-metrics-client";
+import AdminOrgSelector from "@/components/dashboard/admin/admin-org-selector";
 import { redirect } from "next/navigation";
 
-export default async function MetricasPage() {
-    const user = await requireAuth();
-    const orgId = user.orgId;
+export default async function MetricasPage({ 
+    searchParams 
+}: { 
+    searchParams: { orgId?: string } 
+}) {
+    const context = await resolveAdminOrgContext(searchParams.orgId);
+    const { orgId, user, needsSelection, error } = context;
+
+    if (needsSelection) {
+        return (
+            <AdminOrgSelector 
+                title="BI Métricas" 
+                description="Selecciona una organización para visualizar sus analíticas de CRM."
+                error={error}
+            />
+        );
+    }
 
     if (!orgId) {
         redirect("/dashboard/developer");
     }
-
-    await requireOrgAccess(orgId);
 
     const res = await getCrmMetrics(orgId);
 

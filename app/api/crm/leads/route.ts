@@ -21,6 +21,12 @@ const createLeadSchema = z.object({
 
 export async function POST(request: Request) {
     try {
+        // Require authentication for CRM lead creation
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+        }
+
         // Rate limit: 10 lead creations per IP per 10 minutes (integration endpoint)
         const ip = getClientIp(request);
         const { allowed } = checkRateLimit(ip, { limit: 10, windowMs: 10 * 60 * 1000, keyPrefix: "crm_lead_post:" });
@@ -39,15 +45,16 @@ export async function POST(request: Request) {
         }
 
         const { nombre, email, telefono, origen, mensaje, proyectoId, unidadInteres } = validation.data;
+        const sessionUser = session.user as any;
 
-        // A2: Inherit orgId from project when proyectoId is provided
-        let orgId: string | null = null;
+        // A2: Inherit orgId — proyecto is the most reliable source, fallback to session user's org
+        let orgId: string | null = (sessionUser.orgId as string | null) ?? null;
         if (proyectoId) {
             const proyecto = await db.proyecto.findUnique({
                 where: { id: proyectoId },
                 select: { orgId: true },
             });
-            orgId = proyecto?.orgId ?? null;
+            if (proyecto?.orgId) orgId = proyecto.orgId;
         }
 
         // Create Lead
@@ -104,6 +111,12 @@ export async function POST(request: Request) {
                     runWorkflow(wf.id, "NEW_LEAD", lead.id).catch(console.error);
                 }
             }
+        }
+
+        // LogicToop Integration: NEW_LEAD trigger
+        if (orgId) {
+            const { dispatchTrigger } = await import("@/lib/logictoop/dispatcher");
+            dispatchTrigger("NEW_LEAD", { leadId: lead.id, proyectoId: proyectoId || null }, orgId).catch(console.error);
         }
 
         return NextResponse.json(lead, { status: 201 });

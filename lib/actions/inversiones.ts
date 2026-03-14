@@ -53,7 +53,8 @@ export async function crearInversion(input: unknown) {
                 invertible: true,
                 m2VendidosInversores: true,
                 metaM2Objetivo: true,
-                precioM2Inversor: true
+                precioM2Inversor: true,
+                orgId: true
             }
         });
 
@@ -82,6 +83,18 @@ export async function crearInversion(input: unknown) {
                 precioM2Aplicado: proyecto.precioM2Inversor || 0,
             }
         });
+
+        // LogicToop Integration: INVESTOR_INTERESTED trigger
+        if (proyecto?.orgId) {
+            const { dispatchTrigger } = await import("@/lib/logictoop/dispatcher");
+            dispatchTrigger("INVESTOR_INTERESTED", { 
+                inversionId: inversion.id, 
+                proyectoId: data.proyectoId, 
+                m2: data.m2Comprados, 
+                monto: data.montoTotal,
+                userId: userId
+            }, proyecto.orgId).catch(console.error);
+        }
 
         revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
         revalidatePath("/dashboard/inversor/mis-inversiones");

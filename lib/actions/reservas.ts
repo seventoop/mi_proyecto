@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireKYC, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, requireAnyRole, requireKYC, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { audit } from "@/lib/actions/audit";
 import { z } from "zod";
 import { generateReservaPDF } from "@/lib/pdf-generator";
@@ -404,7 +404,7 @@ export async function cancelarReserva(id: string) {
 
 export async function confirmarVenta(input: unknown) {
     try {
-        const user = await requireRole("ADMIN");
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const parsed = confirmVentaSchema.safeParse(input);
         if (!parsed.success) return { success: false, error: "Datos de venta inválidos" };

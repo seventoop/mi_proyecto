@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, requireAnyRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { checkPlanLimit } from "@/lib/saas/limits";
 import { z } from "zod";
 
@@ -233,7 +233,7 @@ export async function deleteTour(id: string) {
 // Moderation
 export async function approveTour(id: string) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const tour = await prisma.tour360.update({
             where: { id },
             data: { estado: "APROBADO", notasAdmin: null },
@@ -247,7 +247,7 @@ export async function approveTour(id: string) {
 
 export async function rejectTour(id: string, reason: string) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const tour = await prisma.tour360.update({
             where: { id },
             data: { estado: "RECHAZADO", notasAdmin: reason.trim() },

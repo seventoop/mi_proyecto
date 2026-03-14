@@ -1,18 +1,31 @@
-import { requireAuth, requireOrgAccess } from "@/lib/guards";
+import { resolveAdminOrgContext } from "@/lib/auth/guards";
 import { getPipelineEtapas } from "@/lib/actions/crm-actions";
 import PipelineConfigClient from "@/components/dashboard/crm/pipeline-config-client";
+import AdminOrgSelector from "@/components/dashboard/admin/admin-org-selector";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 
-export default async function PipelinePage() {
-    const user = await requireAuth();
-    const orgId = user.orgId;
+export default async function PipelinePage({ 
+    searchParams 
+}: { 
+    searchParams: { orgId?: string } 
+}) {
+    const context = await resolveAdminOrgContext(searchParams.orgId);
+    const { orgId, user, needsSelection, error } = context;
+
+    if (needsSelection) {
+        return (
+            <AdminOrgSelector 
+                title="Pipeline CRM" 
+                description="Selecciona una organización para gestionar sus etapas y flujo de leads."
+                error={error}
+            />
+        );
+    }
 
     if (!orgId) {
         redirect("/dashboard/developer");
     }
-
-    await requireOrgAccess(orgId);
 
     // Obtener etapas actuales
     const res = await getPipelineEtapas(orgId);

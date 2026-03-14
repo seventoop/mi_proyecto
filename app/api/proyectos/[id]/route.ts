@@ -91,6 +91,12 @@ export async function PUT(
 
         const body = await request.json();
 
+        // For LogicToop: Check if we are publishing a draft
+        const oldProyecto = await prisma.proyecto.findUnique({
+            where: { id: params.id },
+            select: { visibilityStatus: true, orgId: true }
+        });
+
         const proyecto = await prisma.proyecto.update({
             where: { id: params.id },
             data: {
@@ -103,9 +109,15 @@ export async function PUT(
                 galeria: body.galeria,
                 documentos: body.documentos,
                 masterplanSVG: body.masterplanSVG,
-                // masterplanConfig: body.masterplanConfig,
+                visibilityStatus: body.visibilityStatus,
             },
         });
+
+        // Trigger LogicToop if transitioned to PUBLICADO
+        if (body.visibilityStatus === "PUBLICADO" && oldProyecto?.visibilityStatus !== "PUBLICADO" && oldProyecto?.orgId) {
+            const { dispatchTrigger } = await import("@/lib/logictoop/dispatcher");
+            dispatchTrigger("PROJECT_PUBLISHED", { proyectoId: proyecto.id, nombre: proyecto.nombre }, oldProyecto.orgId).catch(console.error);
+        }
 
         return NextResponse.json(proyecto);
     } catch (error) {

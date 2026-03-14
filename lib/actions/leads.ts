@@ -158,16 +158,24 @@ export async function updateLead(leadId: string, input: unknown) {
 
         const data = parsed.data;
 
-        // Verify lead ownership or admin
+        // Verify lead access: org isolation first, then ownership
         const existing = await prisma.lead.findUnique({
             where: { id: leadId },
-            select: { asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
+            select: { orgId: true, asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
         });
 
         if (!existing) return { success: false, error: "Lead no encontrado" };
 
-        if (user.role !== "ADMIN" && existing.asignadoAId !== user.id && existing.proyecto?.creadoPorId !== user.id) {
-            return { success: false, error: "No tienes permisos para editar este lead" };
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            // Primary: org isolation
+            if (existing.orgId && user.orgId && existing.orgId !== user.orgId) {
+                return { success: false, error: "No tienes permisos para editar este lead" };
+            }
+            // Secondary: user-level ownership within the org
+            if (existing.asignadoAId !== user.id && existing.proyecto?.creadoPorId !== user.id) {
+                return { success: false, error: "No tienes permisos para editar este lead" };
+            }
         }
 
         await prisma.lead.update({
@@ -211,10 +219,13 @@ export async function bulkCreateLeads(leads: any[], projectId?: string) {
 
                 const lead = parsed.data;
 
-                // Check duplicate by email (if email provided)
+                // Check duplicate by email within the same org
                 if (lead.email) {
                     const existing = await prisma.lead.findFirst({
-                        where: { email: lead.email }
+                        where: {
+                            email: lead.email,
+                            ...(user.orgId ? { orgId: user.orgId } : {}),
+                        }
                     });
                     if (existing) {
                         errors.push(`Duplicado: ${lead.email} ya existe`);
@@ -230,7 +241,8 @@ export async function bulkCreateLeads(leads: any[], projectId?: string) {
                         proyectoId: projectId || null,
                         estado: "NUEVO",
                         origen: "IMPORTACION",
-                        asignadoAId: user.id
+                        asignadoAId: user.id,
+                        orgId: user.orgId ?? null,
                     }
                 });
                 successCount++;
@@ -263,14 +275,21 @@ export async function deleteLead(leadId: string) {
 
         const lead = await prisma.lead.findUnique({
             where: { id: leadId },
-            select: { asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
+            select: { orgId: true, asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
         });
 
         if (!lead) return { success: false, error: "Lead no encontrado" };
 
-        // Permisos: Admin, Asignado o Dueño del proyecto
-        if (user.role !== "ADMIN" && lead.asignadoAId !== user.id && lead.proyecto?.creadoPorId !== user.id) {
-            return { success: false, error: "No tienes permisos para eliminar este lead" };
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            // Primary: org isolation
+            if (lead.orgId && user.orgId && lead.orgId !== user.orgId) {
+                return { success: false, error: "No tienes permisos para eliminar este lead" };
+            }
+            // Secondary: user-level ownership within the org
+            if (lead.asignadoAId !== user.id && lead.proyecto?.creadoPorId !== user.id) {
+                return { success: false, error: "No tienes permisos para eliminar este lead" };
+            }
         }
 
         await prisma.lead.delete({

@@ -18,6 +18,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
 
 // ─── Types ───
 
@@ -65,9 +66,11 @@ export async function requireAuth(): Promise<AuthUser> {
 
 /**
  * Requires the user to have a specific role. Returns the user.
+ * SUPERADMIN has all permissions by default.
  */
 export async function requireRole(role: string): Promise<AuthUser> {
     const user = await requireAuth();
+    if (user.role === "SUPERADMIN") return user;
     if (user.role !== role) {
         throw new AuthError("No tienes permisos para esta acción", 403);
     }
@@ -79,6 +82,7 @@ export async function requireRole(role: string): Promise<AuthUser> {
  */
 export async function requireAnyRole(roles: string[]): Promise<AuthUser> {
     const user = await requireAuth();
+    if (user.role === "SUPERADMIN") return user;
     if (!roles.includes(user.role)) {
         throw new AuthError("No tienes permisos para esta acción", 403);
     }
@@ -95,7 +99,7 @@ export async function requireAnyRole(roles: string[]): Promise<AuthUser> {
  * Usage: prisma.proyecto.findMany({ where: { ...orgFilter(user), ...otherFilters } })
  */
 export function orgFilter(user: AuthUser): { orgId?: string } {
-    if (user.role === "ADMIN") return {};
+    if (user.role === "ADMIN" || user.role === "SUPERADMIN") return {};
     if (!user.orgId) return { orgId: "___NO_ORG___" }; // user has no org → see nothing
     return { orgId: user.orgId };
 }
@@ -248,8 +252,6 @@ export async function requireOrgAccess(orgId: string): Promise<AuthUser> {
     }
     return user;
 }
-
-import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Safe wrapper for server actions that use guards.

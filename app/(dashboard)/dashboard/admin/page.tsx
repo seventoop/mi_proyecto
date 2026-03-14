@@ -30,6 +30,9 @@ interface DashboardData {
         activeBanners: number;
         pendingBlogs: number;
         pendingKYC: number;
+        reservasActivas: number;
+        conversionRate: number;
+        proyectosActivos: number;
     };
     auditLogs: any[];
 }
@@ -55,11 +58,11 @@ export default async function AdminDashboard() {
 
     const statsCards = [
         { label: "Organizaciones", value: counts.totalOrgs, icon: Building2, color: "text-brand-500" },
+        { label: "Proyectos Activos", value: counts.proyectosActivos, icon: Activity, color: "text-blue-500" },
         { label: "Leads Hoy", value: counts.leadsToday, icon: TrendingUp, color: "text-emerald-500" },
-        { label: "Leads Semana", value: counts.leadsWeek, icon: TrendingUp, color: "text-emerald-600" },
-        { label: "KYC Pendientes", value: counts.pendingKYC, icon: Shield, color: "text-amber-500" },
-        { label: "Blogs Pendientes", value: counts.pendingBlogs, icon: MessageSquare, color: "text-purple-500" },
-        { label: "Banners Activos", value: counts.activeBanners, icon: Activity, color: "text-blue-500" },
+        { label: "Reservas Activas", value: counts.reservasActivas, icon: Shield, color: "text-amber-500" },
+        { label: "Conversión", value: `${counts.conversionRate}%`, icon: TrendingUp, color: "text-purple-500" },
+        { label: "KYC Pendientes", value: counts.pendingKYC, icon: Shield, color: "text-rose-500" },
     ];
 
     return (

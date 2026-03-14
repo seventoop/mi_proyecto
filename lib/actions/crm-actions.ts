@@ -19,7 +19,14 @@ export async function getPipelineEtapas(orgId: string) {
             where: { orgId },
             orderBy: { orden: "asc" }
         });
-        return { success: true, data: etapas };
+        
+        // Serialización segura
+        const serialized = etapas.map(e => ({
+            ...e,
+            createdAt: e.createdAt.toISOString(),
+        }));
+
+        return { success: true, data: serialized };
     } catch (error) {
         return handleGuardError(error);
     }
@@ -234,9 +241,11 @@ export async function getCrmMetrics(orgId: string) {
             data: {
                 totalLeads,
                 leadsThisMonth,
-                leadsByStage,
-                leadsByChannel,
-                leadsLast30Days,
+                leadsByStage: leadsByStage.map(l => ({ ...l, _count: l._count })), // Explicit count
+                leadsByChannel: leadsByChannel.map(l => ({ ...l, _count: l._count })),
+                leadsLast30Days: leadsLast30Days.map(l => ({ 
+                    createdAt: l.createdAt.toISOString() 
+                })),
                 conversionRate,
                 leadsWithScore,
                 avgDealValue,

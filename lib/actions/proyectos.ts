@@ -611,7 +611,7 @@ export async function addDocumentoProyecto(input: unknown) {
 
 export async function updateEstadoDocumentoProyecto(id: string, status: "APROBADO" | "RECHAZADO", notas?: string) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const doc = await (prisma.documentacion as any).findUnique({
             where: { id },
@@ -691,7 +691,7 @@ export async function deleteDocumentoProyecto(id: string, proyectoId: string) {
 
 export async function reviewAllProjectDocs(projectId: string, status: "APROBADO" | "RECHAZADO", notas?: string) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const project = await prisma.proyecto.update({
             where: { id: projectId },

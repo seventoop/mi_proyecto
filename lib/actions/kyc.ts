@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, requireAnyRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { createNotification } from "./notifications";
 import { audit } from "./audit";
 import { z } from "zod";
@@ -12,7 +12,7 @@ import { idSchema } from "@/lib/validations";
 
 export async function getPendingKYC() {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const users = await prisma.user.findMany({
             where: { kycStatus: { in: ["PENDIENTE", "EN_REVISION"] } },
             include: { documentacion: true },
@@ -65,7 +65,7 @@ export async function updateKYCStatus(userId: string, status: "VERIFICADO" | "RE
         const idParsed = idSchema.safeParse(userId);
         if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
 
-        const admin = await requireRole("ADMIN");
+        const admin = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         await prisma.$transaction(async (tx) => {
             await tx.user.update({
                 where: { id: userId },
@@ -232,7 +232,7 @@ export async function reviewProjectDocs(projectId: string, status: "APROBADO" | 
         const idParsed = idSchema.safeParse(projectId);
         if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
 
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const project = await prisma.proyecto.update({
             where: { id: projectId },
             data: {
