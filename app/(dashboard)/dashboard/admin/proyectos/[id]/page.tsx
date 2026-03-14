@@ -172,7 +172,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         <div className="space-y-6 animate-fade-in">
             {/* Header */}
             <div>
-                <Link href="/dashboard/proyectos" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4">
+                <Link href="/dashboard/admin/proyectos" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4">
                     <ArrowLeft className="w-4 h-4" />
                     Volver a Proyectos
                 </Link>

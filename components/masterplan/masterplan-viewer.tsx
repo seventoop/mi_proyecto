@@ -102,7 +102,7 @@ const Tooltip = memo(function Tooltip({ data }: { data: TooltipData | null }) {
 
 // ─── Single Unit polygon ───
 const UnitPolygon = memo(function UnitPolygon({
-    unit, isFiltered, isSelected, isHovered, isComparing, showLabels,
+    unit, isFiltered, isSelected, isHovered, isComparing, zoom,
     onMouseEnter, onMouseLeave, onClick, onCompareToggle,
 }: {
     unit: MasterplanUnit;
@@ -110,7 +110,7 @@ const UnitPolygon = memo(function UnitPolygon({
     isSelected: boolean;
     isHovered: boolean;
     isComparing: boolean;
-    showLabels: boolean;
+    zoom: number;
     onMouseEnter: (e: React.MouseEvent, unit: MasterplanUnit) => void;
     onMouseLeave: () => void;
     onClick: () => void;
@@ -163,6 +163,18 @@ const UnitPolygon = memo(function UnitPolygon({
     const strokeColor = isSelected ? "#fff" : isComparing ? "#6366f1" : isHovered ? "#fff" : "rgba(255,255,255,0.35)";
     const labelText = internalId != null ? String(internalId) : (unit.numero.split("-")[1] || unit.numero);
 
+    // Smart label scaling: keep labels legible at any zoom level.
+    // At low zoom we scale up the SVG font size so screen pixels stay ~8px minimum,
+    // but cap it to avoid overflowing the polygon boundary (max 2.5× base size).
+    const MIN_SCREEN_PX = 8;
+    const safeZoom = Math.max(zoom, 0.05);
+    const scaledFontSize = Math.min(
+        Math.max(fontSize, MIN_SCREEN_PX / safeZoom),
+        fontSize * 2.5
+    );
+    // Fade labels slightly at very low zoom so they don't clutter when small
+    const labelOpacity = Math.min(1, 0.4 + zoom * 0.8);
+
     return (
         <g
             className="cursor-pointer"
@@ -179,19 +191,21 @@ const UnitPolygon = memo(function UnitPolygon({
                 strokeWidth={strokeWidth}
                 style={{ transition: "fill-opacity 0.2s, stroke 0.2s, stroke-width 0.15s, fill 0.3s" }}
             />
-            {isFiltered && showLabels && cx !== undefined && cy !== undefined && (
+            {isFiltered && cx !== undefined && cy !== undefined && (
                 <text
                     x={cx}
                     y={cy}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fontSize={fontSize}
+                    fontSize={scaledFontSize}
                     fontWeight="700"
                     fill="#fff"
+                    fillOpacity={labelOpacity}
                     stroke="rgba(0,0,0,0.65)"
-                    strokeWidth={fontSize * 0.2}
+                    strokeWidth={scaledFontSize * 0.2}
                     paintOrder="stroke"
                     className="pointer-events-none select-none"
+                    style={{ transition: "font-size 0.15s, fill-opacity 0.2s" }}
                 >
                     {labelText}
                 </text>
@@ -314,8 +328,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
     const vbParts = svgViewBox.split(" ").map(parseFloat);
     const [vbX, vbY, vbW, vbH] = vbParts;
 
-    // Show labels only when reasonably zoomed in — avoids illegible label soup at overview
-    const showLabels = zoom >= 0.75;
+    // zoom is passed to UnitPolygon for smart adaptive label sizing
 
     const handleExportExcel = async () => {
         const { utils, writeFile } = await import("xlsx");
@@ -386,8 +399,8 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                 </button>
             </div>
 
-            {/* Zoom controls  */}
-            <div className="absolute top-4 right-4 z-20 flex flex-col gap-1">
+            {/* Zoom controls — shift left when side panel is open to avoid overlap */}
+            <div className={cn("absolute top-4 z-20 flex flex-col gap-1 transition-all duration-300", selectedUnit ? "right-[356px]" : "right-4")}>
                 <button id="zoom-in-btn" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
                     <ZoomIn className="w-4 h-4" />
                 </button>
@@ -439,7 +452,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                                 isSelected={selectedUnitId === unit.id}
                                 isHovered={hoveredUnitId === unit.id}
                                 isComparing={comparisonIds.includes(unit.id)}
-                                showLabels={showLabels}
+                                zoom={zoom}
                                 onMouseEnter={handleUnitHover}
                                 onMouseLeave={handleUnitLeave}
                                 onClick={() => setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id)}

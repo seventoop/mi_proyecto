@@ -80,6 +80,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     const [scaleMeters, setScaleMeters] = useState<string>("1");
 
     const [loadedFromDB, setLoadedFromDB] = useState(false);
+    const [showSummary, setShowSummary] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -482,6 +483,19 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                         </div>
                     </div>
 
+                    {/* Summary toggle */}
+                    <button
+                        onClick={() => setShowSummary(v => !v)}
+                        className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all",
+                            showSummary
+                                ? "bg-brand-500/10 border-brand-500/30 text-brand-600 dark:text-brand-400"
+                                : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-500/40")}
+                        title="Ver estadísticas del plano"
+                    >
+                        <Layers className="w-3 h-3" />
+                        {showSummary ? "Ocultar panel" : "Ver estadísticas"}
+                    </button>
+
                     {/* Sync */}
                     {stats && (
                         <button onClick={handleSync} disabled={processing} className="bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-lg shadow-brand-500/20 transition-all flex items-center gap-1.5">
@@ -506,6 +520,9 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                 >
                     {svgContent && viewMode === "analysis" && (
                         <style dangerouslySetInnerHTML={{ __html: dynamicStyles + "\n" + activeStyle }} />
+                    )}
+                    {svgContent && (
+                        <style>{`.blueprint-render { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; } .blueprint-render svg { max-width: 100%; max-height: 100%; width: auto; height: auto; }`}</style>
                     )}
 
                     {!svgContent ? (
@@ -569,8 +586,8 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     )}
                 </div>
 
-                {/* ── Summary Sidebar ──────────────────────────────────────── */}
-                <div className="w-56 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col shrink-0 overflow-y-auto">
+                {/* ── Summary Sidebar (colapsable) ─────────────────────────── */}
+                {showSummary && <div className="w-56 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col shrink-0 overflow-y-auto">
                     <div className="p-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Resumen</p>
                     </div>
@@ -627,7 +644,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                             </div>
                         )}
                     </div>
-                </div>
+                </div>}
             </div>
 
             {/* ── Lot Management Table (collapsible, full-width) ──────────── */}
