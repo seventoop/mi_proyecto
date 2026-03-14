@@ -15,7 +15,8 @@
     "db:migrate:status": "npx prisma migrate status",
     "db:seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
     "db:studio": "npx prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "security:check": "node scripts/security-check.js"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -46,6 +47,8 @@
     "@types/papaparse": "^5.5.2",
     "@types/pusher-js": "^4.2.2",
     "@types/three": "^0.183.1",
+    "@upstash/redis": "^1.37.0",
+    "@xyflow/react": "^12.10.1",
     "archiver": "^7.0.1",
     "bcrypt": "^6.0.0",
     "class-variance-authority": "^0.7.1",
@@ -54,6 +57,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
     "framer-motion": "^12.34.0",
+    "googleapis": "^171.4.0",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "0.564.0",

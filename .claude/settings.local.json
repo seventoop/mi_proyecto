@@ -26,7 +26,16 @@
       "Bash(cmd:*)",
       "Bash(curl:*)",
       "Bash(claude auth:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(PRISMA_MIGRATE_SKIP_GENERATE=1 npx prisma migrate dev --name add-password-reset-fields --create-only 2>&1)",
+      "Bash(npx tsx:*)",
+      "Bash(DRY_RUN=false npx tsx scripts/backfill-lead-orgid.ts 2>&1)",
+      "Bash(find /c/dev/antigravity/app/'\\(dashboard\\)'/dashboard/vendedor -type f 2>/dev/null || echo \"No vendedor directory found\")",
+      "Bash(test -f /c/dev/antigravity/app/'\\(dashboard\\)'/dashboard/vendedor/banners/page.tsx && echo \"EXISTS\" || echo \"NOT FOUND\")",
+      "Bash(test -f /c/dev/antigravity/app/'\\(dashboard\\)'/dashboard/vendedor/page.tsx && echo \"EXISTS\" || echo \"NOT FOUND\")",
+      "Bash(test -d /c/dev/antigravity/app/'\\(dashboard\\)'/dashboard/vendedor && echo \"DIR EXISTS\" || echo \"DIR NOT FOUND\")",
+      "Bash(ls \"C:/dev/antigravity/app/\\(dashboard\\)/dashboard/\")",
+      "Bash(git commit:*)"
     ]
   }
 }
