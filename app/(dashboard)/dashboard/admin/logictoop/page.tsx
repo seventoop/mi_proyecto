@@ -20,8 +20,22 @@ export default async function LogicToopAdminPage() {
                         LogicToop <span className="text-brand-500 underline decoration-4">Automation</span>
                     </h1>
                     <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">
-                        Motor de reglas y automatización v1.0
+                        Motor de reglas y automatización v1.0 • <span className="text-brand-500">v2 Orchestrator Active</span>
                     </p>
+                </div>
+                <div className="flex gap-2">
+                    <a 
+                        href="/dashboard/admin/logictoop/integrations" 
+                        className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-lg font-black uppercase italic text-xs flex items-center gap-2 transition-all shadow-lg shadow-slate-500/10"
+                    >
+                        Integraciones
+                    </a>
+                    <a 
+                        href="/dashboard/admin/logictoop/orchestrator" 
+                        className="bg-brand-600 hover:bg-brand-500 text-white px-6 py-3 rounded-lg font-black uppercase italic text-xs flex items-center gap-2 transition-all shadow-lg shadow-brand-500/20"
+                    >
+                        AI Orchestrator
+                    </a>
                 </div>
             </div>
 

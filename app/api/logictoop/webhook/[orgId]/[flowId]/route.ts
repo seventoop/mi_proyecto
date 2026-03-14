@@ -9,6 +9,7 @@ export async function POST(
     req: NextRequest,
     { params }: { params: { orgId: string; flowId: string } }
 ) {
+    // @security-waive: PUBLIC - Secured by x-logictoop-secret
     try {
         const { orgId, flowId } = params;
         const secret = req.headers.get("x-logictoop-secret") || "";

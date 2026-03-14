@@ -4,6 +4,7 @@ import { sendEmailNode, sendWhatsAppNode } from "./definitions/messaging";
 import { notifyInternalNode, addAuditLogNode, waitNode } from "./definitions/automation";
 import { aiClassifyLeadNode, aiScoreLeadNode, aiSummarizeNode, aiRouteNode } from "./definitions/ai";
 import { httpRequestNode, whatsappSendMessageNode, metaConversionNode, googleSheetsAppendNode } from "./definitions/integrations";
+import { googleCalendarCreateEventNode, googleCalendarListAvailabilityNode, googleCalendarUpdateEventNode, googleCalendarGetEventNode } from "./definitions/google-calendar";
 import { webhookTriggerNode } from "./definitions/triggers";
 import { aiAgentSalesNode, aiAgentFollowupNode, aiAgentRouterNode } from "./definitions/agents";
 
@@ -34,6 +35,12 @@ export function initNodeRegistry() {
     nodeRegistry.register(whatsappSendMessageNode);
     nodeRegistry.register(metaConversionNode);
     nodeRegistry.register(googleSheetsAppendNode);
+    
+    // Google Calendar Nodes
+    nodeRegistry.register(googleCalendarCreateEventNode);
+    nodeRegistry.register(googleCalendarListAvailabilityNode);
+    nodeRegistry.register(googleCalendarUpdateEventNode);
+    nodeRegistry.register(googleCalendarGetEventNode);
 
     // Agent Nodes
     nodeRegistry.register(aiAgentSalesNode);
