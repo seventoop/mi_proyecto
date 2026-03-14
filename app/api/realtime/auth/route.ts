@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPusherServer } from "@/lib/pusher";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
 
 /**
  * STP-P1-4: Advanced Pusher channel authorization.
@@ -11,12 +10,8 @@ import prisma from "@/lib/db";
  */
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-        }
-
-        const userId = session.user.id;
+        const user = await requireAuth();
+        const userId = user.id;
         const body = await req.text();
         const params = new URLSearchParams(body);
         const socketId = params.get("socket_id");
@@ -37,7 +32,7 @@ export async function POST(req: NextRequest) {
         const userMatch = channelName.match(userChannelRegex);
         if (userMatch) {
             const channelUserId = userMatch[1];
-            if (userId === channelUserId || (session.user as any).role === "ADMIN") {
+            if (userId === channelUserId || user.role === "ADMIN") {
                 authorized = true;
             }
         }
@@ -47,7 +42,7 @@ export async function POST(req: NextRequest) {
         if (projectMatch && !authorized) {
             const projectId = projectMatch[1];
 
-            if ((session.user as any).role === "ADMIN") {
+            if (user.role === "ADMIN") {
                 authorized = true;
             } else {
                 // Check if user is the Owner/Developer
@@ -85,7 +80,6 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(auth);
     } catch (error) {
-        console.error("Pusher auth error:", error);
-        return NextResponse.json({ error: "Auth failed" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }

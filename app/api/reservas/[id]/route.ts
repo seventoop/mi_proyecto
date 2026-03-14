@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 import { requireAuth, requireRole, handleApiGuardError } from "@/lib/guards";
+import { reservaUpdateActionSchema } from "@/lib/validations";
 
 // ─── GET /api/reservas/[id] — Single reservation detail ───
 export async function GET(
@@ -80,7 +81,13 @@ export async function PUT(
     try {
         const user = await requireAuth();
         const body = await req.json();
-        const { action, ...data } = body;
+        
+        // 🛡️ STRICT VALIDATION
+        const validation = reservaUpdateActionSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ errors: validation.error.flatten() }, { status: 400 });
+        }
+        const { action, ...data } = validation.data;
 
         const reserva = await prisma.reserva.findUnique({
             where: { id: params.id },
@@ -127,7 +134,7 @@ export async function PUT(
                 updated = await prisma.reserva.update({
                     where: { id: params.id },
                     data: {
-                        fechaVencimiento: new Date(data.nuevaFechaVencimiento),
+                        fechaVencimiento: data.nuevaFechaVencimiento,
                     },
                 });
                 break;
@@ -179,7 +186,6 @@ export async function PUT(
             }
 
             case "convertir": {
-                // Hardening: Only ADMIN should confirm final sales usually, or owner.
                 if (!isAdmin) {
                     return NextResponse.json({ error: "Solo administradores pueden confirmar ventas finales" }, { status: 403 });
                 }

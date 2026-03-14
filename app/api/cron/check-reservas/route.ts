@@ -8,6 +8,7 @@ import { requireCronSecret } from "@/lib/guards";
 // Vercel cron config in vercel.json:
 // { "crons": [{ "path": "/api/cron/check-reservas", "schedule": "0 * * * *" }] }
 export async function POST(req: NextRequest) {
+    // @security-waive: NO_VALIDATION - Cron job without request body
     try {
         requireCronSecret(req);
         const now = new Date();

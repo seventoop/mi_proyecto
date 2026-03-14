@@ -124,6 +124,30 @@ export async function processIncomingLeadMessage(input: unknown) {
                 return { success: false, error: "Mensaje demasiado corto" };
             }
 
+            const mainOrgId = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
+
+            if (!mainOrgId) {
+                await prisma.leadIntake.create({
+                    data: {
+                        source: "WHATSAPP",
+                        rawPayload: data as any,
+                        status: "PENDING",
+                        error: "No se pudo resolver el orgId para el mensaje entrante de WhatsApp."
+                    }
+                });
+
+                await prisma.auditLog.create({
+                    data: {
+                        userId: "system",
+                        action: "TENANT_RESOLUTION_FAILED",
+                        entity: "Lead",
+                        details: JSON.stringify({ source: "whatsapp", data })
+                    }
+                });
+
+                return { success: true, message: "Lead registrado en intake (sin orgId)" };
+            }
+
             lead = await (prisma.lead.create({
                 data: {
                     telefono: data.telefono,
@@ -133,8 +157,7 @@ export async function processIncomingLeadMessage(input: unknown) {
                     proyectoId: data.proyectoId || null,
                     origen: "WHATSAPP",
                     canalOrigen: "WHATSAPP",
-                    // A2: assign platform org for inbound webhook leads
-                    orgId: process.env.SEVENTOOP_MAIN_ORG_ID ?? null,
+                    orgId: mainOrgId,
                     automationStatus: "PILOT" as any
                 } as any,
                 include: { proyecto: true }
@@ -316,14 +339,37 @@ export async function joinOpenCommunity(input: unknown) {
                 } as any
             });
         } else {
+            const mainOrgId = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
+
+            if (!mainOrgId) {
+                await prisma.leadIntake.create({
+                    data: {
+                        source: "WHATSAPP_COMMUNITY",
+                        rawPayload: formData as any,
+                        status: "PENDING",
+                        error: "No se pudo resolver el orgId para el registro en comunidad."
+                    }
+                });
+
+                await prisma.auditLog.create({
+                    data: {
+                        userId: "system",
+                        action: "TENANT_RESOLUTION_FAILED",
+                        entity: "Lead",
+                        details: JSON.stringify({ source: "whatsapp_community", formData })
+                    }
+                });
+
+                return { success: true, message: "Interés registrado en intake (sin orgId)" };
+            }
+
             lead = await prisma.lead.create({
                 data: {
                     nombre: formData.nombre,
                     telefono: formData.telefono,
                     communityType: 'OPEN' as any,
                     origen: 'LANDING_COMMUNITY',
-                    // A2: assign platform org for community landing leads
-                    orgId: process.env.SEVENTOOP_MAIN_ORG_ID ?? null,
+                    orgId: mainOrgId,
                     automationStatus: 'PILOT' as any
                 } as any
             });

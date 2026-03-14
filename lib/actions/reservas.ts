@@ -8,21 +8,7 @@ import { z } from "zod";
 import { generateReservaPDF } from "@/lib/pdf-generator";
 import { uploadFile } from "@/lib/storage";
 import { createNotification } from "@/lib/actions/notifications";
-import { idSchema } from "@/lib/validations";
-
-// ─── Scemas ───
-
-const confirmVentaSchema = z.object({
-    reservaId: idSchema,
-    precioFinal: z.number().optional(),
-});
-
-const reservaCreateSchema = z.object({
-    unidadId: idSchema,
-    leadId: idSchema,
-    fechaVencimiento: z.string().or(z.date()),
-    montoSena: z.number().positive("El monto de la seña debe ser positivo"),
-});
+import { idSchema, confirmVentaSchema, reservaCreateSchema } from "@/lib/validations";
 
 // ─── Queries ───
 
@@ -43,10 +29,15 @@ export async function getReservas(
         const where: any = {};
 
         // Role based access: Admins see all. Developers see their projects. Sellers see their sales.
-        if (user.role !== "ADMIN") {
-            where.OR = [
-                { vendedorId: user.id },
-                { unidad: { manzana: { etapa: { proyecto: { creadoPorId: user.id } } } } }
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            where.AND = [
+                user.orgId ? { orgId: user.orgId } : {},
+                {
+                    OR: [
+                        { vendedorId: user.id },
+                        { unidad: { manzana: { etapa: { proyecto: { creadoPorId: user.id } } } } }
+                    ]
+                }
             ];
         }
 
@@ -556,7 +547,15 @@ export async function avanzarEstadoReserva(reservaId: string, nuevoEstado: strin
 
         const reserva = await prisma.reserva.findUnique({
             where: { id: reservaId },
-            include: { unidad: true }
+            include: {
+                unidad: {
+                    include: {
+                        manzana: {
+                            include: { etapa: true }
+                        }
+                    }
+                }
+            }
         });
 
         if (!reserva) return { success: false, error: "Reserva no encontrada" };
@@ -567,15 +566,28 @@ export async function avanzarEstadoReserva(reservaId: string, nuevoEstado: strin
             ACTIVA: "RESERVADA",
         };
 
+        const proyectoId = reserva.unidad.manzana.etapa.proyectoId;
+
+        // SECURITY CHECK: Admin, Project Owner OR the specific Seller
+        if (user.role !== "ADMIN" && reserva.vendedorId !== user.id) {
+            await requireProjectOwnership(proyectoId);
+        }
+
         await prisma.$transaction(async (tx) => {
             await tx.reserva.update({
                 where: { id: reservaId },
-                data: { estado: nuevoEstado, ...(nuevoEstado === "VENDIDA" ? { estadoPago: "PAGADO" } : {}) }
+                data: {
+                    estado: nuevoEstado,
+                    ...(nuevoEstado === "VENDIDA" ? { estadoPago: "PAGADO" } : {})
+                }
             });
 
             const nuevoEstadoUnidad = estadoUnidad[nuevoEstado];
             if (nuevoEstadoUnidad) {
-                await tx.unidad.update({ where: { id: reserva.unidadId }, data: { estado: nuevoEstadoUnidad } });
+                await tx.unidad.update({
+                    where: { id: reserva.unidadId },
+                    data: { estado: nuevoEstadoUnidad }
+                });
             }
 
             await tx.historialUnidad.create({
@@ -585,6 +597,16 @@ export async function avanzarEstadoReserva(reservaId: string, nuevoEstado: strin
                     estadoAnterior: (reserva.unidad as any).estado,
                     estadoNuevo: nuevoEstadoUnidad ?? (reserva.unidad as any).estado,
                     motivo: nota ?? `Reserva ${nuevoEstado.toLowerCase()}`
+                }
+            });
+
+            await tx.auditLog.create({
+                data: {
+                    userId: user.id,
+                    action: "RESERVA_STATUS_CHANGE",
+                    entity: "Reserva",
+                    entityId: reservaId,
+                    details: JSON.stringify({ anterior: reserva.estado, nuevo: nuevoEstado, nota })
                 }
             });
         });
@@ -637,9 +659,18 @@ export async function getReservasByProyecto(proyectoId: string) {
 
 export async function getUsuariosParaReserva() {
     try {
-        await requireAuth();
+        const user = await requireAuth();
+        const where: any = {
+            rol: { in: ["ADMIN", "VENDEDOR", "DESARROLLADOR"] }
+        };
+
+        // MULTI-TENANT: Filter by orgId unless it's a global admin
+        if (user.role !== "ADMIN" && user.orgId) {
+            where.orgId = user.orgId;
+        }
+
         const users = await prisma.user.findMany({
-            where: { rol: { in: ["ADMIN", "VENDEDOR", "DESARROLLADOR"] } },
+            where,
             select: { id: true, nombre: true, rol: true }
         });
         return { success: true, data: users };

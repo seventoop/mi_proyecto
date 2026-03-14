@@ -1,22 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
 import archiver from "archiver";
 import { PassThrough } from "stream";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
 
 export async function GET(
     req: NextRequest,
     { params }: { params: { id: string } }
 ) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return new NextResponse("Unauthorized", { status: 401 });
-        }
+        const user = await requireAuth();
 
         const projectId = params.id;
-        const user = session.user as any;
 
         // Verify project existence and ownership
         const proyecto = await prisma.proyecto.findUnique({
@@ -88,7 +83,6 @@ export async function GET(
         });
 
     } catch (error) {
-        console.error("[GALLERY_ZIP_EXPORT]", error);
-        return new NextResponse("Internal Server Error", { status: 500 });
+        return handleApiGuardError(error);
     }
 }

@@ -1,29 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
 
-const updatePipelineSchema = z.object({
-  oportunidadId: z.string(),
-  nuevaEtapa: z.enum([
-    "NUEVO",
-    "CONTACTADO",
-    "CALIFICADO",
-    "VISITA",
-    "NEGOCIACION",
-    "RESERVA",
-    "VENTA",
-    "PERDIDO",
-  ]),
-});
+import { updatePipelineSchema } from "@/lib/validations";
 
 export async function PUT(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-    }
+    const user = await requireAuth();
 
     const body = await request.json();
     const validation = updatePipelineSchema.safeParse(body);
@@ -45,8 +29,7 @@ export async function PUT(request: Request) {
     }
 
     // Non-admins can only update opportunities whose lead is assigned to them
-    const role = (session.user as any).role || (session.user as any).rol;
-    if (role !== "ADMIN" && existingOp.lead?.asignadoAId !== session.user.id) {
+    if (user.role !== "ADMIN" && existingOp.lead?.asignadoAId !== user.id) {
       return NextResponse.json({ message: "Sin permisos" }, { status: 403 });
     }
 

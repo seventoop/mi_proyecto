@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { requireAuth, requireProjectOwnership, AuthError } from "@/lib/guards";
+import { requireAuth, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
 
 const createTourSchema = z.object({
     proyectoId: z.string(),
@@ -43,11 +43,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json(tours);
     } catch (error) {
-        if (error instanceof AuthError) {
-            return NextResponse.json({ message: error.message }, { status: error.status });
-        }
-        console.error("Error fetching tours:", error);
-        return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }
 
@@ -102,10 +98,6 @@ export async function POST(request: Request) {
 
         return NextResponse.json(tour, { status: 201 });
     } catch (error) {
-        if (error instanceof AuthError) {
-            return NextResponse.json({ message: error.message }, { status: error.status });
-        }
-        console.error("Error creating tour:", error);
-        return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }

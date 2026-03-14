@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { processIncomingLeadMessage } from "@/lib/actions/ai";
 import { getSystemConfig } from "@/lib/actions/configuration";
 import { z } from "zod";
+import * as Sentry from "@sentry/nextjs";
+import { getClientIp, checkRateLimit } from "@/lib/rate-limit";
 
 // ─── Webhook Schema ───
 
@@ -34,6 +36,7 @@ const whatsappPayloadSchema = z.object({
 // ─── GET: Verification ───
 
 export async function GET(req: Request) {
+    // @security-waive: PUBLIC - WhatsApp webhook verification
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get("hub.mode");
     const token = searchParams.get("hub.verify_token");
@@ -51,13 +54,12 @@ export async function GET(req: Request) {
 
 // ─── POST: Message Processing ───
 
-import { getClientIp, checkRateLimit } from "@/lib/rate-limit";
-
 export async function POST(req: Request) {
+    // @security-waive: PUBLIC - WhatsApp AI/leads handler
     try {
         // Rate Limiting: Max 300 msg/min per IP (WhatsApp source)
         const ip = getClientIp(req);
-        const { allowed } = checkRateLimit(ip, {
+        const { allowed } = await checkRateLimit(ip, {
             limit: 300,
             windowMs: 60 * 1000,
             keyPrefix: "whatsapp_webhook_"
@@ -119,15 +121,29 @@ export async function POST(req: Request) {
         const mensaje = sanitize(rawMensaje);
         const nombre = rawNombre ? sanitize(rawNombre) : undefined;
 
-        // 4. Process Lead
-        const processingResult = await processIncomingLeadMessage({
-            telefono,
-            mensaje,
-            nombre
-        });
+        // 4. Process Lead ASYNCHRONOUSLY
+        // We acknowledge the webhook immediately to avoid Vercel timeouts.
+        // AI processing and Lead creation/mapping will happen in the background.
+        (async () => {
+            try {
+                await processIncomingLeadMessage({
+                    telefono,
+                    mensaje,
+                    nombre
+                });
+            } catch (asyncError) {
+                console.error("[Webhook:WhatsApp] Background processing error:", asyncError);
+                Sentry.captureException(asyncError, {
+                    tags: { area: "webhooks", provider: "whatsapp", async: "true" }
+                });
+            }
+        })();
 
-        return NextResponse.json(processingResult);
+        return NextResponse.json({ success: true, message: "Webhook recibido y en proceso." });
     } catch (error) {
+        Sentry.captureException(error, {
+            tags: { area: "webhooks", provider: "whatsapp" }
+        });
         console.error("Webhook Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
 
 // PUT /api/manzanas/[id]
 export async function PUT(
@@ -7,6 +8,10 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        const user = await requireAuth();
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+        }
         const body = await request.json();
         const manzana = await prisma.manzana.update({
             where: { id: params.id },
@@ -17,10 +22,7 @@ export async function PUT(
         });
         return NextResponse.json(manzana);
     } catch (error) {
-        return NextResponse.json(
-            { error: "Error al actualizar manzana" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
@@ -30,12 +32,13 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
+        const user = await requireAuth();
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+        }
         await prisma.manzana.delete({ where: { id: params.id } });
         return NextResponse.json({ message: "Manzana eliminada" });
     } catch (error) {
-        return NextResponse.json(
-            { error: "Error al eliminar manzana" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

@@ -8,6 +8,7 @@ import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
  */
 
 export async function GET(req: Request) {
+    // @security-waive: PUBLIC - Facebook webhook verification
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get("hub.mode");
     const token = searchParams.get("hub.verify_token");
@@ -26,6 +27,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+    // @security-waive: PUBLIC - Meta leads webhook handler
     try {
         const rawBody = await req.text();
         const body = JSON.parse(rawBody);
@@ -64,11 +66,50 @@ export async function POST(req: Request) {
                             const adId = change.value.ad_id;
                             const campaignId = change.value.campaign_id;
 
-                            console.log("[Webhook:Meta] Processing lead", { leadId, adId, campaignId });
+                            console.log("[Webhook:Meta] Processing lead", { leadId, adId, campaignId, pageId });
+
+                            // 2.1 Tenant Resolution: Map pageId to OrgId
+                            const integration = await prisma.integrationConfig.findFirst({
+                                where: {
+                                    provider: "META",
+                                    OR: [
+                                        { config: { path: ["pageId"], equals: pageId } },
+                                        { config: { path: ["facebookPageId"], equals: pageId } }
+                                    ]
+                                },
+                                select: { orgId: true }
+                            });
+
+                            const orgId = integration?.orgId;
+
+                            if (!orgId) {
+                                console.error(`[Webhook:Meta] No organization mapping found for Page ID: ${pageId}. Quarantining lead ${leadId}.`);
+                                
+                                await prisma.leadIntake.create({
+                                    data: {
+                                        source: "META",
+                                        rawPayload: { change, entryTime: entry.time },
+                                        status: "PENDING",
+                                        error: `Mapeo de pageId ${pageId} no encontrado.`
+                                    }
+                                });
+
+                                await prisma.auditLog.create({
+                                    data: {
+                                        userId: "system",
+                                        action: "TENANT_RESOLUTION_FAILED",
+                                        entity: "Lead",
+                                        details: JSON.stringify({ canal: "FACEBOOK", pageId, leadId })
+                                    }
+                                });
+
+                                continue;
+                            }
 
                             // 3. Deduplication: Check if lead already exists by adId (or leadgen_id as unique identifier)
                             const existingLead = await prisma.lead.findFirst({
                                 where: {
+                                    orgId,
                                     OR: [
                                         { adId: adId },
                                         { notas: { contains: `Meta Lead ID: ${leadId}` } }
@@ -90,7 +131,8 @@ export async function POST(req: Request) {
                                     campanaId: campaignId,
                                     estado: "NUEVO",
                                     notas: `Meta Lead ID: ${leadId} | Page: ${pageId} | Entry timestamp: ${entry.time}`,
-                                    origen: "FACEBOOK"
+                                    origen: "FACEBOOK",
+                                    orgId: orgId
                                 }
                             });
 
@@ -101,7 +143,7 @@ export async function POST(req: Request) {
                                     action: "LEAD_INBOUND_WEBHOOK",
                                     entity: "Lead",
                                     entityId: lead.id,
-                                    details: JSON.stringify({ canal: "FACEBOOK", adId, campaignId })
+                                    details: JSON.stringify({ canal: "FACEBOOK", adId, campaignId, orgId })
                                 }
                             }) as any);
 

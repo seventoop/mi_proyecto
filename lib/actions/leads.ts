@@ -4,28 +4,9 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, handleGuardError, requireProjectOwnership } from "@/lib/guards";
 import { z } from "zod";
-import { idSchema } from "@/lib/validations";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@/lib/rate-limit";
-
-// ─── Scemas ───
-
-const leadSchema = z.object({
-    nombre: z.string().min(2, "Nombre demasiado corto").max(100),
-    email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
-    telefono: z.string().max(30).optional().nullable(),
-    proyectoId: idSchema.optional().nullable(),
-    estado: z.string().optional().default("NUEVO"),
-    origen: z.string().optional().default("WEB")
-});
-
-const leadUpdateSchema = leadSchema.partial();
-
-const leadBulkItemSchema = z.object({
-    nombre: z.string().min(1, "Nombre requerido"),
-    email: z.string().email("Email inválido").or(z.literal("")),
-    telefono: z.string().optional().nullable(),
-});
+import { idSchema, leadSchema, leadUpdateSchema, leadBulkItemSchema } from "@/lib/validations";
 
 // ─── Queries ───
 
@@ -45,15 +26,17 @@ export async function getLeads(params: {
         // Users with orgId → see all leads in their org (primary filter)
         // Users without orgId (legacy) → see only leads assigned to them or their projects
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
-        const where: any = isAdmin ? {} :
-            user.orgId
-                ? { orgId: user.orgId }
-                : {
+        const where: any = isAdmin ? {} : {
+            AND: [
+                user.orgId ? { orgId: user.orgId } : {},
+                {
                     OR: [
                         { asignadoAId: user.id },
                         { proyecto: { creadoPorId: user.id } }
                     ]
-                };
+                }
+            ]
+        };
 
         if (search) {
             const searchConditions = [
@@ -120,7 +103,7 @@ export async function createLead(input: unknown) {
         const data = parsed.data;
 
         if (!user.orgId) {
-            return { success: false, error: "Sin organización asignada. Contacta al administrador." };
+            throw new Error("El usuario no tiene una organización asignada. No se pueden crear leads sin tenant.");
         }
 
         const lead = await prisma.lead.create({
@@ -242,7 +225,7 @@ export async function bulkCreateLeads(leads: any[], projectId?: string) {
                         estado: "NUEVO",
                         origen: "IMPORTACION",
                         asignadoAId: user.id,
-                        orgId: user.orgId ?? null,
+                        orgId: user.orgId
                     }
                 });
                 successCount++;
@@ -334,7 +317,7 @@ export async function crearLeadLanding(data: {
         const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
             || headersList.get("x-real-ip")
             || "unknown";
-        const { allowed } = checkRateLimit(ip, {
+        const { allowed } = await checkRateLimit(ip, {
             limit: 5,
             windowMs: 10 * 60 * 1000,
             keyPrefix: "lead_landing:",
@@ -370,9 +353,31 @@ export async function crearLeadLanding(data: {
 
         const mensajeFormateado = `Intención: ${data.intencion} | Busca: ${data.categoriaProyecto} (${data.subtipoProyecto}) | Presupuesto: USD ${data.presupuestoMinUsd} - ${data.presupuestoMaxUsd} | Zona: ${data.zona}, ${data.ciudad}, ${data.provincia} | Zona sin oferta: ${zonaSinOferta ? "Sí" : "No"}`;
 
-        // A2: Assign orgId from env variable for platform-level landing leads.
-        // Set SEVENTOOP_MAIN_ORG_ID in .env to route public leads to a specific org.
         const mainOrgId = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
+
+        // A2 strategy: NO fallback to main org for production leads.
+        // If no project/org context, move to LeadIntake quarantine.
+        if (!mainOrgId) {
+            await prisma.leadIntake.create({
+                data: {
+                    source: "LANDING",
+                    rawPayload: data as any,
+                    status: "PENDING",
+                    error: "No se pudo resolver el orgId para esta consulta de landing."
+                }
+            });
+
+            await prisma.auditLog.create({
+                data: {
+                    userId: "system",
+                    action: "TENANT_RESOLUTION_FAILED",
+                    entity: "Lead",
+                    details: JSON.stringify({ source: "landing", data })
+                }
+            });
+
+            return { success: true }; // Silent success for UI
+        }
 
         await prisma.lead.create({
             data: {
@@ -409,7 +414,7 @@ export async function crearConsultaContacto(data: {
         const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
             || headersList.get("x-real-ip")
             || "unknown";
-        const { allowed } = checkRateLimit(ip, {
+        const { allowed } = await checkRateLimit(ip, {
             limit: 5,
             windowMs: 10 * 60 * 1000,
             keyPrefix: "lead_contacto:",
@@ -422,14 +427,36 @@ export async function crearConsultaContacto(data: {
             ? `[Asunto: ${data.asunto.toUpperCase()}] ${data.mensaje}`
             : data.mensaje;
 
-        // A2: Inherit orgId from project (if proyectoId provided) or from env fallback.
-        let orgId: string | null = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
+        // A2 strategy: If no orgId resolved from project, move to LeadIntake quarantine.
+        let orgId: string | null = null;
         if (data.proyectoId) {
             const proyecto = await prisma.proyecto.findUnique({
                 where: { id: data.proyectoId },
                 select: { orgId: true },
             });
             if (proyecto?.orgId) orgId = proyecto.orgId;
+        }
+
+        if (!orgId) {
+            await prisma.leadIntake.create({
+                data: {
+                    source: "CONTACT",
+                    rawPayload: data as any,
+                    status: "PENDING",
+                    error: "No se pudo resolver el orgId para esta consulta de contacto (sin proyecto asociado)."
+                }
+            });
+
+            await prisma.auditLog.create({
+                data: {
+                    userId: "system",
+                    action: "TENANT_RESOLUTION_FAILED",
+                    entity: "Lead",
+                    details: JSON.stringify({ source: "contacto", data })
+                }
+            });
+
+            return { success: true };
         }
 
         await prisma.lead.create({

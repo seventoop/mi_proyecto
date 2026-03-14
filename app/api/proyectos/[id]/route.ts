@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireAuth, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
+import { proyectoUpdateSchema } from "@/lib/validations";
 
 // GET /api/proyectos/[id] — detalle completo (dashboard only — includes CRM data)
 export async function GET(
@@ -90,6 +91,13 @@ export async function PUT(
         await requireProjectOwnership(params.id);
 
         const body = await request.json();
+        
+        // 🛡️ STRICT VALIDATION
+        const validation = proyectoUpdateSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ error: "Datos inválidos", details: validation.error.flatten() }, { status: 400 });
+        }
+        const data = validation.data;
 
         // For LogicToop: Check if we are publishing a draft
         const oldProyecto = await prisma.proyecto.findUnique({
@@ -100,16 +108,16 @@ export async function PUT(
         const proyecto = await prisma.proyecto.update({
             where: { id: params.id },
             data: {
-                nombre: body.nombre,
-                descripcion: body.descripcion,
-                ubicacion: body.ubicacion,
-                estado: body.estado,
-                tipo: body.tipo,
-                imagenPortada: body.imagenPortada,
-                galeria: body.galeria,
-                documentos: body.documentos,
-                masterplanSVG: body.masterplanSVG,
-                visibilityStatus: body.visibilityStatus,
+                nombre: data.nombre,
+                descripcion: data.descripcion,
+                ubicacion: data.ubicacion,
+                estado: data.estado,
+                tipo: data.tipo,
+                imagenPortada: data.imagenPortada,
+                // @ts-ignore - Handle JSON stringification for legacy array fields
+                galeria: data.galeria ? JSON.stringify(data.galeria) : undefined,
+                // @ts-ignore - Handle JSON stringification for legacy array fields
+                documentos: data.documentos ? JSON.stringify(data.documentos) : undefined,
             },
         });
 
@@ -130,16 +138,21 @@ export async function DELETE(
     request: Request,
     { params }: { params: { id: string } }
 ) {
-    // Re-use server action logic for consistency and security
-    const { deleteProyecto } = await import("@/lib/actions/proyectos");
-    const result = await deleteProyecto(params.id);
+    try {
+        const user = await requireAuth();
+        // Re-use server action logic for consistency and security
+        const { deleteProyecto } = await import("@/lib/actions/proyectos");
+        const result = await deleteProyecto(params.id);
 
-    if (!result.success) {
-        return NextResponse.json(
-            { error: result.error },
-            { status: 403 } // Forbidden/Unauthorized
-        );
+        if (!result.success) {
+            return NextResponse.json(
+                { error: result.error },
+                { status: 403 } // Forbidden/Unauthorized
+            );
+        }
+
+        return NextResponse.json({ message: "Proyecto eliminado" });
+    } catch (error) {
+        return handleApiGuardError(error);
     }
-
-    return NextResponse.json({ message: "Proyecto eliminado" });
 }

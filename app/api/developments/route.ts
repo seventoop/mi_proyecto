@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireAuth, requireRole, requireAnyRole, handleApiGuardError, orgFilter } from "@/lib/guards";
 
 // GET /api/developments — listar todos los proyectos
 export async function GET() {
     try {
+        const user = await requireAuth();
         const proyectos = await prisma.proyecto.findMany({
             where: {
+                ...orgFilter(user) as any,
                 visibilityStatus: "PUBLICADO",
                 estado: { not: "SUSPENDIDO" },
                 deletedAt: null,
@@ -39,17 +42,14 @@ export async function GET() {
 
         return NextResponse.json(proyectos);
     } catch (error) {
-        console.error("Error fetching projects:", error);
-        return NextResponse.json(
-            { error: "Error al obtener proyectos" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
 // POST /api/developments — crear nuevo proyecto
 export async function POST(request: Request) {
     try {
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
         const body = await request.json();
 
         const proyecto = await prisma.proyecto.create({
@@ -63,16 +63,24 @@ export async function POST(request: Request) {
                 galeria: body.galeria || [],
                 documentos: body.documentos || [],
                 masterplanSVG: body.masterplanSVG,
-                // masterplanConfig: body.masterplanConfig,
+                creadoPorId: user.id,
+                orgId: user.orgId || null,
             },
+        });
+
+        // Audit Log
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: "PROJECT_CREATE",
+                entity: "Proyecto",
+                entityId: proyecto.id,
+                details: JSON.stringify({ nombre: proyecto.nombre, type: "DEVELOPMENT" })
+            }
         });
 
         return NextResponse.json(proyecto, { status: 201 });
     } catch (error) {
-        console.error("Error creating project:", error);
-        return NextResponse.json(
-            { error: "Error al crear proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

@@ -4,9 +4,9 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
 import { runWorkflow } from "@/lib/workflow-engine";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleApiGuardError, orgFilter } from "@/lib/guards";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { leadSchema } from "@/lib/validations";
 
 // Schema validation for creating a lead
 const createLeadSchema = z.object({
@@ -22,20 +22,17 @@ const createLeadSchema = z.object({
 export async function POST(request: Request) {
     try {
         // Require authentication for CRM lead creation
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
-            return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-        }
+        const user = await requireAuth();
 
         // Rate limit: 10 lead creations per IP per 10 minutes (integration endpoint)
         const ip = getClientIp(request);
-        const { allowed } = checkRateLimit(ip, { limit: 10, windowMs: 10 * 60 * 1000, keyPrefix: "crm_lead_post:" });
+        const { allowed } = await checkRateLimit(ip, { limit: 10, windowMs: 10 * 60 * 1000, keyPrefix: "crm_lead_post:" });
         if (!allowed) {
             return NextResponse.json({ message: "Demasiadas solicitudes" }, { status: 429 });
         }
 
         const body = await request.json();
-        const validation = createLeadSchema.safeParse(body);
+        const validation = leadSchema.safeParse(body);
 
         if (!validation.success) {
             return NextResponse.json(
@@ -45,10 +42,9 @@ export async function POST(request: Request) {
         }
 
         const { nombre, email, telefono, origen, mensaje, proyectoId, unidadInteres } = validation.data;
-        const sessionUser = session.user as any;
 
-        // A2: Inherit orgId — proyecto is the most reliable source, fallback to session user's org
-        let orgId: string | null = (sessionUser.orgId as string | null) ?? null;
+        // A2: Inherit orgId — proyecto is the most reliable source, fallback to user's org
+        let orgId: string | null = (user.orgId as string | null) ?? null;
         if (proyectoId) {
             const proyecto = await db.proyecto.findUnique({
                 where: { id: proyectoId },
@@ -131,25 +127,17 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
-            return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-        }
+        const user = await requireAuth();
 
         const { searchParams } = new URL(request.url);
         const estado = searchParams.get("estado");
         const search = searchParams.get("search");
         const proyectoId = searchParams.get("proyectoId");
 
-        const sessionUser = session.user as any;
-        const isAdmin = sessionUser.role === "ADMIN" || sessionUser.role === "SUPERADMIN";
-
-        // A2: Multi-tenant org scoping
-        const where: Prisma.LeadWhereInput = isAdmin
-            ? {}
-            : sessionUser.orgId
-                ? { orgId: sessionUser.orgId }
-                : { asignadoAId: sessionUser.id }; // legacy fallback
+        // Canonical multi-tenant scoping
+        const where: Prisma.LeadWhereInput = {
+            ...orgFilter(user) as any,
+        };
 
         if (estado) {
             where.estado = estado as any;
@@ -183,10 +171,6 @@ export async function GET(request: Request) {
 
         return NextResponse.json(leads);
     } catch (error) {
-        console.error("Error fetching leads:", error);
-        return NextResponse.json(
-            { message: "Error interno del servidor" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

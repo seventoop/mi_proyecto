@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { notifyInactiveLead } from "@/lib/notifications/crm-notifications";
 
 export async function GET(req: Request) {
+    // @security-waive: PUBLIC - handled via CRON_SECRET check
     if (req.headers.get('Authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
         return new Response('Unauthorized', { status: 401 });
     }
@@ -10,6 +11,7 @@ export async function GET(req: Request) {
     try {
         const threshold = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours
 
+        // @security-waive: NO_ORG_FILTER - Multi-tenant cron job
         const inactiveLeads = await prisma.lead.findMany({
             where: {
                 updatedAt: { lt: threshold },

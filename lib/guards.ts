@@ -15,6 +15,17 @@
  *   await requireProjectOwnership(projectId); // also checks org
  */
 
+export const ROLES = {
+    SUPERADMIN: "SUPERADMIN",
+    ADMIN: "ADMIN",
+    DESARROLLADOR: "DESARROLLADOR",
+    VENDEDOR: "VENDEDOR",
+    INVERSOR: "INVERSOR",
+    USER: "USER",
+} as const;
+
+export type UserRole = keyof typeof ROLES;
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
@@ -253,6 +264,8 @@ export async function requireOrgAccess(orgId: string): Promise<AuthUser> {
     return user;
 }
 
+import * as Sentry from "@sentry/nextjs";
+
 /**
  * Safe wrapper for server actions that use guards.
  * Catches AuthError and returns a typed error response.
@@ -261,6 +274,12 @@ export function handleGuardError(error: unknown): { success: false; error: strin
     if (error instanceof AuthError) {
         return { success: false, error: error.message };
     }
+    
+    // Production Observability: Capture unexpected errors
+    Sentry.captureException(error, {
+        tags: { area: "guards", context: "server-action" }
+    });
+    
     console.error("Unexpected error:", error);
     return { success: false, error: "Error interno del servidor" };
 }
@@ -273,6 +292,12 @@ export function handleApiGuardError(error: unknown): NextResponse {
     if (error instanceof AuthError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    
+    // Production Observability: Capture unexpected errors
+    Sentry.captureException(error, {
+        tags: { area: "guards", context: "api-route" }
+    });
+    
     console.error("Unexpected API error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
 }

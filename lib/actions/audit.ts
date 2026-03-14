@@ -10,10 +10,14 @@ import { headers } from "next/headers";
  * Usage:
  *   await audit({ userId: user.id, action: "RESERVA_APPROVED", entity: "Reserva", entityId: reservaId, details: { estado: "ACTIVA" } });
  *
- * Conventions:
- *   action — UPPER_SNAKE: <ENTITY>_<VERB>  e.g. LEAD_UPDATED, RESERVA_CANCELLED, KYC_APPROVED
- *   entity — PascalCase model name: Lead, Reserva, User, Proyecto, Workflow
- *   details — arbitrary JSON with before/after state or relevant fields
+ * CANONICAL ACTIONS (UPPER_SNAKE):
+ *   - PROJECT_CREATE, PROJECT_UPDATE, PROJECT_DELETE
+ *   - UNIT_CREATE, UNIT_UPDATE, UNIT_DELETE, UNIT_STATUS_CHANGED
+ *   - RESERVA_CREATED, RESERVA_APPROVED, RESERVA_CANCELLED
+ *   - LEAD_CREATED, LEAD_ASSIGNED, LEAD_STATUS_CHANGED
+ *   - KYC_SUBMITTED, KYC_APPROVED, KYC_REJECTED
+ *   - AUTH_RESET_PASSWORD
+ *   - TENANT_RESOLUTION_FAILED
  */
 export async function audit(params: {
     userId: string;

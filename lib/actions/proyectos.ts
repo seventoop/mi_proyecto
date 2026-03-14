@@ -2,46 +2,12 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { requireRole, requireAnyRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { requireRole, requireAnyRole, requireProjectOwnership, handleGuardError, requireAuth } from "@/lib/guards";
 import { z } from "zod";
-import { idSchema, slugSchema } from "@/lib/validations";
+import { idSchema, slugSchema, proyectoCreateSchema, proyectoUpdateSchema, uploadDocumentoSchema } from "@/lib/validations";
 import { createNotification } from "./notifications";
 
-// ─── Scemas ───
-
-const proyectoCreateSchema = z.object({
-    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres").max(100),
-    slug: slugSchema.optional(),
-    descripcion: z.string().max(2000).optional(),
-    ubicacion: z.string().max(200).optional(),
-    estado: z.string().optional(),
-    tipo: z.string().optional(),
-    imagenPortada: z.string().url("URL de imagen inválida").optional().or(z.literal("")),
-    invertible: z.boolean().optional(),
-    precioM2Inversor: z.number().positive().optional(),
-    precioM2Mercado: z.number().positive().optional(),
-    metaM2Objetivo: z.number().positive().optional(),
-    fechaLimiteFondeo: z.date().optional().or(z.string().transform(v => new Date(v))).optional(),
-    mapCenterLat: z.number().optional(),
-    mapCenterLng: z.number().optional(),
-    mapZoom: z.number().int().optional(),
-    aiKnowledgeBase: z.string().optional(),
-    aiSystemPrompt: z.string().optional(),
-});
-
-const proyectoUpdateSchema = proyectoCreateSchema.partial();
-
-const uploadDocumentoSchema = z.object({
-    proyectoId: idSchema,
-    nombre: z.string().min(1, "Nombre requerido").max(100),
-    tipo: z.string().min(1, "Tipo de documento requerido"),
-    categoria: z.string().default("GENERAL"),
-    url: z.string().url("URL de documento inválida"),
-    descripcion: z.string().max(500).optional(),
-    visiblePublicamente: z.boolean().default(false),
-});
+// ─── Queries ───
 
 export async function getProyectos(params: {
     page?: number;
@@ -158,10 +124,7 @@ export async function getProyectos(params: {
 
 export async function getProyecto(id: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id },
@@ -205,11 +168,9 @@ export async function getProyecto(id: string) {
 
 export async function createProyecto(input: unknown) {
     try {
-        const session = await getServerSession(authOptions);
-        const userRole = session?.user?.role;
-        const userId = session?.user?.id;
-
-        if (!userId) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
+        const userId = user.id;
+        const userRole = user.role;
 
         const parsed = proyectoCreateSchema.safeParse(input);
         if (!parsed.success) {
@@ -243,16 +204,20 @@ export async function createProyecto(input: unknown) {
         let estado = data.estado || "PLANIFICACION";
         let documentacionEstado = (userRole === "ADMIN") ? "APROBADO" : "PENDIENTE";
 
+        const { galeria, documentos, ...rest } = data as any;
+
         const proyecto = await prisma.proyecto.create({
             data: {
-                ...data,
+                ...rest,
+                galeria: JSON.stringify(galeria || []),
+                documentos: JSON.stringify(documentos || []),
                 slug,
                 estado,
                 documentacionEstado,
                 invertible: data.invertible ?? false,
                 m2VendidosInversores: 0,
                 creadoPorId: userId,
-                orgId: (session?.user as any)?.orgId || null,
+                orgId: (user as any).orgId || null,
                 isDemo,
                 demoExpiresAt: isDemo ? (userRecord?.demoEndsAt ? new Date(userRecord.demoEndsAt) : null) : null,
                 visibilityStatus: 'PUBLICADO'
@@ -279,10 +244,7 @@ export async function updateProyecto(id: string, input: unknown) {
         const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
 
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const parsed = proyectoUpdateSchema.safeParse(input);
         if (!parsed.success) {
@@ -302,9 +264,17 @@ export async function updateProyecto(id: string, input: unknown) {
             return { success: false, error: "No tienes permisos para modificar este proyecto" };
         }
 
+        const { galeria, documentos, ...rest } = data as any;
+        const updateData: any = {
+            ...rest,
+            ...(galeria ? { galeria: JSON.stringify(galeria) } : {}),
+            ...(documentos ? { documentos: JSON.stringify(documentos) } : {}),
+            updatedAt: new Date()
+        };
+
         const updated = await prisma.proyecto.update({
             where: { id },
-            data
+            data: updateData
         });
 
         revalidatePath("/dashboard/proyectos");
@@ -335,13 +305,13 @@ export async function deleteProyecto(id: string) {
 
         // Audit log
         try {
-            const session = await getServerSession(authOptions);
+            const user = await requireAuth();
             await prisma.auditLog.create({
                 data: {
                     action: "PROYECTO_ELIMINADO",
                     entity: "PROYECTO",
                     entityId: id,
-                    userId: session?.user?.id as string,
+                    userId: user.id as string,
                     details: `Proyecto eliminado (soft delete): ${proyecto.nombre}`
                 }
             });
@@ -359,9 +329,7 @@ export async function deleteProyecto(id: string) {
 
 export async function updateProyectoStatus(id: string, estado: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id },
@@ -389,8 +357,7 @@ export async function updateProyectoStatus(id: string, estado: string) {
 
 export async function updateDocumentacionStatus(id: string, documentacionEstado: string) {
     try {
-        const session = await getServerSession(authOptions);
-        if (session?.user?.role !== "ADMIN") return { success: false, error: "Solo administradores pueden cambiar el estado de documentación" };
+        const user = await requireRole("ADMIN");
 
         const proyecto = await prisma.proyecto.update({
             where: { id },
@@ -430,9 +397,7 @@ export async function addProyectoImagen(data: {
     orden?: number;
 }) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: data.proyectoId },
@@ -479,9 +444,7 @@ export async function addProyectoImagen(data: {
 
 export async function updateProyectoImagenesOrder(updates: { id: string, orden: number }[], proyectoId: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: proyectoId },
@@ -510,9 +473,7 @@ export async function updateProyectoImagenesOrder(updates: { id: string, orden: 
 
 export async function deleteProyectoImagen(id: string, proyectoId: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: proyectoId },
@@ -536,9 +497,7 @@ export async function deleteProyectoImagen(id: string, proyectoId: string) {
 
 export async function setMainProyectoImagen(id: string, proyectoId: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: proyectoId },

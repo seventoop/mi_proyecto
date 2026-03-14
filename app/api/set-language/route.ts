@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { i18n } from "@/lib/i18n/config";
 
 export async function POST(request: Request) {
+  // @security-waive: PUBLIC - Cookie-based preference
   try {
     const { locale } = await request.json();
 

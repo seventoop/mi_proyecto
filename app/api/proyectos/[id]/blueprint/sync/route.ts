@@ -1,20 +1,24 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
+import { blueprintSyncSchema } from "@/lib/validations";
 
 export async function POST(
     request: Request,
     { params }: { params: { id: string } }
 ) {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     try {
+        const user = await requireAuth();
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        }
+
         const body = await request.json();
-        const { units: mappedUnits, svgContent } = body;
+        const validation = blueprintSyncSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ error: "Datos inválidos", details: validation.error.flatten() }, { status: 400 });
+        }
+        const { units: mappedUnits, svgContent } = validation.data;
 
         // Fetch project to get overlay bounds for georeferencing
         const project = await prisma.proyecto.findUnique({
@@ -42,7 +46,6 @@ export async function POST(
                     const lngDiff = ne[1] - sw[1];
 
                     // Simplified projection (assuming 1000px scale from SVG for now)
-                    // In a production app, we'd use the SVG viewBox dimensions
                     const lat = sw[0] + (u.center.y / 1000) * latDiff;
                     const lng = sw[1] + (u.center.x / 1000) * lngDiff;
                     geoJSON = JSON.stringify([[lat, lng], [lat + 0.0001, lng], [lat + 0.0001, lng + 0.0001], [lat, lng + 0.0001]]);
@@ -52,8 +55,6 @@ export async function POST(
                     where: { id: u.id },
                     data: {
                         coordenadasMasterplan: JSON.stringify({ path: u.pathData, center: u.center }),
-                        // We store the projected coordinates in the 'geoJSON' field (or 'path' if map uses it)
-                        // For this app, 'path' seems to be the field used by MasterplanMap for Leaflet
                         geoJSON: geoJSON
                     }
                 });
@@ -63,7 +64,6 @@ export async function POST(
         return NextResponse.json({ success: true, message: "Sincronización completada con éxito" });
 
     } catch (error) {
-        console.error("Error syncing blueprint:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }

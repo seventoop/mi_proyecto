@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
 
 // PUT /api/etapas/[id]
 export async function PUT(
@@ -7,6 +8,10 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        const user = await requireAuth();
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+        }
         const body = await request.json();
         const etapa = await prisma.etapa.update({
             where: { id: params.id },
@@ -18,10 +23,7 @@ export async function PUT(
         });
         return NextResponse.json(etapa);
     } catch (error) {
-        return NextResponse.json(
-            { error: "Error al actualizar etapa" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
@@ -31,12 +33,13 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
+        const user = await requireAuth();
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+        }
         await prisma.etapa.delete({ where: { id: params.id } });
         return NextResponse.json({ message: "Etapa eliminada" });
     } catch (error) {
-        return NextResponse.json(
-            { error: "Error al eliminar etapa" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

@@ -8,6 +8,7 @@ import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
  */
 
 export async function POST(req: Request) {
+    // @security-waive: PUBLIC - TikTok leads webhook
     try {
         const rawBody = await req.text();
         const body = JSON.parse(rawBody);
@@ -72,37 +73,28 @@ export async function POST(req: Request) {
                     notas += " | [!] Lead incompleto - revisar manualmente";
                 }
 
-                // 4. Create Lead
-                const lead = await prisma.lead.create({
+                // 4. Create Lead (Hardened: Quarantine all TikTok leads as no tenant resolution strategy is defined)
+                console.warn("[Webhook:TikTok] Tenant resolution not implemented for TikTok. Moving to LeadIntake.", { adId });
+
+                await prisma.leadIntake.create({
                     data: {
-                        nombre: getName(),
-                        email: email || null,
-                        telefono: phone || null,
-                        canalOrigen: "TIKTOK",
-                        adId: adId,
-                        campanaId: campaignId,
-                        estado: "NUEVO",
-                        notas: notas,
-                        origen: "TIKTOK"
+                        source: "TIKTOK",
+                        rawPayload: body,
+                        status: "PENDING",
+                        error: "Tenant resolution not implemented for TikTok webhooks."
                     }
                 });
 
-                // 5. Audit Log
-                await (prisma.auditLog.create({
+                await prisma.auditLog.create({
                     data: {
                         userId: "system",
-                        action: "LEAD_INBOUND_WEBHOOK",
+                        action: "TENANT_RESOLUTION_FAILED",
                         entity: "Lead",
-                        entityId: lead.id,
                         details: JSON.stringify({ canal: "TIKTOK", adId, campaignId })
                     }
-                }) as any);
-
-                // 6. Trigger AI Scoring
-                console.log("[Webhook:TikTok] Triggering AI scoring", { leadId: lead.id });
-                await aiLeadScoring(lead.id).catch(err => {
-                    console.error("[Webhook:TikTok] AI Scoring failed", { leadId: lead.id, error: err.message });
                 });
+                
+                return; // Do not create operative Lead
             } catch (asyncError) {
                 console.error("[Webhook:TikTok] Async processing error:", asyncError);
             }
