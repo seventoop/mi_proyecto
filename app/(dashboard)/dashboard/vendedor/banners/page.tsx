@@ -75,7 +75,7 @@ const FILTERS = [
     { id: BANNER_ESTADOS.REJECTED, label: "Rechazados" },
 ];
 
-export default function DeveloperBannersPage() {
+export default function VendedorBannersPage() {
     const [banners, setBanners] = useState<Banner[]>([]);
     const [projects, setProjects] = useState<{ id: string; nombre: string }[]>([]);
     const [loading, setLoading] = useState(true);
@@ -108,7 +108,7 @@ export default function DeveloperBannersPage() {
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Mis Anuncios</h1>
                     <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg">
-                        Promociona tus proyectos en la página principal para obtener más leads.
+                        Promociona los proyectos en la página principal para obtener más leads.
                     </p>
                 </div>
                 <button
@@ -150,7 +150,7 @@ export default function DeveloperBannersPage() {
                     </div>
                     <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Aún no tienes anuncios</h3>
                     <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-8">
-                        Crea campañas visuales de alto impacto para destacar tus desarrollos frente a miles de inversores.
+                        Crea campañas visuales de alto impacto para destacar los proyectos frente a miles de inversores.
                     </p>
                     <button
                         onClick={() => { setEditingBanner(null); setShowEditor(true); }}
