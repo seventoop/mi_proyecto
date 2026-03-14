@@ -12,6 +12,11 @@ interface BannerItem {
     mediaUrl: string;
     tipo: string;
     titulo?: string;
+    headline?: string | null;
+    subheadline?: string | null;
+    tagline?: string | null;
+    ctaText?: string | null;
+    ctaUrl?: string | null;
     linkDestino?: string | null;
 }
 
@@ -191,7 +196,7 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                                 className="object-cover"
                                 sizes="100vw"
                             />
-                            {currentBanner.titulo && (
+                            {(currentBanner.headline || currentBanner.titulo) && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 30 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -201,19 +206,31 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
                                     <div className="relative z-10">
-                                        <span className="inline-flex items-center gap-2 mb-3">
-                                            <span className="w-2 h-2 rounded-full bg-brand-orange shadow-[0_0_8px_rgba(255,107,0,0.8)]" />
-                                            <span className="text-white/70 text-xs font-bold uppercase tracking-[0.3em]">SevenToop Media</span>
-                                        </span>
+                                        {currentBanner.tagline ? (
+                                            <span className="inline-flex items-center gap-2 mb-3">
+                                                <span className="w-2 h-2 rounded-full bg-brand-orange shadow-[0_0_8px_rgba(255,107,0,0.8)]" />
+                                                <span className="text-white/70 text-xs font-bold uppercase tracking-[0.3em]">{currentBanner.tagline}</span>
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-2 mb-3">
+                                                <span className="w-2 h-2 rounded-full bg-brand-orange shadow-[0_0_8px_rgba(255,107,0,0.8)]" />
+                                                <span className="text-white/70 text-xs font-bold uppercase tracking-[0.3em]">SevenToop Media</span>
+                                            </span>
+                                        )}
                                         <h2 className="text-3xl sm:text-5xl font-black text-white leading-tight drop-shadow-2xl max-w-2xl">
-                                            {currentBanner.titulo}
+                                            {currentBanner.headline || currentBanner.titulo}
                                         </h2>
-                                        {currentBanner.linkDestino && (
+                                        {currentBanner.subheadline && (
+                                            <p className="mt-2 text-base sm:text-xl text-white/80 max-w-xl drop-shadow-lg">
+                                                {currentBanner.subheadline}
+                                            </p>
+                                        )}
+                                        {(currentBanner.ctaText || currentBanner.ctaUrl || currentBanner.linkDestino) && (
                                             <a
-                                                href={currentBanner.linkDestino}
+                                                href={currentBanner.ctaUrl || currentBanner.linkDestino || "#"}
                                                 className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-orange hover:bg-brand-orangeDark text-white font-bold text-sm transition-all hover:scale-105 shadow-lg shadow-brand-orange/30"
                                             >
-                                                Ver más →
+                                                {currentBanner.ctaText || "Ver más"} →
                                             </a>
                                         )}
                                     </div>

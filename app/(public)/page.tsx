@@ -32,8 +32,7 @@ export default async function HomePage() {
         getSystemConfig("CTA_TEXT")
     ]);
 
-    const dbBanners = (bannersRes.success && bannersRes.data) ? bannersRes.data : [];
-    
+    // Banners: incliye SEVENTOOP_GLOBAL + ORG_LANDING, hasta 3, por prioridad y fecha
     const banners = bannersRes.success && bannersRes.data ? bannersRes.data : [];
 
     return (

@@ -8,6 +8,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import ContactForm from "@/components/public/contact-form";
 import TourModal from "@/components/public/tour-modal";
 import PublicProjectGallery from "@/components/public/project-gallery";
+import { getProjectBanner } from "@/lib/actions/banners";
 
 // Helper to find project by slug or ID
 async function getProject(slug: string) {
@@ -67,6 +68,10 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
 
     const P = project as any;
 
+    // Fetch active PROJECT_LANDING banner for this project's hero (direct query, avoids take-limit issue)
+    const bannerRes = await getProjectBanner(project.id);
+    const projectHeroBanner = bannerRes.data;
+
     return (
         <div className="bg-slate-950 text-white selection:bg-brand-500/30">
             {/* ─── Hero ─── */}
@@ -75,7 +80,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 <div className="absolute inset-0 z-0">
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent z-10" />
                     <Image
-                        src={(project as any).imagenes?.find((img: any) => img.esPrincipal)?.url || project.imagenPortada || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop"}
+                        src={projectHeroBanner?.mediaUrl || (project as any).imagenes?.find((img: any) => img.esPrincipal)?.url || project.imagenPortada || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop"}
                         alt={project.nombre}
                         fill
                         className="object-cover animate-zoom-in"
