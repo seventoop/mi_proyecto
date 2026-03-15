@@ -68,8 +68,8 @@ export interface ProjectPublicImage {
 
 export interface ProjectPublicTour {
     id: string;
-    titulo: string;
-    descripcion: string | null;
+    /** Matches Tour360.nombre and TourModal's expected { nombre } shape. */
+    nombre: string;
     scenes: Array<{
         id: string;
         title: string;

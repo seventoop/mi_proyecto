@@ -7,8 +7,8 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { Locale } from "@/lib/i18n/config";
-// Visibility rule from adapter — single source of truth
-import { PUBLIC_PROJECT_WHERE } from "@/lib/project-landing/adapter";
+// Visibility rule from adapter — single source of truth (function evaluates new Date() per request)
+import { getPublicProjectWhere } from "@/lib/project-landing/adapter";
 
 export const metadata: Metadata = {
     title: "Desarrollos | SevenToop — Infraestructura para Lanzamientos Inmobiliarios",
@@ -19,8 +19,8 @@ export const metadata: Metadata = {
 async function getProjects() {
     try {
         const projects = await db.proyecto.findMany({
-            // ↓ Centralized visibility rule — do NOT inline conditions here
-            where: PUBLIC_PROJECT_WHERE,
+            // ↓ Centralized visibility rule — evaluated fresh per request (avoids stale Date)
+            where: getPublicProjectWhere(),
             orderBy: { createdAt: "desc" },
         });
 

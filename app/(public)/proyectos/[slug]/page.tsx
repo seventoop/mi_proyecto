@@ -81,7 +81,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                     <ArrowRight className="w-5 h-5" />
                                 </Link>
                             )}
-                            <TourModal tours={project.tours as any} />
+                            <TourModal tours={project.tours} />
                             {project.tours.length > 0 && (
                                 <Link
                                     href={`/proyectos/${params.slug}/tour360`}

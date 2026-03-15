@@ -54,7 +54,10 @@ export default function PaymentSimulator({
     // ── Simulation state ──
     const [anticipo, setAnticipo] = useState<string>("");
     const [cuota, setCuota] = useState<string>("");
-    const [plazo, setPlazo] = useState<number>(config.plazoOptions[2] ?? 36);
+    // Use index 2 if available, last option otherwise — always a value that exists in the list
+    const [plazo, setPlazo] = useState<number>(
+        config.plazoOptions[Math.min(2, config.plazoOptions.length - 1)] ?? config.plazoOptions[0] ?? 36
+    );
     const [showProposal, setShowProposal] = useState(false);
 
     // ── Contact state ──

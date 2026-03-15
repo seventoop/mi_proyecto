@@ -43,7 +43,10 @@ export function isProjectPubliclyVisible(project: {
     if (project.visibilityStatus !== PROJECT_VISIBILITY.PUBLICADO) return false;
     if (project.estado === "SUSPENDIDO") return false;
     if (project.deletedAt !== null) return false;
-    if (project.isDemo && project.demoExpiresAt && project.demoExpiresAt < new Date()) return false;
+    // Demo rule: requires an explicit future expiry date.
+    // isDemo=true with demoExpiresAt=null → NOT visible (no expiry configured).
+    // isDemo=true with a past demoExpiresAt → NOT visible (expired).
+    if (project.isDemo && (!project.demoExpiresAt || project.demoExpiresAt < new Date())) return false;
     return true;
 }
 
@@ -65,10 +68,10 @@ export function getPublicProjectWhere(): Prisma.ProyectoWhereInput {
 }
 
 /**
- * Static export for pages that need the where clause at module load time.
- * Re-evaluated per request via the function when used in queries.
- * @deprecated Prefer `getPublicProjectWhere()` for runtime use.
- *   This export is provided for backwards-compatibility.
+ * @deprecated DO NOT USE in runtime query code — `demoExpiresAt` comparison uses
+ * a Date frozen at module load time and becomes stale in long-running processes.
+ * Use `getPublicProjectWhere()` instead, which evaluates `new Date()` per call.
+ * This export exists only for static analysis / tests that don't involve Date logic.
  */
 export const PUBLIC_PROJECT_WHERE: Prisma.ProyectoWhereInput = {
     visibilityStatus: PROJECT_VISIBILITY.PUBLICADO,
@@ -117,8 +120,7 @@ function mapTours(
 ): ProjectPublicTour[] {
     return tours.map((t) => ({
         id: t.id,
-        titulo: t.nombre,           // map nombre → titulo for stable contract
-        descripcion: null,          // Tour360 has no descripcion field
+        nombre: t.nombre,
         scenes: t.scenes,
     }));
 }

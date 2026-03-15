@@ -15,7 +15,7 @@
 
 #### Pages refactored
 - `app/(public)/proyectos/[slug]/page.tsx` — Uses adapter, adds simulator block
-- `app/(public)/proyectos/page.tsx` — Uses `PUBLIC_PROJECT_WHERE` from adapter
+- `app/(public)/proyectos/page.tsx` — Uses `getPublicProjectWhere()` from adapter (function, not static export)
 
 ### What was left intentionally untouched
 - `components/public/financing-simulator.tsx` — Preserved, used in unit detail page
@@ -27,9 +27,35 @@
 
 ### Decoupling achieved
 - Public pages no longer contain inline Prisma queries with scattered `visibilityStatus: "PUBLICADO"` strings
-- `isProjectPubliclyVisible()` and `PUBLIC_PROJECT_WHERE` are the single source of truth
+- `isProjectPubliclyVisible()` and `getPublicProjectWhere()` are the single source of truth (aligned, post-audit fixes)
 - `ProjectPublicView` contract isolates public pages from internal model changes
 - Simulation data stored as structured JSON in `Lead.notas` — no migration needed
+
+### Known technical debt (Phase 1 — accepted)
+
+#### TD-01: Simulation upsert overwrites previous lead context
+
+**Location:** `lib/project-landing/actions.ts` — `crearSimulacionFinanciacion()`
+
+**Behavior:** When a lead with the same WhatsApp number within the same org submits
+a new simulation, the action performs an update that **overwrites** the following fields:
+- `proyectoId` — reassigned to the new project
+- `unidadInteres` — reassigned to the new unit
+- `mensaje` — replaced with the new simulation summary
+- `notas` — replaced with the new `SimulationCRMMetadata` JSON
+
+**Consequence:** If the same user previously contacted for proyecto X and returns
+for proyecto Y, the CRM asesor loses the context of the original interaction.
+Prior simulation data (anticipo, cuota, plazo history) is permanently discarded.
+
+**Why accepted in Phase 1:** No migration or model change required; reduces
+duplicate leads in the CRM; adequate for initial volume. The upsert is logged
+in `Lead.updatedAt`, so asesores can see when the record changed.
+
+**Resolution in Phase 2:** Introduce a dedicated `SimulationEvent` model that
+appends one record per submission, preserving full history. The Lead record then
+acts as the contact anchor, and `SimulationEvent` holds the funnel progression.
+See also Phase 2 item 2c (LogicToop trigger) which depends on this history.
 
 ---
 
