@@ -121,9 +121,10 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
     }
   }, [proyectoId]);
 
+  // Load on mount so layers always render from DB on page load (not just when panel opens)
   useEffect(() => {
-    if (isOpen) loadItems();
-  }, [isOpen, loadItems]);
+    loadItems();
+  }, [loadItems]);
 
   // ─── Render items as Leaflet layers ─────────────────────────────────────────
   useEffect(() => {
@@ -143,8 +144,8 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
         const coords = item.coordenadas;
         if (!coords || coords.length === 0) continue;
 
-        const color = item.colorPersonalizado || getInfraCategoryColor(item.categoria, item.tipo);
         const estadoCfg = ESTADO_INFRA_CONFIG[item.estado] || ESTADO_INFRA_CONFIG.planificado;
+        const color = item.colorPersonalizado || estadoCfg.color;
         const dashArray = estadoCfg.dashArray || "";
 
         let layer: any;

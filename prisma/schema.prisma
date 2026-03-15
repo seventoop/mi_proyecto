@@ -143,6 +143,7 @@ model Proyecto {
   testimonios          Testimonio[]
   tours                Tour360[]
   infraestructuras     Infraestructura[]
+  imagenesMapa         ImagenMapa[]
 
   @@index([estado])
   @@index([createdAt])
@@ -270,6 +271,7 @@ model Unidad {
   reservas              Reserva[]
   tours                 Tour360[]
   tourHotspots          Hotspot[]
+  imagenesMapa          ImagenMapa[]
   manzana               Manzana           @relation(fields: [manzanaId], references: [id], onDelete: Cascade)
   responsable           User?             @relation("ResponsableUnidad", fields: [responsableId], references: [id])
 
@@ -485,6 +487,28 @@ model Infraestructura {
 
   @@index([proyectoId])
   @@map("infraestructuras")
+}
+
+model ImagenMapa {
+  id         String   @id @default(cuid())
+  proyectoId String
+  unidadId   String?
+  url        String
+  tipo       String   @default("foto") // "360" | "foto" | "panoramica"
+  titulo     String?
+  lat        Float
+  lng        Float
+  orden        Int      @default(0)
+  altitudM     Float?   @default(500)
+  imageHeading Float?   @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  proyecto     Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  unidad       Unidad?  @relation(fields: [unidadId], references: [id])
+
+  @@index([proyectoId])
+  @@index([unidadId])
+  @@map("imagenes_mapa")
 }
 
 model Banner {

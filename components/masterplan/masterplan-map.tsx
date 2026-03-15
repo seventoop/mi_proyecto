@@ -21,6 +21,7 @@ import Tour360Viewer from "./tour360-viewer";
 import { getProjectBlueprintData } from "@/lib/actions/unidades";
 
 const InfraestructuraTool = dynamic(() => import("./infraestructura-tool"), { ssr: false });
+const ImagenesMapaTool = dynamic(() => import("./imagenes-mapa-tool"), { ssr: false });
 
 // ─── Status colors ───
 const STATUS_COLORS: Record<string, string> = {
@@ -870,6 +871,19 @@ export default function MasterplanMap({
                             <InfraestructuraTool
                                 proyectoId={proyectoId}
                                 map={leafletMapRef.current}
+                            />
+                        )}
+
+                        <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />
+
+                        {/* SECTION 6: Imagenes del mapa tool */}
+                        {isMapReady && leafletMapRef.current && (
+                            <ImagenesMapaTool
+                                proyectoId={proyectoId}
+                                map={leafletMapRef.current}
+                                overlayBounds={overlayConfig?.bounds ?? null}
+                                overlayRotation={overlayConfig?.rotation ?? 0}
+                                svgViewBox={svgViewBox}
                             />
                         )}
                     </div>

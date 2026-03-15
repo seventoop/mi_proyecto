@@ -54,10 +54,7 @@ const MasterplanViewer = dynamic(
         ),
     }
 );
-const Tour360TabWrapper = dynamic(
-    () => import("@/components/dashboard/proyectos/tour360-tab-wrapper"),
-    { ssr: false }
-);
+
 const ResizableContainer = dynamic(
     () => import("@/components/ui/resizable-container"),
     { ssr: false }
@@ -106,7 +103,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     },
                 },
             },
-            _count: { select: { leads: true } },
+            _count: { select: { leads: true, imagenesMapa: true } },
         },
     });
 
@@ -168,7 +165,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const step2Done = !!proyecto.masterplanSVG;
     const step3Done = total > 0;
     const step4Done = !!proyecto.overlayBounds;
-    const step5Done = proyecto.tours.length > 0;
+    const step5Done = (proyecto._count as any).imagenesMapa > 0;
     const step6Done =
         proyecto.pagos.length > 0 || proyecto.documentacion.length > 0;
     const step7Done = proyecto._count.leads > 0;
@@ -228,13 +225,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         {
             id: "tour360",
             num: 5,
-            label: "Tour 360°",
-            desc: "Recorrido virtual del loteo",
+            label: "Imágenes",
+            desc: "Fotos y 360° geoposicionados",
             required: false,
             icon: Camera,
             done: step5Done,
             guidance:
-                "Subí las imágenes panorámicas 360° para el recorrido virtual. Podés continuar sin este paso y cargarlo más adelante.",
+                "Subí fotos, panorámicas o imágenes 360° y posicionálas en el mapa. Podés vincular cada imagen a un lote específico.",
         },
         {
             id: "comercial",
@@ -717,7 +714,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* ── PASO 5: TOUR 360 ── */}
+                        {/* ── PASO 5: IMÁGENES DEL PROYECTO ── */}
                         {activeTab === "tour360" && (
                             <div className="space-y-4">
                                 <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
@@ -725,36 +722,35 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     <div className="space-y-1.5 text-slate-600 dark:text-slate-400">
                                         <p>
                                             <strong className="text-slate-800 dark:text-slate-200">
-                                                Formatos:
+                                                Imágenes geoposicionadas:
                                             </strong>{" "}
-                                            JPG, PNG, WebP — imágenes equirectangulares 360°.
+                                            Subí fotos, panorámicas o imágenes 360° y posicionálas en el mapa
+                                            haciendo clic en la ubicación exacta donde fueron tomadas.
                                         </p>
                                         <p>
                                             <strong className="text-slate-800 dark:text-slate-200">
-                                                Resolución recomendada:
+                                                Vincular a lote:
                                             </strong>{" "}
-                                            8000×4000 px o superior.{" "}
-                                            <strong className="text-slate-800 dark:text-slate-200">
-                                                Peso máximo:
-                                            </strong>{" "}
-                                            50 MB por imagen.
-                                        </p>
-                                        <p>
-                                            <strong className="text-slate-800 dark:text-slate-200">
-                                                Cantidad recomendada:
-                                            </strong>{" "}
-                                            entre 5 y 20 escenas para un recorrido completo.
+                                            Podés asociar cada imagen a un lote específico para que el cliente
+                                            la vea al seleccionarlo en el mapa.
                                         </p>
                                         <p className="text-slate-400">
-                                            Podés continuar sin el Tour 360° y cargarlo más adelante.
+                                            Usá el botón{" "}
+                                            <strong className="text-slate-300">Imágenes</strong>{" "}
+                                            en la barra del mapa para subir y gestionar tus imágenes.
                                         </p>
                                     </div>
                                 </div>
-                                <Tour360TabWrapper
-                                    proyectoId={proyecto.id}
-                                    tours={proyecto.tours || []}
-                                    userRole={userRole}
-                                />
+                                <ResizableContainer defaultHeight={580} minHeight={400}>
+                                    <MasterplanMap
+                                        proyectoId={proyecto.id}
+                                        modo="admin"
+                                        centerLat={proyecto.mapCenterLat ?? undefined}
+                                        centerLng={proyecto.mapCenterLng ?? undefined}
+                                        mapZoom={proyecto.mapZoom ?? undefined}
+                                        tours360={tours360ForMap}
+                                    />
+                                </ResizableContainer>
                             </div>
                         )}
 
