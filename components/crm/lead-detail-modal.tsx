@@ -6,7 +6,7 @@ import { es } from "date-fns/locale";
 import { Gauge as Badge } from "lucide-react"; // Temporary replacement if Badge component not found
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Mail, Phone, Plus, MessageSquare } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Lead, Oportunidad, Tarea } from "@prisma/client";
 
 interface LeadDetailModalProps {
@@ -79,13 +79,11 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
         }
     };
 
-    const notasList = useMemo(() => {
-        if (!lead?.notas) return [];
-        if (typeof lead.notas === 'string') {
-            try { return JSON.parse(lead.notas); } catch { return []; }
-        }
-        return Array.isArray(lead.notas) ? lead.notas : [];
-    }, [lead?.notas]);
+    // Parse JSON string
+    // Parse JSON string
+    const notasList = lead && lead.notas
+        ? (typeof lead.notas === 'string' ? JSON.parse(lead.notas) : (Array.isArray(lead.notas) ? lead.notas : []))
+        : [];
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>

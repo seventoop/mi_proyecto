@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Camera, Maximize2, X } from "lucide-react";
 import Image from "next/image";
@@ -28,7 +28,7 @@ export default function PublicProjectGallery({ imagenes }: PublicProjectGalleryP
     const [selectedCategory, setSelectedCategory] = useState<string>("TODOS");
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
-    const categories = useMemo(() => ["TODOS", ...Array.from(new Set(imagenes.map(img => img.categoria)))], [imagenes]);
+    const categories = ["TODOS", ...Array.from(new Set(imagenes.map(img => img.categoria)))];
 
     const filteredImagenes = selectedCategory === "TODOS"
         ? imagenes

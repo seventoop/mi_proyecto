@@ -158,36 +158,27 @@ export default function Sidebar() {
                     "lg:translate-x-0"
                 )}
             >
-                {/* Logo + Desktop toggle + Plan */}
-                <div className="flex flex-col border-b border-white/10">
-                    <div className="flex items-center h-24 px-4 relative">
-                        <Link href="/dashboard" className={cn("flex items-center gap-3 flex-1", !sidebarOpen && "justify-center")}>
-                            {sidebarOpen ? (
-                                <Image
-                                    src="/logo.png"
-                                    alt="SevenToop"
-                                    width={180}
-                                    height={54}
-                                    className="object-contain"
-                                    priority
-                                />
-                            ) : (
-                                <div className="w-10 h-10 rounded-xl bg-brand-orange flex items-center justify-center shadow-[0_0_15px_rgba(249,115,22,0.3)]">
-                                    <Building2 className="w-6 h-6 text-white" />
-                                </div>
-                            )}
-                        </Link>
-                        <button
-                            onClick={toggleSidebar}
-                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all flex-shrink-0"
-                            title={sidebarOpen ? "Colapsar menú" : "Expandir menú"}
-                        >
-                            <Menu className="w-4 h-4" />
-                        </button>
-                    </div>
+                {/* Logo & Plan */}
+                <div className="flex flex-col items-center justify-center p-4 border-b border-white/10 space-y-4">
+                    <Link href="/dashboard" className="flex items-center gap-3">
+                        {sidebarOpen ? (
+                            <Image
+                                src="/logo.png"
+                                alt="SevenToop"
+                                width={180}
+                                height={54}
+                                className="object-contain"
+                                priority
+                            />
+                        ) : (
+                            <div className="w-10 h-10 rounded-xl bg-brand-orange flex items-center justify-center shadow-[0_0_15px_rgba(249,115,22,0.3)]">
+                                <Building2 className="w-6 h-6 text-white" />
+                            </div>
+                        )}
+                    </Link>
 
                     {sidebarOpen && planData && (
-                        <div className="w-full px-4 pb-4 animate-in fade-in duration-500">
+                        <div className="w-full px-2 animate-in fade-in duration-500">
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-[9px] font-bold text-slate-500 uppercase">Estado Cuenta</span>
                                 <PlanBadge plan={planData.planName} />
@@ -220,18 +211,9 @@ export default function Sidebar() {
                 {/* Navigation */}
                 <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
                     {navItems.map((item) => {
-                        // Find the most specific matching nav item.
-                        // Also checks optional matchPaths for routes that share the same section
-                        // (e.g. /dashboard/proyectos/[id] maps to the Proyectos admin nav item)
-                        const matchingItems = navItems.filter(ni => {
-                            const paths = [ni.href, ...((ni as any).matchPaths || [])];
-                            return paths.some(p => pathname === p || pathname?.startsWith(p + "/"));
-                        });
-                        const bestMatch = matchingItems.reduce<typeof navItems[0] | null>(
-                            (best, ni) => (!best || ni.href.length > best.href.length) ? ni : best,
-                            null
-                        );
-                        const isActive = bestMatch?.href === item.href;
+                        const isActive =
+                            pathname === item.href ||
+                            (item.href !== "/dashboard" && pathname?.startsWith(item.href));
                         return (
                             <Link
                                 key={item.href}
