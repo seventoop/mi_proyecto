@@ -12,7 +12,7 @@ export interface MasterplanUnit {
     orientacion: string | null;
     precio: number | null;
     moneda: string;
-    estado: "DISPONIBLE" | "BLOQUEADO" | "RESERVADO" | "VENDIDO" | "SUSPENDIDO";
+    estado: "DISPONIBLE" | "BLOQUEADO" | "RESERVADA" | "VENDIDA" | "SUSPENDIDO";
     etapaId?: string;
     etapaNombre?: string;
     manzanaId?: string;

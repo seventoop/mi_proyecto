@@ -1,11 +1,11 @@
 "use client";
 
-import { memo, useCallback, useRef, useState, useEffect, useMemo } from "react";
+import React, { memo, useCallback, useRef, useState, useEffect, useMemo } from "react";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    ZoomIn, ZoomOut, Maximize, Filter, Layers as LayersIcon,
-    GitCompare, X, FileSpreadsheet, Download
+    ZoomIn, ZoomOut, Maximize, Maximize2, Minimize2, Filter, Layers as LayersIcon,
+    GitCompare, X, FileSpreadsheet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -21,12 +21,20 @@ import { getProjectBlueprintData } from "@/lib/actions/unidades";
 import { getPusherClient, CHANNELS, EVENTS } from "@/lib/pusher";
 
 // ─── Zoom wiring component (must live inside TransformWrapper to use useControls) ───
-function ZoomButtonWiring() {
+function ZoomButtonWiring({
+    zoomInRef,
+    zoomOutRef,
+    zoomResetRef,
+}: {
+    zoomInRef: React.RefObject<HTMLButtonElement>;
+    zoomOutRef: React.RefObject<HTMLButtonElement>;
+    zoomResetRef: React.RefObject<HTMLButtonElement>;
+}) {
     const { zoomIn, zoomOut, resetTransform } = useControls();
     useEffect(() => {
-        const ziBtn = document.getElementById("zoom-in-btn");
-        const zoBtn = document.getElementById("zoom-out-btn");
-        const zrBtn = document.getElementById("zoom-reset-btn");
+        const ziBtn = zoomInRef.current;
+        const zoBtn = zoomOutRef.current;
+        const zrBtn = zoomResetRef.current;
         const hZi = () => zoomIn(0.5);
         const hZo = () => zoomOut(0.5);
         const hZr = () => resetTransform();
@@ -38,7 +46,7 @@ function ZoomButtonWiring() {
             zoBtn?.removeEventListener("click", hZo);
             zrBtn?.removeEventListener("click", hZr);
         };
-    }, [zoomIn, zoomOut, resetTransform]);
+    }, [zoomIn, zoomOut, resetTransform, zoomInRef, zoomOutRef, zoomResetRef]);
     return null;
 }
 
@@ -48,7 +56,7 @@ const STATUS_COLORS: Record<string, string> = {
     BLOQUEADO: "#94a3b8",
     RESERVADA: "#f59e0b",
     VENDIDA: "#ef4444",
-    SUSPENDIDA: "#64748b",
+    SUSPENDIDO: "#64748b",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -56,7 +64,7 @@ const STATUS_LABELS: Record<string, string> = {
     BLOQUEADO: "Bloqueado",
     RESERVADA: "Reservada",
     VENDIDA: "Vendida",
-    SUSPENDIDA: "Suspendida",
+    SUSPENDIDO: "Suspendido",
 };
 
 // ─── Tooltip component ───
@@ -102,20 +110,34 @@ const Tooltip = memo(function Tooltip({ data }: { data: TooltipData | null }) {
 
 // ─── Single Unit polygon ───
 const UnitPolygon = memo(function UnitPolygon({
-    unit, isFiltered, isSelected, isHovered, isComparing, zoom,
-    onMouseEnter, onMouseLeave, onClick, onCompareToggle,
+    unit, isFiltered, isSelected, isHovered, isComparing, showLabels, globalFontSize,
+    onMouseEnter, onMouseLeave, onClick, onCompareToggle, onTouchLongPress,
 }: {
     unit: MasterplanUnit;
     isFiltered: boolean;
     isSelected: boolean;
     isHovered: boolean;
     isComparing: boolean;
-    zoom: number;
+    showLabels: boolean;
+    globalFontSize: number;
     onMouseEnter: (e: React.MouseEvent, unit: MasterplanUnit) => void;
     onMouseLeave: () => void;
     onClick: () => void;
     onCompareToggle: (e: React.MouseEvent) => void;
+    onTouchLongPress: () => void;
 }) {
+    const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleTouchStart = useCallback(() => {
+        longPressTimer.current = setTimeout(() => {
+            onTouchLongPress();
+        }, 500);
+    }, [onTouchLongPress]);
+    const cancelLongPress = useCallback(() => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    }, []);
     // Determine geometry from coordenadasMasterplan string
     let path = unit.path;
     let cx = unit.cx;
@@ -138,42 +160,49 @@ const UnitPolygon = memo(function UnitPolygon({
 
     if (!path) return null;
 
-    // Per-polygon font size: ~25% of the polygon's shortest dimension
-    let fontSize = 6.5;
-    const pathNums = path.match(/-?[\d.]+(?:e[+-]?\d+)?/g);
-    if (pathNums && pathNums.length >= 4) {
-        let pMinX = Infinity, pMinY = Infinity, pMaxX = -Infinity, pMaxY = -Infinity;
-        for (let i = 0; i + 1 < pathNums.length; i += 2) {
-            const px = parseFloat(pathNums[i]), py = parseFloat(pathNums[i + 1]);
-            if (!isNaN(px) && !isNaN(py)) {
-                if (px < pMinX) pMinX = px;
-                if (px > pMaxX) pMaxX = px;
-                if (py < pMinY) pMinY = py;
-                if (py > pMaxY) pMaxY = py;
+    // Parse M/L vertices once: compute BOTH centroid and polygon dimensions for font sizing.
+    // Using only uppercase M and L (absolute coords) avoids arc/bezier parameters inflating the box.
+    let fontSize = globalFontSize * 0.7; // safe fallback
+    let computedCx: number | undefined = cx;
+    let computedCy: number | undefined = cy;
+    {
+        const verts: [number, number][] = [];
+        const segments = path.split(/(?=[A-Za-z])/).filter(Boolean);
+        for (const seg of segments) {
+            const cmd = seg[0];
+            if (cmd !== "M" && cmd !== "L") continue;
+            const nums = seg.slice(1).match(/-?[\d.]+(?:e[+-]?\d+)?/g);
+            if (!nums) continue;
+            for (let i = 0; i + 1 < nums.length; i += 2) {
+                const px = parseFloat(nums[i]), py = parseFloat(nums[i + 1]);
+                if (!isNaN(px) && !isNaN(py)) verts.push([px, py]);
             }
         }
-        if (pMinX !== Infinity) {
-            fontSize = Math.max(Math.min(pMaxX - pMinX, pMaxY - pMinY) * 0.25, 1.5);
+        if (verts.length > 0) {
+            const xs = verts.map(v => v[0]);
+            const ys = verts.map(v => v[1]);
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            // Bounding box center: keeps label at consistent visual height across a row of irregular lots
+            computedCx = (minX + maxX) / 2;
+            computedCy = (minY + maxY) / 2;
+            const pW = maxX - minX;
+            const pH = maxY - minY;
+            // Use blueprint-utils-style formula — larger coefficients so numbers are readable at default zoom
+            fontSize = Math.min(pW * 0.42, pH * 0.54, globalFontSize);
+            fontSize = Math.max(fontSize, globalFontSize * 0.20); // floor: always legible
         }
     }
 
     const fillColor = STATUS_COLORS[unit.estado] || "#94a3b8";
     const opacity = isFiltered ? (isHovered ? 0.85 : 0.55) : 0.12;
-    const strokeWidth = isSelected ? 2.5 : isComparing ? 2 : isHovered ? 1.8 : 0.8;
+    // strokeWidth is in SVG user units; vectorEffect="non-scaling-stroke" keeps
+    // the rendered width constant in screen pixels at any zoom level.
+    const strokeWidth = isSelected ? 1.5 : isComparing ? 1.2 : isHovered ? 1.0 : 0.5;
     const strokeColor = isSelected ? "#fff" : isComparing ? "#6366f1" : isHovered ? "#fff" : "rgba(255,255,255,0.35)";
     const labelText = internalId != null ? String(internalId) : (unit.numero.split("-")[1] || unit.numero);
-
-    // Smart label scaling: keep labels legible at any zoom level.
-    // At low zoom we scale up the SVG font size so screen pixels stay ~8px minimum,
-    // but cap it to avoid overflowing the polygon boundary (max 2.5× base size).
-    const MIN_SCREEN_PX = 8;
-    const safeZoom = Math.max(zoom, 0.05);
-    const scaledFontSize = Math.min(
-        Math.max(fontSize, MIN_SCREEN_PX / safeZoom),
-        fontSize * 2.5
-    );
-    // Fade labels slightly at very low zoom so they don't clutter when small
-    const labelOpacity = Math.min(1, 0.4 + zoom * 0.8);
+    // Sanitize unit.id for use as an XML ID (UUIDs contain hyphens — replace with underscores)
+    const clipId = `lp_${unit.id.replace(/[^a-zA-Z0-9]/g, "_")}`;
 
     return (
         <g
@@ -182,36 +211,45 @@ const UnitPolygon = memo(function UnitPolygon({
             onMouseLeave={onMouseLeave}
             onClick={onClick}
             onContextMenu={(e) => { e.preventDefault(); onCompareToggle(e); }}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={cancelLongPress}
+            onTouchMove={cancelLongPress}
         >
+            <defs>
+                <clipPath id={clipId}>
+                    <path d={path} />
+                </clipPath>
+            </defs>
             <path
                 d={path}
                 fill={fillColor}
                 fillOpacity={opacity}
                 stroke={strokeColor}
                 strokeWidth={strokeWidth}
-                style={{ transition: "fill-opacity 0.2s, stroke 0.2s, stroke-width 0.15s, fill 0.3s" }}
+                vectorEffect="non-scaling-stroke"
+                style={{ transition: "fill-opacity 0.2s, stroke 0.2s, fill 0.3s" }}
             />
-            {isFiltered && cx !== undefined && cy !== undefined && (
+            {isFiltered && (showLabels || isSelected || isHovered) && computedCx !== undefined && computedCy !== undefined && (
                 <text
-                    x={cx}
-                    y={cy}
+                    x={computedCx}
+                    y={computedCy}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fontSize={scaledFontSize}
+                    fontSize={fontSize}
                     fontWeight="700"
                     fill="#fff"
-                    fillOpacity={labelOpacity}
+                    fillOpacity={1}
                     stroke="rgba(0,0,0,0.65)"
-                    strokeWidth={scaledFontSize * 0.2}
+                    strokeWidth={fontSize * 0.05}
                     paintOrder="stroke"
+                    clipPath={`url(#${clipId})`}
                     className="pointer-events-none select-none"
-                    style={{ transition: "font-size 0.15s, fill-opacity 0.2s" }}
                 >
                     {labelText}
                 </text>
             )}
-            {isComparing && cx !== undefined && cy !== undefined && (
-                <circle cx={cx + fontSize * 2} cy={cy - fontSize * 1.8} r={fontSize * 0.75} fill="#6366f1" stroke="#fff" strokeWidth={fontSize * 0.15} />
+            {isComparing && computedCx !== undefined && computedCy !== undefined && (
+                <circle cx={computedCx! + fontSize * 2} cy={computedCy! - fontSize * 1.8} r={fontSize * 0.75} fill="#6366f1" stroke="#fff" strokeWidth={fontSize * 0.15} />
             )}
         </g>
     );
@@ -237,12 +275,46 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
 
     const units = useMasterplanStore(selectUnits);
     const filteredUnits = useFilteredUnits();
-    const filteredIds = new Set(filteredUnits.map((u) => u.id));
+    const filteredIds = useMemo(() => new Set(filteredUnits.map((u) => u.id)), [filteredUnits]);
+
+    // Only show lot-number labels when zoomed in enough (avoids wall-of-numbers at overview zoom)
+    const showLabels = zoom >= 0.8;
 
     const [loading, setLoading] = useState(true);
     const [tooltip, setTooltip] = useState<TooltipData | null>(null);
     const [showLayers, setShowLayers] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const zoomInRef = useRef<HTMLButtonElement>(null);
+    const zoomOutRef = useRef<HTMLButtonElement>(null);
+    const zoomResetRef = useRef<HTMLButtonElement>(null);
+
+    const toggleFullscreen = useCallback(async () => {
+        if (!containerRef.current) return;
+        try {
+            if (!document.fullscreenElement) {
+                await containerRef.current.requestFullscreen();
+                setIsFullscreen(true);
+            } else {
+                await document.exitFullscreen();
+                setIsFullscreen(false);
+            }
+        } catch { /* fullscreen not supported */ }
+    }, []);
+
+    useEffect(() => {
+        const onFSChange = () => {
+            if (!document.fullscreenElement) setIsFullscreen(false);
+        };
+        document.addEventListener("fullscreenchange", onFSChange);
+        return () => document.removeEventListener("fullscreenchange", onFSChange);
+    }, []);
+
+    // Reset zoom to 1 on mount — prevents stale zoom state from a previous session triggering labels at load
+    useEffect(() => {
+        setZoom(1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // 1. Fetch real-world business data from DB
     useEffect(() => {
@@ -327,8 +399,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
     // Parse viewBox for use in grid rect
     const vbParts = svgViewBox.split(" ").map(parseFloat);
     const [vbX, vbY, vbW, vbH] = vbParts;
-
-    // zoom is passed to UnitPolygon for smart adaptive label sizing
+    const globalFontSize = Math.min(vbW, vbH) / 80;
 
     const handleExportExcel = async () => {
         const { utils, writeFile } = await import("xlsx");
@@ -353,7 +424,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
 
     if (loading) {
         return (
-            <div className="w-full h-[600px] flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl animate-pulse">
+            <div className="w-full h-full min-h-[400px] flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl animate-pulse">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
                     <p className="text-sm font-bold text-slate-500">Sincronizando Masterplan...</p>
@@ -397,23 +468,30 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                 >
                     <FileSpreadsheet className="w-3.5 h-3.5" />Exportar Excel
                 </button>
-            </div>
 
-            {/* Zoom controls — shift left when side panel is open to avoid overlap */}
-            <div className={cn("absolute top-4 z-20 flex flex-col gap-1 transition-all duration-300", selectedUnit ? "right-[356px]" : "right-4")}>
-                <button id="zoom-in-btn" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+                <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1" />
+                <button ref={zoomInRef} title="Acercar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
                     <ZoomIn className="w-4 h-4" />
                 </button>
-                <button id="zoom-out-btn" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+                <button ref={zoomOutRef} title="Alejar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
                     <ZoomOut className="w-4 h-4" />
                 </button>
-                <button id="zoom-reset-btn" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+                <button ref={zoomResetRef} title="Restablecer zoom" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
                     <Maximize className="w-4 h-4" />
+                </button>
+
+                {/* Fullscreen — moved here so it doesn't overlap the side panel close button */}
+                <button
+                    onClick={toggleFullscreen}
+                    title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+                    className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm"
+                >
+                    {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                 </button>
             </div>
 
             {/* Legend */}
-            <div className="absolute bottom-4 right-4 z-20 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg px-3 py-2">
+            <div className="absolute bottom-4 left-4 z-20 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg px-3 py-2">
                 <div className="flex items-center gap-3">
                     {Object.entries(STATUS_COLORS).map(([key, color]) => (
                         <div key={key} className="flex items-center gap-1.5">
@@ -433,9 +511,9 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                 panning={{ velocityDisabled: true }}
                 onZoomStop={(ref) => setZoom(ref.state.scale)}
             >
-                <ZoomButtonWiring />
+                <ZoomButtonWiring zoomInRef={zoomInRef} zoomOutRef={zoomOutRef} zoomResetRef={zoomResetRef} />
                 <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full">
-                    <svg viewBox={svgViewBox} className="w-full h-full" style={{ minWidth: 1000, minHeight: 800 }}>
+                    <svg viewBox={svgViewBox} className="w-full h-full" style={{ minWidth: "min(100%, 600px)", minHeight: "min(100%, 400px)" }}>
                         <defs>
                             <pattern id="mp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
                                 <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-slate-700" />
@@ -452,11 +530,13 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                                 isSelected={selectedUnitId === unit.id}
                                 isHovered={hoveredUnitId === unit.id}
                                 isComparing={comparisonIds.includes(unit.id)}
-                                zoom={zoom}
+                                showLabels={showLabels}
+                                globalFontSize={globalFontSize}
                                 onMouseEnter={handleUnitHover}
                                 onMouseLeave={handleUnitLeave}
                                 onClick={() => setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id)}
                                 onCompareToggle={(e) => { e.stopPropagation(); toggleComparison(unit.id); }}
+                                onTouchLongPress={() => toggleComparison(unit.id)}
                             />
                         ))}
                     </svg>
@@ -491,6 +571,87 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                     >
                         <MasterplanFilters onClose={() => setShowFilters(false)} />
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Layers panel */}
+            <AnimatePresence>
+                {showLayers && (
+                    <motion.div
+                        initial={{ x: -300, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -300, opacity: 0 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        className={cn(
+                            "absolute top-14 bottom-4 z-20 w-[180px]",
+                            showFilters ? "left-[280px]" : "left-4"
+                        )}
+                    >
+                        <div className="h-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
+                            <div className="flex items-center justify-between p-3 border-b border-slate-200 dark:border-slate-700">
+                                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">Capas</h4>
+                                <button onClick={() => setShowLayers(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                    <X className="w-3.5 h-3.5 text-slate-400" />
+                                </button>
+                            </div>
+                            <div className="p-3 space-y-1.5">
+                                {layers.map((layer) => (
+                                    <label key={layer.id} className="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={layer.visible}
+                                            onChange={() => toggleLayer(layer.id)}
+                                            className="w-3.5 h-3.5 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
+                                        />
+                                        <span className="text-sm mr-1">{layer.icon}</span>
+                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{layer.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Compare bar — appears when units are selected for comparison */}
+            <AnimatePresence>
+                {comparisonIds.length > 0 && (
+                    <motion.div
+                        initial={{ y: 60, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 60, opacity: 0 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        className="absolute bottom-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-2xl border border-slate-700/50"
+                    >
+                        <span className="text-xs text-slate-300 font-medium">
+                            {comparisonIds.length} unidad{comparisonIds.length > 1 ? "es" : ""} seleccionada{comparisonIds.length > 1 ? "s" : ""}
+                        </span>
+                        <button
+                            onClick={() => setShowComparator(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-500 text-white text-xs font-bold hover:bg-brand-600 transition-all shadow-lg"
+                        >
+                            <GitCompare className="w-3.5 h-3.5" />
+                            Comparar
+                        </button>
+                        <button
+                            onClick={clearComparison}
+                            className="p-1.5 rounded-lg hover:bg-slate-700 transition-colors"
+                            title="Cancelar comparación"
+                        >
+                            <X className="w-3.5 h-3.5 text-slate-400" />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Comparator modal */}
+            <AnimatePresence>
+                {showComparator && comparisonIds.length > 0 && (
+                    <MasterplanComparator
+                        units={units.filter((u) => comparisonIds.includes(u.id))}
+                        onClose={() => { clearComparison(); setShowComparator(false); }}
+                        onRemove={(id) => toggleComparison(id)}
+                    />
                 )}
             </AnimatePresence>
         </div>

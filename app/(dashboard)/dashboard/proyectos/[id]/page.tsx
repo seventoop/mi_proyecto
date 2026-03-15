@@ -11,7 +11,10 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import dynamic from "next/dynamic";
-import InventarioServer from "@/components/dashboard/proyectos/inventario-server";
+const InventarioClient = dynamic(
+    () => import("@/components/dashboard/proyectos/inventario-client"),
+    { ssr: false }
+);
 
 const ProjectDocsTab = dynamic(
     () => import("@/components/dashboard/proyectos/project-docs-tab"),
@@ -658,7 +661,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         </div>
                                     </div>
                                 )}
-                                <ResizableContainer defaultHeight={620} minHeight={420}>
+                                <ResizableContainer defaultHeight={620} minHeight={420} showFullscreenBtn={false}>
                                     <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
                                 </ResizableContainer>
 
@@ -683,7 +686,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                             </p>
                                         </div>
                                     ) : (
-                                        <InventarioServer proyectoId={proyecto.id} />
+                                        <InventarioClient proyectoId={proyecto.id} />
                                     )}
                                 </div>
 
@@ -760,18 +763,6 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                     Paso 3 — Masterplan
                                                 </Link>{" "}
                                                 para verlos en el mapa.
-                                            </p>
-                                        )}
-                                        {!step5Done && (
-                                            <p className="text-amber-500 font-medium">
-                                                ⚠ Cargá el Tour 360° en el{" "}
-                                                <Link
-                                                    href="?tab=tour360"
-                                                    className="underline font-bold"
-                                                >
-                                                    Paso 5
-                                                </Link>{" "}
-                                                para conectarlo al mapa.
                                             </p>
                                         )}
                                     </div>

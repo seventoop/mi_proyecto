@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // GET /api/unidades/[id]
 export async function GET(
@@ -62,16 +64,21 @@ export async function PUT(
         const body = await request.json();
 
         // If estado changed, create history entry
-        if (body.estado && body.previousEstado && body.estado !== body.previousEstado) {
-            await prisma.historialUnidad.create({
-                data: {
-                    unidadId: params.id,
-                    usuarioId: body.userId || "system",
-                    estadoAnterior: body.previousEstado,
-                    estadoNuevo: body.estado,
-                    motivo: body.motivo || null,
-                },
-            });
+        const session = await getServerSession(authOptions);
+        const usuarioId = session?.user?.id;
+
+        if (body.estado && body.previousEstado && body.estado !== body.previousEstado && usuarioId) {
+            try {
+                await prisma.historialUnidad.create({
+                    data: {
+                        unidadId: params.id,
+                        usuarioId,
+                        estadoAnterior: body.previousEstado,
+                        estadoNuevo: body.estado,
+                        motivo: body.motivo || null,
+                    },
+                });
+            } catch { /* historial recording failed — don't block the estado update */ }
         }
 
         const unidad = await prisma.unidad.update({
