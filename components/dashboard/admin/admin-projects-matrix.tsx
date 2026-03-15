@@ -12,6 +12,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Settings2, Building2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { updateProjectFeatureFlags } from "@/lib/actions/plans";
@@ -102,15 +103,15 @@ export default function AdminProjectsMatrix({ projects }: AdminProjectsMatrixPro
                     {projects.map((project) => (
                         <TableRow key={project.id} className="border-white/5 hover:bg-white/5 transition-colors">
                             <TableCell>
-                                <div className="flex items-center gap-3">
+                                <Link href={`/dashboard/proyectos/${project.id}`} className="flex items-center gap-3 group/row">
                                     <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center">
                                         <Building2 className="w-4 h-4 text-brand-500" />
                                     </div>
                                     <div>
-                                        <p className="font-bold text-sm text-slate-900 dark:text-white leading-none mb-1">{project.nombre}</p>
+                                        <p className="font-bold text-sm text-slate-900 dark:text-white group-hover/row:text-brand-500 transition-colors leading-none mb-1">{project.nombre}</p>
                                         <p className="text-[10px] text-slate-500 uppercase tracking-tighter">ID: {project.id}</p>
                                     </div>
-                                </div>
+                                </Link>
                             </TableCell>
                             <TableCell>
                                 <div className="flex flex-col">

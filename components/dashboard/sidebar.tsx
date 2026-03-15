@@ -53,6 +53,8 @@ import { toast } from "sonner";
 const adminNavItems = [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "CRM / Leads", href: "/dashboard/admin/crm/leads", icon: Users },
+    { label: "Pipeline CRM", href: "/dashboard/admin/crm/pipeline", icon: Workflow },
+    { label: "BI Métricas", href: "/dashboard/admin/crm/metricas", icon: BarChart3 },
     { label: "Proyectos", href: "/dashboard/admin/proyectos", icon: Building2, matchPaths: ["/dashboard/proyectos"] },
     { label: "Banners", href: "/dashboard/admin/banners", icon: ImageIcon },
     { label: "Testimonios", href: "/dashboard/admin/testimonios", icon: MessageSquare },
