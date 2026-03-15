@@ -98,7 +98,14 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             },
             pagos: true,
             documentacion: true,
-            tours: true,
+            tours: {
+                include: {
+                    scenes: {
+                        orderBy: { order: "asc" },
+                        take: 1,
+                    },
+                },
+            },
             _count: { select: { leads: true } },
         },
     });
@@ -258,6 +265,18 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const prevStep = currentStepIdx > 0 ? steps[currentStepIdx - 1] : null;
     const nextStep =
         currentStepIdx < steps.length - 1 ? steps[currentStepIdx + 1] : null;
+
+    // Prepare Tour 360° markers for Paso 4 map (only lot-linked tours)
+    const tours360ForMap = proyecto.tours
+        .filter((t) => t.unidadId && (t.scenes as any[]).length > 0)
+        .map((t) => ({
+            tourId: t.id,
+            nombre: t.nombre,
+            unidadId: t.unidadId!,
+            thumbnail: (t.scenes as any[])[0]?.imageUrl ?? undefined,
+            sceneCount: (t.scenes as any[]).length,
+            defaultSceneUrl: (t.scenes as any[])[0]?.imageUrl ?? undefined,
+        }));
 
     return (
         <div className="animate-fade-in pb-16">
@@ -774,6 +793,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         centerLat={proyecto.mapCenterLat ?? undefined}
                                         centerLng={proyecto.mapCenterLng ?? undefined}
                                         mapZoom={proyecto.mapZoom ?? undefined}
+                                        tours360={tours360ForMap}
                                     />
                                 </ResizableContainer>
                             </div>

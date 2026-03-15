@@ -142,6 +142,7 @@ model Proyecto {
   tareas               Tarea[]
   testimonios          Testimonio[]
   tours                Tour360[]
+  infraestructuras     Infraestructura[]
 
   @@index([estado])
   @@index([createdAt])
@@ -458,6 +459,32 @@ model Hotspot {
   @@index([sceneId])
   @@index([unidadId])
   @@map("tour_hotspots")
+}
+
+model Infraestructura {
+  id                 String    @id @default(cuid())
+  proyectoId         String
+  nombre             String
+  categoria          String    // vialidad | areas_verdes | deportivo | edificaciones | servicios | otro
+  tipo               String    // subtipo dentro de la categoría
+  geometriaTipo      String    // poligono | linea | punto
+  coordenadas        String    // JSON: [[lat, lng], ...]
+  estado             String    @default("planificado") // planificado | en_proyecto | en_construccion | construido | en_mantenimiento
+  descripcion        String?
+  superficie         Float?
+  longitudM          Float?
+  fechaEstimadaFin   DateTime?
+  porcentajeAvance   Int       @default(0)
+  fotos              String?   // JSON array of URLs
+  colorPersonalizado String?
+  orden              Int       @default(0)
+  visible            Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  proyecto           Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@index([proyectoId])
+  @@map("infraestructuras")
 }
 
 model Banner {

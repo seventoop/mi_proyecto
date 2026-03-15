@@ -1,0 +1,194 @@
+================================================================================
+REPORTE TÉCNICO — Masterplan Admin Flow & Map Overlay
+Fecha: 2026-03-10
+================================================================================
+
+1. DIAGNÓSTICO TÉCNICO
+----------------------
+
+Se analizaron los siguientes archivos en profundidad:
+  - components/masterplan/masterplan-viewer.tsx   (SVG canvas Paso 3)
+  - components/masterplan/masterplan-map.tsx      (Leaflet map Paso 4)
+  - components/masterplan/masterplan-side-panel.tsx
+  - components/masterplan/overlay-editor.tsx
+  - lib/masterplan-store.ts
+  - app/(dashboard)/dashboard/admin/proyectos/[id]/page.tsx
+  - app/api/proyectos/[id]/blueprint/route.ts
+  - app/api/unidades/[id]/route.ts
+
+
+2. QUÉ YA FUNCIONABA BIEN
+--------------------------
+  - SVG viewBox dinámico calculado desde coordenadas reales
+  - Hover/click en lotes con tooltip
+  - Panel derecho con historial real
+  - Filtros, comparador, exportar Excel
+  - Mapa Leaflet con Google tiles (satellite/hybrid)
+  - Buscador de ubicación (Nominatim) + coordenadas manuales
+  - Guardar posición del mapa en BD
+  - Sistema de overlay: imagen con opacidad, bounds SW/NE
+  - OverlayEditor con anchors funcionales (lógica correcta)
+  - Pusher real-time sync en Paso 3
+
+
+3. PROBLEMAS DETECTADOS Y RESUELTOS
+-------------------------------------
+
+PROBLEMA 1 — Legibilidad de IDs en Paso 3 (PARTE 1)
+  Causa: el color del texto era `fillColor` (mismo color que el relleno del lote)
+         sin ningún contraste ni outline. En lotes normales (zoom normal),
+         el número se perdía visualmente en el polígono.
+         Además strokeColor era `${fillColor}80` — borde semi-transparente
+         del mismo color del relleno, apenas visible.
+  Fix:   Texto siempre blanco (#fff) con paintOrder="stroke" y stroke oscuro
+         (rgba(0,0,0,0.65)) con strokeWidth = fontSize * 0.2. Esto crea un
+         contorno legible sobre cualquier color de lote.
+         strokeWidth por defecto subió de 0.5 a 0.8 y hover de 1.5 a 1.8.
+         strokeColor por defecto cambia a rgba(255,255,255,0.35).
+
+PROBLEMA 2 — Panel derecho orientado a comprador, no a admin (PARTE 2)
+  Causa: En modo admin se mostraba el botón "Reservar unidad" que es una
+         acción del comprador final, no del administrador.
+         El panel no exponía el internalId (el número espacial del DXF).
+  Fix:   En modo admin, la sección de acciones muestra "Cambiar Estado"
+         con botones rápidos para DISPONIBLE/RESERVADA/VENDIDA/BLOQUEADO/SUSPENDIDA.
+         Llama a PUT /api/unidades/[id] con previousEstado para registrar
+         el cambio en historial. Actualiza el store con updateUnitState.
+         Reservar unidad solo se muestra en modo "public".
+         internalId del DXF ahora se muestra en el badge del header y en
+         la sección de Detalles Técnicos como "ID Interno #N".
+
+PROBLEMA 3 — selectedUnitId persiste al cambiar de Paso 3 a Paso 4 (PARTE 3)
+  Causa: Zustand store es global y persistente entre tabs. Al cambiar de
+         "masterplan" a "mapa", el selectedUnitId del Paso 3 seguía activo,
+         mostrando el panel del lote en el Mapa Interactivo sin razón.
+  Fix:   useEffect on mount en MasterplanMap llama setSelectedUnitId(null)
+         y setHoveredUnitId(null). Se ejecuta solo una vez al montar el
+         componente (cada cambio de tab desmonta/remonta el componente).
+
+PROBLEMA 4 — Overlay del plano NUNCA se generaba (PARTE 4) [CRÍTICO]
+
+  Sub-problema 4A: No había forma de CREAR un overlay nuevo.
+    Causa: El botón "Ajustar Plano" tenía la condición
+           `{modo === "admin" && overlayConfig && ...}`.
+           Si no había overlay guardado en BD, el botón no aparecía.
+           El administrador no tenía ningún punto de entrada para el flujo.
+    Fix:   Nuevo botón "Cargar Plano del Proyecto" que aparece cuando
+           `!overlayConfig && !isLoadingOverlay`. Carga el masterplanSVG
+           desde GET /api/proyectos/[id]/blueprint, lo convierte a
+           blob URL (image/svg+xml) y llama setOverlayConfig + setIsEditingOverlay.
+
+  Sub-problema 4B: Los anchors de calibración no se veían.
+    Causa: El código usaba L.divIcon con className Tailwind:
+           "bg-white border-2 border-brand-500 rounded-full w-4 h-4 ..."
+           Tailwind procesa clases en BUILD TIME. Los markers creados
+           dinámicamente por Leaflet en runtime no tienen esas clases
+           aplicadas en el stylesheet. Resultado: círculos transparentes,
+           sin borde, invisibles sobre el mapa.
+    Fix:   Reemplazado por HTML inline con estilos inline:
+           html: '<div style="width:16px;height:16px;background:white;
+                  border:2.5px solid #f97316;border-radius:50%;
+                  box-shadow:0 2px 8px rgba(0,0,0,0.55);cursor:move;"></div>'
+           Agregado iconAnchor: [8, 8] para centrar el anchor point.
+
+  Sub-problema 4C: No había campo de imageUrl en OverlayEditor.
+    Causa: El campo fue removido de la UI en algún momento pero mantenido
+           en el estado. Si se abría OverlayEditor con imageUrl vacía,
+           initOverlay() no se ejecutaba (guard: `if (!map || !imageUrl) return`).
+    Fix:   Agregado display condicional: si imageUrl empieza con "blob:"
+           se muestra "✓ Plano SVG del proyecto cargado". Si no, se
+           muestra un input de texto para pegar URL externa.
+
+  Sub-problema 4D: render effect crasheaba con bounds null.
+    Causa: setOverlayConfig({ ..., bounds: null }) + isEditingOverlay=false
+           causaría L.imageOverlay(url, null!) → error de Leaflet.
+    Fix:   Guard en render effect: `overlayConfig.bounds &&` antes de crear overlay.
+           onCancel del editor: si no hay bounds guardados, hace setOverlayConfig(null).
+
+  Sub-problema 4E: El SVG de Paso 3 NUNCA se pasaba a Paso 4.
+    Causa: page.tsx renderiza <MasterplanMap proyectoId={...} modo="admin" />
+           sin pasar el masterplanSVG. El flujo Paso 3 → Paso 4 no existía.
+    Fix:   handleLoadPlanOverlay hace fetch de /api/proyectos/[id]/blueprint
+           y convierte el SVG a Blob URL. El SVG se convierte en overlay
+           que el admin puede calibrar sobre el mapa satelital.
+           La conversión SVG→Blob URL es compatible con L.imageOverlay.
+
+  Sub-problema 4F: Blob URL no se liberaba al desmontar.
+    Causa: URL.createObjectURL crea URLs que viven en memoria del navegador.
+    Fix:   svgBlobUrlRef rastreado en useRef. Cleanup en el return del
+           useEffect del mapa llama URL.revokeObjectURL().
+
+
+4. ARCHIVOS MODIFICADOS
+-----------------------
+  1. components/masterplan/masterplan-viewer.tsx
+     - strokeWidth default: 0.5 → 0.8 (hover: 1.5 → 1.8)
+     - strokeColor default: ${fillColor}80 → rgba(255,255,255,0.35)
+     - Texto: fill siempre "#fff", paintOrder="stroke", stroke oscuro
+
+  2. components/masterplan/masterplan-side-panel.tsx
+     - Agrega updateUnitState al store destructure
+     - Agrega isChangingEstado state
+     - Extrae internalId de coordenadasMasterplan
+     - Función handleChangeEstado (PUT /api/unidades/[id])
+     - Header badge: en admin muestra #internalId
+     - Sección acciones: en admin muestra Cambiar Estado (botones por estado)
+     - Reservar unidad: solo en modo public
+     - Detalles: nuevo campo "ID Interno #N"
+
+  3. components/masterplan/masterplan-map.tsx
+     - svgBlobUrlRef y isLoadingPlan state añadidos
+     - useEffect mount reset: setSelectedUnitId(null), setHoveredUnitId(null)
+     - handleLoadPlanOverlay: fetch SVG → Blob URL → config → editor
+     - Cleanup mapa: revoca Blob URL
+     - Guard en render effect: `overlayConfig.bounds &&`
+     - Botón "Cargar Plano del Proyecto" cuando no hay overlay
+     - onCancel: descarta config si no hay bounds guardados
+
+  4. components/masterplan/overlay-editor.tsx
+     - Anchors: className "" + html inline con estilos → visible siempre
+     - iconAnchor: [8, 8] para centrar el punto de arrastre
+     - Nuevo campo imagen: "✓ Plano cargado" o input URL externa
+
+  5. docs/dev-logs/debug_masterplan_and_map_overlay_admin_flow.txt (este archivo)
+
+
+5. VALIDACIÓN MANUAL RECOMENDADA
+----------------------------------
+  [ ] Paso 3: zoom al 100%, verificar que los números de lotes son legibles
+  [ ] Paso 3: click en un lote → panel aparece con botones "Cambiar Estado"
+  [ ] Paso 3: cambiar estado de un lote → verificar actualización visual + historial
+  [ ] Paso 3: verificar que "Reservar unidad" NO aparece en modo admin
+  [ ] Paso 3 → clic en "Mapa Interactivo": verificar panel CERRADO, sin lote seleccionado
+  [ ] Paso 4: aparecer botón "Cargar Plano del Proyecto"
+  [ ] Paso 4: clic "Cargar Plano" → aparece OverlayEditor con "✓ Plano SVG cargado"
+  [ ] Paso 4: los 4 puntos naranja/blancos VISIBLES en el mapa para drag
+  [ ] Paso 4: arrastrar puntos → plano se reubica correctamente
+  [ ] Paso 4: guardar overlay → persiste al recargar
+  [ ] Paso 4: "Ajustar Plano" aparece tras guardar overlay
+  [ ] Paso 4: toggle "Plano" muestra/oculta el overlay
+
+
+6. PENDIENTES Y DEUDA TÉCNICA
+-------------------------------
+  - PASO 4: La rotación del overlay está parcialmente implementada
+    (se guarda en BD pero no se aplica visualmente por limitación de
+    L.imageOverlay sin plugin). Para producción: evaluar L.DistortableImage
+    o implementar transformación CSS manualmente con el elemento del overlay.
+
+  - PASO 4: Los polígonos de lotes solo se dibujan si unit.geoJSON tiene
+    coordenadas lat/lng válidas. El blueprint/sync necesita proyectar las
+    coordenadas SVG a lat/lng reales basándose en la posición del mapa.
+    Actualmente esta proyección no ocurre automáticamente.
+    → Flujo completo: calibrar overlay → guardar bounds → recalcular geoJSON
+      de cada lote usando la transformación bounds SVG → lat/lng.
+
+  - PASO 5 (Tour 360): La infraestructura está preparada. Tour360Viewer
+    existe. MasterplanMap tiene activeTour state. El próximo paso es
+    asociar puntos en el mapa calibrado con escenas 360°.
+
+  - Status keys inconsistencia: MasterplanUnit["estado"] usa RESERVADO/VENDIDO/
+    SUSPENDIDO pero el panel usa RESERVADA/VENDIDA/SUSPENDIDA. Revisar
+    consistencia entre modelo Prisma y tipos TypeScript.
+
+================================================================================

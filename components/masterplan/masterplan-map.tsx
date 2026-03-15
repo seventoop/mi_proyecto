@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Map as MapIcon, Layers as LayersIcon, Filter, ZoomIn, ZoomOut,
-    Crosshair, X, Search, MapPin, Check, Save,
+    Crosshair, X, Search, MapPin, Check, Save, Camera,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -18,6 +19,8 @@ import MasterplanComparator from "./masterplan-comparator";
 import OverlayEditor, { OverlayConfig } from "./overlay-editor";
 import Tour360Viewer from "./tour360-viewer";
 import { getProjectBlueprintData } from "@/lib/actions/unidades";
+
+const InfraestructuraTool = dynamic(() => import("./infraestructura-tool"), { ssr: false });
 
 // ─── Status colors ───
 const STATUS_COLORS: Record<string, string> = {
@@ -36,6 +39,15 @@ const STATUS_LABELS: Record<string, string> = {
     SUSPENDIDO: "Suspendido",
 };
 
+export interface Tour360Marker {
+    tourId: string;
+    nombre: string;
+    unidadId: string;
+    thumbnail?: string;
+    sceneCount?: number;
+    defaultSceneUrl?: string;
+}
+
 interface MasterplanMapProps {
     proyectoId: string;
     modo: "admin" | "public";
@@ -44,6 +56,7 @@ interface MasterplanMapProps {
     centerLat?: number;
     centerLng?: number;
     mapZoom?: number;
+    tours360?: Tour360Marker[];
 }
 
 export default function MasterplanMap({
@@ -54,6 +67,7 @@ export default function MasterplanMap({
     centerLat = -34.6037,
     centerLng = -58.3816,
     mapZoom = 15,
+    tours360 = [],
 }: MasterplanMapProps) {
     const {
         units, setUnits,
@@ -98,6 +112,16 @@ export default function MasterplanMap({
     // Save plan position state
     const [isSavingPlan, setIsSavingPlan] = useState(false);
     const [planSaved, setPlanSaved] = useState(false);
+
+    // Tour 360° preview card state
+    const [tourPreview, setTourPreview] = useState<{
+        tour: Tour360Marker;
+        screenX: number;
+        screenY: number;
+    } | null>(null);
+
+    // Camera marker layers ref
+    const cameraMarkersRef = useRef<Map<string, any>>(new Map());
 
     // Reset selection state when entering Paso 4 (prevent bleedover from Paso 3)
     useEffect(() => {
@@ -472,7 +496,68 @@ export default function MasterplanMap({
         drawPolygons();
     // overlayConfig y svgViewBox son parte del cálculo de coordenadas
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isMapReady, units, filteredIds, selectedUnitId, overlayConfig, svgViewBox]);
+    }, [isMapReady, units, filteredIds, selectedUnitId, overlayConfig, svgViewBox, tours360]);
+
+    // ─── Camera markers for Tour 360° — drawn separately after polygons ──────
+    useEffect(() => {
+        if (!isMapReady || !leafletMapRef.current || tours360.length === 0) return;
+
+        let canceled = false;
+        const addMarkers = async () => {
+            // Small delay to let drawPolygons complete
+            await new Promise((r) => setTimeout(r, 100));
+            if (canceled || !leafletMapRef.current) return;
+
+            const L = (await import("leaflet")).default;
+            const map = leafletMapRef.current;
+
+            cameraMarkersRef.current.forEach((m) => { try { map.removeLayer(m); } catch {} });
+            cameraMarkersRef.current.clear();
+
+            for (const tour of tours360) {
+                const polygon = polygonsRef.current.get(tour.unidadId);
+                if (!polygon) continue;
+                let centroid: [number, number];
+                try {
+                    const bounds = polygon.getBounds();
+                    centroid = [
+                        (bounds.getSouth() + bounds.getNorth()) / 2,
+                        (bounds.getWest() + bounds.getEast()) / 2,
+                    ];
+                } catch { continue; }
+
+                const marker = L.marker(centroid as any, {
+                    icon: L.divIcon({
+                        className: "",
+                        html: `<div style="width:26px;height:26px;background:rgba(139,92,246,0.9);border:2px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.5);cursor:pointer;transform:translate(-50%,-50%)">📷</div>`,
+                        iconSize: [0, 0],
+                        iconAnchor: [0, 0],
+                    }),
+                    zIndexOffset: 500,
+                });
+
+                const captured = { ...tour, centroid };
+                marker.on("click", (e: any) => {
+                    e.originalEvent?.stopPropagation();
+                    const cp = map.latLngToContainerPoint(captured.centroid as any);
+                    setTourPreview({ tour: captured, screenX: cp.x, screenY: cp.y });
+                });
+
+                if (!canceled) {
+                    marker.addTo(map);
+                    cameraMarkersRef.current.set(tour.tourId, marker);
+                }
+            }
+        };
+
+        addMarkers();
+        return () => {
+            canceled = true;
+            cameraMarkersRef.current.forEach((m) => { try { leafletMapRef.current?.removeLayer(m); } catch {} });
+            cameraMarkersRef.current.clear();
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isMapReady, tours360, units, overlayConfig, svgViewBox]);
 
     // Real-time preview: update existing Leaflet polygon positions without full redraw
     const updatePolygonPositionsLive = useCallback((
@@ -624,7 +709,7 @@ export default function MasterplanMap({
     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
 
     return (
-        <div className="flex flex-col w-full h-full min-h-[400px] bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-b-2xl overflow-hidden">
+        <div className="relative flex flex-col w-full h-full min-h-[400px] bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-b-2xl overflow-hidden">
             {/* Leaflet CSS */}
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 
@@ -775,6 +860,17 @@ export default function MasterplanMap({
                                     <><Save className="w-3 h-3" />Guardar</>
                                 )}
                             </button>
+                        )}
+
+                        {/* Separator */}
+                        <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />
+
+                        {/* SECTION 5: Infraestructura tool — renders its own button + panel */}
+                        {isMapReady && leafletMapRef.current && (
+                            <InfraestructuraTool
+                                proyectoId={proyectoId}
+                                map={leafletMapRef.current}
+                            />
                         )}
                     </div>
                 </div>
@@ -965,6 +1061,69 @@ export default function MasterplanMap({
                         />
                     )}
                 </AnimatePresence>
+
+                {/* Tour 360° Preview Card */}
+                <AnimatePresence>
+                    {tourPreview && (
+                        <motion.div
+                            key="tour-preview"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute z-[1200] w-56"
+                            style={{
+                                left: Math.min(Math.max(8, tourPreview.screenX - 112), (mapRef.current?.clientWidth ?? 400) - 232),
+                                top: Math.max(8, tourPreview.screenY - 220),
+                            }}
+                        >
+                            <div className="bg-slate-900/95 backdrop-blur-sm border border-violet-500/40 rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
+                                {tourPreview.tour.thumbnail && (
+                                    <div className="h-28 overflow-hidden">
+                                        <img
+                                            src={tourPreview.tour.thumbnail}
+                                            alt={tourPreview.tour.nombre}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-900/80" />
+                                    </div>
+                                )}
+                                {!tourPreview.tour.thumbnail && (
+                                    <div className="h-16 bg-violet-500/10 flex items-center justify-center">
+                                        <Camera className="w-8 h-8 text-violet-400/50" />
+                                    </div>
+                                )}
+                                <div className="p-3">
+                                    <p className="text-xs font-bold text-white mb-0.5">{tourPreview.tour.nombre}</p>
+                                    {tourPreview.tour.sceneCount != null && (
+                                        <p className="text-[10px] text-slate-400 mb-2.5">
+                                            {tourPreview.tour.sceneCount} escena{tourPreview.tour.sceneCount !== 1 ? "s" : ""}
+                                        </p>
+                                    )}
+                                    <div className="flex gap-1.5">
+                                        {tourPreview.tour.defaultSceneUrl && (
+                                            <button
+                                                onClick={() => {
+                                                    setActiveTour({ url: tourPreview.tour.defaultSceneUrl!, title: tourPreview.tour.nombre });
+                                                    setTourPreview(null);
+                                                }}
+                                                className="flex-1 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-bold rounded-xl transition-colors"
+                                            >
+                                                Ver en 360°
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => setTourPreview(null)}
+                                            className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-xl transition-colors"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* Custom styles */}
@@ -995,6 +1154,9 @@ export default function MasterplanMap({
                 }
                 .leaflet-container {
                     font-family: Inter, system-ui, sans-serif;
+                }
+                .infra-layer {
+                    cursor: pointer;
                 }
             `}</style>
         </div>
