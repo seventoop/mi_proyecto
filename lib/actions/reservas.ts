@@ -8,6 +8,7 @@ import { z } from "zod";
 import { generateReservaPDF } from "@/lib/pdf-generator";
 import { uploadFile } from "@/lib/storage";
 import { createNotification } from "@/lib/actions/notifications";
+import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 import { idSchema, confirmVentaSchema, reservaCreateSchema } from "@/lib/validations";
 
 // ─── Queries ───
@@ -150,6 +151,15 @@ export async function createReserva(input: unknown) {
                 throw new Error("La unidad ya no está disponible");
             }
 
+            // Calculate deadline if not provided
+            let fechaVencimiento = data.fechaVencimiento;
+            if (!fechaVencimiento) {
+                const now = new Date();
+                const plazo = data.plazo;
+                const plazoHoras = plazo === "24hs" ? 24 : plazo === "48hs" ? 48 : plazo === "72hs" ? 72 : parseInt(plazo ?? "48") || 48;
+                fechaVencimiento = new Date(now.getTime() + plazoHoras * 60 * 60 * 1000);
+            }
+
             // 2. Create the reservation
             const newReserva = await tx.reserva.create({
                 data: {
@@ -157,10 +167,11 @@ export async function createReserva(input: unknown) {
                     leadId: data.leadId,
                     vendedorId: user.id,
                     fechaInicio: new Date(),
-                    fechaVencimiento: new Date(data.fechaVencimiento),
+                    fechaVencimiento,
                     montoSena: data.montoSena,
                     estado: "PENDIENTE_APROBACION",
-                    estadoPago: "PENDIENTE"
+                    estadoPago: "PENDIENTE",
+                    notas: data.observaciones || null,
                 }
             });
 
@@ -185,6 +196,20 @@ export async function createReserva(input: unknown) {
             entityId: result.id,
             details: { unidadId: data.unidadId, leadId: data.leadId, montoSena: data.montoSena },
         });
+
+        // Broadcast real-time event
+        try {
+            const pusher = getPusherServer();
+            if (pusher) {
+                await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CREATED, {
+                    reservaId: result.id,
+                    unidadId: data.unidadId,
+                    estado: "PENDIENTE_APROBACION",
+                });
+            }
+        } catch (err) {
+            console.warn("Pusher trigger failed in reservations API:", err);
+        }
 
         revalidatePath("/dashboard/developer/reservas");
         return { success: true, data: result };
@@ -679,6 +704,141 @@ export async function getUsuariosParaReserva() {
     }
 }
 
+export async function gestionarReserva(reservaId: string, body: unknown) {
+    try {
+        const user = await requireAuth();
+        const { reservaUpdateActionSchema } = await import("@/lib/validations");
+        const validation = reservaUpdateActionSchema.safeParse(body);
+        if (!validation.success) {
+            return { success: false, error: validation.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const { action, ...data } = validation.data;
+
+        const reserva = await prisma.reserva.findUnique({
+            where: { id: reservaId },
+            include: {
+                unidad: { include: { manzana: { include: { etapa: { include: { proyecto: true } } } } } },
+                vendedor: { select: { id: true, nombre: true } },
+                lead: { select: { nombre: true } },
+            },
+        });
+
+        if (!reserva) {
+            return { success: false, error: "Reserva no encontrada" };
+        }
+
+        const isAdmin = user.role === "ADMIN";
+        const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
+        const isSeller = reserva.vendedorId === user.id;
+
+        const pusher = getPusherServer();
+
+        switch (action) {
+            case "registrarPago": {
+                if (!isAdmin && !isOwner) return { success: false, error: "No autorizado para registrar pagos" };
+                await prisma.reserva.update({
+                    where: { id: reservaId },
+                    data: {
+                        estadoPago: "PAGADO",
+                        montoSena: data.montoSena || reserva.montoSena,
+                    },
+                });
+                break;
+            }
+
+            case "extender": {
+                if (!isAdmin && !isOwner) return { success: false, error: "No autorizado para extender reservas" };
+                if (!data.nuevaFechaVencimiento) return { success: false, error: "Nueva fecha es requerida" };
+                await prisma.reserva.update({
+                    where: { id: reservaId },
+                    data: { fechaVencimiento: data.nuevaFechaVencimiento },
+                });
+                break;
+            }
+
+            case "cancelar": {
+                if (!isAdmin && !isOwner && !isSeller) return { success: false, error: "No autorizado para cancelar esta reserva" };
+                await prisma.$transaction(async (tx) => {
+                    await tx.reserva.update({
+                        where: { id: reservaId },
+                        data: { estado: "CANCELADA" },
+                    });
+                    await tx.unidad.update({
+                        where: { id: reserva.unidadId },
+                        data: { estado: "DISPONIBLE" },
+                    });
+                    await tx.historialUnidad.create({
+                        data: {
+                            unidadId: reserva.unidadId,
+                            usuarioId: user.id,
+                            estadoAnterior: (reserva.unidad as any).estado,
+                            estadoNuevo: "DISPONIBLE",
+                            motivo: data.motivo || "Reserva cancelada manualmente",
+                        },
+                    });
+                });
+                break;
+            }
+
+            case "convertir": {
+                if (!isAdmin && !isOwner) return { success: false, error: "No autorizado para confirmar ventas" };
+                await prisma.$transaction(async (tx) => {
+                    await tx.reserva.update({
+                        where: { id: reservaId },
+                        data: { estado: "VENDIDA", estadoPago: "PAGADO" },
+                    });
+                    await tx.unidad.update({
+                        where: { id: reserva.unidadId },
+                        data: { estado: "VENDIDA" },
+                    });
+                    await tx.historialUnidad.create({
+                        data: {
+                            unidadId: reserva.unidadId,
+                            usuarioId: user.id,
+                            estadoAnterior: "ACTIVA",
+                            estadoNuevo: "VENDIDA",
+                            motivo: "Convertida a venta desde reserva",
+                        },
+                    });
+                    
+                    if (reserva.vendedorId !== user.id) {
+                        try {
+                            const { createNotification } = await import("@/lib/actions/notifications");
+                            const compradorNombre = (reserva as any).compradorNombre || reserva.lead?.nombre || "Cliente";
+                            await createNotification(
+                                reserva.vendedorId,
+                                "EXITO",
+                                "Venta Confirmada",
+                                `Administración confirmó la venta de ${reserva.unidad.numero} a ${compradorNombre}.`,
+                                `/dashboard/proyectos/${reserva.unidad.manzana.etapa.proyectoId}`,
+                                true
+                            );
+                        } catch (e) { console.error("Error sending notification", e); }
+                    }
+                });
+                break;
+            }
+        }
+
+        await audit({
+            userId: user.id,
+            action: "RESERVA_STATUS_CHANGE" as any,
+            entity: "Reserva",
+            entityId: reservaId,
+            details: { action, ...data },
+        });
+
+        if (pusher) {
+            pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_UPDATED, { reservaId, action, estado: action === "cancelar" ? "CANCELADA" : action === "convertir" ? "VENDIDA" : reserva.estado }).catch(() => {});
+        }
+
+        revalidatePath(`/dashboard/reservas`);
+        return { success: true };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
 export async function getReservasProyecto(proyectoId: string) {
     try {
         const idParsed = idSchema.safeParse(proyectoId);
@@ -701,6 +861,47 @@ export async function getReservasProyecto(proyectoId: string) {
         });
 
         return { success: true, data: reservas };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function deleteReserva(id: string) {
+    try {
+        await requireRole("ADMIN");
+
+        const reserva = await prisma.reserva.findUnique({
+            where: { id },
+        });
+
+        if (!reserva) {
+            return { success: false, error: "Reserva no encontrada" };
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.reserva.delete({ where: { id } });
+            
+            // Revertir unidad a DISPONIBLE si estaba ACTIVA
+            if (reserva.estado === "ACTIVA") {
+                await tx.unidad.update({
+                    where: { id: reserva.unidadId },
+                    data: { estado: "DISPONIBLE" },
+                });
+            }
+        });
+
+        // Audit Log
+        const user = await requireAuth();
+        await audit({ 
+            userId: user.id, 
+            action: "RESERVA_CANCELLED", // using this although it's a hard delete from DB, the action name is limited
+            entity: "Reserva", 
+            entityId: id,
+            details: { reason: "Reserva eliminada de la base de datos" } 
+        });
+
+        revalidatePath("/dashboard/reservas");
+        return { success: true };
     } catch (error) {
         return handleGuardError(error);
     }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/db";
-import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 /**
  * Meta (Facebook/Instagram) Lead Ads Webhook
@@ -122,36 +122,24 @@ export async function POST(req: Request) {
                                 continue;
                             }
 
-                            // 4. Create Lead
-                            const lead = await prisma.lead.create({
-                                data: {
-                                    nombre: `Meta Lead ${leadId}`,
-                                    canalOrigen: "FACEBOOK",
-                                    adId: adId,
-                                    campanaId: campaignId,
-                                    estado: "NUEVO",
-                                    notas: `Meta Lead ID: ${leadId} | Page: ${pageId} | Entry timestamp: ${entry.time}`,
-                                    origen: "FACEBOOK",
-                                    orgId: orgId
-                                }
+                            // 4. Create Lead using executeLeadReception
+                            const result = await executeLeadReception({
+                                nombre: `Meta Lead ${leadId}`,
+                                canalOrigen: "FACEBOOK",
+                                adId: adId,
+                                campanaId: campaignId,
+                                estado: "NUEVO",
+                                notas: `Meta Lead ID: ${leadId} | Page: ${pageId} | Entry timestamp: ${entry.time}`,
+                                origen: "FACEBOOK",
+                                orgId: orgId,
+                                sourceType: "WEBHOOK_META"
                             });
-
-                            // 5. Audit Log
-                            await (prisma.auditLog.create({
-                                data: {
-                                    userId: "system", // Webhook is system-level
-                                    action: "LEAD_INBOUND_WEBHOOK",
-                                    entity: "Lead",
-                                    entityId: lead.id,
-                                    details: JSON.stringify({ canal: "FACEBOOK", adId, campaignId, orgId })
-                                }
-                            }) as any);
-
-                            // 6. Trigger AI Lead Scoring
-                            console.log("[Webhook:Meta] Triggering AI scoring", { leadId: lead.id });
-                            await aiLeadScoring(lead.id).catch(err => {
-                                console.error("[Webhook:Meta] AI Scoring failed", { leadId: lead.id, error: err.message });
-                            });
+                            
+                            if (result.success) {
+                                console.log("[Webhook:Meta] Processed successfully", { leadId: result.leadId });
+                            } else {
+                                console.error("[Webhook:Meta] Pipeline processing failed", { error: result.error });
+                            }
                         }
                     }
                 }

@@ -20,9 +20,10 @@
  */
 
 import { db } from "@/lib/db";
-import { checkRateLimit, getClientIp, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { headers } from "next/headers";
 import type { SimulationLeadPayload, SimulationCRMMetadata } from "./types";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 // ─── Rate limit for public simulation submissions ─────────────────────────────
 // 5 per IP per 10 minutes — more restrictive than general contact (intentional)
@@ -47,6 +48,9 @@ function validateSimulationPayload(data: unknown): {
     if (!d.whatsapp || typeof d.whatsapp !== "string" || d.whatsapp.trim().length < 6) return { ok: false, error: "WhatsApp inválido." };
     if (typeof d.anticipoDisponible !== "number" || d.anticipoDisponible < 0) return { ok: false, error: "Anticipo inválido." };
     if (typeof d.cuotaMensualPosible !== "number" || d.cuotaMensualPosible < 0) return { ok: false, error: "Cuota mensual inválida." };
+    if (d.anticipoDisponible === 0 && d.cuotaMensualPosible === 0) {
+        return { ok: false, error: "Indicá al menos un anticipo disponible o una cuota mensual posible." };
+    }
     if (typeof d.plazoMeses !== "number" || d.plazoMeses < 1) return { ok: false, error: "Plazo inválido." };
 
     return {
@@ -170,7 +174,7 @@ export async function crearSimulacionFinanciacion(data: unknown): Promise<{
         let leadId: string;
 
         if (existingLead) {
-            // Enrich existing lead with new simulation data
+            // Enrich existing lead with new simulation data (upsert strategy)
             await db.lead.update({
                 where: { id: existingLead.id },
                 data: {
@@ -184,22 +188,29 @@ export async function crearSimulacionFinanciacion(data: unknown): Promise<{
             });
             leadId = existingLead.id;
         } else {
-            const lead = await db.lead.create({
-                data: {
-                    nombre: payload.nombre,
-                    email: payload.email ?? null,
-                    telefono: payload.whatsapp,
-                    origen: payload.origen,
-                    proyectoId: payload.proyectoId,
-                    unidadInteres: payload.unidadId ?? null,
-                    mensaje: mensajeResumen,
-                    notas,
-                    orgId,
-                    estado: "NUEVO",
-                    canalOrigen: "WEB",
-                },
+            // New lead — ingest via central pipeline to guarantee:
+            // AI scoring, opportunity creation, tenant workflows, LogicToop dispatch.
+            const result = await executeLeadReception({
+                nombre: payload.nombre,
+                email: payload.email ?? null,
+                telefono: payload.whatsapp,
+                origen: payload.origen,
+                canalOrigen: "WEB",
+                proyectoId: payload.proyectoId,
+                unidadInteres: payload.unidadId ?? null,
+                mensaje: mensajeResumen,
+                notas,
+                orgId,
+                estado: "NUEVO",
+                sourceType: "LANDING",
+                rawPayloadForIntake: payload
             });
-            leadId = lead.id;
+
+            if (!result.success) {
+                throw new Error(result.error || "Error al crear lead de simulación");
+            }
+
+            leadId = result.leadId!;
         }
 
         return { success: true, leadId };

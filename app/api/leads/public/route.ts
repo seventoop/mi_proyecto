@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { leadSchema } from "@/lib/validations";
 import { getClientIp, checkRateLimit } from "@/lib/rate-limit";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 export async function POST(req: Request) {
     // @security-waive: PUBLIC - Capture leads from landing pages
@@ -48,15 +49,25 @@ export async function POST(req: Request) {
                 },
             });
         } else {
-            // Create in LeadIntake (Quarantine) for safety
-            const intake = await db.leadIntake.create({
-                data: {
-                    source: data.origen || "PUBLIC_FORM",
-                    rawPayload: data, // Zod validated data
-                    status: "PENDIENTE"
-                }
+            // Create in LeadIntake (Quarantine) for safety via the pipeline
+            const result = await executeLeadReception({
+                nombre: data.nombre,
+                email: data.email || null,
+                telefono: data.telefono || null,
+                proyectoId: data.proyectoId || null,
+                origen: data.origen || "PUBLIC_FORM",
+                canalOrigen: "WEB",
+                mensaje: data.mensaje || undefined,
+                notas: data.nota ? JSON.stringify([{ texto: data.nota }]) : "[]",
+                unidadInteres: data.unidadInteres || null,
+                orgId: null, // Forces quarantine in the pipeline
+                sourceType: "PUBLIC_FORM",
+                rawPayloadForIntake: data
             });
-            return NextResponse.json({ success: true, intakeId: intake.id });
+            
+            const resData: any = { success: true };
+            if (result.intakeId) resData.intakeId = result.intakeId;
+            return NextResponse.json(resData);
         }
 
         return NextResponse.json({ success: true, leadId: lead.id });

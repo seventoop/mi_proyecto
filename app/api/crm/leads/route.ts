@@ -7,6 +7,7 @@ import { runWorkflow } from "@/lib/workflow-engine";
 import { requireAuth, handleApiGuardError, orgFilter } from "@/lib/guards";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { leadSchema } from "@/lib/validations";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 // Schema validation for creating a lead
 const createLeadSchema = z.object({
@@ -53,67 +54,24 @@ export async function POST(request: Request) {
             if (proyecto?.orgId) orgId = proyecto.orgId;
         }
 
-        // Create Lead
-        const lead = await db.lead.create({
-            data: {
-                nombre,
-                email: email || null,
-                telefono: telefono || null,
-                origen,
-                proyectoId: proyectoId || null,
-                unidadInteres: unidadInteres ? JSON.stringify([unidadInteres]) : "[]",
-                orgId,
-                notas: mensaje
-                    ? JSON.stringify([
-                        {
-                            fecha: new Date(),
-                            texto: `Mensaje inicial: ${mensaje}`,
-                            userId: "SYSTEM",
-                        },
-                    ])
-                    : "[]",
-            },
+        const result = await executeLeadReception({
+            nombre,
+            email: email || null,
+            telefono: telefono || null,
+            origen,
+            canalOrigen: "API_CRM",
+            proyectoId: proyectoId || null,
+            unidadInteres: unidadInteres ? JSON.stringify([unidadInteres]) : "[]",
+            orgId,
+            mensaje,
+            sourceType: "API_CRM"
         });
 
-        // Automatically create an opportunity if interest exists
-        if (proyectoId) {
-            await db.oportunidad.create({
-                data: {
-                    leadId: lead.id,
-                    proyectoId: proyectoId,
-                    unidadId: unidadInteres || null,
-                    etapa: "NUEVO",
-                    probabilidad: 10,
-                    proximaAccion: "Contactar al cliente",
-                },
-            });
+        if (!result.success) {
+            throw new Error(result.error || "Error en el pipeline de leads");
         }
 
-        // Fire-and-forget: score the lead asynchronously, don't block the response
-        aiLeadScoring(lead.id).catch(console.error);
-
-        // Auto-trigger NEW_LEAD workflows for the lead's org (via proyecto)
-        if (proyectoId) {
-            const proyecto = await db.proyecto.findUnique({
-                where: { id: proyectoId },
-                select: { orgId: true },
-            });
-            if (proyecto?.orgId) {
-                const workflows = await db.workflow.findMany({
-                    where: { orgId: proyecto.orgId, trigger: "NEW_LEAD", activo: true },
-                    select: { id: true },
-                });
-                for (const wf of workflows) {
-                    runWorkflow(wf.id, "NEW_LEAD", lead.id).catch(console.error);
-                }
-            }
-        }
-
-        // LogicToop Integration: NEW_LEAD trigger
-        if (orgId) {
-            const { dispatchTrigger } = await import("@/lib/logictoop/dispatcher");
-            dispatchTrigger("NEW_LEAD", { leadId: lead.id, proyectoId: proyectoId || null }, orgId).catch(console.error);
-        }
+        const lead = await db.lead.findUnique({ where: { id: result.leadId } });
 
         return NextResponse.json(lead, { status: 201 });
     } catch (error) {

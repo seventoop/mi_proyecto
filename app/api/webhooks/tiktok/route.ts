@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/db";
-import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 /**
  * TikTok Lead Generation Webhook
@@ -76,23 +76,26 @@ export async function POST(req: Request) {
                 // 4. Create Lead (Hardened: Quarantine all TikTok leads as no tenant resolution strategy is defined)
                 console.warn("[Webhook:TikTok] Tenant resolution not implemented for TikTok. Moving to LeadIntake.", { adId });
 
-                await prisma.leadIntake.create({
-                    data: {
-                        source: "TIKTOK",
-                        rawPayload: body,
-                        status: "PENDING",
-                        error: "Tenant resolution not implemented for TikTok webhooks."
-                    }
+                const result = await executeLeadReception({
+                    nombre: getName(),
+                    email: email || null,
+                    telefono: phone || null,
+                    campanaId: campaignId,
+                    adId: adId,
+                    estado: "NUEVO",
+                    notas: notas,
+                    origen: "TIKTOK",
+                    canalOrigen: "TIKTOK",
+                    orgId: null, // Forces quarantine
+                    sourceType: "WEBHOOK_TIKTOK",
+                    rawPayloadForIntake: body
                 });
 
-                await prisma.auditLog.create({
-                    data: {
-                        userId: "system",
-                        action: "TENANT_RESOLUTION_FAILED",
-                        entity: "Lead",
-                        details: JSON.stringify({ canal: "TIKTOK", adId, campaignId })
-                    }
-                });
+                if (!result.success && result.status !== "QUARANTINED") {
+                    console.error("[Webhook:TikTok] Failed to process lead:", result.error);
+                } else {
+                    console.log("[Webhook:TikTok] Lead safely quarantined via pipeline.", { intakeId: result.intakeId });
+                }
                 
                 return; // Do not create operative Lead
             } catch (asyncError) {

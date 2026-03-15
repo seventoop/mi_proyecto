@@ -7,6 +7,7 @@ import { z } from "zod";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { idSchema, leadSchema, leadUpdateSchema, leadBulkItemSchema } from "@/lib/validations";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 // ─── Queries ───
 
@@ -106,23 +107,26 @@ export async function createLead(input: unknown) {
             throw new Error("El usuario no tiene una organización asignada. No se pueden crear leads sin tenant.");
         }
 
-        const lead = await prisma.lead.create({
-            data: {
-                nombre: data.nombre,
-                email: data.email || null,
-                telefono: data.telefono || null,
-                proyectoId: data.proyectoId || null,
-                estado: data.estado || "NUEVO",
-                origen: data.origen || "WEB",
-                asignadoAId: user.id,
-                orgId: user.orgId
-            }
+        const result = await executeLeadReception({
+            nombre: data.nombre,
+            email: data.email || null,
+            telefono: data.telefono || null,
+            proyectoId: data.proyectoId || null,
+            estado: data.estado || "NUEVO",
+            origen: data.origen || "WEB",
+            asignadoAId: user.id,
+            orgId: user.orgId,
+            sourceType: "MANUAL"
         });
+
+        if (!result.success) {
+            throw new Error(result.error || "Error al crear el lead en el pipeline");
+        }
 
         revalidatePath("/dashboard/developer/leads");
         revalidatePath("/dashboard/leads");
 
-        return { success: true, data: lead };
+        return { success: true, data: { id: result.leadId } };
     } catch (error) {
         return handleGuardError(error);
     }
@@ -216,18 +220,22 @@ export async function bulkCreateLeads(leads: any[], projectId?: string) {
                     }
                 }
 
-                await prisma.lead.create({
-                    data: {
-                        nombre: lead.nombre,
-                        email: lead.email || null,
-                        telefono: lead.telefono || null,
-                        proyectoId: projectId || null,
-                        estado: "NUEVO",
-                        origen: "IMPORTACION",
-                        asignadoAId: user.id,
-                        orgId: user.orgId
-                    }
+                const result = await executeLeadReception({
+                    nombre: lead.nombre,
+                    email: lead.email || null,
+                    telefono: lead.telefono || null,
+                    proyectoId: projectId || null,
+                    origen: "IMPORTACION",
+                    canalOrigen: "WEB",
+                    asignadoAId: user.id,
+                    orgId: user.orgId,
+                    sourceType: "BULK",
+                    skipAutomations: true // No spamear webhooks/IA para bulk
                 });
+                
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
                 successCount++;
             } catch (err) {
                 errors.push(`Error al insertar ${leadData.email || 'lead'}: ${(err as any).message}`);
@@ -355,42 +363,21 @@ export async function crearLeadLanding(data: {
 
         const mainOrgId = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
 
-        // A2 strategy: NO fallback to main org for production leads.
-        // If no project/org context, move to LeadIntake quarantine.
-        if (!mainOrgId) {
-            await prisma.leadIntake.create({
-                data: {
-                    source: "LANDING",
-                    rawPayload: data as any,
-                    status: "PENDING",
-                    error: "No se pudo resolver el orgId para esta consulta de landing."
-                }
-            });
-
-            await prisma.auditLog.create({
-                data: {
-                    userId: "system",
-                    action: "TENANT_RESOLUTION_FAILED",
-                    entity: "Lead",
-                    details: JSON.stringify({ source: "landing", data })
-                }
-            });
-
-            return { success: true }; // Silent success for UI
-        }
-
-        await prisma.lead.create({
-            data: {
-                nombre: data.nombre,
-                telefono: data.whatsapp,
-                origen: data.origen || "formulario_landing",
-                canalOrigen: "WEB",
-                mensaje: mensajeFormateado,
-                estado: "NUEVO",
-                notas: JSON.stringify(jsonMetadata),
-                orgId: mainOrgId,
-            }
+        const result = await executeLeadReception({
+            nombre: data.nombre,
+            telefono: data.whatsapp,
+            origen: data.origen || "formulario_landing",
+            canalOrigen: "WEB",
+            notas: JSON.stringify(jsonMetadata),
+            mensaje: mensajeFormateado,
+            orgId: mainOrgId,
+            sourceType: "LANDING",
+            rawPayloadForIntake: data
         });
+
+        if (!result.success && result.status !== "QUARANTINED") {
+            throw new Error(result.error || "Error al procesar lead publico");
+        }
 
         return { success: true };
     } catch (e: any) {
@@ -437,41 +424,22 @@ export async function crearConsultaContacto(data: {
             if (proyecto?.orgId) orgId = proyecto.orgId;
         }
 
-        if (!orgId) {
-            await prisma.leadIntake.create({
-                data: {
-                    source: "CONTACT",
-                    rawPayload: data as any,
-                    status: "PENDING",
-                    error: "No se pudo resolver el orgId para esta consulta de contacto (sin proyecto asociado)."
-                }
-            });
-
-            await prisma.auditLog.create({
-                data: {
-                    userId: "system",
-                    action: "TENANT_RESOLUTION_FAILED",
-                    entity: "Lead",
-                    details: JSON.stringify({ source: "contacto", data })
-                }
-            });
-
-            return { success: true };
-        }
-
-        await prisma.lead.create({
-            data: {
-                nombre: data.nombre,
-                email: data.email,
-                telefono: data.telefono,
-                proyectoId: data.proyectoId || null,
-                origen: data.origen || "contacto",
-                canalOrigen: "WEB",
-                estado: "NUEVO",
-                mensaje: mensajeFormateado,
-                orgId,
-            }
+        const result = await executeLeadReception({
+            nombre: data.nombre,
+            email: data.email,
+            telefono: data.telefono,
+            proyectoId: data.proyectoId || null,
+            origen: data.origen || "contacto",
+            canalOrigen: "WEB",
+            mensaje: mensajeFormateado,
+            orgId,
+            sourceType: "CONTACTO",
+            rawPayloadForIntake: data
         });
+
+        if (!result.success && result.status !== "QUARANTINED") {
+             throw new Error(result.error || "Error al procesar consulta de contacto");
+        }
 
         return { success: true };
     } catch (e: any) {

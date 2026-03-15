@@ -251,10 +251,9 @@ export async function updateProyecto(id: string, input: unknown) {
             return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
         }
         const data = parsed.data;
-
         const proyecto = await prisma.proyecto.findUnique({
             where: { id },
-            select: { creadoPorId: true }
+            select: { creadoPorId: true, visibilityStatus: true, orgId: true }
         });
 
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
