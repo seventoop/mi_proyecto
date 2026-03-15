@@ -13,7 +13,7 @@ const noticiaCreateSchema = z.object({
     excerpt: z.string().max(500).optional(),
     contenido: z.string().min(10, "Contenido demasiado corto"),
     categoria: z.string().default("GENERAL"),
-    imagenUrl: z.string().url("URL de imagen inválida").optional().or(z.literal("")),
+    imagenUrl: z.string().max(1000).optional().or(z.literal("")),
     destacada: z.boolean().default(false),
     autorId: idSchema,
 });

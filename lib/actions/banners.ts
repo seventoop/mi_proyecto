@@ -17,9 +17,9 @@ const bannerCreateSchema = z.object({
     subheadline: z.string().max(200).optional().nullable(),
     tagline: z.string().max(60).optional().nullable(),
     ctaText: z.string().max(60).optional().nullable(),
-    ctaUrl: z.string().url("URL de CTA inválida").optional().nullable().or(z.literal("")),
+    ctaUrl: z.string().max(500).optional().nullable().or(z.literal("")),
     tipo: z.enum(["IMAGEN", "VIDEO"]).default("IMAGEN"),
-    mediaUrl: z.string().url("URL de media inválida").optional().nullable().or(z.literal("")),
+    mediaUrl: z.string().min(1, "URL de media requerida").max(1000).optional().nullable().or(z.literal("")),
     context: z.enum(["SEVENTOOP_GLOBAL", "ORG_LANDING", "PROJECT_LANDING"]).default("ORG_LANDING"),
     projectId: idSchema.optional().nullable(),
     posicion: z.string().default("HOME_TOP"),
@@ -33,7 +33,7 @@ const bannerCreateSchema = z.object({
         z.date().optional().nullable()
     ),
     // legado
-    linkDestino: z.string().url().optional().nullable().or(z.literal("")),
+    linkDestino: z.string().max(1000).optional().nullable().or(z.literal("")),
 });
 
 const bannerUpdateSchema = bannerCreateSchema.partial().extend({
@@ -558,31 +558,45 @@ export async function archiveBanner(id: string) {
 
 /** Elimina un banner (admin, o creador si está en DRAFT) */
 export async function deleteBanner(id: string) {
+    console.log(`[deleteBanner] Iniciando borrado para id: ${id}`);
     try {
         const user = await requireAuth();
+        console.log(`[deleteBanner] Usuario autenticado: ${user.id}, rol: ${user.role}`);
 
         const idParsed = idSchema.safeParse(id);
-        if (!idParsed.success) return { success: false, error: "ID inválido" };
+        if (!idParsed.success) {
+            console.error(`[deleteBanner] Error: ID inválido: ${id}`);
+            return { success: false, error: "ID inválido" };
+        }
 
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
         const existing = await prisma.banner.findUnique({ where: { id } });
-        if (!existing) return { success: false, error: "Banner no encontrado" };
+        if (!existing) {
+            console.error(`[deleteBanner] Error: Banner no encontrado: ${id}`);
+            return { success: false, error: "Banner no encontrado" };
+        }
+
+        console.log(`[deleteBanner] Banner encontrado. Creador: ${existing.creadoPorId}, Estado: ${existing.estado}, isAdmin: ${isAdmin}`);
 
         if (!isAdmin && existing.creadoPorId !== user.id) {
+            console.error(`[deleteBanner] Error de permisos. Creador !== Usuario actual.`);
             return { success: false, error: "No tenés permisos." };
         }
 
-        if (!isAdmin && existing.estado !== BANNER_ESTADOS.DRAFT) {
-            return { success: false, error: "Solo podés eliminar banners en borrador. Archivá los demás." };
-        }
+        // Si el usuario es admin puede borrar cualquier cosa.
+        // Si no es admin, ya comprobamos arriba que es el creador.
+        // Ahora le permitimos al creador borrar su propio banner en cualquier estado.
 
+        console.log(`[deleteBanner] Ejecutando prisma.banner.delete...`);
         await prisma.banner.delete({ where: { id } });
+        console.log(`[deleteBanner] Borrado exitoso en DB.`);
 
         revalidatePath("/dashboard/developer/banners");
         revalidatePath("/dashboard/vendedor/banners");
         revalidatePath("/dashboard/admin/banners");
         return { success: true };
     } catch (error) {
+        console.error(`[deleteBanner] Excepción capturada:`, error);
         return handleGuardError(error);
     }
 }

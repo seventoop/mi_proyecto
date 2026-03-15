@@ -125,16 +125,20 @@ export async function updatePaymentStatusAdmin(pagoId: string, status: "APROBADO
                 data: { estado: status }
             });
 
-            // 2. Handle Side-Effects
-            // NOTE: Wallet balance manipulation REMOVED. No gateway = no money movement.
-            // Only project status changes remain as they are tracking-based.
+            // 2. Handle Side-Effects (Simulated for Production Testing)
             const tipo = (pago as any).tipo;
 
-            if (tipo === "PROJECT_ACTIVATION" && status === "APROBADO" && pago.proyectoId) {
-                await tx.proyecto.update({
-                    where: { id: pago.proyectoId },
-                    data: { estado: "PUBLICADO" }
-                });
+            if (status === "APROBADO") {
+                // If it's a project activation, we might want to charge the user 
+                // but since balance is internal and there's no real money yet, 
+                // we just track the state change.
+                
+                if (tipo === "PROJECT_ACTIVATION" && pago.proyectoId) {
+                    await tx.proyecto.update({
+                        where: { id: pago.proyectoId },
+                        data: { estado: "PUBLICADO" }
+                    });
+                }
             }
 
             // 3. Audit Log

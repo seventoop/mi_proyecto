@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Image as ImageIcon, Clock, CheckCircle, XCircle, AlertCircle, Eye } from "lucide-react";
+import { Plus, Image as ImageIcon, Clock, CheckCircle, XCircle, AlertCircle, Eye, Trash2 } from "lucide-react";
 import Image from "next/image";
 import BannerEditor from "@/components/dashboard/banners/banner-editor";
-import { getBanners, getMyProyectos } from "@/lib/actions/banners";
+import { getBanners, getMyProyectos, deleteBanner } from "@/lib/actions/banners";
 import { BANNER_ESTADOS } from "@/lib/actions/banners-constants";
 import { cn } from "@/lib/utils";
 
@@ -88,6 +88,26 @@ export default function DeveloperBannersPage() {
         const res = await getBanners();
         if (res.success) setBanners((res.data as Banner[]) || []);
         setLoading(false);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (confirm("¿Eliminar definitivamente este anuncio?")) {
+            console.log("Iniciando borrado del frontend por API para ID:", id);
+            try {
+                const response = await fetch(`/api/banners/${id}`, { method: "DELETE" });
+                const res = await response.json();
+                
+                console.log("Respuesta de la API:", res);
+                if (res.success) {
+                    fetchBanners();
+                } else {
+                    alert(res.error || "Error al eliminar el anuncio");
+                }
+            } catch (err) {
+                console.error("Excepción al llamar API DELETE:", err);
+                alert("Error de conexión o de servidor al eliminar.");
+            }
+        }
     };
 
     useEffect(() => {
@@ -223,15 +243,36 @@ export default function DeveloperBannersPage() {
                                     )}
 
                                     {/* Edit button */}
-                                    {(banner.estado === BANNER_ESTADOS.DRAFT || banner.estado === BANNER_ESTADOS.REJECTED) && (
+                                    <div className="mt-3 flex gap-2">
+                                        {(banner.estado === BANNER_ESTADOS.DRAFT || banner.estado === BANNER_ESTADOS.REJECTED) && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setEditingBanner(banner); setShowEditor(true); }}
+                                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium transition-colors"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                                Editar
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={() => { setEditingBanner(banner); setShowEditor(true); }}
-                                            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium transition-colors"
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleDelete(banner.id);
+                                            }}
+                                            className={cn(
+                                                "relative z-10 pointer-events-auto flex items-center justify-center px-4 py-2 rounded-xl text-sm font-medium transition-colors",
+                                                (banner.estado === BANNER_ESTADOS.DRAFT || banner.estado === BANNER_ESTADOS.REJECTED) 
+                                                    ? "bg-rose-50 text-rose-600 hover:bg-rose-100" 
+                                                    : "flex-1 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                                            )}
+                                            title="Eliminar Anuncio"
                                         >
-                                            <Eye className="w-4 h-4" />
-                                            Editar Anuncio
+                                            <Trash2 className="w-4 h-4" />
+                                            {!(banner.estado === BANNER_ESTADOS.DRAFT || banner.estado === BANNER_ESTADOS.REJECTED) && " Eliminar"}
                                         </button>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         );

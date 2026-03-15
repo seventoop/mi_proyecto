@@ -168,7 +168,7 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
     // Main slider
     // ─────────────────────────────────────────────────────────────────
     return (
-        <div className="relative w-full h-[60vh] sm:h-[70vh] lg:h-[80vh] overflow-hidden bg-black">
+        <div className="relative w-full h-[75vh] md:h-[85vh] overflow-hidden bg-black">
             <AnimatePresence mode="popLayout" initial={false}>
                 <motion.div
                     key={currentIndex}
@@ -193,7 +193,7 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                                 alt={currentBanner.titulo || "Banner Media"}
                                 fill
                                 priority
-                                className="object-cover"
+                                className="object-cover object-top"
                                 sizes="100vw"
                             />
                             {(currentBanner.headline || currentBanner.titulo) && (
@@ -204,7 +204,10 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                                     transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
                                     className="absolute inset-0 flex flex-col justify-end pb-20 px-8 sm:px-14 z-10"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
+                                    {/* Only show darkened gradient if there is actual text content provided in props */}
+                                    {(currentBanner.headline || currentBanner.subheadline || currentBanner.ctaText) && (
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                                    )}
                                     <div className="relative z-10">
                                         {currentBanner.tagline ? (
                                             <span className="inline-flex items-center gap-2 mb-3">

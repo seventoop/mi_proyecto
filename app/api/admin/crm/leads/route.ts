@@ -8,8 +8,9 @@ import { leadAssignmentSchema } from "@/lib/validations";
 // GET: Admin CRM leads with filters (bandeja admin)
 export async function GET(req: NextRequest) {
     try {
-        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
-        // @security-waive: NO_ORG_FILTER - Admin dashboard sees all leads across the system
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+        // @security-hardened: Filter by orgId for ADMIN unless they are SUPERADMIN
+        const isSuperAdmin = (user as any).rol === "SUPERADMIN" || user.role === "SUPERADMIN";
 
         const { searchParams } = new URL(req.url);
         const estado = searchParams.get("estado");
@@ -23,6 +24,9 @@ export async function GET(req: NextRequest) {
         if (estado) where.estado = estado;
         if (canal) where.canalOrigen = canal;
         if (unassigned) where.orgId = null;
+        if (!isSuperAdmin && user.orgId) {
+            where.orgId = user.orgId;
+        }
         if (search) {
             where.OR = [
                 { nombre: { contains: search, mode: "insensitive" } },

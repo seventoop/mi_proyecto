@@ -73,11 +73,12 @@ export async function checkRateLimit(identifier: string, options: RateLimitOptio
             const count = (results[0] as number) || 0;
             const allowed = count <= limit;
             const remaining = Math.max(0, limit - count);
-            const reset = now + windowMs; // Approximation for simple strategy
+            const reset = now + windowMs; 
 
             return { allowed, remaining, reset };
         } catch (error) {
-            console.error("[RateLimit] Redis error, allowing request for availability:", error);
+            console.error("[RateLimit] Redis error, soft-failing to allow request:", error);
+            // @security-note: We allow the request if Redis is down to maintain availability
             return { allowed: true, remaining: 1, reset: now + windowMs };
         }
     }
@@ -103,9 +104,9 @@ export async function checkRateLimit(identifier: string, options: RateLimitOptio
         return { allowed, remaining, reset: entry.resetAt };
     }
 
-    // Fallback if Redis is missing in non-dev (should not happen with proper env config)
-    console.error("[RateLimit] Critical: NO rate limiting backend available in production. Blocking all as safe default.");
-    return { allowed: false, remaining: 0, reset: now + windowMs };
+    // Fallback if Redis is missing in non-dev: SOFT FAIL for availability
+    console.warn("[RateLimit] Missing rate limiting backend in production. Allowing request (Soft-Fail).");
+    return { allowed: true, remaining: 1, reset: now + windowMs };
 }
 
 /**

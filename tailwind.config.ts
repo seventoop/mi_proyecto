@@ -13,6 +13,7 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
         brand: {
+          // Named aliases
           orange: '#F97316',
           orangeDark: '#EA6C0A',
           gray: '#3D4A5C',
@@ -20,6 +21,17 @@ const config: Config = {
           black: '#0A0A0A',
           surface: '#F8FAFC',
           muted: '#64748B',
+          // Numeric scale (orange-based)
+          50:  '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          300: '#fdba74',
+          400: '#fb923c',
+          500: '#F97316',
+          600: '#EA6C0A',
+          700: '#c2570a',
+          800: '#9a3f08',
+          900: '#7c3207',
         },
         rose: {
           50: "#fff1f2",

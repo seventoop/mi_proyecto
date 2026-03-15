@@ -81,6 +81,7 @@ model User {
   reservasVendedor      Reserva[]          @relation("VendedorReserva")
   tareas                Tarea[]
   unidadesResponsable   Unidad[]           @relation("ResponsableUnidad")
+  historialPrecios      PriceHistory[]
   organization          Organization?      @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
@@ -138,6 +139,7 @@ model AuditLog {
   entityId  String?
   details   String?
   ip        String?
+  userAgent String?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -210,6 +212,7 @@ model Proyecto {
   testimonios          Testimonio[]
   tours                Tour360[]
   banners              Banner[]
+  historialPrecios    PriceHistory[]
 
   @@index([estado])
   @@index([createdAt])
@@ -305,6 +308,24 @@ model Manzana {
 
   @@index([etapaId])
   @@map("manzanas")
+}
+
+model PriceHistory {
+  id               String   @id @default(cuid())
+  proyectoId       String
+  usuarioId        String
+  precioAnterior   Decimal  @db.Decimal(18, 2)
+  precioNuevo      Decimal  @db.Decimal(18, 2)
+  tipo             String
+  motivo           String?
+  createdAt        DateTime @default(now())
+  
+  proyecto         Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  usuario          User     @relation(fields: [usuarioId], references: [id])
+
+  @@index([proyectoId])
+  @@index([createdAt])
+  @@map("price_history")
 }
 
 model Unidad {
@@ -482,6 +503,7 @@ model Reserva {
   compradorId       String?
   compradorNombre   String?
   notas             String?
+  idempotencyKey    String?  @unique
   comprador         User?    @relation("ReservasComprador", fields: [compradorId], references: [id])
   lead              Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
   unidad            Unidad   @relation(fields: [unidadId], references: [id], onDelete: Cascade)
@@ -660,6 +682,7 @@ model Pago {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   tipo           String?
+  idempotencyKey String?   @unique
   banner         Banner?   @relation(fields: [bannerId], references: [id])
   proyecto       Proyecto? @relation(fields: [proyectoId], references: [id])
   usuario        User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)

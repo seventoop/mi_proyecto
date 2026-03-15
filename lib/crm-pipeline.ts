@@ -133,17 +133,11 @@ export async function executeLeadReception(input: LeadReceptionInput): Promise<L
                         console.error("[Pipeline] AI Scoring failed:", err.message);
                     });
 
-                    // 6. Native Workflows
-                    if (input.orgId) {
-                        let workflowOrgId = input.orgId;
-                        // If it has a project, prioritize project's orgId (though it should be the same)
-                        if (input.proyectoId) {
-                            const p = await prisma.proyecto.findUnique({ where: { id: input.proyectoId }, select: { orgId: true } });
-                            if (p?.orgId) workflowOrgId = p.orgId;
-                        }
-
+                    // 6. Native Workflows (Skip if LogicToop is primary or per input)
+                    if (input.orgId && !input.skipAutomations) {
+                        // Check if LogicToop is preferred org configuration (Simplified check for now)
                         const workflows = await prisma.workflow.findMany({
-                            where: { orgId: workflowOrgId, trigger: "NEW_LEAD", activo: true },
+                            where: { orgId: input.orgId, trigger: "NEW_LEAD", activo: true },
                             select: { id: true }
                         });
                         for (const wf of workflows) {

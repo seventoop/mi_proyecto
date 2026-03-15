@@ -82,6 +82,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Centralized Forensic Audit
+    const { audit } = await import("@/lib/actions/audit");
+    await audit({
+        userId: user.id,
+        action: "AUTH_REGISTER_SUCCESS",
+        entity: "User",
+        entityId: user.id,
+        details: { role: finalRole, email: user.email }
+    });
+
     return NextResponse.json(
       {
         message: "Usuario creado exitosamente",

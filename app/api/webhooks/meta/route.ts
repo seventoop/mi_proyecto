@@ -94,13 +94,12 @@ export async function POST(req: Request) {
                                     }
                                 });
 
-                                await prisma.auditLog.create({
-                                    data: {
-                                        userId: "system",
-                                        action: "TENANT_RESOLUTION_FAILED",
-                                        entity: "Lead",
-                                        details: JSON.stringify({ canal: "FACEBOOK", pageId, leadId })
-                                    }
+                                const { audit } = await import("@/lib/actions/audit");
+                                await audit({
+                                    userId: "system",
+                                    action: "TENANT_RESOLUTION_FAILED",
+                                    entity: "Lead",
+                                    details: { canal: "FACEBOOK", pageId, leadId }
                                 });
 
                                 continue;

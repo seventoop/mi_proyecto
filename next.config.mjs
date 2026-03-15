@@ -62,6 +62,20 @@ const nextConfig = {
                 destination: "/dashboard/portafolio/:path*",
                 permanent: true,
             },
+            // Force /usuarios for admin user management
+            {
+                source: "/dashboard/admin/users",
+                destination: "/dashboard/admin/usuarios",
+                permanent: true,
+            },
+        ];
+    },
+    async rewrites() {
+        return [
+            {
+                source: "/dashboard/admin/usuarios",
+                destination: "/dashboard/admin/users",
+            },
         ];
     },
     async headers() {

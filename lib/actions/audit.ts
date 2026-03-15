@@ -28,9 +28,11 @@ export async function audit(params: {
 }): Promise<void> {
     try {
         let ip: string | null = null;
+        let userAgent: string | null = null;
         try {
             const h = headers();
             ip = h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || null;
+            userAgent = h.get("user-agent") || null;
         } catch {
             // headers() may not be available in all server contexts (e.g. cron jobs)
         }
@@ -43,6 +45,7 @@ export async function audit(params: {
                 entityId: params.entityId ?? null,
                 details: params.details ? JSON.stringify(params.details) : null,
                 ip,
+                userAgent,
             },
         });
     } catch (e) {

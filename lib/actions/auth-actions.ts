@@ -140,15 +140,14 @@ export async function resetPassword(formData: z.infer<typeof resetPasswordSchema
             },
         });
 
-        // Audit Log
-        await prisma.auditLog.create({
-            data: {
-                userId: user.id,
-                action: "PASSWORD_RESET_SUCCESS",
-                entity: "USER",
-                entityId: user.id,
-                details: "Password reset via token successfully completed"
-            }
+        // Centralized Forensic Audit
+        const { audit } = await import("@/lib/actions/audit");
+        await audit({
+            userId: user.id,
+            action: "AUTH_PASSWORD_RESET_SUCCESS",
+            entity: "User",
+            entityId: user.id,
+            details: { method: "TOKEN" }
         });
 
         return { success: true, message: "Contraseña actualizada exitosamente" };

@@ -11,6 +11,76 @@ import { createNotification } from "@/lib/actions/notifications";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 import { idSchema, confirmVentaSchema, reservaCreateSchema } from "@/lib/validations";
 
+/**
+ * STP-P1-3: Internal Canonical Reservation Workflow
+ * Ensures consistency between admin portal and wizard flows.
+ */
+async function executeReservaWorkflow(params: {
+    data: any;
+    user: any;
+    autoApprove?: boolean;
+}) {
+    const { data, user, autoApprove = false } = params;
+
+    return await prisma.$transaction(async (tx) => {
+        // 1. Atomic logical lock
+        const updated = await tx.unidad.updateMany({
+            where: {
+                id: data.unidadId,
+                estado: "DISPONIBLE"
+            },
+            data: {
+                estado: autoApprove ? "RESERVADA" : "RESERVADA_PENDIENTE"
+            }
+        });
+
+        if (updated.count === 0) {
+            throw new Error("La unidad ya no está disponible");
+        }
+
+        // Calculate deadline
+        let fechaVencimiento = data.fechaVencimiento ? new Date(data.fechaVencimiento) : null;
+        if (!fechaVencimiento) {
+            const now = new Date();
+            const plazo = data.plazo || "48hs";
+            const plazoHoras = plazo === "24hs" ? 24 : plazo === "48hs" ? 48 : plazo === "72hs" ? 72 : parseInt(plazo) || 48;
+            fechaVencimiento = new Date(now.getTime() + plazoHoras * 60 * 60 * 1000);
+        }
+
+        const estadoReserva = autoApprove ? "ACTIVA" : "PENDIENTE_APROBACION";
+
+        // 2. Create the reservation
+        const newReserva = await tx.reserva.create({
+            data: {
+                unidadId: data.unidadId,
+                leadId: data.leadId || null,
+                vendedorId: user.id,
+                compradorNombre: data.compradorNombre || null,
+                compradorEmail: data.compradorEmail || null,
+                fechaInicio: new Date(),
+                fechaVencimiento,
+                montoSena: data.montoSena ? Number(data.montoSena) : null,
+                estado: estadoReserva,
+                estadoPago: "PENDIENTE",
+                notas: data.observaciones || data.notas || null,
+            }
+        });
+
+        // 3. Record in unit history
+        await tx.historialUnidad.create({
+            data: {
+                unidadId: data.unidadId,
+                usuarioId: user.id,
+                estadoAnterior: "DISPONIBLE",
+                estadoNuevo: autoApprove ? "RESERVADA" : "RESERVADA_PENDIENTE",
+                motivo: autoApprove ? `Reserva directa (ACTIVA) para ${data.compradorNombre || 'Lead'}` : "Inicio de proceso de reserva (PENDIENTE_APROBACION)"
+            }
+        });
+
+        return newReserva;
+    });
+}
+
 // ─── Queries ───
 
 export async function getReservas(
@@ -135,59 +205,7 @@ export async function createReserva(input: unknown) {
         }
         const data = parsed.data;
 
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Atomic logical lock: Try to update state only if it is "DISPONIBLE"
-            const updated = await tx.unidad.updateMany({
-                where: {
-                    id: data.unidadId,
-                    estado: "DISPONIBLE"
-                },
-                data: {
-                    estado: "RESERVADA_PENDIENTE"
-                }
-            });
-
-            if (updated.count === 0) {
-                throw new Error("La unidad ya no está disponible");
-            }
-
-            // Calculate deadline if not provided
-            let fechaVencimiento = data.fechaVencimiento;
-            if (!fechaVencimiento) {
-                const now = new Date();
-                const plazo = data.plazo;
-                const plazoHoras = plazo === "24hs" ? 24 : plazo === "48hs" ? 48 : plazo === "72hs" ? 72 : parseInt(plazo ?? "48") || 48;
-                fechaVencimiento = new Date(now.getTime() + plazoHoras * 60 * 60 * 1000);
-            }
-
-            // 2. Create the reservation
-            const newReserva = await tx.reserva.create({
-                data: {
-                    unidadId: data.unidadId,
-                    leadId: data.leadId,
-                    vendedorId: user.id,
-                    fechaInicio: new Date(),
-                    fechaVencimiento,
-                    montoSena: data.montoSena,
-                    estado: "PENDIENTE_APROBACION",
-                    estadoPago: "PENDIENTE",
-                    notas: data.observaciones || null,
-                }
-            });
-
-            // 3. Record in unit history
-            await tx.historialUnidad.create({
-                data: {
-                    unidadId: data.unidadId,
-                    usuarioId: user.id,
-                    estadoAnterior: "DISPONIBLE",
-                    estadoNuevo: "RESERVADA_PENDIENTE",
-                    motivo: "Inicio de proceso de reserva"
-                }
-            });
-
-            return newReserva;
-        });
+        const result = await executeReservaWorkflow({ data, user, autoApprove: false });
 
         await audit({
             userId: user.id,
@@ -517,41 +535,10 @@ export async function iniciarReserva(data: {
             return { success: false, error: "Datos incompletos" };
         }
 
-        const result = await prisma.$transaction(async (tx) => {
-            const updated = await tx.unidad.updateMany({
-                where: { id: data.unidadId, estado: "DISPONIBLE" },
-                data: { estado: "RESERVADA" }
-            });
-
-            if (updated.count === 0) {
-                throw new Error("La unidad ya no está disponible");
-            }
-
-            const reserva = await tx.reserva.create({
-                data: {
-                    unidadId: data.unidadId,
-                    vendedorId: user.id,
-                    compradorNombre: data.compradorNombre,
-                    compradorEmail: data.compradorEmail ?? null,
-                    notas: data.notas ?? null,
-                    montoSena: data.montoSena ? data.montoSena : null,
-                    fechaVencimiento: new Date(data.fechaVencimiento),
-                    estado: "ACTIVA",
-                    estadoPago: "PENDIENTE",
-                }
-            });
-
-            await tx.historialUnidad.create({
-                data: {
-                    unidadId: data.unidadId,
-                    usuarioId: user.id,
-                    estadoAnterior: "DISPONIBLE",
-                    estadoNuevo: "RESERVADA",
-                    motivo: `Reserva iniciada para ${data.compradorNombre}`,
-                }
-            });
-
-            return reserva;
+        const result = await executeReservaWorkflow({ 
+            data, 
+            user, 
+            autoApprove: true // Maintain existing wizard behavior but unified
         });
 
         revalidatePath(`/dashboard/admin/proyectos/${data.proyectoId}`);

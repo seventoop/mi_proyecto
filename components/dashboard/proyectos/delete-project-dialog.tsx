@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { deleteProyecto } from "@/lib/actions/proyectos";
 import {
     Dialog,
     DialogContent,
@@ -31,12 +32,9 @@ export function DeleteProjectDialog({ projectId, projectTitle, trigger, onDelete
         setOpen(false);
         if (onDeleteOptimistic) onDeleteOptimistic();
 
-        const deletePromise = fetch(`/api/proyectos/${projectId}`, {
-            method: "DELETE",
-        }).then(async (res) => {
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || "Error al eliminar el proyecto");
+        const deletePromise = deleteProyecto(projectId).then((res) => {
+            if (!res.success) {
+                throw new Error(res.error || "Error al eliminar el proyecto");
             }
             router.refresh();
             return "Proyecto eliminado";

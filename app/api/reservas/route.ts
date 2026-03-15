@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
-import { requireAuth, requireKYC, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, requireKYC, handleApiGuardError, orgFilter } from "@/lib/guards";
 import { reservaCreateSchema } from "@/lib/validations";
 
 // ─── GET /api/reservas — List with filters ───
@@ -16,15 +16,10 @@ export async function GET(req: NextRequest) {
         const estadoPago = searchParams.get("estadoPago");
         const search = searchParams.get("search");
 
-        const where: any = {};
-
-        // Authorization: Admin sees all, others see their own or their project's
-        if (user.role !== "ADMIN") {
-            where.OR = [
-                { vendedorId: user.id },
-                { unidad: { manzana: { etapa: { proyecto: { creadoPorId: user.id } } } } }
-            ];
-        }
+        // Authorization: Multi-tenant scoping
+        const where: any = {
+            ...orgFilter(user) as any
+        };
 
         if (estado) where.estado = estado;
         if (estadoPago) where.estadoPago = estadoPago;

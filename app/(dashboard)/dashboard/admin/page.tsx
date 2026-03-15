@@ -80,7 +80,7 @@ export default async function AdminDashboard() {
                 </div>
 
                 {/* Health Indicators */}
-                <div className="flex items-center gap-3 bg-white/5 p-2 rounded-2xl border border-white/10">
+                <div className="flex items-center gap-3 bg-slate-100 dark:bg-white/5 p-2 rounded-2xl border border-slate-200 dark:border-white/10">
                     <HealthBadge label="DB" status={health.db} icon={Database} />
                     <HealthBadge label="Storage" status={health.storage} icon={Cloud} />
                     <HealthBadge label="Pusher" status={health.pusher} icon={Activity} />
@@ -93,7 +93,7 @@ export default async function AdminDashboard() {
                 {statsCards.map((stat) => (
                     <div key={stat.label} className="glass-card p-4 hover:border-brand-500/30 transition-all group">
                         <div className="flex items-center gap-3 mb-2">
-                            <div className={cn("p-2 rounded-lg bg-white/5", stat.color)}>
+                            <div className={cn("p-2 rounded-lg bg-slate-100 dark:bg-white/5", stat.color)}>
                                 <stat.icon className="w-4 h-4" />
                             </div>
                             <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
@@ -120,7 +120,7 @@ export default async function AdminDashboard() {
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
-                            <thead className="bg-white/5 text-[10px] uppercase font-black text-slate-400">
+                            <thead className="bg-slate-50 dark:bg-white/5 text-[10px] uppercase font-black text-slate-400">
                                 <tr>
                                     <th className="px-3 py-2">Usuario</th>
                                     <th className="px-3 py-2">Acción</th>
@@ -130,7 +130,7 @@ export default async function AdminDashboard() {
                             </thead>
                             <tbody>
                                 {auditLogs.map((log: any) => (
-                                    <tr key={log.id} className="border-b border-white/5 text-xs hover:bg-white/5 transition-colors">
+                                    <tr key={log.id} className="border-b border-slate-100 dark:border-white/5 text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                                         <td className="px-3 py-2 font-bold text-slate-700 dark:text-slate-300">{log.user?.nombre || "System"}</td>
                                         <td className="px-3 py-2">
                                             <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-[10px] font-bold">
@@ -209,7 +209,7 @@ function TerminalLink({ href, label, subText, icon: Icon, color }: { href: strin
 
     return (
         <Link href={href} className={cn(
-            "group flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5 transition-all w-full",
+            "group flex items-center gap-3 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5 transition-all w-full",
             colorClasses[color]
         )}>
             <Icon className="w-5 h-5 flex-shrink-0" />

@@ -27,7 +27,7 @@ const testimonioCreateSchema = z.object({
     autorContacto: z.string().max(100).optional(),
     texto: z.string().min(10, "El testimonio es demasiado corto").max(1000),
     rating: z.number().int().min(1).max(5).default(5),
-    mediaUrl: z.string().url("URL de media inválida").optional().or(z.literal("")),
+    mediaUrl: z.string().max(1000).optional().or(z.literal("")),
     proyectoId: idSchema.optional(),
 });
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { requireAuth, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, requireProjectOwnership, handleApiGuardError, orgFilter } from "@/lib/guards";
 
 const createTourSchema = z.object({
     proyectoId: z.string(),
@@ -19,13 +19,15 @@ const createTourSchema = z.object({
 
 export async function GET(request: Request) {
     try {
-        await requireAuth();
+        const user = await requireAuth();
 
         const { searchParams } = new URL(request.url);
         const proyectoId = searchParams.get("proyectoId");
         const unidadId = searchParams.get("unidadId");
 
-        const where: any = {};
+        const where: any = {
+            ...orgFilter(user) as any
+        };
         if (proyectoId) where.proyectoId = proyectoId;
         if (unidadId) where.unidadId = unidadId;
 

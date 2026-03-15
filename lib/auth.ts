@@ -102,4 +102,20 @@ export const authOptions: NextAuthOptions = {
         signIn: "/login",
         error: "/login",
     },
+    events: {
+        async signIn({ user }) {
+            try {
+                const { audit } = await import("@/lib/actions/audit");
+                await audit({
+                    userId: user.id,
+                    action: "AUTH_LOGIN_SUCCESS",
+                    entity: "User",
+                    entityId: user.id,
+                    details: { email: user.email }
+                });
+            } catch (err) {
+                console.error("[LoginAudit] Failed to log success:", err);
+            }
+        }
+    }
 };

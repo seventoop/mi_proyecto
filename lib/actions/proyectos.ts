@@ -271,14 +271,61 @@ export async function updateProyecto(id: string, input: unknown) {
             updatedAt: new Date()
         };
 
-        const updated = await prisma.proyecto.update({
-            where: { id },
-            data: updateData
+        const result = await prisma.$transaction(async (tx) => {
+            const current = await tx.proyecto.findUnique({
+                where: { id },
+                select: { precioM2Inversor: true, precioM2Mercado: true }
+            });
+
+            if (current) {
+                // Tracking ROI / Market Price changes for transparency
+                if (data.precioM2Inversor && Number(data.precioM2Inversor) !== Number(current.precioM2Inversor)) {
+                    await tx.priceHistory.create({
+                        data: {
+                            proyectoId: id,
+                            usuarioId: user.id,
+                            precioAnterior: current.precioM2Inversor || 0,
+                            precioNuevo: data.precioM2Inversor,
+                            tipo: "INVERSOR",
+                            motivo: "Actualización de precio inversor (ROI)"
+                        }
+                    });
+                }
+                if (data.precioM2Mercado && Number(data.precioM2Mercado) !== Number(current.precioM2Mercado)) {
+                    await tx.priceHistory.create({
+                        data: {
+                            proyectoId: id,
+                            usuarioId: user.id,
+                            precioAnterior: current.precioM2Mercado || 0,
+                            precioNuevo: data.precioM2Mercado,
+                            tipo: "MERCADO",
+                            motivo: "Ajuste de valor de mercado"
+                        }
+                    });
+                }
+            }
+
+            const updated = await tx.proyecto.update({
+                where: { id },
+                data: updateData
+            });
+
+            // Audit
+            const { audit } = await import("@/lib/actions/audit");
+            await audit({
+                userId: user.id,
+                action: "PROJECT_UPDATE",
+                entity: "Proyecto",
+                entityId: id,
+                details: { changes: Object.keys(data) }
+            });
+
+            return updated;
         });
 
         revalidatePath("/dashboard/proyectos");
         revalidatePath(`/dashboard/proyectos/${id}`);
-        return { success: true, data: updated };
+        return { success: true, data: result };
     } catch (error) {
         console.error("Error updating project:", error);
         return { success: false, error: "Error al actualizar proyecto" };
@@ -288,6 +335,7 @@ export async function updateProyecto(id: string, input: unknown) {
 export async function deleteProyecto(id: string) {
     try {
         await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+        const user = await requireAuth();
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id },
@@ -302,21 +350,15 @@ export async function deleteProyecto(id: string) {
             data: { deletedAt: new Date() }
         });
 
-        // Audit log
-        try {
-            const user = await requireAuth();
-            await prisma.auditLog.create({
-                data: {
-                    action: "PROYECTO_ELIMINADO",
-                    entity: "PROYECTO",
-                    entityId: id,
-                    userId: user.id as string,
-                    details: `Proyecto eliminado (soft delete): ${proyecto.nombre}`
-                }
-            });
-        } catch (e) {
-            console.error("Error creating audit log:", e);
-        }
+        // Centralized Audit Log
+        const { audit } = await import("@/lib/actions/audit");
+        await audit({
+            userId: user.id,
+            action: "PROYECTO_ELIMINADO",
+            entity: "PROYECTO",
+            entityId: id,
+            details: { nombre: proyecto.nombre, type: "SOFT_DELETE" }
+        });
 
         revalidatePath("/dashboard/admin/proyectos");
         revalidatePath("/dashboard/developer/proyectos");

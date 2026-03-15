@@ -21,6 +21,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
             return NextResponse.json({ message: "Tour no encontrado" }, { status: 404 });
         }
 
+        // Security: Ensure user owns the project this tour belongs to
+        await requireProjectOwnership(tour.proyectoId);
+
         return NextResponse.json(tour);
     } catch (error) {
         return handleApiGuardError(error);

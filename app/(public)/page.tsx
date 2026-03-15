@@ -38,7 +38,7 @@ export default async function HomePage() {
     return (
         <main className="min-h-screen bg-background text-foreground">
             {/* 1. Banner Dinámico (Limpio) */}
-            <section id="banner" className="relative pt-14 sm:pt-16 bg-black min-h-[40vh] sm:min-h-[50vh]">
+            <section id="banner" className="relative pt-[72px] sm:pt-[80px] bg-black min-h-[40vh] sm:min-h-[50vh]">
                 <MediaBanner banners={banners} />
             </section>
 

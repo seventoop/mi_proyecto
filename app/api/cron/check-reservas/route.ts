@@ -13,16 +13,27 @@ export async function POST(req: NextRequest) {
         requireCronSecret(req);
         const now = new Date();
 
-        // Find active reservas past their deadline without paid deposit
+        // Find active or pending approval reservas past their deadline without paid deposit
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        
         const expiredReservas = await prisma.reserva.findMany({
             where: {
-                estado: "ACTIVA",
-                fechaVencimiento: { lt: now },
-                estadoPago: "PENDIENTE",
+                OR: [
+                    {
+                        estado: "ACTIVA",
+                        fechaVencimiento: { lt: now },
+                        estadoPago: "PENDIENTE",
+                    },
+                    {
+                        estado: "PENDIENTE_APROBACION",
+                        createdAt: { lt: twentyFourHoursAgo },
+                        estadoPago: "PENDIENTE",
+                    }
+                ]
             },
             include: {
                 vendedor: { select: { id: true, nombre: true } },
-                unidad: { select: { id: true, numero: true } },
+                unidad: { select: { id: true, numero: true, estado: true } },
                 lead: { select: { nombre: true } },
             },
         });
@@ -53,9 +64,9 @@ export async function POST(req: NextRequest) {
                     data: {
                         unidadId: reserva.unidadId,
                         usuarioId: reserva.vendedorId,
-                        estadoAnterior: "RESERVADO",
+                        estadoAnterior: reserva.unidad.estado,
                         estadoNuevo: "DISPONIBLE",
-                        motivo: `Reserva vencida automáticamente (sin seña pagada)`,
+                        motivo: `Reserva ${reserva.estado.toLowerCase()} vencida automáticamente (sin seña pagada)`,
                     },
                 });
 

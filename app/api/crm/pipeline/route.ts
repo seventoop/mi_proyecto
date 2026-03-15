@@ -28,9 +28,16 @@ export async function PUT(request: Request) {
       return NextResponse.json({ message: "Oportunidad no encontrada" }, { status: 404 });
     }
 
-    // Non-admins can only update opportunities whose lead is assigned to them
-    if (user.role !== "ADMIN" && existingOp.lead?.asignadoAId !== user.id) {
-      return NextResponse.json({ message: "Sin permisos" }, { status: 403 });
+    // Authorization: User must be ADMIN or belong to the same ORG as the lead/opportunity
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+        const lead = await db.lead.findUnique({
+            where: { id: existingOp.leadId },
+            select: { orgId: true }
+        });
+        
+        if (lead?.orgId !== user.orgId) {
+            return NextResponse.json({ message: "No autorizado para esta organización" }, { status: 403 });
+        }
     }
 
     // Update opportunity stage

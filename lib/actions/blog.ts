@@ -13,7 +13,7 @@ const blogPostSchema = z.object({
     status: z.enum(["PENDIENTE", "APROBADO", "RECHAZADO", "BORRADOR"]).default("PENDIENTE"),
     autorId: idSchema,
     orgId: idSchema.optional().nullable(),
-    imagen: z.string().url().optional().nullable(),
+    imagen: z.string().max(1000).optional().nullable(),
     tags: z.array(z.string()).default([]),
 });
 

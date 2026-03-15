@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { requireAuth, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, handleApiGuardError, requireProjectOwnership } from "@/lib/guards";
 import { blueprintSyncSchema } from "@/lib/validations";
 
 export async function POST(
@@ -9,6 +9,8 @@ export async function POST(
 ) {
     try {
         const user = await requireAuth();
+        await requireProjectOwnership(params.id);
+        
         if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
             return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
         }

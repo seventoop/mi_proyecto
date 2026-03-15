@@ -59,7 +59,7 @@ const adminNavItems = [
     { label: "Banners", href: "/dashboard/admin/banners", icon: ImageIcon },
     { label: "Testimonios", href: "/dashboard/admin/testimonios", icon: MessageSquare },
     { label: "KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck },
-    { label: "Usuarios", href: "/dashboard/admin/users", icon: UserCheck },
+    { label: "Usuarios", href: "/dashboard/admin/usuarios", icon: UserCheck },
     { label: "Planes", href: "/dashboard/admin/planes", icon: CreditCard },
     { label: "Riesgos", href: "/dashboard/admin/riesgos", icon: AlertTriangle },
     { label: "Automation", href: "/dashboard/admin/logictoop", icon: Workflow },

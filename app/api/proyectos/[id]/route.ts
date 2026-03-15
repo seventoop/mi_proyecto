@@ -10,6 +10,7 @@ export async function GET(
 ) {
     try {
         await requireAuth();
+        await requireProjectOwnership(params.id);
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: params.id },

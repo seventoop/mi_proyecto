@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
-import { requireAuth, requireRole, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, handleApiGuardError, orgFilter } from "@/lib/guards";
 import { reservaUpdateActionSchema } from "@/lib/validations";
 
 // ─── GET /api/reservas/[id] — Single reservation detail ───
@@ -13,7 +13,10 @@ export async function GET(
         const user = await requireAuth();
 
         const reserva = await prisma.reserva.findUnique({
-            where: { id: params.id },
+            where: { 
+                id: params.id,
+                ...orgFilter(user) as any
+            },
             include: {
                 unidad: {
                     include: {

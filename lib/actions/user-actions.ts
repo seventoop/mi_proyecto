@@ -76,7 +76,7 @@ export async function updateUserRole(userId: string, newRole: "ADMIN" | "VENDEDO
             where: { id: userId },
             data: { rol: newRole }
         });
-        revalidatePath("/dashboard/admin/users");
+        revalidatePath("/dashboard/admin/usuarios");
         return { success: true };
     } catch (error) {
         return handleGuardError(error);
@@ -91,7 +91,7 @@ export async function toggleUserBan(userId: string, isBanned: boolean) {
         await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         // In the original file, it was deleting the user. I'll stick to that if that's the intended "ban" logic in this repo.
         await prisma.user.delete({ where: { id: userId } });
-        revalidatePath("/dashboard/admin/users");
+        revalidatePath("/dashboard/admin/usuarios");
         return { success: true };
     } catch (error) {
         return handleGuardError(error);

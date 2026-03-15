@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { requireAuth, handleApiGuardError } from "@/lib/guards";
-import { etapaCreateSchema } from "@/lib/validations";
+import { requireAuth, handleApiGuardError, requireProjectOwnership } from "@/lib/guards";
 
 // GET /api/proyectos/[id]/etapas
 export async function GET(
@@ -9,8 +8,9 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
-        await requireAuth();
-        // @security-waive: NO_ORG_FILTER - Scoped by proyectoId
+        const user = await requireAuth();
+        await requireProjectOwnership(params.id);
+        
         const etapas = await prisma.etapa.findMany({
             where: { proyectoId: params.id },
             include: {

@@ -9,7 +9,8 @@ import {
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { createBanner, updateBanner, submitBannerForApproval } from "@/lib/actions/banners";
-import { generateBannerContent, type BannerAIContent } from "@/lib/actions/banner-ai";
+import { generateBannerContent } from "@/lib/actions/banner-ai";
+import type { BannerAIContent } from "@/lib/banner-ai/types";
 import { getProyectoImagenes } from "@/lib/actions/proyectos";
 import { BANNER_ESTADOS, BANNER_CONTENT_LIMITS, MAX_PUBLISHED_PER_CONTEXT } from "@/lib/actions/banners-constants";
 
@@ -61,12 +62,13 @@ function AIPanel({
     const [result, setResult] = useState<BannerAIContent | null>(null);
     const [error, setError] = useState("");
     const [openSection, setOpenSection] = useState<string | null>("headline");
+    const [provider, setProvider] = useState<"openai" | "anthropic">("openai");
 
     const generate = async () => {
         if (!prompt.trim()) return;
         setLoading(true);
         setError("");
-        const res = await generateBannerContent(prompt, mediaType);
+        const res = await generateBannerContent(prompt, mediaType, provider);
         if (res.success && res.data) {
             setResult(res.data);
             setOpenSection("headline");
@@ -102,6 +104,41 @@ function AIPanel({
                     rows={3}
                     className={cn(inputClass, "resize-none")}
                 />
+            </div>
+
+            {/* Provider Selector */}
+            <div>
+                <label className={labelClass}>Proveedor de IA</label>
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setProvider("openai")}
+                        className={cn(
+                            "flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-semibold transition-all",
+                            provider === "openai"
+                                ? "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white ring-2 ring-brand-500/20"
+                                : "bg-transparent border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                        )}
+                    >
+                        {/* Simple placeholder icon for OpenAI */}
+                        <div className={cn("w-2 h-2 rounded-full", provider === "openai" ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-slate-300")} />
+                        OpenAI
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setProvider("anthropic")}
+                        className={cn(
+                            "flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-semibold transition-all",
+                            provider === "anthropic"
+                                ? "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white ring-2 ring-brand-500/20"
+                                : "bg-transparent border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                        )}
+                    >
+                        {/* Simple placeholder icon for Anthropic */}
+                        <div className={cn("w-2 h-2 rounded-full", provider === "anthropic" ? "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" : "bg-slate-300")} />
+                        Anthropic (Claude)
+                    </button>
+                </div>
             </div>
 
             <button
@@ -447,6 +484,7 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
         try {
             const fd = new FormData();
             fd.append("file", file);
+            if (form.projectId) fd.append("projectId", form.projectId);
             const res = await fetch("/api/upload", { method: "POST", body: fd });
             const data = await res.json();
             if (data.success) return data.url as string;
@@ -540,7 +578,7 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
         }
     };
 
-    const canSubmit = !!(form.mediaUrl || file);
+    const canSubmit = true; // Stay enabled to allow clicking and showing validation errors
 
     const TABS: { id: TabId; label: string }[] = [
         { id: "contenido", label: "Contenido" },
@@ -1063,9 +1101,19 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                         </div>
                     )}
 
-                    {errors.submit && (
-                        <div className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs">
-                            <AlertCircle className="w-4 h-4" /> {errors.submit}
+                    {Object.keys(errors).length > 0 && (
+                        <div className="mt-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-800 transition-all animate-in fade-in slide-in-from-top-2">
+                             <div className="flex items-start gap-3 text-rose-600 dark:text-rose-400">
+                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                <div className="space-y-1">
+                                    <p className="text-xs font-bold uppercase tracking-wider">Se encontraron errores</p>
+                                    <ul className="text-xs space-y-0.5 list-disc list-inside opacity-90">
+                                        {Object.entries(errors).map(([key, msg]) => (
+                                            <li key={key}>{msg}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                             </div>
                         </div>
                     )}
                 </div>

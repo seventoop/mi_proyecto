@@ -7,6 +7,7 @@ import {
     FileDown, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { gestionarReserva } from "@/lib/actions/reservas";
 
 interface ReservaActionsProps {
     reservaId: string;
@@ -26,18 +27,13 @@ export default function ReservaActions({ reservaId, estado, estadoPago, onAction
     const handleAction = async (action: string, data?: any) => {
         setLoading(action);
         try {
-            const res = await fetch(`/api/reservas/${reservaId}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action, ...data }),
-            });
-            if (res.ok) {
+            const res = await gestionarReserva(reservaId, { action, ...data });
+            if (res.success) {
                 onAction(action, data);
                 setShowExtender(false);
                 setShowCancelar(false);
             } else {
-                const err = await res.json();
-                alert(err.error || "Error al ejecutar la acción");
+                alert(res.error || "Error al ejecutar la acción");
             }
         } catch {
             alert("Error de conexión");

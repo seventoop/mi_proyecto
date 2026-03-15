@@ -21,7 +21,7 @@ const hotspotSchema = z.object({
 const sceneSchema = z.object({
     id: z.string().optional(),
     title: z.string().min(1, "Título de escena requerido"),
-    imageUrl: z.string().url("URL de imagen inválida"),
+    imageUrl: z.string().min(1, "URL de imagen requerida").max(1000),
     isDefault: z.boolean().default(false),
     order: z.number().default(0),
     category: z.enum(["RAW", "RENDERED"]).default("RAW"),

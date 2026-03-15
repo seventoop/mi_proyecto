@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { requireAuth, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, handleApiGuardError, requireProjectOwnership, orgFilter } from "@/lib/guards";
 import { overlayUpdateSchema } from "@/lib/validations";
 
 export async function GET(
@@ -9,9 +9,10 @@ export async function GET(
 ) {
     try {
         const user = await requireAuth();
+        await requireProjectOwnership(params.id);
 
         const project = await prisma.proyecto.findUnique({
-            where: { id: params.id },
+            where: { id: params.id, ...orgFilter(user) as any },
             select: {
                 overlayUrl: true,
                 overlayBounds: true,

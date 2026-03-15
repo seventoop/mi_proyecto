@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Play, Eye, PauseCircle, CheckCircle, XCircle, Image as ImageIcon, Archive } from "lucide-react";
+import { Plus, Play, Eye, PauseCircle, CheckCircle, XCircle, Image as ImageIcon, Archive, Send, Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import BannerEditor from "@/components/dashboard/banners/banner-editor";
 import {
@@ -80,34 +80,42 @@ export default function AdminBannersPage() {
     }, []);
 
     const handlePublish = async (id: string) => {
-        await publishBanner(id);
-        fetchBanners();
+        const res = await publishBanner(id);
+        if (res.success) fetchBanners();
+        else alert(res.error || "Error al publicar");
     };
 
     const handleRejectSubmit = async () => {
         if (!rejectingId) return;
-        await rejectBanner(rejectingId, rejectReason.trim() || undefined);
-        setRejectingId(null);
-        setRejectReason("");
-        fetchBanners();
+        const res = await rejectBanner(rejectingId, rejectReason.trim() || undefined);
+        if (res.success) {
+            setRejectingId(null);
+            setRejectReason("");
+            fetchBanners();
+        } else {
+            alert(res.error || "Error al rechazar");
+        }
     };
 
     const handlePause = async (id: string) => {
-        await pauseBanner(id);
-        fetchBanners();
+        const res = await pauseBanner(id);
+        if (res.success) fetchBanners();
+        else alert(res.error || "Error al pausar");
     };
 
     const handleArchive = async (id: string) => {
         if (confirm("¿Archivar este banner?")) {
-            await archiveBanner(id);
-            fetchBanners();
+            const res = await archiveBanner(id);
+            if (res.success) fetchBanners();
+            else alert(res.error || "Error al archivar");
         }
     };
 
     const handleDelete = async (id: string) => {
         if (confirm("¿Eliminar definitivamente este banner?")) {
-            await deleteBanner(id);
-            fetchBanners();
+            const res = await deleteBanner(id);
+            if (res.success) fetchBanners();
+            else alert(res.error || "Error al eliminar");
         }
     };
 
@@ -177,15 +185,22 @@ export default function AdminBannersPage() {
                         <div key={banner.id} className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-xl transition-all duration-300">
                             {/* Media Preview */}
                             <div className="aspect-video relative bg-slate-100 dark:bg-slate-800">
-                                {banner.tipo === "VIDEO" ? (
-                                    <video src={banner.mediaUrl} className="w-full h-full object-cover" muted loop />
+                                {banner.mediaUrl ? (
+                                    banner.tipo === "VIDEO" ? (
+                                        <video src={banner.mediaUrl} className="w-full h-full object-cover" muted loop />
+                                    ) : (
+                                        <Image
+                                            src={banner.mediaUrl}
+                                            alt={banner.titulo}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    )
                                 ) : (
-                                    <Image
-                                        src={banner.mediaUrl}
-                                        alt={banner.titulo}
-                                        fill
-                                        className="object-cover"
-                                    />
+                                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-slate-400">
+                                        <ImageIcon className="w-8 h-8" />
+                                        <p className="text-[10px] uppercase font-bold tracking-widest">Sin Media</p>
+                                    </div>
                                 )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                                 <div className="absolute bottom-3 left-4 right-4 text-white">
@@ -214,22 +229,32 @@ export default function AdminBannersPage() {
                             {/* Actions */}
                             <div className="p-3 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800">
                                 <div className="flex items-center gap-1">
-                                    {banner.estado === BANNER_ESTADOS.PENDING_APPROVAL && (
+                                    {(banner.estado === BANNER_ESTADOS.PENDING_APPROVAL || 
+                                      banner.estado === BANNER_ESTADOS.DRAFT || 
+                                      banner.estado === BANNER_ESTADOS.REJECTED) && (
                                         <>
                                             <button
                                                 onClick={() => handlePublish(banner.id)}
-                                                title="Aprobar y Publicar"
-                                                className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 rounded-lg transition-colors"
+                                                disabled={!banner.mediaUrl}
+                                                title={banner.estado === BANNER_ESTADOS.PENDING_APPROVAL ? "Aprobar y Publicar" : "Publicar Ahora"}
+                                                className={cn(
+                                                    "p-2 rounded-lg transition-colors",
+                                                    banner.mediaUrl 
+                                                        ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40"
+                                                        : "opacity-30 cursor-not-allowed bg-slate-100 text-slate-400"
+                                                )}
                                             >
                                                 <CheckCircle className="w-4 h-4" />
                                             </button>
-                                            <button
-                                                onClick={() => { setRejectingId(banner.id); setRejectReason(""); }}
-                                                title="Rechazar"
-                                                className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 rounded-lg transition-colors"
-                                            >
-                                                <XCircle className="w-4 h-4" />
-                                            </button>
+                                            {banner.estado === BANNER_ESTADOS.PENDING_APPROVAL && (
+                                                <button
+                                                    onClick={() => { setRejectingId(banner.id); setRejectReason(""); }}
+                                                    title="Rechazar"
+                                                    className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 rounded-lg transition-colors"
+                                                >
+                                                    <XCircle className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </>
                                     )}
                                     {banner.estado === BANNER_ESTADOS.PUBLISHED && (
@@ -267,17 +292,15 @@ export default function AdminBannersPage() {
                                         title="Editar"
                                         className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg transition-colors"
                                     >
-                                        <Eye className="w-4 h-4" />
+                                        <Pencil className="w-4 h-4" />
                                     </button>
-                                    {banner.estado === BANNER_ESTADOS.DRAFT && (
-                                        <button
-                                            onClick={() => handleDelete(banner.id)}
-                                            title="Eliminar"
-                                            className="p-2 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
-                                        >
-                                            <XCircle className="w-4 h-4" />
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => handleDelete(banner.id)}
+                                        title="Eliminar"
+                                        className="p-2 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
                                 </div>
                             </div>
                         </div>
