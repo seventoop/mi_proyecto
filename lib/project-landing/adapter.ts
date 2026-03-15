@@ -107,8 +107,7 @@ function mapImages(
 function mapTours(
     tours: Array<{
         id: string;
-        nombre: string;             // Tour360.nombre (not titulo)
-        notasAdmin: string | null;
+        nombre: string;
         scenes: Array<{
             id: string;
             title: string;
@@ -214,7 +213,9 @@ async function fetchProjectForPublicView(
         include: {
             imagenes: { orderBy: { orden: "asc" } },
             tours: {
-                include: {
+                select: {
+                    id: true,
+                    nombre: true,
                     scenes: {
                         orderBy: { order: "asc" },
                         select: {
@@ -228,9 +229,11 @@ async function fetchProjectForPublicView(
                 },
             },
             etapas: {
-                include: {
+                select: {
+                    nombre: true,
                     manzanas: {
-                        include: {
+                        select: {
+                            nombre: true,
                             unidades: {
                                 where: { estado: { not: UNIT_ESTADO.BLOQUEADA } },
                                 select: {
@@ -260,15 +263,7 @@ async function fetchProjectForPublicView(
 
     const imagenes = mapImages(project.imagenes ?? []);
     const tours = mapTours(project.tours ?? []);
-    const { disponibles, total } = mapUnidades(
-        (project.etapas ?? []).map((etapa) => ({
-            nombre: etapa.nombre,
-            manzanas: (etapa.manzanas ?? []).map((m) => ({
-                nombre: m.nombre,
-                unidades: m.unidades ?? [],
-            })),
-        }))
-    );
+    const { disponibles, total } = mapUnidades(project.etapas ?? []);
 
     const primaryImage = imagenes.find((i) => i.esPrincipal)?.url ?? imagenes[0]?.url ?? null;
     const heroImageUrl = project.imagenPortada ?? primaryImage;
@@ -308,18 +303,13 @@ async function fetchProjectForPublicView(
 export async function getProjectPublicViewBySlug(
     slug: string
 ): Promise<ProjectPublicView | null> {
-    const base = getPublicProjectWhere();
-
-    // Try slug first
-    const bySlug = await fetchProjectForPublicView({ ...base, slug });
-    if (bySlug) return bySlug;
-
-    // Fallback: cuid-style ID (24–26 chars)
-    if (slug.length >= 24 && slug.length <= 26) {
-        return fetchProjectForPublicView({ ...base, id: slug });
-    }
-
-    return null;
+    const isCuidShaped = slug.length >= 24 && slug.length <= 26;
+    return fetchProjectForPublicView({
+        AND: [
+            getPublicProjectWhere(),
+            isCuidShaped ? { OR: [{ slug }, { id: slug }] } : { slug },
+        ],
+    });
 }
 
 /**
