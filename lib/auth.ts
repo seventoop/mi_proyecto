@@ -18,6 +18,16 @@ export const authOptions: NextAuthOptions = {
 
                 const user = await prisma.user.findUnique({
                     where: { email: credentials.email },
+                    select: {
+                        id: true,
+                        email: true,
+                        password: true,
+                        nombre: true,
+                        rol: true,
+                        orgId: true,
+                        kycStatus: true,
+                        demoEndsAt: true,
+                    }
                 });
 
                 if (!user) {
@@ -41,7 +51,7 @@ export const authOptions: NextAuthOptions = {
                     role: user.rol,
                     orgId: user.orgId,
                     kycStatus: user.kycStatus,
-                    demoEndsAt: user.demoEndsAt,
+                    demoEndsAt: user.demoEndsAt ? user.demoEndsAt.toISOString() : null,
                 };
             },
         }),
@@ -51,27 +61,27 @@ export const authOptions: NextAuthOptions = {
         maxAge: 24 * 60 * 60, // 24 horas
     },
     callbacks: {
-        async jwt({ token, user, trigger, session }) {
+        async jwt({ token, user }) {
             if (user) {
                 token.id = user.id;
                 token.role = user.role;
-                token.orgId = (user as any).orgId;
-                token.kycStatus = (user as any).kycStatus;
-                token.demoEndsAt = (user as any).demoEndsAt;
+                token.orgId = user.orgId;
+                token.kycStatus = user.kycStatus;
+                token.demoEndsAt = user.demoEndsAt;
             }
 
             // High-security refetch: If we are already logged in, 
             // periodically or on trigger, refresh from DB
             if (token.id) {
                 const dbUser = await prisma.user.findUnique({
-                    where: { id: token.id as string },
+                    where: { id: token.id },
                     select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true }
                 });
                 if (dbUser) {
                     token.role = dbUser.rol;
                     token.orgId = dbUser.orgId;
                     token.kycStatus = dbUser.kycStatus;
-                    token.demoEndsAt = dbUser.demoEndsAt;
+                    token.demoEndsAt = dbUser.demoEndsAt ? dbUser.demoEndsAt.toISOString() : null;
                 }
             }
 
@@ -79,11 +89,11 @@ export const authOptions: NextAuthOptions = {
         },
         async session({ session, token }) {
             if (session.user) {
-                (session.user as any).id = token.id;
-                (session.user as any).role = token.role;
-                (session.user as any).orgId = token.orgId;
-                (session.user as any).kycStatus = token.kycStatus;
-                (session.user as any).demoEndsAt = token.demoEndsAt;
+                session.user.id = token.id;
+                session.user.role = token.role;
+                session.user.orgId = token.orgId;
+                session.user.kycStatus = token.kycStatus;
+                session.user.demoEndsAt = token.demoEndsAt;
             }
             return session;
         },

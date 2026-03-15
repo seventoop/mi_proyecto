@@ -34,15 +34,37 @@ const nextConfig = {
     },
     images: {
         remotePatterns: [
+            { protocol: "https", hostname: "images.unsplash.com" },
+            { protocol: "https", hostname: "plus.unsplash.com" },
+            { protocol: "https", hostname: "*.amazonaws.com" },
+            { protocol: "https", hostname: "*.supabase.co" },
+            { protocol: "https", hostname: "*.supabase.in" },
+        ],
+    },
+    async redirects() {
+        return [
+            // ─── Legacy panel routes → unified /dashboard/portafolio ───────
             {
-                protocol: "https",
-                hostname: "images.unsplash.com",
+                source: "/dashboard/cliente",
+                destination: "/dashboard/portafolio",
+                permanent: true,
             },
             {
-                protocol: "https",
-                hostname: "plus.unsplash.com",
-            }
-        ],
+                source: "/dashboard/cliente/:path*",
+                destination: "/dashboard/portafolio/:path*",
+                permanent: true,
+            },
+            {
+                source: "/dashboard/inversor",
+                destination: "/dashboard/portafolio",
+                permanent: true,
+            },
+            {
+                source: "/dashboard/inversor/:path*",
+                destination: "/dashboard/portafolio/:path*",
+                permanent: true,
+            },
+        ];
     },
 };
 

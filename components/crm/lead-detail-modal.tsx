@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Gauge as Badge } from "lucide-react"; // Temporary replacement if Badge component not found
@@ -16,10 +16,18 @@ interface LeadDetailModalProps {
 }
 
 // Helper types since we don't have full generated types in this context
+interface LeadNote {
+    timestamp: Date | string;
+    text: string;
+    userName?: string;
+    fecha: string;
+    texto: string;
+}
+
 type LeadFull = Lead & {
     oportunidades: Oportunidad[];
     tareas: Tarea[];
-    notas: any[];
+    notas: LeadNote[];
     estado: string;
     nombre: string;
     origen: string;
@@ -156,7 +164,7 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
                                         <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-xs mb-4">Historial</h4>
                                         {notasList && notasList.length > 0 ? (
                                             <div className="space-y-6 border-l-2 border-slate-800 ml-2 pl-6">
-                                                {notasList.map((nota: any, idx: number) => (
+                                                {notasList.map((nota: LeadNote, idx: number) => (
                                                     <div key={idx} className="relative">
                                                         <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-slate-600 ring-4 ring-slate-950" />
                                                         <div className="flex items-center gap-2 mb-1">

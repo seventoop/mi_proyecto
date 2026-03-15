@@ -77,6 +77,9 @@ export async function POST(req: NextRequest) {
         }
 
         const pusher = getPusherServer();
+        if (!pusher) {
+            return NextResponse.json({ error: "Servicio de tiempo real no configurado" }, { status: 503 });
+        }
         const auth = pusher.authorizeChannel(socketId, channelName);
 
         return NextResponse.json(auth);

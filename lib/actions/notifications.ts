@@ -19,7 +19,7 @@ import { sendTransactionalEmail } from "@/lib/mail";
  */
 export async function createNotification(
     userId: string,
-    tipo: 'INFO' | 'ALERTA' | 'EXITO' | 'ERROR',
+    tipo: 'INFO' | 'ALERTA' | 'EXITO' | 'ERROR' | 'KYC_UPGRADE_REQUEST' | 'KYC_APPROVED' | 'KYC_REJECTED',
     titulo: string,
     mensaje: string,
     linkAccion?: string,
@@ -43,18 +43,20 @@ export async function createNotification(
         // 🚀 1. Trigger Real-Time event on Private Channel
         try {
             const pusher = getPusherServer();
-            await pusher.trigger(
-                PUSHER_CHANNELS.getUserChannel(userId),
-                EVENTS.NOTIFICATION_NEW,
-                {
-                    id: notificacion.id,
-                    titulo: notificacion.titulo,
-                    tipo: notificacion.tipo,
-                    mensaje: notificacion.mensaje,
-                    linkAccion: notificacion.linkAccion,
-                    createdAt: notificacion.createdAt
-                }
-            );
+            if (pusher) {
+                await pusher.trigger(
+                    PUSHER_CHANNELS.getUserChannel(userId),
+                    EVENTS.NOTIFICATION_NEW,
+                    {
+                        id: notificacion.id,
+                        titulo: notificacion.titulo,
+                        tipo: notificacion.tipo,
+                        mensaje: notificacion.mensaje,
+                        linkAccion: notificacion.linkAccion,
+                        createdAt: notificacion.createdAt
+                    }
+                );
+            }
         } catch (pusherError) {
             console.error("Error triggering Pusher notification:", pusherError);
         }

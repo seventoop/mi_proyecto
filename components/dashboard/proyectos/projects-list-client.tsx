@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { SuspendProjectDialog } from "./suspend-project-dialog";
+import FeatureGate from "@/components/saas/FeatureGate";
 
 const estadoConfig: Record<string, { label: string; class: string }> = {
     PLANIFICACION: { label: "Planificación", class: "bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20" },
@@ -33,12 +34,14 @@ interface ProjectsListClientProps {
     };
     newProjectPath?: string;
     projectBasePath?: string;
+    usage?: { current: number; limit: number };
 }
 
 export default function ProjectsListClient({
     projects,
     newProjectPath = "/dashboard/admin/proyectos/new",
     projectBasePath = "/dashboard/proyectos",
+    usage,
 }: ProjectsListClientProps) {
     const [activeProjects, setActiveProjects] = useState(projects);
     const [view, setView] = useState<"cards" | "list">("cards");
@@ -85,15 +88,22 @@ export default function ProjectsListClient({
                             <LayoutList className="w-5 h-5" />
                         </button>
                     </div>
-                    {newProjectPath && (
-                        <Link
-                            href={newProjectPath}
-                            className="px-5 py-2.5 rounded-xl gradient-brand text-white font-semibold text-sm shadow-glow hover:shadow-glow-lg transition-all flex items-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            <span className="hidden sm:inline">Nuevo Proyecto</span>
-                        </Link>
-                    )}
+                    <FeatureGate
+                        feature="proyectos"
+                        max={usage?.limit}
+                        current={usage?.current}
+                        showUpgradeCard={false}
+                    >
+                        {newProjectPath && (
+                            <Link
+                                href={newProjectPath}
+                                className="px-5 py-2.5 rounded-xl gradient-brand text-white font-semibold text-sm shadow-glow hover:shadow-glow-lg transition-all flex items-center gap-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                <span className="hidden sm:inline">Nuevo Proyecto</span>
+                            </Link>
+                        )}
+                    </FeatureGate>
                 </div>
             </div>
 

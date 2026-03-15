@@ -13,16 +13,28 @@ export const metadata: Metadata = {
 };
 
 import { Providers } from "@/components/providers";
+import { LanguageProvider } from "@/components/providers/language-provider";
+import { cookies } from "next/headers";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { i18n, type Locale } from "@/lib/i18n/config";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = cookies();
+  const localeCookie = cookieStore.get("NEXT_LOCALE")?.value as Locale | undefined;
+  const locale = localeCookie && i18n.locales.includes(localeCookie) ? localeCookie : i18n.defaultLocale;
+  
+  const dictionary = await getDictionary(locale);
+
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className="antialiased min-h-screen bg-background text-foreground">
-        <Providers>{children}</Providers>
+        <LanguageProvider initialLocale={locale} initialDictionary={dictionary}>
+          <Providers>{children}</Providers>
+        </LanguageProvider>
       </body>
     </html>
   );

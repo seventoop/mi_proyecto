@@ -51,7 +51,21 @@ const automationBadge: Record<string, string> = {
     MANUAL: "bg-slate-500/10 text-slate-400",
     COPILOT: "bg-brand-500/10 text-brand-400",
     PILOT: "bg-indigo-500/10 text-indigo-400",
+    AI_SCORED: "bg-violet-500/10 text-violet-400",
 };
+
+function ScoreBadge({ score }: { score: number | null | undefined }) {
+    if (score === null || score === undefined) {
+        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400">SIN SCORE</span>;
+    }
+    if (score >= 80) {
+        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">HOT</span>;
+    }
+    if (score >= 50) {
+        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500">WARM</span>;
+    }
+    return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400">COLD</span>;
+}
 
 export default function LeadsTable({ leads }: LeadsTableProps) {
     const router = useRouter();
@@ -177,20 +191,23 @@ export default function LeadsTable({ leads }: LeadsTableProps) {
                                                     {lead.automationStatus === "PILOT" ? <Zap className="w-2.5 h-2.5" /> : lead.automationStatus === "COPILOT" ? <Sparkles className="w-2.5 h-2.5" /> : <ShieldAlert className="w-2.5 h-2.5" />}
                                                     {lead.automationStatus}
                                                 </span>
-                                                {lead.aiQualificationScore !== null && lead.aiQualificationScore !== undefined && (
-                                                    <div className="flex items-center gap-1">
-                                                        <div className="w-12 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={cn(
-                                                                    "h-full transition-all",
-                                                                    lead.aiQualificationScore > 70 ? "bg-emerald-500" : lead.aiQualificationScore > 40 ? "bg-amber-500" : "bg-rose-500"
-                                                                )}
-                                                                style={{ width: `${lead.aiQualificationScore}%` }}
-                                                            />
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-slate-500">{lead.aiQualificationScore}</span>
-                                                    </div>
-                                                )}
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <ScoreBadge score={lead.aiQualificationScore} />
+                                                    {lead.aiQualificationScore !== null && lead.aiQualificationScore !== undefined && (
+                                                        <>
+                                                            <div className="w-10 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={cn(
+                                                                        "h-full transition-all",
+                                                                        lead.aiQualificationScore >= 80 ? "bg-emerald-500" : lead.aiQualificationScore >= 50 ? "bg-amber-500" : "bg-rose-500"
+                                                                    )}
+                                                                    style={{ width: `${lead.aiQualificationScore}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-slate-500">{lead.aiQualificationScore}</span>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-500">{lead.proyecto?.nombre || "N/A"}</td>

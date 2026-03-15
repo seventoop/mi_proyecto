@@ -46,14 +46,15 @@ export async function requireAuth(): Promise<AuthUser> {
     if (!session?.user?.id) {
         throw new AuthError("No autorizado", 401);
     }
+    const { user } = session;
     return {
-        id: session.user.id as string,
-        email: session.user.email as string,
-        name: session.user.name as string,
-        role: (session.user as any).role as string,
-        orgId: (session.user as any).orgId as string | null,
-        kycStatus: (session.user as any).kycStatus as string,
-        demoEndsAt: (session.user as any).demoEndsAt as string | null,
+        id: user.id,
+        email: user.email as string,
+        name: user.name as string,
+        role: user.role,
+        orgId: user.orgId,
+        kycStatus: user.kycStatus,
+        demoEndsAt: user.demoEndsAt,
     };
 }
 
@@ -217,7 +218,33 @@ export function requireCronSecret(request: Request): void {
     }
 }
 
-import { NextResponse } from "next/server";
+/**
+ * Requires the user's KYC status to be APROBADO or VERIFICADO.
+ * Throws AuthError 403 if not approved.
+ */
+export async function requireKYC(): Promise<AuthUser> {
+    const user = await requireAuth();
+    if (user.kycStatus !== "APROBADO" && user.kycStatus !== "VERIFICADO") {
+        throw new AuthError("Debes completar tu verificación KYC para realizar esta acción", 403);
+    }
+    return user;
+}
+
+// ─── Org Access Guard ───
+
+/**
+ * Requires the user to belong to the given org, or be ADMIN/SUPERADMIN.
+ */
+export async function requireOrgAccess(orgId: string): Promise<AuthUser> {
+    const user = await requireAuth();
+    if (user.role === "ADMIN" || user.role === "SUPERADMIN") return user;
+    if (user.orgId !== orgId) {
+        throw new AuthError("No tienes acceso a esta organización", 403);
+    }
+    return user;
+}
+
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Safe wrapper for server actions that use guards.
@@ -241,4 +268,21 @@ export function handleApiGuardError(error: unknown): NextResponse {
     }
     console.error("Unexpected API error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+}
+
+/**
+ * Wrapper for API routes that require ADMIN or SUPERADMIN.
+ * Usage: export const GET = withAdminGuard(async (req, user) => { ... });
+ */
+export function withAdminGuard(
+    handler: (req: NextRequest, user: AuthUser) => Promise<NextResponse>
+) {
+    return async (req: NextRequest) => {
+        try {
+            const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+            return await handler(req, user);
+        } catch (error) {
+            return handleApiGuardError(error);
+        }
+    };
 }

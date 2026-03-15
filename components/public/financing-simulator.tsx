@@ -19,14 +19,14 @@ export default function FinancingSimulator({ price, currency }: FinancingSimulat
     const installmentAmount = Math.round(financedAmount / installments);
 
     return (
-        <div className="bg-black rounded-2xl p-6 border border-white/10">
+        <div className="bg-card rounded-2xl p-6 border border-border shadow-xl">
             <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-full bg-brand-500/20 flex items-center justify-center">
-                    <Calculator className="w-5 h-5 text-brand-400" />
+                <div className="w-10 h-10 rounded-full bg-brand-orange/10 flex items-center justify-center">
+                    <Calculator className="w-5 h-5 text-brand-orange" />
                 </div>
                 <div>
-                    <h3 className="text-lg font-bold text-white">Simulador de Financiación</h3>
-                    <p className="text-sm text-slate-400">Personaliza tu plan de pagos</p>
+                    <h3 className="text-lg font-bold text-foreground">Simulador de Financiación</h3>
+                    <p className="text-sm text-muted-foreground">Personaliza tu plan de pagos</p>
                 </div>
             </div>
 
@@ -34,8 +34,8 @@ export default function FinancingSimulator({ price, currency }: FinancingSimulat
                 {/* Down Payment Slider */}
                 <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                        <span className="text-slate-300 font-medium">Anticipo ({downPaymentPercent}%)</span>
-                        <span className="text-brand-400 font-bold">{formatCurrency(downPaymentAmount, currency)}</span>
+                        <span className="text-foreground/80 font-medium">Anticipo ({downPaymentPercent}%)</span>
+                        <span className="text-brand-orange font-bold">{formatCurrency(downPaymentAmount, currency)}</span>
                     </div>
                     <input
                         type="range"
@@ -44,9 +44,9 @@ export default function FinancingSimulator({ price, currency }: FinancingSimulat
                         step="5"
                         value={downPaymentPercent}
                         onChange={(e) => setDownPaymentPercent(Number(e.target.value))}
-                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                        className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-brand-orange"
                     />
-                    <div className="flex justify-between text-xs text-slate-500">
+                    <div className="flex justify-between text-xs text-muted-foreground">
                         <span>10%</span>
                         <span>80%</span>
                     </div>
@@ -55,8 +55,8 @@ export default function FinancingSimulator({ price, currency }: FinancingSimulat
                 {/* Installments Slider */}
                 <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                        <span className="text-slate-300 font-medium">Cuotas ({installments})</span>
-                        <span className="text-slate-400">Plazo sugerido</span>
+                        <span className="text-foreground/80 font-medium">Cuotas ({installments})</span>
+                        <span className="text-muted-foreground">Plazo sugerido</span>
                     </div>
                     <input
                         type="range"
@@ -65,22 +65,22 @@ export default function FinancingSimulator({ price, currency }: FinancingSimulat
                         step="6"
                         value={installments}
                         onChange={(e) => setInstallments(Number(e.target.value))}
-                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                        className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-brand-orange"
                     />
-                    <div className="flex justify-between text-xs text-slate-500">
+                    <div className="flex justify-between text-xs text-muted-foreground">
                         <span>6 meses</span>
                         <span>60 meses</span>
                     </div>
                 </div>
 
                 {/* Result */}
-                <div className="pt-6 border-t border-white/10">
-                    <div className="bg-brand-500/10 rounded-xl p-4 border border-brand-500/20 text-center">
-                        <p className="text-sm text-brand-300 mb-1">Valor estimado de cuota</p>
-                        <p className="text-3xl font-bold text-white">
+                <div className="pt-6 border-t border-border">
+                    <div className="bg-brand-orange/5 dark:bg-brand-orange/10 rounded-xl p-4 border border-brand-orange/20 text-center">
+                        <p className="text-sm text-brand-orange/80 dark:text-brand-orange mb-1">Valor estimado de cuota</p>
+                        <p className="text-3xl font-black text-foreground">
                             {formatCurrency(installmentAmount, currency)}
                         </p>
-                        <p className="text-xs text-slate-400 mt-2">
+                        <p className="text-xs text-muted-foreground mt-2">
                             *Valores estimados sujetos a aprobación crediticia.
                         </p>
                     </div>

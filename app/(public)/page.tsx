@@ -1,79 +1,89 @@
+import type { Metadata } from "next";
 import Hero from "@/components/public/hero";
 import MediaBanner from "@/components/public/media-banner";
-import EarlyAccess from "@/components/public/early-access";
-import HashAutoScroll from "@/components/public/hash-auto-scroll";
-import dynamic from "next/dynamic";
+import Exploracion from "@/components/public/exploracion";
+import FormularioCaptura from "@/components/public/formulario-captura";
+import ProyectosDestacados from "@/components/public/proyectos-destacados";
+import ComoFunciona from "@/components/public/como-funciona";
+import ParaDesarrolladores from "@/components/public/para-desarrolladores";
+import Comunidad from "@/components/public/comunidad";
+import TestimonialsSection from "@/components/public/testimonials-section";
 
-import { getBanners } from "@/lib/actions/banners";
+import { getBannersLanding } from "@/lib/actions/banners";
+import { getProyectosDestacados } from "@/lib/actions/proyectos";
+import { getSystemConfig } from "@/lib/actions/configuration";
 
-// ─── Lazy load below-fold sections (LCP optimization) ───
-const AboutSection = dynamic(() => import("@/components/public/about-section"));
-const CommunityCTA = dynamic(() => import("@/components/public/community-cta"));
-const WhatIsSevenToop = dynamic(() => import("@/components/public/what-is-seventoop"));
-const TestimonialsSection = dynamic(() => import("@/components/public/testimonials-section"));
-const ContactSection = dynamic(() => import("@/components/public/contact-section"));
-
-const defaultBannerItems = [
-    {
-        type: "image" as const,
-        url: "https://images.unsplash.com/photo-1449844908441-8829872d2607?auto=format&fit=crop&w=1920&q=80",
-    },
-    {
-        type: "image" as const,
-        url: "https://images.unsplash.com/photo-1542332213-915993de7e76?auto=format&fit=crop&w=1920&q=80",
-    },
-    {
-        type: "image" as const,
-        url: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1920&q=80",
-    },
-];
+export const metadata: Metadata = {
+    title: "SevenToop — Infraestructura para Comercialización Inmobiliaria",
+    description: "Plataforma integral de gestión inmobiliaria para desarrollos, urbanizaciones y proyectos premium. Invierte con seguridad y tecnología.",
+};
 
 export default async function HomePage() {
-    const bannersRes = await getBanners({ status: "APROBADO" });
+    // 1. Fetch data
+    const [bannersRes, proyectos] = await Promise.all([
+        getBannersLanding(),
+        getProyectosDestacados()
+    ]);
 
-    let bannerItems: { type: "image" | "video"; url: string }[] = defaultBannerItems;
+    // Fetch Hero Config
+    const [heroTitle, heroSubtitle, ctaText] = await Promise.all([
+        getSystemConfig("HERO_TITLE"),
+        getSystemConfig("HERO_SUBTITLE"),
+        getSystemConfig("CTA_TEXT")
+    ]);
 
-    if (bannersRes.success && bannersRes.data && bannersRes.data.length > 0) {
-        bannerItems = bannersRes.data.map(b => ({
-            type: b.tipo === "VIDEO" ? "video" : "image",
-            url: b.mediaUrl
-        }));
-    }
+    const dbBanners = (bannersRes.success && bannersRes.data) ? bannersRes.data : [];
+    
+    const banners = bannersRes.success && bannersRes.data ? bannersRes.data : [];
 
     return (
-        <main className="min-h-screen pt-0">
-            <HashAutoScroll />
-            <MediaBanner items={bannerItems} />
+        <main className="min-h-screen bg-background text-foreground">
+            {/* 1. Banner Dinámico (Limpio) */}
+            <section id="banner" className="relative pt-14 sm:pt-16 bg-black min-h-[40vh] sm:min-h-[50vh]">
+                <MediaBanner banners={banners} />
+            </section>
 
-            <div id="inicio" className="scroll-mt-20">
-                <Hero />
-            </div>
+            {/* 2. Hero (Texto y Acciones) */}
+            <section id="inicio" className="relative -mt-4 z-20">
+                <Hero
+                    title={heroTitle?.value || undefined}
+                    subtitle={heroSubtitle?.value || undefined}
+                    ctaText={ctaText?.value || undefined}
+                />
+            </section>
 
-            {/* 1 — Acceso Anticipado — bg: white/black */}
-            <EarlyAccess />
+            {/* 3. Exploración / Búsqueda Visual */}
+            <section id="exploracion">
+                <Exploracion />
+            </section>
 
-            {/* 2 — Comunidad — bg: gray alt */}
-            <div id="comunidad" className="scroll-mt-20">
-                <CommunityCTA />
-            </div>
+            {/* 4. Captura de Demanda (Lead Gen) */}
+            <section id="oportunidades">
+                <FormularioCaptura />
+            </section>
 
-            {/* 3 — Diferencial Tecnológico — bg: white/black */}
-            <AboutSection />
+            {/* 5. Proyectos Destacados */}
+            <section id="proyectos">
+                <ProyectosDestacados proyectos={proyectos} />
+            </section>
 
-            {/* 4 — Qué es SevenToop — bg: gray alt */}
-            <div id="quienes" className="scroll-mt-20">
-                <WhatIsSevenToop />
-            </div>
+            {/* 6. Metodología / Cómo Funciona */}
+            <section id="como-funciona">
+                <ComoFunciona />
+            </section>
 
-            {/* 5 — Testimonios — bg: white/black */}
-            <div id="testimonios" className="scroll-mt-20">
-                <TestimonialsSection />
-            </div>
+            {/* 7. Oferta para Desarrolladores */}
+            <section id="desarrolladores">
+                <ParaDesarrolladores />
+            </section>
 
-            {/* 6 — Contacto — bg: gray alt */}
-            <div id="contacto" className="scroll-mt-20">
-                <ContactSection />
-            </div>
+            {/* 8. Comunidad */}
+            <section id="comunidad">
+                <Comunidad />
+            </section>
+
+            {/* 9. Testimonios */}
+            <TestimonialsSection />
         </main>
     );
 }

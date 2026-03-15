@@ -1,17 +1,18 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Metadata } from "next";
-import { ArrowRight, MapPin, Check, Building2, Trees, Shield } from "lucide-react";
+import { ArrowRight, MapPin, Check, Building2, Trees, Shield, Home, DollarSign } from "lucide-react";
 import { db } from "@/lib/db";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import ContactForm from "@/components/public/contact-form";
 import TourModal from "@/components/public/tour-modal";
 import PublicProjectGallery from "@/components/public/project-gallery";
 
 // Helper to find project by slug or ID
 async function getProject(slug: string) {
-    let project = await db.proyecto.findUnique({
-        where: { slug },
+    let project = await db.proyecto.findFirst({
+        where: { slug, visibilityStatus: "PUBLICADO" },
         include: {
             _count: { select: { leads: true, etapas: true } },
             tours: true,
@@ -27,8 +28,8 @@ async function getProject(slug: string) {
     });
 
     if (!project && slug.length === 25) { // Cuid length check approx
-        project = await db.proyecto.findUnique({
-            where: { id: slug },
+        project = await db.proyecto.findFirst({
+            where: { id: slug, visibilityStatus: "PUBLICADO" },
             include: {
                 _count: { select: { leads: true, etapas: true } },
                 tours: true,
@@ -61,7 +62,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
     const project = await getProject(params.slug);
 
     if (!project) {
-        notFound();
+        redirect("/proyectos");
     }
 
     const P = project as any;
@@ -73,10 +74,13 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 {/* Background */}
                 <div className="absolute inset-0 z-0">
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent z-10" />
-                    <img
+                    <Image
                         src={(project as any).imagenes?.find((img: any) => img.esPrincipal)?.url || project.imagenPortada || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop"}
                         alt={project.nombre}
-                        className="w-full h-full object-cover animate-zoom-in"
+                        fill
+                        className="object-cover animate-zoom-in"
+                        priority
+                        sizes="100vw"
                     />
                 </div>
 
@@ -187,6 +191,69 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
 
             {/* ─── Gallery ─── */}
             <PublicProjectGallery imagenes={(project as any).imagenes || []} />
+
+            {/* ─── Inventario público ─── */}
+            {(() => {
+                const todasLasUnidades: any[] = P.etapas?.flatMap((e: any) => e.manzanas.flatMap((m: any) => m.unidades)) || [];
+                const disponibles = todasLasUnidades.filter((u: any) => u.estado === "DISPONIBLE");
+                if (disponibles.length === 0) return null;
+                return (
+                    <section className="py-20 bg-slate-900">
+                        <div className="max-w-7xl mx-auto px-4">
+                            <div className="flex items-center justify-between mb-10">
+                                <div>
+                                    <h2 className="text-3xl font-bold text-white">Lotes Disponibles</h2>
+                                    <p className="text-slate-400 mt-1">{disponibles.length} lotes disponibles para inversión</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {disponibles.slice(0, 12).map((u: any) => (
+                                    <div key={u.id} className="bg-slate-800 border border-white/5 rounded-2xl p-5 hover:border-brand-500/40 transition-all">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <Home className="w-4 h-4 text-brand-400" />
+                                                <span className="font-bold text-white">Lote #{u.numero}</span>
+                                            </div>
+                                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Disponible</span>
+                                        </div>
+                                        {u.superficie && (
+                                            <p className="text-sm text-slate-400 mb-2">{u.superficie} m² · {u.frente && u.fondo ? `${u.frente}×${u.fondo}m` : ""}</p>
+                                        )}
+                                        {u.precio && (
+                                            <p className="text-lg font-black text-white mt-2 flex items-center gap-1">
+                                                <DollarSign className="w-4 h-4 text-brand-400" />
+                                                {formatCurrency(u.precio)} {u.moneda || "USD"}
+                                            </p>
+                                        )}
+                                        <a
+                                            href="#contacto"
+                                            className="mt-3 block w-full py-2 text-center rounded-xl text-xs font-bold bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 transition-colors"
+                                        >
+                                            Consultar este lote
+                                        </a>
+                                    </div>
+                                ))}
+                            </div>
+                            {disponibles.length > 12 && (
+                                <p className="text-center text-slate-500 mt-6 text-sm">{disponibles.length - 12} lotes más disponibles — consultá por la lista completa</p>
+                            )}
+                        </div>
+                    </section>
+                );
+            })()}
+
+            {/* ─── Tour 360° público (si tiene URL) ─── */}
+            {P.tour360Url && (
+                <section className="py-20 bg-slate-950">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <h2 className="text-3xl font-bold text-white mb-2">Tour Virtual 360°</h2>
+                        <p className="text-slate-400 mb-8">Explorá el proyecto desde la comodidad de tu hogar</p>
+                        <div className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl" style={{ height: 550 }}>
+                            <iframe src={P.tour360Url} className="w-full h-full" allowFullScreen style={{ border: "none" }} title="Tour 360°" />
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* ─── Contact ─── */}
             <section id="contacto" className="py-24 bg-slate-950 relative overflow-hidden">

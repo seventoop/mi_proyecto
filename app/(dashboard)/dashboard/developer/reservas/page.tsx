@@ -4,9 +4,11 @@ import { getLeads } from "@/lib/actions/leads";
 import { getAllUnidades } from "@/lib/actions/unidades";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function ReservasPage() {
     const session = await getServerSession(authOptions);
+    if (!session?.user) redirect("/login");
 
     // Parallel data fetching
     const [reservasRes, leadsRes, unidadesRes] = await Promise.all([

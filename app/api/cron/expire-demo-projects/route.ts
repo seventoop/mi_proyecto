@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
             where: {
                 isDemo: true,
                 demoExpiresAt: { lte: now },
-                visibilityStatus: "PUBLICADO"
+                visibilityStatus: "PUBLICADO",
+                deletedAt: null
             },
             include: {
                 creadoPor: {

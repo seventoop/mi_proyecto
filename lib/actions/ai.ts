@@ -124,7 +124,7 @@ export async function processIncomingLeadMessage(input: unknown) {
                 return { success: false, error: "Mensaje demasiado corto" };
             }
 
-            lead = await prisma.lead.create({
+            lead = await (prisma.lead.create({
                 data: {
                     telefono: data.telefono,
                     nombre: data.nombre || "Nuevo Lead WhatsApp",
@@ -132,16 +132,37 @@ export async function processIncomingLeadMessage(input: unknown) {
                     mensaje: data.mensaje,
                     proyectoId: data.proyectoId || null,
                     origen: "WHATSAPP",
+                    canalOrigen: "WHATSAPP",
                     automationStatus: "PILOT" as any
-                },
+                } as any,
                 include: { proyecto: true }
-            });
+            }) as any);
+
+            // Audit Log
+            await (prisma.auditLog.create({
+                data: {
+                    userId: "system",
+                    action: "LEAD_INBOUND_WEBHOOK",
+                    entity: "Lead",
+                    entityId: (lead as any).id,
+                    details: JSON.stringify({ canal: "WHATSAPP", status: "NEW" })
+                }
+            }) as any);
         } else {
-            await prisma.lead.update({
+            const updateData: any = { mensaje: data.mensaje };
+
+            // Mark as CONTACTADO if it was NEW
+            if (lead.estado === "NUEVO") {
+                updateData.estado = "CONTACTADO";
+            }
+
+            await (prisma.lead.update({
                 where: { id: lead.id },
-                data: { mensaje: data.mensaje }
-            });
+                data: updateData
+            }) as any);
         }
+
+        if (!lead) return { success: false, error: "No se pudo obtener el lead" };
 
         // 2. Store Incoming Message
         await prisma.leadMessage.create({
@@ -158,12 +179,15 @@ export async function processIncomingLeadMessage(input: unknown) {
         const isPilotLead = (lead as any).automationStatus === "PILOT";
 
         if (!isPilotGlobal && !isPilotLead) {
-            return { success: true, message: "Modo Manual/Copilot: Registrado sin auto-respuesta.", leadId: lead.id };
+            return { success: true, message: "Modo Manual/Copilot: Registrado sin auto-respuesta.", leadId: lead?.id };
         }
+
+        // --- SAFETY CHECK ---
+        if (!lead) return { success: false, error: "Error critico: Lead no encontrado tras creacion" };
 
         // 4. Fetch Recent History for Context
         const history = await prisma.leadMessage.findMany({
-            where: { leadId: lead.id },
+            where: { leadId: (lead as any).id },
             orderBy: { createdAt: 'desc' },
             take: 6
         });
@@ -174,8 +198,8 @@ export async function processIncomingLeadMessage(input: unknown) {
         if (!apiKey) return { success: false, error: "API Key missing" };
 
         const openai = new OpenAI({ apiKey });
-        const kb = lead.proyecto?.aiKnowledgeBase || "Información general de ventas.";
-        const systemPrompt = lead.proyecto?.aiSystemPrompt || "Asistente inteligente de ventas inmobiliarias.";
+        const kb = (lead as any).proyecto?.aiKnowledgeBase || "Información general de ventas.";
+        const systemPrompt = (lead as any).proyecto?.aiSystemPrompt || "Asistente inteligente de ventas inmobiliarias.";
 
         const historyText = history
             .reverse()
@@ -221,7 +245,7 @@ JSON Schema:
 
         // 6. Update Lead with AI insights
         await prisma.lead.update({
-            where: { id: lead.id },
+            where: { id: lead!.id },
             data: {
                 aiQualificationScore: result.score,
                 lastAiSummary: result.summary,
@@ -236,13 +260,13 @@ JSON Schema:
             result.response += vipInvite;
 
             await prisma.lead.update({
-                where: { id: lead.id },
+                where: { id: lead!.id },
                 data: { communityType: 'VIP' as any }
             });
         }
 
         // 8. Store & Send WhatsApp Message
-        if (result.response) {
+        if (result.response && lead) {
             await prisma.leadMessage.create({
                 data: {
                     leadId: lead.id,
@@ -253,7 +277,7 @@ JSON Schema:
             await sendWhatsAppMessage(data.telefono, result.response);
         }
 
-        return { success: true, data: result, leadId: lead.id };
+        return { success: true, data: result, leadId: lead?.id };
     } catch (error: any) {
         console.error("Error in AI Pilot processing:", error);
         return { success: false, error: error.message };
@@ -263,9 +287,8 @@ JSON Schema:
 async function sendWhatsAppMessage(to: string, message: string) {
     try {
         const providerConfig = await getSystemConfig("WHATSAPP_PROVIDER_KEY");
-        const apiKey = providerConfig.value;
+        const apiKey = providerConfig.value || process.env.WHATSAPP_API_KEY;
         if (!apiKey) return;
-        console.log(`[WA SEND] To: ${to} | Msg: ${message}`);
     } catch (error) {
         console.error("Failed to send WhatsApp message:", error);
     }
@@ -288,7 +311,7 @@ export async function joinOpenCommunity(input: unknown) {
                     nombre: formData.nombre,
                     communityType: 'OPEN' as any,
                     origen: 'LANDING_COMMUNITY'
-                }
+                } as any
             });
         } else {
             lead = await prisma.lead.create({
@@ -298,7 +321,7 @@ export async function joinOpenCommunity(input: unknown) {
                     communityType: 'OPEN' as any,
                     origen: 'LANDING_COMMUNITY',
                     automationStatus: 'PILOT' as any
-                }
+                } as any
             });
         }
 

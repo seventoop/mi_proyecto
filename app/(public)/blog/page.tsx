@@ -1,6 +1,7 @@
 import { getNoticias } from "@/lib/actions/noticias";
 import Link from "next/link";
-import { BookOpen, Calendar, ArrowRight, Tag } from "lucide-react";
+import Image from "next/image";
+import { BookOpen, Calendar, ArrowRight, Tag, Sparkles } from "lucide-react";
 import MediaBanner from "@/components/public/media-banner";
 
 export const metadata = {
@@ -35,10 +36,12 @@ export default async function BlogPage() {
                         noticias.map((post: any) => (
                             <article key={post.id} className="group bg-white dark:bg-black border border-slate-200 dark:border-white/10 rounded-[2.5rem] overflow-hidden hover:border-brand-orange/50 transition-all hover:shadow-2xl hover:shadow-brand-orange/10">
                                 <Link href={`/blog/${post.slug}`} className="block relative h-64 overflow-hidden">
-                                    <img
+                                    <Image
                                         src={post.imagenUrl || "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?q=80&w=2070&auto=format&fit=crop"}
                                         alt={post.titulo}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                        fill
+                                        className="object-cover group-hover:scale-110 transition-transform duration-700"
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                     />
                                     <div className="absolute top-4 left-4 px-3 py-1.5 rounded-xl bg-brand-orange/90 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider">
                                         {post.categoria}
@@ -65,8 +68,29 @@ export default async function BlogPage() {
                             </article>
                         ))
                     ) : (
-                        <div className="col-span-full text-center py-20 text-foreground/40">
-                            Próximamente estaremos compartiendo nuestras primeras noticias.
+                        <div className="col-span-full py-24 text-center">
+                            <div className="w-24 h-24 rounded-[2rem] bg-brand-orange/10 border border-brand-orange/20 flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-brand-orange/20">
+                                <Sparkles className="w-10 h-10 text-brand-orange animate-pulse" />
+                            </div>
+                            <h3 className="text-3xl font-bold text-foreground mb-4">Próximamente</h3>
+                            <p className="text-foreground/50 max-w-md mx-auto text-lg leading-relaxed">
+                                Estamos preparando contenido exclusivo sobre urbanismo digital,
+                                lanzamientos inmobiliarios y estrategias de inversión.
+                            </p>
+                            <div className="mt-12 flex justify-center gap-4">
+                                <Link
+                                    href="/proyectos"
+                                    className="px-8 py-3 rounded-2xl bg-brand-orange text-white font-bold hover:bg-brand-orangeDark transition-all shadow-glow"
+                                >
+                                    Ver Proyectos
+                                </Link>
+                                <Link
+                                    href="/contacto"
+                                    className="px-8 py-3 rounded-2xl border-2 border-brand-orange text-brand-orange font-bold hover:bg-brand-orange hover:text-white transition-all"
+                                >
+                                    Contactar
+                                </Link>
+                            </div>
                         </div>
                     )}
                 </div>

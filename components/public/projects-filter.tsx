@@ -5,6 +5,7 @@ import { Search, SlidersHorizontal, ArrowDownUp } from "lucide-react";
 import { Proyecto } from "@prisma/client";
 import { motion, AnimatePresence } from "framer-motion";
 import ProjectCard from "./project-card";
+import { useLanguage } from "@/components/providers/language-provider";
 
 interface ProjectsFilterProps {
     initialProjects: (Proyecto & {
@@ -14,6 +15,7 @@ interface ProjectsFilterProps {
 }
 
 export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps) {
+    const { dictionary: t } = useLanguage();
     const [search, setSearch] = useState("");
     const [filterType, setFilterType] = useState<string>("TODOS");
     const [filterStatus, setFilterStatus] = useState<string>("TODOS");
@@ -38,7 +40,7 @@ export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps)
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Buscar por nombre o ubicación..."
+                        placeholder={t.projects.filter.searchPlaceholder}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-brand-500/50 transition-colors"
                     />
                 </div>
@@ -50,9 +52,9 @@ export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps)
                         onChange={(e) => setFilterType(e.target.value)}
                         className="w-full px-4 py-2.5 rounded-xl bg-black/20 border border-white/10 text-white focus:outline-none focus:border-brand-500/50 appearance-none cursor-pointer"
                     >
-                        <option value="TODOS">Tipo: Todos</option>
-                        <option value="URBANIZACION">Urbanizaciones</option>
-                        <option value="EDIFICIO">Edificios</option>
+                        <option value="TODOS">{t.projects.filter.typeAll}</option>
+                        <option value="URBANIZACION">{t.projects.filter.typeUrbanization}</option>
+                        <option value="EDIFICIO">{t.projects.filter.typeBuilding}</option>
                     </select>
                 </div>
 
@@ -63,10 +65,10 @@ export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps)
                         onChange={(e) => setFilterStatus(e.target.value)}
                         className="w-full px-4 py-2.5 rounded-xl bg-black/20 border border-white/10 text-white focus:outline-none focus:border-brand-500/50 appearance-none cursor-pointer"
                     >
-                        <option value="TODOS">Estado: Todos</option>
-                        <option value="PLANIFICACION">En Planificación</option>
-                        <option value="EN_DESARROLLO">En Desarrollo</option>
-                        <option value="ENTREGADO">Entregado</option>
+                        <option value="TODOS">{t.projects.filter.statusAll}</option>
+                        <option value="PLANIFICACION">{t.projects.filter.statusPlanning}</option>
+                        <option value="EN_DESARROLLO">{t.projects.filter.statusDeveloping}</option>
+                        <option value="ENTREGADO">{t.projects.filter.statusDelivered}</option>
                     </select>
                 </div>
             </div>
@@ -91,13 +93,13 @@ export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps)
                         <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
                             <Search className="w-8 h-8 text-slate-500" />
                         </div>
-                        <h3 className="text-xl font-bold text-white mb-2">No se encontraron proyectos</h3>
-                        <p className="text-slate-400">Intenta ajustar los filtros de búsqueda.</p>
+                        <h3 className="text-xl font-bold text-white mb-2">{t.projects.filter.noResults}</h3>
+                        <p className="text-slate-400">{t.projects.filter.noResultsDesc}</p>
                         <button
                             onClick={() => { setSearch(""); setFilterType("TODOS"); setFilterStatus("TODOS"); }}
                             className="mt-4 text-brand-400 hover:text-brand-300 font-medium"
                         >
-                            Limpiar filtros
+                            {t.projects.filter.clearFilters}
                         </button>
                     </div>
                 )}

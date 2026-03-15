@@ -7,7 +7,19 @@ import * as Sentry from "@sentry/nextjs";
 import { requireRole, handleGuardError } from "@/lib/guards";
 import { idSchema } from "@/lib/validations";
 
-// ─── Scemas ───
+// ─── Scemas & Types ───
+
+export interface Testimonio {
+    id: string;
+    autorNombre: string;
+    autorTipo: string;
+    texto: string;
+    rating: number | null;
+    estado: string;
+    mediaUrl: string | null;
+    createdAt: Date;
+    proyecto?: { id: string; nombre: string } | null;
+}
 
 const testimonioCreateSchema = z.object({
     autorNombre: z.string().min(2, "Nombre requerido").max(100),
@@ -26,16 +38,16 @@ const moderationSchema = z.object({
 
 // ─── Queries ───
 
+// Public: only returns APROBADO testimonios — no guard needed
 export async function getTestimonios(params: {
     page?: number;
     pageSize?: number;
-    status?: string;
 } = {}) {
-    const { page = 1, pageSize = 20, status } = params;
+    const { page = 1, pageSize = 20 } = params;
     const skip = (page - 1) * pageSize;
 
     try {
-        const where = status ? { estado: status } : {};
+        const where = { estado: "APROBADO" };
         const [testimonios, total] = await Promise.all([
             prisma.testimonio.findMany({
                 where,
@@ -60,16 +72,50 @@ export async function getTestimonios(params: {
         return {
             success: true,
             data: testimonios,
-            metadata: {
-                total,
-                page,
-                pageSize,
-                totalPages: Math.ceil(total / pageSize)
-            }
+            metadata: { total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
         };
     } catch (error) {
-        console.error("Error fetching testimonios:", error);
         return { success: false, error: "Error al obtener testimonios" };
+    }
+}
+
+// Admin: returns all testimonios regardless of status — requires ADMIN role
+export async function getTestimoniosAdmin(params: {
+    page?: number;
+    pageSize?: number;
+} = {}) {
+    try {
+        await requireRole("ADMIN");
+        const { page = 1, pageSize = 50 } = params;
+        const skip = (page - 1) * pageSize;
+
+        const [testimonios, total] = await Promise.all([
+            prisma.testimonio.findMany({
+                select: {
+                    id: true,
+                    autorNombre: true,
+                    autorTipo: true,
+                    texto: true,
+                    rating: true,
+                    estado: true,
+                    mediaUrl: true,
+                    createdAt: true,
+                    proyecto: { select: { id: true, nombre: true } }
+                },
+                orderBy: { createdAt: "desc" },
+                take: pageSize,
+                skip
+            }),
+            prisma.testimonio.count()
+        ]);
+
+        return {
+            success: true,
+            data: testimonios,
+            metadata: { total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
+        };
+    } catch (error) {
+        return handleGuardError(error);
     }
 }
 
@@ -83,11 +129,18 @@ export async function createTestimonio(input: unknown) {
         }
         const data = parsed.data;
 
+        // Rate limit: max 3 PENDIENTE per autorContacto (email)
+        if (data.autorContacto) {
+            const pendingCount = await prisma.testimonio.count({
+                where: { autorContacto: data.autorContacto, estado: "PENDIENTE" },
+            });
+            if (pendingCount >= 3) {
+                return { success: false, error: "Tienes demasiados testimonios pendientes de revisión. Por favor, aguarda la moderación." };
+            }
+        }
+
         await prisma.testimonio.create({
-            data: {
-                ...data,
-                estado: "PENDIENTE",
-            },
+            data: { ...data, estado: "PENDIENTE" },
         });
         return { success: true };
     } catch (error) {

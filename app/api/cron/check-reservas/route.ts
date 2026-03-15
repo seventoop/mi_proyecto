@@ -67,20 +67,22 @@ export async function POST(req: NextRequest) {
         // Broadcast events (non-blocking)
         try {
             const pusher = getPusherServer();
-            for (const reserva of expiredReservas) {
-                await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_EXPIRED, {
-                    reservaId: reserva.id,
-                    unidadId: reserva.unidadId,
-                    unidadNumero: reserva.unidad.numero,
-                    vendedorId: reserva.vendedorId,
-                });
-                await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
-                    unidadId: reserva.unidadId,
-                    nuevoEstado: "DISPONIBLE",
-                });
+            if (pusher) {
+                for (const reserva of expiredReservas) {
+                    await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_EXPIRED, {
+                        reservaId: reserva.id,
+                        unidadId: reserva.unidadId,
+                        unidadNumero: reserva.unidad.numero,
+                        vendedorId: reserva.vendedorId,
+                    });
+                    await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
+                        unidadId: reserva.unidadId,
+                        nuevoEstado: "DISPONIBLE",
+                    });
+                }
             }
-        } catch {
-            // Pusher may not be configured
+        } catch (err) {
+            console.warn("Pusher trigger failed in cron check-reservas:", err);
         }
 
         return NextResponse.json({

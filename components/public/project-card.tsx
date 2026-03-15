@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, MapPin, TrendingUp } from "lucide-react";
 import { Proyecto } from "@prisma/client";
+import { useLanguage } from "@/components/providers/language-provider";
 
 interface ProjectCardProps {
     project: Proyecto & {
@@ -11,6 +12,7 @@ interface ProjectCardProps {
 }
 
 export default function ProjectCard({ project }: ProjectCardProps) {
+    const { dictionary: t } = useLanguage();
     const minPrice = project.unidades?.length
         ? Math.min(...project.unidades.map((u) => u.precio))
         : 0;
@@ -32,12 +34,16 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                 />
                 <div className="absolute top-4 left-4 z-20 flex flex-wrap gap-2">
                     <span className="px-3 py-1.5 rounded-xl backdrop-blur-md bg-brand-orange text-[10px] font-bold text-white border border-white/20 uppercase tracking-widest shadow-lg">
-                        {project.tipo}
+                        {project.tipo === "URBANIZACION" ? t.search.typeUrbanization :
+                         project.tipo === "BARRIO_PRIVADO" ? t.search.typePrivateNeighborhood :
+                         project.tipo === "EDIFICIO" ? t.search.typeBuilding :
+                         project.tipo === "CONDOMINIO" ? t.search.typeCondo :
+                         project.tipo}
                     </span>
                     {project.estado === "EN_DESARROLLO" && (
                         <span className="px-3 py-1.5 rounded-xl backdrop-blur-md bg-brand-yellow text-[10px] font-bold text-brand-black uppercase tracking-widest shadow-lg flex items-center gap-1">
                             <TrendingUp className="w-3 h-3" />
-                            Lanzamiento
+                            {t.projects.card.launch}
                         </span>
                     )}
                 </div>
@@ -50,22 +56,22 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                 </h3>
                 <p className="text-sm text-brand-muted flex items-center gap-1.5 mb-4">
                     <MapPin className="w-3.5 h-3.5 text-brand-orange" />
-                    {project.ubicacion || "Ubicación pendiente"}
+                    {project.ubicacion || t.projects.card.locationPending}
                 </p>
 
                 <p className="text-sm text-foreground/60 line-clamp-2 mb-6 flex-1 leading-relaxed">
-                    {project.descripcion || "Un desarrollo urbanístico diseñado para la vida moderna."}
+                    {project.descripcion || t.projects.card.defaultDescription}
                 </p>
 
                 <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-4">
                     <div className="flex items-center justify-between">
                         <div>
                             <span className="text-2xl font-black text-brand-orange leading-none block">{unitCount}</span>
-                            <span className="text-[10px] text-brand-muted uppercase font-bold tracking-wider">Disponibles</span>
+                            <span className="text-[10px] text-brand-muted uppercase font-bold tracking-wider">{t.projects.card.available}</span>
                         </div>
                         {minPrice > 0 && (
                             <div className="text-right">
-                                <span className="text-[10px] text-brand-muted uppercase font-bold tracking-wider block">Desde</span>
+                                <span className="text-[10px] text-brand-muted uppercase font-bold tracking-wider block">{t.projects.card.from}</span>
                                 <span className="text-xl font-black text-brand-gray dark:text-brand-surface">
                                     {minPrice.toLocaleString()} {currency}
                                 </span>
@@ -73,7 +79,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                         )}
                     </div>
                     <div className="flex items-center justify-between pt-2">
-                        <span className="text-xs font-bold text-brand-orange uppercase tracking-widest">Ver Proyecto</span>
+                        <span className="text-xs font-bold text-brand-orange uppercase tracking-widest">{t.projects.card.viewProject}</span>
                         <div className="w-10 h-10 rounded-full bg-brand-orange flex items-center justify-center text-white transition-all shadow-lg shadow-brand-orange/20 group-hover:bg-brand-orangeDark">
                             <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
                         </div>

@@ -6,6 +6,8 @@ import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { getPusherClient, CHANNELS, EVENTS, PUSHER_CHANNELS } from "@/lib/pusher";
 
 interface Notification {
     id: string;
@@ -128,15 +130,15 @@ export default function NotificationBell() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const { data: session } = useSession();
 
     const fetchNotifications = async () => {
         try {
             const res = await fetch("/api/notifications");
             if (res.ok) {
                 const data = await res.json();
-                setNotifications(data);
-                const count = data.filter((n: Notification) => !n.leido).length;
-                setUnreadCount(count);
+                setNotifications(data.notifications || []);
+                setUnreadCount(data.unreadCount || 0);
             }
         } catch (error) {
             console.error("Error fetching notifications:", error);
@@ -145,10 +147,47 @@ export default function NotificationBell() {
 
     useEffect(() => {
         fetchNotifications();
-        // Polling every 60s instead of 30s to reduce load
-        const interval = setInterval(fetchNotifications, 60000);
-        return () => clearInterval(interval);
-    }, []);
+
+        // 1. Intentar suscribirse a notificaciones vía Pusher
+        const userId = (session?.user as any)?.id;
+        let pusher: any = null;
+        let channel: any = null;
+
+        if (userId) {
+            pusher = getPusherClient();
+            if (pusher) {
+                try {
+                    const channelName = PUSHER_CHANNELS.getUserChannel(userId);
+                    channel = pusher.subscribe(channelName);
+
+                    channel.bind(EVENTS.NOTIFICATION_NEW, (data: any) => {
+                        setNotifications(prev => [data, ...prev].slice(0, 50));
+                        setUnreadCount(prev => prev + 1);
+                    });
+                } catch (err) {
+                    console.warn("Pusher subscription failed, falling back to polling.", err);
+                }
+            }
+        }
+
+        // 2. Fallback: Polling cada 30 segundos si Pusher no está activo o falla
+        const interval = setInterval(() => {
+            if (!pusher || pusher.connection.state !== 'connected') {
+                fetchNotifications();
+            }
+        }, 30000);
+
+        return () => {
+            if (pusher && channel) {
+                const userId = (session?.user as any)?.id;
+                if (userId) {
+                    const channelName = PUSHER_CHANNELS.getUserChannel(userId);
+                    pusher.unsubscribe(channelName);
+                }
+            }
+            clearInterval(interval);
+        };
+    }, [session]);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -181,7 +220,7 @@ export default function NotificationBell() {
             const res = await fetch("/api/notifications", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ readAll: true }),
+                body: JSON.stringify({ all: true }),
             });
             if (res.ok) {
                 setNotifications(prev => prev.map(n => ({ ...n, leido: true })));

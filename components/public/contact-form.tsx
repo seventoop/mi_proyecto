@@ -6,11 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Send, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { crearConsultaContacto } from "@/lib/actions/leads";
 
 const formSchema = z.object({
     nombre: z.string().min(2, "Ingresa tu nombre completo"),
     email: z.string().email("Ingresa un email válido"),
-    telefono: z.string().min(8, "Ingresa un teléfono válido"),
+    telefono: z.string().min(6, "Ingresa un teléfono válido"),
     mensaje: z.string().optional(),
 });
 
@@ -18,9 +19,10 @@ interface ContactFormProps {
     proyectoId?: string;
     compact?: boolean;
     className?: string;
+    origen?: string;
 }
 
-export default function ContactForm({ proyectoId, compact, className }: ContactFormProps) {
+export default function ContactForm({ proyectoId, compact, className, origen }: ContactFormProps) {
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -35,23 +37,21 @@ export default function ContactForm({ proyectoId, compact, className }: ContactF
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
         setError(null);
         try {
-            const res = await fetch("/api/leads/public", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    ...data,
-                    proyectoId,
-                    origen: proyectoId ? "WEB_PROYECTO" : "WEB_CONTACTO",
-                }),
+            const res = await crearConsultaContacto({
+                nombre: data.nombre,
+                email: data.email,
+                telefono: data.telefono,
+                mensaje: data.mensaje || "",
+                proyectoId,
+                origen: origen || (proyectoId ? "WEB_PROYECTO" : "WEB_CONTACTO"),
             });
 
-            if (res.ok) {
+            if (res.success) {
                 setIsSuccess(true);
             } else {
-                const err = await res.json();
-                setError(err.error || "Ocurrió un error al enviar");
+                setError(res.error || "Ocurrió un error al enviar");
             }
-        } catch (e) {
+        } catch {
             setError("Error de conexión. Intenta nuevamente.");
         }
     };

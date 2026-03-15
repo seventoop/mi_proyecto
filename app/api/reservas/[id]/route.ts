@@ -161,16 +161,20 @@ export async function PUT(
                     return res;
                 });
 
-                try {
-                    await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CANCELLED, {
-                        reservaId: params.id,
-                        unidadId: reserva.unidadId,
-                    });
-                    await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
-                        unidadId: reserva.unidadId,
-                        nuevoEstado: "DISPONIBLE",
-                    });
-                } catch { }
+                if (pusher) {
+                    try {
+                        await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CANCELLED, {
+                            reservaId: params.id,
+                            unidadId: reserva.unidadId,
+                        });
+                        await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
+                            unidadId: reserva.unidadId,
+                            nuevoEstado: "DISPONIBLE",
+                        });
+                    } catch (err) {
+                        console.warn("Pusher trigger failed on cancel:", err);
+                    }
+                }
                 break;
             }
 
@@ -203,16 +207,20 @@ export async function PUT(
                     return res;
                 });
 
-                try {
-                    await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CONVERTED, {
-                        reservaId: params.id,
-                        unidadId: reserva.unidadId,
-                    });
-                    await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
-                        unidadId: reserva.unidadId,
-                        nuevoEstado: "VENDIDO",
-                    });
-                } catch { }
+                if (pusher) {
+                    try {
+                        await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CONVERTED, {
+                            reservaId: params.id,
+                            unidadId: reserva.unidadId,
+                        });
+                        await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
+                            unidadId: reserva.unidadId,
+                            nuevoEstado: "VENDIDO",
+                        });
+                    } catch (err) {
+                        console.warn("Pusher trigger failed on convert:", err);
+                    }
+                }
                 break;
             }
 

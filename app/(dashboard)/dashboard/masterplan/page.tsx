@@ -10,6 +10,7 @@ export default async function MasterplanIndexPage() {
     if (!session) redirect("/login");
 
     const projectsRaw = await prisma.proyecto.findMany({
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         include: {
             etapas: {

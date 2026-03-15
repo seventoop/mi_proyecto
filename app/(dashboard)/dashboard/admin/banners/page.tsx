@@ -1,16 +1,32 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, Filter, MoreVertical, Image, Play, Eye, PauseCircle, CheckCircle, XCircle, DollarSign } from "lucide-react";
+import { Plus, Play, Eye, PauseCircle, CheckCircle, XCircle, DollarSign, Image as ImageIcon } from "lucide-react";
+import Image from "next/image";
 import BannerForm from "@/components/dashboard/banners/banner-form";
 import { getBanners, deleteBanner, updateBanner } from "@/lib/actions/banners";
 import { cn } from "@/lib/utils";
 
+interface Banner {
+    id: string;
+    titulo: string;
+    mediaUrl: string;
+    tipo: string;
+    estado: string;
+    creadoPorId?: string | null;
+    pago?: {
+        id: string;
+        monto: any;
+        estado: string;
+        comprobanteUrl?: string | null;
+    } | null;
+}
+
 export default function BannersPage() {
-    const [banners, setBanners] = useState<any[]>([]);
+    const [banners, setBanners] = useState<Banner[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [editingBanner, setEditingBanner] = useState<any>(null);
+    const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
     const [filter, setFilter] = useState("TODOS");
 
     const fetchBanners = async () => {
@@ -31,7 +47,7 @@ export default function BannersPage() {
         setShowForm(true);
     };
 
-    const handleEdit = (banner: any) => {
+    const handleEdit = (banner: Banner) => {
         setEditingBanner(banner);
         setShowForm(true);
     };
@@ -110,7 +126,7 @@ export default function BannersPage() {
             ) : filteredBanners.length === 0 ? (
                 <div className="text-center py-20 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-800">
                     <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Image className="w-8 h-8 text-slate-400" />
+                        <ImageIcon className="w-8 h-8 text-slate-400" />
                     </div>
                     <h3 className="text-lg font-medium text-slate-900 dark:text-white">No hay banners en esta categoría</h3>
                 </div>
@@ -123,7 +139,12 @@ export default function BannersPage() {
                                 {banner.tipo === "VIDEO" ? (
                                     <video src={banner.mediaUrl} className="w-full h-full object-cover" muted loop />
                                 ) : (
-                                    <img src={banner.mediaUrl} alt={banner.titulo} className="w-full h-full object-cover" />
+                                    <Image
+                                        src={banner.mediaUrl}
+                                        alt={banner.titulo}
+                                        fill
+                                        className="w-full h-full object-cover"
+                                    />
                                 )}
 
                                 {/* Overlay Gradient */}
@@ -135,7 +156,7 @@ export default function BannersPage() {
                                 </div>
 
                                 <div className="absolute top-3 right-3 flex gap-2">
-                                    {banner.pago && (
+                                    {banner.pago?.comprobanteUrl && (
                                         <a href={banner.pago.comprobanteUrl} target="_blank" rel="noopener noreferrer"
                                             className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold rounded-lg border border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-colors flex items-center gap-1">
                                             <DollarSign className="w-3 h-3" /> Pago

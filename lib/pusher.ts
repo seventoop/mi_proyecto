@@ -4,13 +4,25 @@ import PusherClient from "pusher-js";
 // ─── Server-side Pusher instance ───
 let pusherServer: Pusher | null = null;
 
-export function getPusherServer(): Pusher {
+const isInvalid = (val: string | undefined) => !val || val === "..." || val.includes("your-") || val.includes("sk-");
+
+export function getPusherServer(): Pusher | null {
+    const appId = process.env.PUSHER_APP_ID;
+    const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const secret = process.env.PUSHER_SECRET;
+    const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+
+    if (isInvalid(appId) || isInvalid(key) || isInvalid(secret)) {
+        console.warn("Pusher Server configuration is missing or invalid.");
+        return null;
+    }
+
     if (!pusherServer) {
         pusherServer = new Pusher({
-            appId: process.env.PUSHER_APP_ID || "app-id",
-            key: process.env.NEXT_PUBLIC_PUSHER_KEY || "app-key",
-            secret: process.env.PUSHER_SECRET || "app-secret",
-            cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "us2",
+            appId: appId!,
+            key: key!,
+            secret: secret!,
+            cluster: cluster || "us2",
             useTLS: true,
         });
     }
@@ -20,14 +32,25 @@ export function getPusherServer(): Pusher {
 // ─── Client-side Pusher instance (singleton) ───
 let pusherClient: PusherClient | null = null;
 
-export function getPusherClient(): PusherClient {
+export function getPusherClient(): PusherClient | null {
+    const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+
+    if (isInvalid(key)) {
+        return null;
+    }
+
     if (!pusherClient) {
-        pusherClient = new PusherClient(
-            process.env.NEXT_PUBLIC_PUSHER_KEY || "app-key",
-            {
-                cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "us2",
-            }
-        );
+        try {
+            pusherClient = new PusherClient(key!, {
+                cluster: cluster || "us2",
+                enabledTransports: ['ws', 'wss'], // Prefer WebSockets to avoid XHR streaming errors if possible
+                authEndpoint: "/api/pusher/auth",
+            });
+        } catch (error) {
+            console.error("Failed to initialize Pusher Client:", error);
+            return null;
+        }
     }
     return pusherClient;
 }
@@ -46,11 +69,11 @@ export const EVENTS = {
     RESERVA_CANCELLED: "reserva:cancelled",
     RESERVA_CONVERTED: "reserva:converted",
     UNIDAD_STATUS_CHANGED: "unidad:status-changed",
-    NOTIFICATION_NEW: "notification:new",
+    NOTIFICATION_NEW: "new-notification",
     USER_UPDATED: "user:updated",
 } as const;
 
 export const PUSHER_CHANNELS = {
-    getUserChannel: (userId: string) => `private-user-${userId}`,
+    getUserChannel: (userId: string) => `private-user-${userId}-notifications`,
     getProjectChannel: (projectId: string) => `private-project-${projectId}`,
 };

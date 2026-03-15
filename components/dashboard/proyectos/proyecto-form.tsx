@@ -5,7 +5,7 @@ import { X, Save, Building2, MapPin, DollarSign, Calendar, AlertCircle, Image as
 import { cn } from "@/lib/utils";
 import { createProyecto, updateProyecto } from "@/lib/actions/proyectos";
 import { useRouter } from "next/navigation";
-import ProjectTechnicalFiles from "./project-technical-files";
+import DocumentosManager from "./documentos-manager";
 import ProjectGalleryManager from "./project-gallery-manager";
 import AIDescriptionModal from "./ai-description-modal";
 import { improveProjectDescription } from "@/lib/actions/ai";
@@ -602,7 +602,13 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                         </div>
 
                         {!isNew ? (
-                            <ProjectTechnicalFiles proyectoId={proyecto.id} />
+                            <div className="space-y-4">
+                                <DocumentosManager 
+                                    proyectoId={proyecto.id} 
+                                    userRole={userRole || "ADMIN"}
+                                    documentos={proyecto.documentacion || []}
+                                />
+                            </div>
                         ) : (
                             <div className="text-center py-10 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
                                 <p className="text-sm text-slate-500">Podrás subir archivos técnicos una vez que el proyecto haya sido creado.</p>

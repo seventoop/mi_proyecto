@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
-import { requireAuth, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, requireKYC, handleApiGuardError } from "@/lib/guards";
 
 // ─── GET /api/reservas — List with filters ───
 export async function GET(req: NextRequest) {
@@ -73,9 +73,9 @@ export async function GET(req: NextRequest) {
             unidadNumero: r.unidad.numero,
             proyectoNombre: r.unidad.manzana.etapa.proyecto.nombre,
             proyectoId: r.unidad.manzana.etapa.proyecto.id,
-            clienteNombre: r.lead.nombre,
-            clienteEmail: r.lead.email,
-            clienteTelefono: r.lead.telefono,
+            clienteNombre: (r as any).compradorNombre || r.lead?.nombre || "—",
+            clienteEmail: (r as any).compradorEmail || r.lead?.email || null,
+            clienteTelefono: r.lead?.telefono ?? null,
             vendedorNombre: r.vendedor.nombre,
             vendedorId: r.vendedorId,
             leadId: r.leadId,
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/reservas — Create new reservation ───
 export async function POST(req: NextRequest) {
     try {
-        const user = await requireAuth();
+        const user = await requireKYC();
         const body = await req.json();
         const { unidadId, leadId, plazo, montoSena } = body;
 
@@ -154,13 +154,15 @@ export async function POST(req: NextRequest) {
         // 4. Broadcast real-time event (optional but good for CRM)
         try {
             const pusher = getPusherServer();
-            await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CREATED, {
-                reservaId: reserva.id,
-                unidadId,
-                estado: "PENDIENTE_APROBACION",
-            });
-        } catch {
-            // Silence pusher errors
+            if (pusher) {
+                await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CREATED, {
+                    reservaId: reserva.id,
+                    unidadId,
+                    estado: "PENDIENTE_APROBACION",
+                });
+            }
+        } catch (err) {
+            console.warn("Pusher trigger failed in reservations API:", err);
         }
 
         return NextResponse.json(reserva, { status: 201 });

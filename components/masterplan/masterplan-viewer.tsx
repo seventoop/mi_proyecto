@@ -257,7 +257,7 @@ const UnitPolygon = memo(function UnitPolygon({
 
 interface MasterplanViewerProps {
     proyectoId: string;
-    modo: "admin" | "public";
+    modo: "admin" | "public" | "inversor";
 }
 
 export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerProps) {
@@ -332,6 +332,8 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
     // 2. Implementation of Real-time sync via Pusher
     useEffect(() => {
         const pusher = getPusherClient();
+        if (!pusher) return;
+
         const channel = pusher.subscribe(CHANNELS.UNIDADES);
 
         channel.bind(EVENTS.UNIDAD_STATUS_CHANGED, (data: { id: string; estado: MasterplanUnit["estado"]; proyectoId?: string }) => {
@@ -342,7 +344,9 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
         });
 
         return () => {
-            pusher.unsubscribe(CHANNELS.UNIDADES);
+            if (pusher) {
+                pusher.unsubscribe(CHANNELS.UNIDADES);
+            }
         };
     }, [proyectoId, updateUnitState]);
 

@@ -66,3 +66,6 @@ next-env.d.ts
 # Prisma generated (if any)
 # =========================
 app/generated/prisma/
+# local scratch
+tmp/
+

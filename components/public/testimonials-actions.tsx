@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MessageSquarePlus, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
+import { useLanguage } from "@/components/providers/language-provider";
 
 const TestimonioForm = dynamic(() => import("./testimonio-form"), {
     ssr: false,
@@ -11,6 +12,7 @@ const TestimonioForm = dynamic(() => import("./testimonio-form"), {
 });
 
 export default function TestimonialsActions() {
+    const { dictionary: t } = useLanguage();
     const [showModal, setShowModal] = useState(false);
 
     return (
@@ -20,7 +22,7 @@ export default function TestimonialsActions() {
                 className="inline-flex items-center gap-2 px-8 py-4 bg-brand-orange text-white rounded-xl font-black uppercase text-xs tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-brand-orange/25"
             >
                 <MessageSquarePlus className="w-5 h-5" />
-                Compartir mi Experiencia
+                {t.testimonials.actions.shareExperience}
             </button>
 
             <AnimatePresence>
