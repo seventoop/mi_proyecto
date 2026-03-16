@@ -72,7 +72,10 @@ export async function getAdminDashboardData() {
             prisma.oportunidad.count(),
             prisma.proyecto.count({ where: { estado: "ACTIVO" } }),
             prisma.user.findMany({
-                where: { kycStatus: { in: ["PENDIENTE", "EN_REVISION"] } },
+                where: { 
+                    kycStatus: { in: ["PENDIENTE", "EN_REVISION"] },
+                    rol: { notIn: ["ADMIN", "SUPERADMIN"] }
+                },
                 select: { id: true, nombre: true, email: true, kycStatus: true, createdAt: true },
                 orderBy: { createdAt: "desc" },
                 take: 5,
@@ -99,7 +102,12 @@ export async function getAdminDashboardData() {
             prisma.testimonio.count({ where: { estado: "PENDIENTE" } }),
             prisma.banner.count({ where: { estado: "ACTIVO" } }),
             prisma.blogPost.count({ where: { status: "PENDIENTE" } }),
-            prisma.user.count({ where: { kycStatus: { in: ["PENDIENTE", "EN_REVISION"] } } }),
+            prisma.user.count({ 
+                where: { 
+                    kycStatus: { in: ["PENDIENTE", "EN_REVISION"] },
+                    rol: { notIn: ["ADMIN", "SUPERADMIN"] }
+                } 
+            }),
         ]);
 
         const globalVolume = Number(totalInvertido._sum.montoTotal || 0) + Number(totalPagos._sum.monto || 0);

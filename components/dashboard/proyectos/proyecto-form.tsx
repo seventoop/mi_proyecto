@@ -619,7 +619,7 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
 
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-                    {kycStatus !== "VERIFICADO" && !proyecto?.isDemo && (
+                    {userRole !== "ADMIN" && userRole !== "SUPERADMIN" && kycStatus !== "VERIFICADO" && !proyecto?.isDemo && (
                         <div className="flex-1 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
                             <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                             {isNew
@@ -641,10 +641,10 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                     </button>
                     <button
                         onClick={handleSave}
-                        disabled={loading || (kycStatus !== "VERIFICADO" && !isNew && !proyecto?.isDemo)}
+                        disabled={loading || (userRole !== "ADMIN" && userRole !== "SUPERADMIN" && kycStatus !== "VERIFICADO" && !isNew && !proyecto?.isDemo)}
                         className={cn(
                             "px-5 py-2.5 rounded-xl font-semibold text-sm shadow-glow transition-all disabled:opacity-50 flex items-center gap-2",
-                            (kycStatus === "VERIFICADO" || isNew || proyecto?.isDemo)
+                            (userRole === "ADMIN" || userRole === "SUPERADMIN" || kycStatus === "VERIFICADO" || isNew || proyecto?.isDemo)
                                 ? "gradient-brand text-white shadow-glow"
                                 : "bg-slate-200 dark:bg-slate-800 text-slate-400"
                         )}

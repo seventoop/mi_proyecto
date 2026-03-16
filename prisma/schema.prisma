@@ -1,5 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
+  engineType    = "binary"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
@@ -9,24 +10,24 @@ datasource db {
 }
 
 model Organization {
-  id             String          @id @default(cuid())
-  nombre         String
-  slug           String          @unique
-  plan           String          @default("FREE")
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  planId         String?
-  banners        Banner[]
-  blogPosts      BlogPost[]
-  leads          Lead[]
-  logicToopFlows LogicToopFlow[]
-  planRef        Plan?           @relation(fields: [planId], references: [id])
-  pipelineEtapas PipelineEtapa[]
-  proyectos      Proyecto[]
-  users          User[]
-  workflows      Workflow[]
+  id                       String                    @id @default(cuid())
+  nombre                   String
+  slug                     String                    @unique
+  plan                     String                    @default("FREE")
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  planId                   String?
+  banners                  Banner[]
+  blogPosts                BlogPost[]
+  integrationConfigs       IntegrationConfig[]
+  leads                    Lead[]
+  logicToopFlows           LogicToopFlow[]
   logicToopRecommendations LogicToopRecommendation[]
-  integrationConfigs        IntegrationConfig[]
+  planRef                  Plan?                     @relation(fields: [planId], references: [id])
+  pipelineEtapas           PipelineEtapa[]
+  proyectos                Proyecto[]
+  users                    User[]
+  workflows                Workflow[]
 
   @@index([planId])
   @@map("organizations")
@@ -64,8 +65,8 @@ model User {
   passwordResetExpires  DateTime?
   developerVerified     Boolean            @default(false)
   auditLogs             AuditLog[]
-  bannersCreados        Banner[]           @relation("BannerCreador")
   bannersAprobados      Banner[]           @relation("BannerAprobador")
+  bannersCreados        Banner[]           @relation("BannerCreador")
   blogPosts             BlogPost[]         @relation("BlogPostAutor")
   documentacion         Documentacion[]
   favoritos             FavoritoProyecto[]
@@ -76,12 +77,12 @@ model User {
   noticiasEscritas      Noticia[]          @relation("NoticiaAutor")
   notificaciones        Notificacion[]
   pagos                 Pago[]
+  historialPrecios      PriceHistory[]
   proyectosCreados      Proyecto[]         @relation("ProyectoCreador")
   reservasComoComprador Reserva[]          @relation("ReservasComprador")
   reservasVendedor      Reserva[]          @relation("VendedorReserva")
   tareas                Tarea[]
   unidadesResponsable   Unidad[]           @relation("ResponsableUnidad")
-  historialPrecios      PriceHistory[]
   organization          Organization?      @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
@@ -139,8 +140,8 @@ model AuditLog {
   entityId  String?
   details   String?
   ip        String?
-  userAgent String?
   createdAt DateTime @default(now())
+  userAgent String?
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -195,14 +196,18 @@ model Proyecto {
   orgId                String?
   deletedAt            DateTime?
   tour360Url           String?
+  banners              Banner[]
   documentacion        Documentacion[]
   etapas               Etapa[]
   favoritos            FavoritoProyecto[]
   hitosEscrow          EscrowMilestone[]
+  imagenesMapa         ImagenMapa[]
+  infraestructuras     Infraestructura[]
   inversiones          Inversion[]
   leads                Lead[]
   oportunidades        Oportunidad[]
   pagos                Pago[]
+  historialPrecios     PriceHistory[]
   featureFlags         ProjectFeatureFlags?
   proyecto_archivos    proyecto_archivos[]
   imagenes             ProyectoImagen[]
@@ -211,8 +216,6 @@ model Proyecto {
   tareas               Tarea[]
   testimonios          Testimonio[]
   tours                Tour360[]
-  banners              Banner[]
-  historialPrecios    PriceHistory[]
 
   @@index([estado])
   @@index([createdAt])
@@ -311,17 +314,16 @@ model Manzana {
 }
 
 model PriceHistory {
-  id               String   @id @default(cuid())
-  proyectoId       String
-  usuarioId        String
-  precioAnterior   Decimal  @db.Decimal(18, 2)
-  precioNuevo      Decimal  @db.Decimal(18, 2)
-  tipo             String
-  motivo           String?
-  createdAt        DateTime @default(now())
-  
-  proyecto         Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  usuario          User     @relation(fields: [usuarioId], references: [id])
+  id             String   @id @default(cuid())
+  proyectoId     String
+  usuarioId      String
+  precioAnterior Decimal  @db.Decimal(18, 2)
+  precioNuevo    Decimal  @db.Decimal(18, 2)
+  tipo           String
+  motivo         String?
+  createdAt      DateTime @default(now())
+  proyecto       Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  usuario        User     @relation(fields: [usuarioId], references: [id])
 
   @@index([proyectoId])
   @@index([createdAt])
@@ -354,6 +356,7 @@ model Unidad {
   polygon               Json?
   bloqueadoHasta        DateTime?
   historial             HistorialUnidad[]
+  imagenesMapa          ImagenMapa[]
   oportunidades         Oportunidad[]
   reservas              Reserva[]
   tourHotspots          Hotspot[]
@@ -585,45 +588,34 @@ model Hotspot {
 }
 
 model Banner {
-  id           String    @id @default(cuid())
-  // Identification
-  titulo       String    // nombre legado / fallback de título
-  internalName String?   // nombre interno para gestión
-  // Content overlay (renders sobre la imagen/video en la landing)
-  headline     String?   // titular principal overlay
-  subheadline  String?   // subtítulo overlay
-  tagline      String?   // texto pequeño de acento (ej: "LANZAMIENTO EXCLUSIVO")
-  ctaText      String?   // texto del botón CTA
-  ctaUrl       String?   // URL del botón CTA
-  // Media
-  tipo         String    @default("IMAGEN") // IMAGEN | VIDEO
+  id           String        @id @default(cuid())
+  titulo       String
+  tipo         String        @default("IMAGEN")
   mediaUrl     String
-  // Context & multi-tenancy
-  orgId        String?
-  projectId    String?
-  context      String    @default("ORG_LANDING") // ORG_LANDING | PROJECT_LANDING
-  // Scheduling & positioning
-  posicion     String    @default("HOME_TOP")
-  prioridad    Int       @default(0)
+  linkDestino  String?
+  posicion     String        @default("HOME_TOP")
+  prioridad    Int           @default(0)
+  estado       String        @default("DRAFT")
   fechaInicio  DateTime?
   fechaFin     DateTime?
-  // Legado
-  linkDestino  String?
-  // Workflow
-  estado       String    @default("DRAFT")
-  // DRAFT | PENDING_APPROVAL | PUBLISHED | REJECTED | PAUSED | ARCHIVED
-  // Legacy states kept: PENDIENTE_PAGO | PENDIENTE | APROBADO | ACTIVO
-  notasAdmin   String?   // observaciones / motivo de rechazo
-  // Tracking
+  notasAdmin   String?
   creadoPorId  String?
-  approvedById String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   approvedAt   DateTime?
+  approvedById String?
+  context      String        @default("ORG_LANDING")
+  ctaText      String?
+  ctaUrl       String?
+  headline     String?
+  internalName String?
+  orgId        String?
+  projectId    String?
   publishedAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  // Relations
-  creadoPor    User?         @relation("BannerCreador", fields: [creadoPorId], references: [id])
+  subheadline  String?
+  tagline      String?
   approvedBy   User?         @relation("BannerAprobador", fields: [approvedById], references: [id])
+  creadoPor    User?         @relation("BannerCreador", fields: [creadoPorId], references: [id])
   organization Organization? @relation(fields: [orgId], references: [id])
   proyecto     Proyecto?     @relation(fields: [projectId], references: [id])
   pago         Pago?
@@ -850,21 +842,21 @@ model proyecto_archivos {
 }
 
 model LogicToopFlow {
-  id          String               @id @default(cuid())
-  orgId       String
-  nombre      String
-  descripcion String?
-  triggerType String
-  actions     Json
-  activo      Boolean              @default(true)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  status          LogicToopFlowStatus  @default(DRAFT)
-  recommendationId String?
-  metadata        Json?                @default("{}")
-  executions      LogicToopExecution[]
-  org             Organization         @relation(fields: [orgId], references: [id])
-  recommendation  LogicToopRecommendation? @relation(fields: [recommendationId], references: [id])
+  id                      String                    @id @default(cuid())
+  orgId                   String
+  nombre                  String
+  descripcion             String?
+  triggerType             String
+  actions                 Json
+  activo                  Boolean                   @default(true)
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  status                  LogicToopFlowStatus       @default(DRAFT)
+  metadata                Json?                     @default("{}")
+  recommendationId        String?
+  executions              LogicToopExecution[]
+  org                     Organization              @relation(fields: [orgId], references: [id])
+  recommendation          LogicToopRecommendation?  @relation(fields: [recommendationId], references: [id])
   optimizationSuggestions LogicToopRecommendation[] @relation("FlowOptimization")
 
   @@index([orgId])
@@ -934,32 +926,28 @@ model LogicToopTemplate {
 }
 
 model LogicToopRecommendation {
-  id              String   @id @default(cuid())
-  orgId           String
-  type            String
-  title           String
-  description     String
-  problemDetected String?
+  id               String          @id @default(cuid())
+  orgId            String
+  type             String
+  title            String
+  description      String
+  problemDetected  String?
   proposedSolution String?
-  expectedImpact  String?
-  confidence      Float    @default(0)
-  severity        String   @default("INFO")
-  status          String   @default("NEW")
+  expectedImpact   String?
+  confidence       Float           @default(0)
+  severity         String          @default("INFO")
+  status           String          @default("NEW")
   suggestedTrigger String?
   suggestedNodes   Json?
-  
-  // Explainability
-  signals         Json?    @default("{}")
-  sourceMetrics   Json?    @default("{}")
-  explanation     Json?    @default("{}")
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  org             Organization @relation(fields: [orgId], references: [id])
-  sourceFlowId    String?
-  sourceFlow      LogicToopFlow? @relation("FlowOptimization", fields: [sourceFlowId], references: [id])
-  generatedFlows  LogicToopFlow[]
+  signals          Json?           @default("{}")
+  sourceMetrics    Json?           @default("{}")
+  explanation      Json?           @default("{}")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  sourceFlowId     String?
+  generatedFlows   LogicToopFlow[]
+  org              Organization    @relation(fields: [orgId], references: [id])
+  sourceFlow       LogicToopFlow?  @relation("FlowOptimization", fields: [sourceFlowId], references: [id])
 
   @@index([orgId])
   @@index([status])
@@ -968,14 +956,13 @@ model LogicToopRecommendation {
 }
 
 model IntegrationConfig {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   orgId     String
-  provider  String   // e.g., "GOOGLE_CALENDAR", "GOOGLE_SHEETS", "WHATSAPP"
-  status    String   @default("INACTIVE") // "ACTIVE", "INACTIVE", "ERROR"
-  config    Json     @default("{}")       // Stores tokens (encrypted), calendarId, etc.
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  provider  String
+  status    String       @default("INACTIVE")
+  config    Json         @default("{}")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, provider])
@@ -984,24 +971,73 @@ model IntegrationConfig {
   @@map("integration_configs")
 }
 
+model LeadIntake {
+  id         String   @id @default(cuid())
+  source     String
+  rawPayload Json
+  status     String   @default("PENDING")
+  error      String?
+  orgId      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status])
+  @@index([source])
+  @@map("lead_intake")
+}
+
+model ImagenMapa {
+  id           String   @id @default(cuid())
+  proyectoId   String
+  unidadId     String?
+  url          String
+  tipo         String   @default("foto")
+  titulo       String?
+  lat          Float
+  lng          Float
+  orden        Int      @default(0)
+  altitudM     Float?   @default(500)
+  imageHeading Float?   @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  proyecto     Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  unidad       Unidad?  @relation(fields: [unidadId], references: [id])
+
+  @@index([proyectoId])
+  @@index([unidadId])
+  @@map("imagenes_mapa")
+}
+
+model Infraestructura {
+  id                 String    @id @default(cuid())
+  proyectoId         String
+  nombre             String
+  categoria          String
+  tipo               String
+  geometriaTipo      String
+  coordenadas        String
+  estado             String    @default("planificado")
+  descripcion        String?
+  superficie         Float?
+  longitudM          Float?
+  fechaEstimadaFin   DateTime?
+  porcentajeAvance   Int       @default(0)
+  fotos              String?
+  colorPersonalizado String?
+  orden              Int       @default(0)
+  visible            Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  proyecto           Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@index([proyectoId])
+  @@map("infraestructuras")
+}
+
 enum LogicToopFlowStatus {
   DRAFT
   TESTING
   ACTIVE
   PAUSED
   ARCHIVED
-}
-model LeadIntake {
-  id          String   @id @default(cuid())
-  source      String   // META | TIKTOK | WHATSAPP | LANDING | CONTACT
-  rawPayload  Json
-  status      String   @default("PENDING") // PENDING | RESOLVED | REJECTED
-  error       String?
-  orgId       String?  // Tentative orgId if resolved later
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([status])
-  @@index([source])
-  @@map("lead_intake")
 }

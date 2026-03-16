@@ -244,6 +244,8 @@ export function requireCronSecret(request: Request): void {
  */
 export async function requireKYC(): Promise<AuthUser> {
     const user = await requireAuth();
+    if (user.role === "ADMIN" || user.role === "SUPERADMIN") return user;
+    
     if (user.kycStatus !== "APROBADO" && user.kycStatus !== "VERIFICADO") {
         throw new AuthError("Debes completar tu verificación KYC para realizar esta acción", 403);
     }

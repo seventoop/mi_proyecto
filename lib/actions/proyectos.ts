@@ -212,8 +212,9 @@ export async function createProyecto(input: unknown) {
 
         const isVerified = userRecord?.kycStatus === "VERIFICADO";
         const isDemoActive = userRecord?.demoEndsAt && new Date(userRecord.demoEndsAt) > new Date();
+        const isPrivileged = userRole === "ADMIN" || userRole === "SUPERADMIN";
 
-        if (!isVerified && !isDemoActive) {
+        if (!isVerified && !isDemoActive && !isPrivileged) {
             return {
                 success: false,
                 error: "Debes completar el proceso KYC o estar en período de prueba de 48h para publicar proyectos."

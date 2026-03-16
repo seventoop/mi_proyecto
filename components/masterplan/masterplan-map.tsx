@@ -18,7 +18,8 @@ import MasterplanFilters from "./masterplan-filters";
 import MasterplanComparator from "./masterplan-comparator";
 import OverlayEditor, { OverlayConfig } from "./overlay-editor";
 import Tour360Viewer from "./tour360-viewer";
-
+import InfraestructuraTool from "./infraestructura-tool";
+import ImagenesMapaTool from "./imagenes-mapa-tool";
 // ─── Status colors ───
 const STATUS_COLORS: Record<string, string> = {
     DISPONIBLE: "#10b981",
@@ -606,6 +607,17 @@ export default function MasterplanMap({
                                     </button>
                                 </>
                             )}
+                        </div>
+
+                        {/* SECTION 3: Custom Tools */}
+                        <div className="flex items-center gap-1.5 ml-auto pl-2 border-l border-slate-700/60">
+                            <InfraestructuraTool proyectoId={proyectoId} map={leafletMapRef.current} />
+                            <ImagenesMapaTool
+                                proyectoId={proyectoId}
+                                map={leafletMapRef.current}
+                                overlayBounds={overlayConfig?.bounds}
+                                overlayRotation={overlayConfig?.rotation}
+                            />
                         </div>
                     </div>
                 </div>

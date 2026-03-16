@@ -14,7 +14,10 @@ export async function getPendingKYC() {
     try {
         await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const users = await prisma.user.findMany({
-            where: { kycStatus: { in: ["PENDIENTE", "EN_REVISION"] } },
+            where: { 
+                kycStatus: { in: ["PENDIENTE", "EN_REVISION"] },
+                rol: { notIn: ["ADMIN", "SUPERADMIN"] }
+            },
             include: { documentacion: true },
             orderBy: { createdAt: "desc" },
         } as any);

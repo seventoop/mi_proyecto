@@ -72,21 +72,27 @@ export default withAuth(
         const isDemoExpiredRoute = pathname.startsWith("/demo-expired");
 
         if (!isKycRoute && !isDemoExpiredRoute) {
+            const role = token?.role as string | undefined;
             const kycStatus = token?.kycStatus as string | undefined;
             const demoEndsAt = token?.demoEndsAt as string | Date | null | undefined;
 
-            // Demo expired but KYC not yet triggered → send to KYC onboarding
-            if (
-                kycStatus === "NINGUNO" &&
-                demoEndsAt &&
-                new Date(demoEndsAt) < new Date()
-            ) {
-                return NextResponse.redirect(new URL("/onboarding/kyc", req.url));
-            }
+            // --- KYC/Demo Bypass for ADMIN & SUPERADMIN ---
+            const isPrivileged = role === "ADMIN" || role === "SUPERADMIN";
 
-            // KYC window expired without submission → send to demo-expired
-            if (kycStatus === "DEMO_EXPIRADO") {
-                return NextResponse.redirect(new URL("/demo-expired", req.url));
+            if (!isPrivileged) {
+                // Demo expired but KYC not yet triggered → send to KYC onboarding
+                if (
+                    kycStatus === "NINGUNO" &&
+                    demoEndsAt &&
+                    new Date(demoEndsAt) < new Date()
+                ) {
+                    return NextResponse.redirect(new URL("/onboarding/kyc", req.url));
+                }
+
+                // KYC window expired without submission → send to demo-expired
+                if (kycStatus === "DEMO_EXPIRADO") {
+                    return NextResponse.redirect(new URL("/demo-expired", req.url));
+                }
             }
         }
 

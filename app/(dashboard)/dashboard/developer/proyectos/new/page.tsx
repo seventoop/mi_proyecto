@@ -34,11 +34,12 @@ export default function NewProyectoDeveloperPage() {
 
             const isVerified = userData.kycStatus === "VERIFICADO";
             const isDemoEligible = userData.demoEndsAt && new Date(userData.demoEndsAt) > new Date();
+            const isPrivileged = session?.user?.role === "ADMIN" || session?.user?.role === "SUPERADMIN";
 
             setHasActiveDemo(!!isDemoEligible);
 
-            // If already verified or demo active, go straight to form
-            if (isVerified || isDemoEligible) {
+            // If already verified, demo active, or privileged, go straight to form
+            if (isVerified || isDemoEligible || isPrivileged) {
                 setShowForm(true);
             }
         }
