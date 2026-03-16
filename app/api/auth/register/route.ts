@@ -13,10 +13,11 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // @security-waive: PUBLIC - open registration handler
   try {
     // Rate Limiting: Max 5 registrations per hour per IP
     const ip = getClientIp(req);
-    const { allowed } = checkRateLimit(ip, {
+    const { allowed } = await checkRateLimit(ip, {
       limit: 5,
       windowMs: 60 * 60 * 1000,
       keyPrefix: "register_",
@@ -79,6 +80,16 @@ export async function POST(req: NextRequest) {
         demoEndsAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
         demoUsed: false,
       },
+    });
+
+    // Centralized Forensic Audit
+    const { audit } = await import("@/lib/actions/audit");
+    await audit({
+        userId: user.id,
+        action: "AUTH_REGISTER_SUCCESS",
+        entity: "User",
+        entityId: user.id,
+        details: { role: finalRole, email: user.email }
     });
 
     return NextResponse.json(

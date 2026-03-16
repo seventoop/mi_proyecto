@@ -1,26 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
 
-// Schema validation for creating a task
-const createTaskSchema = z.object({
-    titulo: z.string().min(1, "El título es obligatorio"),
-    descripcion: z.string().optional(),
-    fechaVencimiento: z.string().transform((str) => new Date(str)),
-    prioridad: z.enum(["BAJA", "MEDIA", "ALTA"]).default("MEDIA"),
-    leadId: z.string().optional(),
-    proyectoId: z.string().optional(),
-});
+import { createTaskSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
     try {
-        const session = await getServerSession(authOptions);
-
-        if (!session || !session.user) {
-            return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-        }
+        const user = await requireAuth();
 
         const body = await request.json();
         const validation = createTaskSchema.safeParse(body);
@@ -41,7 +28,7 @@ export async function POST(request: Request) {
                 descripcion,
                 fechaVencimiento,
                 prioridad,
-                usuarioId: session.user.id,
+                usuarioId: user.id,
                 leadId: leadId || null,
                 proyectoId: proyectoId || null,
             },
@@ -49,33 +36,26 @@ export async function POST(request: Request) {
 
         return NextResponse.json(task, { status: 201 });
     } catch (error) {
-        console.error("Error creating task:", error);
-        return NextResponse.json(
-            { message: "Error interno del servidor" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
 export async function GET(request: Request) {
     try {
-        const session = await getServerSession(authOptions);
-
-        if (!session || !session.user) {
-            return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-        }
+        const user = await requireAuth();
 
         const { searchParams } = new URL(request.url);
         const estado = searchParams.get("estado"); // PENDIENTE, COMPLETADA
 
         const where: any = {
-            usuarioId: session.user.id
+            usuarioId: user.id
         };
 
         if (estado) {
             where.estado = estado;
         }
 
+        // @security-waive: NO_ORG_FILTER - Query is scoped to current user
         const tasks = await db.tarea.findMany({
             where,
             orderBy: { fechaVencimiento: "asc" },
@@ -87,10 +67,6 @@ export async function GET(request: Request) {
 
         return NextResponse.json(tasks);
     } catch (error) {
-        console.error("Error fetching tasks:", error);
-        return NextResponse.json(
-            { message: "Error interno del servidor" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

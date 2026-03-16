@@ -114,7 +114,7 @@ export default function DeveloperFinancialPanel({ global, projectStats, kycStatu
             <div className="glass-card overflow-hidden">
                 <div className="p-5 border-b border-white/5 flex items-center justify-between">
                     <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter">Estado de Salud de Proyectos</h2>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5">
                         <Search className="w-3 h-3 text-slate-500" />
                         <span className="text-[10px] text-slate-500 font-bold">Filtrar...</span>
                     </div>
@@ -195,7 +195,7 @@ export default function DeveloperFinancialPanel({ global, projectStats, kycStatu
                     </h2>
                     <div className="space-y-3">
                         {projectStats.filter(p => p.proximoHito).slice(0, 2).map((p) => (
-                            <div key={p.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                            <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5">
                                 <div>
                                     <p className="text-[10px] font-black text-brand-500 uppercase tracking-tighter">{p.proximoHito.titulo}</p>
                                     <p className="text-[9px] text-slate-500 font-bold">{p.nombre}</p>

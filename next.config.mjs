@@ -2,8 +2,6 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // Leaflet is a CJS-only package that Next.js can't resolve without explicit transpilation
-    transpilePackages: ["leaflet"],
     typescript: {
         ignoreBuildErrors: false,
     },
@@ -63,6 +61,53 @@ const nextConfig = {
                 source: "/dashboard/inversor/:path*",
                 destination: "/dashboard/portafolio/:path*",
                 permanent: true,
+            },
+            // Force /usuarios for admin user management
+            {
+                source: "/dashboard/admin/users",
+                destination: "/dashboard/admin/usuarios",
+                permanent: true,
+            },
+        ];
+    },
+    async rewrites() {
+        return [
+            {
+                source: "/dashboard/admin/usuarios",
+                destination: "/dashboard/admin/users",
+            },
+        ];
+    },
+    async headers() {
+        return [
+            {
+                source: "/(.*)",
+                headers: [
+                    {
+                        key: "X-Frame-Options",
+                        value: "DENY",
+                    },
+                    {
+                        key: "X-Content-Type-Options",
+                        value: "nosniff",
+                    },
+                    {
+                        key: "Referrer-Policy",
+                        value: "strict-origin-when-cross-origin",
+                    },
+                    {
+                        key: "Permissions-Policy",
+                        value: "camera=(), microphone=(), geolocation=()",
+                    },
+                    {
+                        key: "Strict-Transport-Security",
+                        value: "max-age=31536000; includeSubDomains; preload",
+                    },
+                    {
+                        key: "X-XSS-Protection",
+                        value: "1; mode=block",
+                    }
+                ],
             },
         ];
     },

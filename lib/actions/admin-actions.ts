@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireRole, handleGuardError } from "@/lib/guards";
+import { requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 
@@ -34,7 +34,7 @@ const riskUpdateSchema = z.object({
 
 export async function getAdminDashboardData() {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -43,7 +43,10 @@ export async function getAdminDashboardData() {
         const [
             totalInvertido,
             totalPagos,
-            totalEscrow,
+            totalEscrowResult,
+            reservasActivasCount,
+            oportunidadesTotalCount,
+            proyectosActivosCount,
             pendingKYCQueue,
             pendingProjectDocs,
             recentUsers,
@@ -65,6 +68,9 @@ export async function getAdminDashboardData() {
                 where: { estado: "ESCROW" },
                 _sum: { montoTotal: true },
             }),
+            prisma.reserva.count({ where: { estado: "ACTIVA" } }),
+            prisma.oportunidad.count(),
+            prisma.proyecto.count({ where: { estado: "ACTIVO" } }),
             prisma.user.findMany({
                 where: { kycStatus: { in: ["PENDIENTE", "EN_REVISION"] } },
                 select: { id: true, nombre: true, email: true, kycStatus: true, createdAt: true },
@@ -98,6 +104,8 @@ export async function getAdminDashboardData() {
 
         const globalVolume = Number(totalInvertido._sum.montoTotal || 0) + Number(totalPagos._sum.monto || 0);
         const platformRevenue = Number(totalPagos._sum.monto || 0) * 0.015;
+        const totalLeads = await prisma.lead.count();
+        const conversionRate = totalLeads > 0 ? (oportunidadesTotalCount / totalLeads) * 100 : 0;
 
         // Health checks (Basic connectivity)
         let dbStatus = "HEALTHY";
@@ -112,7 +120,7 @@ export async function getAdminDashboardData() {
             data: {
                 financials: {
                     globalVolume,
-                    totalEscrow: Number(totalEscrow._sum.montoTotal || 0),
+                    totalEscrow: Number(totalEscrowResult._sum.montoTotal || 0),
                     platformRevenue,
                     totalInvested: Number(totalInvertido._sum.montoTotal || 0),
                 },
@@ -129,6 +137,9 @@ export async function getAdminDashboardData() {
                     activeBanners,
                     pendingBlogs,
                     pendingKYC: pendingKYCCount,
+                    reservasActivas: reservasActivasCount,
+                    conversionRate: Math.round(conversionRate * 10) / 10,
+                    proyectosActivos: proyectosActivosCount,
                 },
                 auditLogs,
                 health: {
@@ -146,7 +157,7 @@ export async function getAdminDashboardData() {
 
 export async function getUsersRiskData(filters?: { level?: string }) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const where: any = {};
         if (filters?.level && filters.level !== "all") {
@@ -180,11 +191,29 @@ export async function getUsersRiskData(filters?: { level?: string }) {
     }
 }
 
+export async function getOrganizationsList() {
+    try {
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+
+        const orgs = await prisma.organization.findMany({
+            select: {
+                id: true,
+                nombre: true,
+            },
+            orderBy: { nombre: "asc" }
+        });
+
+        return { success: true, data: orgs };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
 // ─── Mutations ───
 
 export async function updateUserRisk(input: unknown) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const parsed = riskUpdateSchema.safeParse(input);
         if (!parsed.success) {

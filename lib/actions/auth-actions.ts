@@ -66,23 +66,13 @@ export async function requestPasswordReset(email: string) {
         const token = crypto.randomBytes(32).toString("hex");
         const expiry = new Date(Date.now() + 3600000);
 
-        // Check if fields exist to avoid crash if prisma push was skipped by user
-        const data: any = {};
-        try {
-            data.passwordResetToken = token;
-            data.passwordResetExpires = expiry;
-
-            await prisma.user.update({
-                where: { id: user.id },
-                data
-            });
-        } catch (e: any) {
-            if (e.message?.includes("Unknown column")) {
-                console.error("[AUTH] Database schema out of sync. Missing passwordResetToken fields.");
-                return { success: false, error: "Servicio de recuperación temporalmente deshabilitado (Error de BD)." };
-            }
-            throw e;
-        }
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                passwordResetToken: token,
+                passwordResetExpires: expiry,
+            },
+        });
 
         const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
 
@@ -131,14 +121,9 @@ export async function resetPassword(formData: z.infer<typeof resetPasswordSchema
 
         const { token, password } = parsed.data;
 
-        let user;
-        try {
-            user = await (prisma.user as any).findUnique({
-                where: { passwordResetToken: token },
-            });
-        } catch (e) {
-            return { success: false, error: "Servicio de recuperación temporalmente deshabilitado (Error de BD)." };
-        }
+        const user = await prisma.user.findUnique({
+            where: { passwordResetToken: token },
+        });
 
         if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
             return { success: false, error: "Token inválido o expirado" };
@@ -152,7 +137,17 @@ export async function resetPassword(formData: z.infer<typeof resetPasswordSchema
                 password: hashedPassword,
                 passwordResetToken: null,
                 passwordResetExpires: null,
-            } as any,
+            },
+        });
+
+        // Centralized Forensic Audit
+        const { audit } = await import("@/lib/actions/audit");
+        await audit({
+            userId: user.id,
+            action: "AUTH_PASSWORD_RESET_SUCCESS",
+            entity: "User",
+            entityId: user.id,
+            details: { method: "TOKEN" }
         });
 
         return { success: true, message: "Contraseña actualizada exitosamente" };

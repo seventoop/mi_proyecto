@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { DollarSign, PieChart, TrendingUp, ShieldCheck, Clock, CheckCircle, AlertCircle, Plus, Play } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { crearInversion } from "@/lib/actions/inversiones";
@@ -41,7 +41,6 @@ export default function InversionPanel({
     // Calcular progreso
     const progress = Math.min(Math.round((m2Vendidos / metaM2) * 100), 100);
     const timeLeft = fechaLimite ? Math.ceil((new Date(fechaLimite).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
-    const inversoresUnicos = useMemo(() => new Set(inversiones.map((i: any) => i.inversorId)).size, [inversiones]);
 
     // Estado form hito
     const [hitoForm, setHitoForm] = useState({ titulo: "", porcentaje: "" });
@@ -159,7 +158,7 @@ export default function InversionPanel({
                     </div>
                     <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
                         <p className="text-xs text-slate-500 mb-1">Inversores</p>
-                        <p className="text-lg font-bold text-brand-black dark:text-white">{inversoresUnicos}</p>
+                        <p className="text-lg font-bold text-brand-black dark:text-white">{new Set(inversiones.map(i => i.inversorId)).size}</p>
                     </div>
                     <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
                         <p className="text-xs text-slate-500 mb-1">Días Restantes</p>

@@ -6,6 +6,7 @@ import prisma from "@/lib/db";
  * Called by a scheduler (e.g., Vercel Cron) with CRON_SECRET.
  */
 export async function GET(req: Request) {
+    // @security-waive: PUBLIC - handled via key/secret check
     const { searchParams } = new URL(req.url);
     const key = searchParams.get("key");
 

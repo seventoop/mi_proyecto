@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireRole, handleGuardError } from "@/lib/guards";
+import { requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 
@@ -16,7 +16,7 @@ export async function getUsers(
     kycStatus?: string
 ) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const where: any = {};
 
         if (search) {
@@ -71,12 +71,12 @@ export async function updateUserRole(userId: string, newRole: "ADMIN" | "VENDEDO
         const idParsed = idSchema.safeParse(userId);
         if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
 
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         await prisma.user.update({
             where: { id: userId },
             data: { rol: newRole }
         });
-        revalidatePath("/dashboard/admin/users");
+        revalidatePath("/dashboard/admin/usuarios");
         return { success: true };
     } catch (error) {
         return handleGuardError(error);
@@ -88,10 +88,10 @@ export async function toggleUserBan(userId: string, isBanned: boolean) {
         const idParsed = idSchema.safeParse(userId);
         if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
 
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         // In the original file, it was deleting the user. I'll stick to that if that's the intended "ban" logic in this repo.
         await prisma.user.delete({ where: { id: userId } });
-        revalidatePath("/dashboard/admin/users");
+        revalidatePath("/dashboard/admin/usuarios");
         return { success: true };
     } catch (error) {
         return handleGuardError(error);

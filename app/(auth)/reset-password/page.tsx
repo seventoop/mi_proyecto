@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, Suspense } from "react";
+import { useState, useEffect, useTransition, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Lock, Loader2, CheckCircle2, ShieldAlert } from "lucide-react";
@@ -10,7 +10,16 @@ import { toast } from "sonner";
 function ResetPasswordContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const token = searchParams.get("token");
+    const [token, setToken] = useState<string | null>(searchParams.get("token"));
+
+    useEffect(() => {
+        if (searchParams.get("token")) {
+            // Store token and clear URL to prevent exposure in history
+            setToken(searchParams.get("token"));
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, "", newUrl);
+        }
+    }, [searchParams]);
 
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");

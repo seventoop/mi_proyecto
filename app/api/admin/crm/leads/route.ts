@@ -3,11 +3,14 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireAnyRole, handleApiGuardError } from "@/lib/guards";
+import { leadAssignmentSchema } from "@/lib/validations";
 
 // GET: Admin CRM leads with filters (bandeja admin)
 export async function GET(req: NextRequest) {
     try {
-        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+        // @security-hardened: Filter by orgId for ADMIN unless they are SUPERADMIN
+        const isSuperAdmin = (user as any).rol === "SUPERADMIN" || user.role === "SUPERADMIN";
 
         const { searchParams } = new URL(req.url);
         const estado = searchParams.get("estado");
@@ -21,6 +24,9 @@ export async function GET(req: NextRequest) {
         if (estado) where.estado = estado;
         if (canal) where.canalOrigen = canal;
         if (unassigned) where.orgId = null;
+        if (!isSuperAdmin && user.orgId) {
+            where.orgId = user.orgId;
+        }
         if (search) {
             where.OR = [
                 { nombre: { contains: search, mode: "insensitive" } },
@@ -53,7 +59,14 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     try {
         await requireAnyRole(["ADMIN", "SUPERADMIN"]);
-        const { leadId, orgId, asignadoAId, score, estado } = await req.json();
+        const body = await req.json();
+
+        // 🛡️ STRICT VALIDATION
+        const validation = leadAssignmentSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ errors: validation.error.flatten() }, { status: 400 });
+        }
+        const { leadId, orgId, asignadoAId, score, estado } = validation.data;
 
         if (!leadId) return NextResponse.json({ error: "leadId requerido" }, { status: 400 });
 

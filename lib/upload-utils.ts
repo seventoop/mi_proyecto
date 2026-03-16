@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const MAX_FILE_SIZE_GENERAL = 20 * 1024 * 1024; // 20MB
+export const MAX_FILE_SIZE_GENERAL = 10 * 1024 * 1024; // 10MB
 export const MAX_FILE_SIZE_360 = 50 * 1024 * 1024;     // 50MB
 export const MAX_FILE_SIZE_PLAN = 20 * 1024 * 1024;    // 20MB
 

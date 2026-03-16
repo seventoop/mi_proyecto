@@ -87,16 +87,16 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                 {/* Approval Queues */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="glass-card overflow-hidden">
-                        <div className="p-5 border-b border-white/5 bg-slate-50/50 dark:bg-white/[0.01]">
+                        <div className="p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.01]">
                             <h2 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
                                 <ShieldAlert className="w-4 h-4 text-amber-500" />
                                 Cola de Verificación KYC
                             </h2>
                         </div>
-                        <div className="divide-y divide-white/5">
+                        <div className="divide-y divide-slate-100 dark:divide-white/5">
                             {queues.kyc.length > 0 ? (
                                 queues.kyc.map((item) => (
-                                    <Link key={item.id} href={`/dashboard/admin/kyc/${item.id}`} className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group">
+                                    <Link key={item.id} href={`/dashboard/admin/kyc/${item.id}`} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 font-black text-xs">
                                                 {item.nombre.charAt(0)}
@@ -126,16 +126,16 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                     </div>
 
                     <div className="glass-card overflow-hidden">
-                        <div className="p-5 border-b border-white/5 bg-slate-50/50 dark:bg-white/[0.01]">
+                        <div className="p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.01]">
                             <h2 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
                                 <FileSignature className="w-4 h-4 text-rose-500" />
                                 Aprobación Técnica de Proyectos
                             </h2>
                         </div>
-                        <div className="divide-y divide-white/5">
+                        <div className="divide-y divide-slate-100 dark:divide-white/5">
                             {queues.projects.length > 0 ? (
                                 queues.projects.map((project) => (
-                                    <Link key={project.id} href={`/dashboard/admin/proyectos/${project.id}`} className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group">
+                                    <Link key={project.id} href={`/dashboard/admin/proyectos/${project.id}`} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500">
                                                 <Activity className="w-5 h-5" />
@@ -177,7 +177,7 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                         </h2>
                         <div className="space-y-4">
                             {recentUsers.map((user) => (
-                                <div key={user.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
+                                <div key={user.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5">
                                     <div className="w-8 h-8 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 font-black text-[10px]">
                                         {user.nombre.charAt(0)}
                                     </div>

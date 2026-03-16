@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireRole, handleGuardError } from "@/lib/guards";
+import { requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
@@ -13,7 +13,7 @@ const blogPostSchema = z.object({
     status: z.enum(["PENDIENTE", "APROBADO", "RECHAZADO", "BORRADOR"]).default("PENDIENTE"),
     autorId: idSchema,
     orgId: idSchema.optional().nullable(),
-    imagen: z.string().url().optional().nullable(),
+    imagen: z.string().max(1000).optional().nullable(),
     tags: z.array(z.string()).default([]),
 });
 
@@ -28,7 +28,7 @@ const updateBlogPostSchema = z.object({
 
 export async function getBlogPostsAdmin() {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const posts = await prisma.blogPost.findMany({
             include: {
                 autor: { select: { nombre: true, email: true } },
@@ -45,7 +45,7 @@ export async function getBlogPostsAdmin() {
 
 export async function createBlogPost(input: unknown) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const parsed = blogPostSchema.safeParse(input);
         if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message };
 
@@ -62,7 +62,7 @@ export async function createBlogPost(input: unknown) {
 
 export async function updateBlogPost(id: string, input: unknown) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const parsed = updateBlogPostSchema.safeParse(input);
         if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
         const post = await prisma.blogPost.update({
@@ -78,7 +78,7 @@ export async function updateBlogPost(id: string, input: unknown) {
 
 export async function deleteBlogPost(id: string) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         await prisma.blogPost.delete({ where: { id } });
         revalidatePath("/dashboard/admin/blog");
         return { success: true };

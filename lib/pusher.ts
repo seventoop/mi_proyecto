@@ -45,7 +45,7 @@ export function getPusherClient(): PusherClient | null {
             pusherClient = new PusherClient(key!, {
                 cluster: cluster || "us2",
                 enabledTransports: ['ws', 'wss'], // Prefer WebSockets to avoid XHR streaming errors if possible
-                authEndpoint: "/api/pusher/auth",
+                authEndpoint: "/api/realtime/auth",
             });
         } catch (error) {
             console.error("Failed to initialize Pusher Client:", error);

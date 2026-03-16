@@ -4,6 +4,10 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
 import { runWorkflow } from "@/lib/workflow-engine";
+import { requireAuth, handleApiGuardError, orgFilter } from "@/lib/guards";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { leadSchema } from "@/lib/validations";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 // Schema validation for creating a lead
 const createLeadSchema = z.object({
@@ -18,8 +22,18 @@ const createLeadSchema = z.object({
 
 export async function POST(request: Request) {
     try {
+        // Require authentication for CRM lead creation
+        const user = await requireAuth();
+
+        // Rate limit: 10 lead creations per IP per 10 minutes (integration endpoint)
+        const ip = getClientIp(request);
+        const { allowed } = await checkRateLimit(ip, { limit: 10, windowMs: 10 * 60 * 1000, keyPrefix: "crm_lead_post:" });
+        if (!allowed) {
+            return NextResponse.json({ message: "Demasiadas solicitudes" }, { status: 429 });
+        }
+
         const body = await request.json();
-        const validation = createLeadSchema.safeParse(body);
+        const validation = leadSchema.safeParse(body);
 
         if (!validation.success) {
             return NextResponse.json(
@@ -30,60 +44,34 @@ export async function POST(request: Request) {
 
         const { nombre, email, telefono, origen, mensaje, proyectoId, unidadInteres } = validation.data;
 
-        // Create Lead
-        const lead = await db.lead.create({
-            data: {
-                nombre,
-                email: email || null,
-                telefono: telefono || null,
-                origen,
-                proyectoId: proyectoId || null,
-                unidadInteres: unidadInteres ? JSON.stringify([unidadInteres]) : "[]",
-                notas: mensaje
-                    ? JSON.stringify([
-                        {
-                            fecha: new Date(),
-                            texto: `Mensaje inicial: ${mensaje}`,
-                            userId: "SYSTEM",
-                        },
-                    ])
-                    : "[]",
-            },
-        });
-
-        // Automatically create an opportunity if interest exists
-        if (proyectoId) {
-            await db.oportunidad.create({
-                data: {
-                    leadId: lead.id,
-                    proyectoId: proyectoId,
-                    unidadId: unidadInteres || null,
-                    etapa: "NUEVO",
-                    probabilidad: 10,
-                    proximaAccion: "Contactar al cliente",
-                },
-            });
-        }
-
-        // Fire-and-forget: score the lead asynchronously, don't block the response
-        aiLeadScoring(lead.id).catch(console.error);
-
-        // Auto-trigger NEW_LEAD workflows for the lead's org (via proyecto)
+        // A2: Inherit orgId — proyecto is the most reliable source, fallback to user's org
+        let orgId: string | null = (user.orgId as string | null) ?? null;
         if (proyectoId) {
             const proyecto = await db.proyecto.findUnique({
                 where: { id: proyectoId },
                 select: { orgId: true },
             });
-            if (proyecto?.orgId) {
-                const workflows = await db.workflow.findMany({
-                    where: { orgId: proyecto.orgId, trigger: "NEW_LEAD", activo: true },
-                    select: { id: true },
-                });
-                for (const wf of workflows) {
-                    runWorkflow(wf.id, "NEW_LEAD", lead.id).catch(console.error);
-                }
-            }
+            if (proyecto?.orgId) orgId = proyecto.orgId;
         }
+
+        const result = await executeLeadReception({
+            nombre,
+            email: email || null,
+            telefono: telefono || null,
+            origen,
+            canalOrigen: "API_CRM",
+            proyectoId: proyectoId || null,
+            unidadInteres: unidadInteres ? JSON.stringify([unidadInteres]) : "[]",
+            orgId,
+            mensaje,
+            sourceType: "API_CRM"
+        });
+
+        if (!result.success) {
+            throw new Error(result.error || "Error en el pipeline de leads");
+        }
+
+        const lead = await db.lead.findUnique({ where: { id: result.leadId } });
 
         return NextResponse.json(lead, { status: 201 });
     } catch (error) {
@@ -97,12 +85,17 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
     try {
+        const user = await requireAuth();
+
         const { searchParams } = new URL(request.url);
         const estado = searchParams.get("estado");
         const search = searchParams.get("search");
         const proyectoId = searchParams.get("proyectoId");
 
-        const where: Prisma.LeadWhereInput = {};
+        // Canonical multi-tenant scoping
+        const where: Prisma.LeadWhereInput = {
+            ...orgFilter(user) as any,
+        };
 
         if (estado) {
             where.estado = estado as any;
@@ -136,10 +129,6 @@ export async function GET(request: Request) {
 
         return NextResponse.json(leads);
     } catch (error) {
-        console.error("Error fetching leads:", error);
-        return NextResponse.json(
-            { message: "Error interno del servidor" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

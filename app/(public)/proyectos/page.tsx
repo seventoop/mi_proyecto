@@ -7,6 +7,8 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { Locale } from "@/lib/i18n/config";
+// Visibility rule from adapter — single source of truth (function evaluates new Date() per request)
+import { getPublicProjectWhere } from "@/lib/project-landing/adapter";
 
 export const metadata: Metadata = {
     title: "Desarrollos | SevenToop — Infraestructura para Lanzamientos Inmobiliarios",
@@ -17,15 +19,8 @@ export const metadata: Metadata = {
 async function getProjects() {
     try {
         const projects = await db.proyecto.findMany({
-            where: {
-                visibilityStatus: "PUBLICADO",
-                estado: { not: "SUSPENDIDO" },
-                deletedAt: null,
-                OR: [
-                    { isDemo: false },
-                    { isDemo: true, demoExpiresAt: { gt: new Date() } }
-                ]
-            },
+            // ↓ Centralized visibility rule — evaluated fresh per request (avoids stale Date)
+            where: getPublicProjectWhere(),
             orderBy: { createdAt: "desc" },
         });
 
@@ -50,7 +45,7 @@ async function getProjects() {
             _count: { unidades: countMap.get(p.id) ?? 0 },
             unidades: [] as { precio: number; moneda: string }[],
         }));
-    } catch (error) {
+    } catch {
         return [];
     }
 }

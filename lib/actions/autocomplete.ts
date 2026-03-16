@@ -19,9 +19,9 @@ export async function getLeadsAutocomplete(search: string) {
         const parsed = searchSchema.safeParse(search);
         if (!parsed.success) return { success: true, data: [] };
 
-        // MULTI-TENANT: Only leads from projects in user's org
+        // MULTI-TENANT: Scope directly by lead.orgId (preferred over JOIN via proyecto)
         const orgWhere = user.role !== "ADMIN" && user.orgId
-            ? { proyecto: { orgId: user.orgId } }
+            ? { orgId: user.orgId }
             : {};
 
         const leads = await prisma.lead.findMany({

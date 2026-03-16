@@ -53,15 +53,16 @@ import { toast } from "sonner";
 const adminNavItems = [
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "CRM / Leads", href: "/dashboard/admin/crm/leads", icon: Users },
-    { label: "Pipeline CRM", href: "/dashboard/admin/crm/pipeline", icon: Workflow },
-    { label: "BI Métricas", href: "/dashboard/admin/crm/metricas", icon: BarChart3 },
-    { label: "Proyectos", href: "/dashboard/admin/proyectos", icon: Building2, matchPaths: ["/dashboard/proyectos"] },
+    { label: "Pipeline CRM", href: "/dashboard/crm/pipeline", icon: Workflow },
+    { label: "BI Métricas", href: "/dashboard/crm/metricas", icon: BarChart3 },
+    { label: "Proyectos", href: "/dashboard/admin/proyectos", icon: Building2 },
     { label: "Banners", href: "/dashboard/admin/banners", icon: ImageIcon },
     { label: "Testimonios", href: "/dashboard/admin/testimonios", icon: MessageSquare },
     { label: "KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck },
-    { label: "Usuarios", href: "/dashboard/admin/users", icon: UserCheck },
+    { label: "Usuarios", href: "/dashboard/admin/usuarios", icon: UserCheck },
     { label: "Planes", href: "/dashboard/admin/planes", icon: CreditCard },
     { label: "Riesgos", href: "/dashboard/admin/riesgos", icon: AlertTriangle },
+    { label: "Automation", href: "/dashboard/admin/logictoop", icon: Workflow },
     { label: "Configuración", href: "/dashboard/admin/configuracion", icon: Settings },
 ];
 
@@ -70,8 +71,8 @@ const developerNavItems = [
     { label: "Dashboard", href: "/dashboard/developer", icon: LayoutDashboard },
     { label: "Mis Proyectos", href: "/dashboard/developer/proyectos", icon: Building2 },
     { label: "Leads", href: "/dashboard/developer/leads", icon: Users },
-    { label: "Pipeline CRM", href: "/dashboard/developer/crm/pipeline", icon: Workflow },
-    { label: "BI Métricas", href: "/dashboard/developer/crm/metricas", icon: BarChart3 },
+    { label: "Pipeline CRM", href: "/dashboard/crm/pipeline", icon: Workflow },
+    { label: "BI Métricas", href: "/dashboard/crm/metricas", icon: BarChart3 },
     { label: "Oportunidades", href: "/dashboard/developer/oportunidades", icon: Target },
     { label: "Reservas", href: "/dashboard/developer/reservas", icon: BookmarkCheck },
     { label: "Mi Perfil / KYC", href: "/dashboard/developer/mi-perfil/kyc", icon: ShieldCheck },
@@ -101,17 +102,25 @@ export default function Sidebar() {
     const pathname = usePathname();
     const sidebarOpen = useAppStore((state) => state.sidebarOpen);
     const toggleSidebar = useAppStore((state) => state.toggleSidebar);
-    const { data: session } = useSession();
-    const userRole = (session?.user as any)?.role || "VENDEDOR";
+    const { data: session, status: sessionStatus } = useSession();
+    const userRole = (session?.user as any)?.role;
 
     // Select navigation items based on role
-    let navItems = developerNavItems;
-    if (userRole === "ADMIN" || userRole === "SUPERADMIN") {
+    let navItems: any[] = [];
+    
+    if (sessionStatus === "loading") {
+        // Show nothing while loading to prevent role flashing
+        navItems = [];
+    } else if (userRole === "ADMIN" || userRole === "SUPERADMIN") {
         navItems = adminNavItems;
+    } else if (userRole === "VENDEDOR" || userRole === "DESARROLLADOR") {
+        navItems = developerNavItems;
     } else if (userRole === "INVERSOR") {
         navItems = inversorNavItems;
     } else if (userRole === "CLIENTE") {
         navItems = clienteNavItems;
+    } else {
+        navItems = []; // Final fallback for unauthenticated/unknown
     }
 
     const [isMounted, setIsMounted] = useState(false);

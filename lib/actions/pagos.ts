@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, requireAnyRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 
@@ -108,7 +108,7 @@ export async function updatePaymentStatusAdmin(pagoId: string, status: "APROBADO
         const idP = idSchema.safeParse(pagoId);
         if (!idP.success) return { success: false, error: "ID de pago inválido" };
 
-        const admin = await requireRole("ADMIN");
+        const admin = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const result = await prisma.$transaction(async (tx) => {
             const pago = await tx.pago.findUnique({
@@ -125,16 +125,20 @@ export async function updatePaymentStatusAdmin(pagoId: string, status: "APROBADO
                 data: { estado: status }
             });
 
-            // 2. Handle Side-Effects
-            // NOTE: Wallet balance manipulation REMOVED. No gateway = no money movement.
-            // Only project status changes remain as they are tracking-based.
+            // 2. Handle Side-Effects (Simulated for Production Testing)
             const tipo = (pago as any).tipo;
 
-            if (tipo === "PROJECT_ACTIVATION" && status === "APROBADO" && pago.proyectoId) {
-                await tx.proyecto.update({
-                    where: { id: pago.proyectoId },
-                    data: { estado: "PUBLICADO" }
-                });
+            if (status === "APROBADO") {
+                // If it's a project activation, we might want to charge the user 
+                // but since balance is internal and there's no real money yet, 
+                // we just track the state change.
+                
+                if (tipo === "PROJECT_ACTIVATION" && pago.proyectoId) {
+                    await tx.proyecto.update({
+                        where: { id: pago.proyectoId },
+                        data: { estado: "PUBLICADO" }
+                    });
+                }
             }
 
             // 3. Audit Log
@@ -167,7 +171,7 @@ export async function getAllPayments(
     status?: string
 ) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const where: any = {};
         if (status && status !== "ALL") where.estado = status;
 

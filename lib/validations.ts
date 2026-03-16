@@ -39,3 +39,11 @@ export const searchFiltersSchema = z.object({
     status: z.string().optional(),
     type: z.string().optional(),
 });
+
+// ─── RE-EXPORTS FROM SUBDIRECTORY ───
+
+export { proyectoCreateSchema, proyectoUpdateSchema, uploadDocumentoSchema, etapaCreateSchema, blueprintSyncSchema, overlayUpdateSchema } from "@/lib/validations/proyectos";
+export { leadSchema, leadUpdateSchema, leadBulkItemSchema } from "@/lib/validations/leads";
+export { unidadCreateSchema, unidadUpdateSchema } from "@/lib/validations/unidades";
+export { reservaCreateSchema, confirmVentaSchema, reservaUpdateActionSchema } from "@/lib/validations/reservas";
+export { updatePipelineSchema, createTaskSchema, leadAssignmentSchema } from "@/lib/validations/crm";

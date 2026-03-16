@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import prisma from "@/lib/db";
 import { getSystemConfig } from "./configuration";
 import { z } from "zod";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 import { idSchema } from "@/lib/validations";
 
 // ─── Schemas ───
@@ -124,30 +125,34 @@ export async function processIncomingLeadMessage(input: unknown) {
                 return { success: false, error: "Mensaje demasiado corto" };
             }
 
-            lead = await (prisma.lead.create({
-                data: {
-                    telefono: data.telefono,
-                    nombre: data.nombre || "Nuevo Lead WhatsApp",
-                    email: data.email || null,
-                    mensaje: data.mensaje,
-                    proyectoId: data.proyectoId || null,
-                    origen: "WHATSAPP",
-                    canalOrigen: "WHATSAPP",
-                    automationStatus: "PILOT" as any
-                } as any,
-                include: { proyecto: true }
-            }) as any);
+            const mainOrgId = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
 
-            // Audit Log
-            await (prisma.auditLog.create({
-                data: {
-                    userId: "system",
-                    action: "LEAD_INBOUND_WEBHOOK",
-                    entity: "Lead",
-                    entityId: (lead as any).id,
-                    details: JSON.stringify({ canal: "WHATSAPP", status: "NEW" })
-                }
-            }) as any);
+            const result = await executeLeadReception({
+                nombre: data.nombre || "Nuevo Lead WhatsApp",
+                telefono: data.telefono,
+                email: data.email || null,
+                mensaje: data.mensaje,
+                proyectoId: data.proyectoId || null,
+                origen: "WHATSAPP",
+                canalOrigen: "WHATSAPP",
+                orgId: mainOrgId,
+                automationStatus: "PILOT",
+                sourceType: "WEBHOOK_WHATSAPP",
+                rawPayloadForIntake: data
+            });
+
+            if (!result.success && result.status !== "QUARANTINED") {
+                return { success: false, error: result.error || "Error al crear lead por WhatsApp" };
+            }
+
+            if (result.status === "QUARANTINED") {
+                return { success: true, message: "Lead registrado en intake (sin orgId)" };
+            }
+
+            lead = await prisma.lead.findFirst({
+                where: { id: result.leadId },
+                include: { proyecto: true }
+            });
         } else {
             const updateData: any = { mensaje: data.mensaje };
 
@@ -314,16 +319,34 @@ export async function joinOpenCommunity(input: unknown) {
                 } as any
             });
         } else {
-            lead = await prisma.lead.create({
-                data: {
-                    nombre: formData.nombre,
-                    telefono: formData.telefono,
-                    communityType: 'OPEN' as any,
-                    origen: 'LANDING_COMMUNITY',
-                    automationStatus: 'PILOT' as any
-                } as any
+            const mainOrgId = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
+
+            const result = await executeLeadReception({
+                nombre: formData.nombre,
+                telefono: formData.telefono,
+                communityType: "OPEN",
+                origen: "LANDING_COMMUNITY",
+                canalOrigen: "WHATSAPP",
+                orgId: mainOrgId,
+                automationStatus: "PILOT",
+                sourceType: "LANDING",
+                rawPayloadForIntake: formData
+            });
+
+            if (!result.success && result.status !== "QUARANTINED") {
+                return { success: false, error: result.error || "Error al unir lead a la comunidad" };
+            }
+
+            if (result.status === "QUARANTINED") {
+                return { success: true, message: "Interés registrado en intake (sin orgId)" };
+            }
+
+            lead = await prisma.lead.findUnique({
+                where: { id: result.leadId }
             });
         }
+
+        if (!lead) return { success: false, error: "Error critico al resolver lead" };
 
         const welcomeMsg = `¡Hola ${formData.nombre}! Bienvenido a la Comunidad Seventoop 🌿. Aquí recibirás noticias exclusivas sobre desarrollo sustentable y oportunidades de inversión antes que nadie.`;
 

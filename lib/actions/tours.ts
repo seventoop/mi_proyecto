@@ -2,7 +2,8 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, requireAnyRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { checkPlanLimit } from "@/lib/saas/limits";
 import { z } from "zod";
 
 // ─── Schemas ───
@@ -20,7 +21,7 @@ const hotspotSchema = z.object({
 const sceneSchema = z.object({
     id: z.string().optional(),
     title: z.string().min(1, "Título de escena requerido"),
-    imageUrl: z.string().url("URL de imagen inválida"),
+    imageUrl: z.string().min(1, "URL de imagen requerida").max(1000),
     isDefault: z.boolean().default(false),
     order: z.number().default(0),
     category: z.enum(["RAW", "RENDERED"]).default("RAW"),
@@ -143,7 +144,15 @@ export async function upsertTour(input: unknown) {
         }
 
         if (!proyectoId) return { success: false, error: "Proyecto ID requerido" };
-        await requireProjectOwnership(proyectoId);
+        const user = await requireProjectOwnership(proyectoId);
+
+        // M5: Plan enforcement — tour360 is a premium feature
+        if (user.orgId && !tourId) { // only on create, not update
+            const planCheck = await checkPlanLimit(user.orgId, "tour360");
+            if (!planCheck.allowed) {
+                return { success: false, error: planCheck.reason };
+            }
+        }
 
         // Perform complex sync in transaction
         const result = await prisma.$transaction(async (tx: any) => {
@@ -224,7 +233,7 @@ export async function deleteTour(id: string) {
 // Moderation
 export async function approveTour(id: string) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const tour = await prisma.tour360.update({
             where: { id },
             data: { estado: "APROBADO", notasAdmin: null },
@@ -238,7 +247,7 @@ export async function approveTour(id: string) {
 
 export async function rejectTour(id: string, reason: string) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const tour = await prisma.tour360.update({
             where: { id },
             data: { estado: "RECHAZADO", notasAdmin: reason.trim() },

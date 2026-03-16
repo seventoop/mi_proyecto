@@ -21,7 +21,7 @@ export async function POST(req: Request) {
         const user = await requireAnyRole(["ADMIN", "DESARROLLADOR"]);
 
         // 2. Rate Limiting: Max 10 per minute per User
-        const { allowed } = checkRateLimit(user.id, {
+        const { allowed } = await checkRateLimit(user.id, {
             limit: RATE_LIMIT_MAX,
             windowMs: RATE_LIMIT_WINDOW_MS,
             keyPrefix: "upscale_"

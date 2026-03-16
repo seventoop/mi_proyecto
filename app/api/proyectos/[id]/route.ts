@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireAuth, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
+import { proyectoUpdateSchema } from "@/lib/validations";
 
-// GET /api/proyectos/[id] — detalle completo
+// GET /api/proyectos/[id] — detalle completo (dashboard only — includes CRM data)
 export async function GET(
     request: Request,
     { params }: { params: { id: string } }
 ) {
     try {
+        await requireAuth();
+        await requireProjectOwnership(params.id);
+
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: params.id },
             include: {
@@ -74,90 +79,8 @@ export async function GET(
 
         return NextResponse.json({ ...proyecto, stats });
     } catch (error) {
-        console.error("Error fetching proyecto:", error);
-        return NextResponse.json(
-            { error: "Error al obtener proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
-// PUT /api/proyectos/[id] — actualizar
-export async function PUT(
-    request: Request,
-    { params }: { params: { id: string } }
-) {
-    try {
-        const body = await request.json();
-
-        const proyecto = await prisma.proyecto.update({
-            where: { id: params.id },
-            data: {
-                nombre: body.nombre,
-                descripcion: body.descripcion,
-                ubicacion: body.ubicacion,
-                estado: body.estado,
-                tipo: body.tipo,
-                imagenPortada: body.imagenPortada,
-                galeria: body.galeria,
-                documentos: body.documentos,
-                masterplanSVG: body.masterplanSVG,
-                // masterplanConfig: body.masterplanConfig,
-            },
-        });
-
-        return NextResponse.json(proyecto);
-    } catch (error) {
-        console.error("Error updating proyecto:", error);
-        return NextResponse.json(
-            { error: "Error al actualizar proyecto" },
-            { status: 500 }
-        );
-    }
-}
-
-// PATCH /api/proyectos/[id] — partial update (map location, etc.)
-export async function PATCH(
-    request: Request,
-    { params }: { params: { id: string } }
-) {
-    try {
-        const body = await request.json();
-        const data: Record<string, any> = {};
-        if (body.mapCenterLat != null) data.mapCenterLat = Number(body.mapCenterLat);
-        if (body.mapCenterLng != null) data.mapCenterLng = Number(body.mapCenterLng);
-        if (body.mapZoom != null) data.mapZoom = Number(body.mapZoom);
-
-        if (Object.keys(data).length === 0) {
-            return NextResponse.json({ error: "No fields to update" }, { status: 400 });
-        }
-
-        const proyecto = await prisma.proyecto.update({
-            where: { id: params.id },
-            data,
-        });
-        return NextResponse.json({ success: true, proyecto });
-    } catch (error) {
-        console.error("Error patching proyecto:", error);
-        return NextResponse.json({ error: "Error al actualizar proyecto" }, { status: 500 });
-    }
-}
-
-// DELETE /api/proyectos/[id]
-export async function DELETE(
-    request: Request,
-    { params }: { params: { id: string } }
-) {
-    // Re-use server action logic for consistency and security
-    const { deleteProyecto } = await import("@/lib/actions/proyectos");
-    const result = await deleteProyecto(params.id);
-
-    if (!result.success) {
-        return NextResponse.json(
-            { error: result.error },
-            { status: 403 } // Forbidden/Unauthorized
-        );
-    }
-
-    return NextResponse.json({ message: "Proyecto eliminado" });
-}
+// PUT handler removed to eliminate split-brain over mutations. Calls must use `updateProyecto` Server Action.

@@ -1,12 +1,12 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireRole, handleGuardError } from "@/lib/guards";
+import { requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
 import { revalidatePath } from "next/cache";
 
 export async function getAdminLeads() {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const [leads, orgs] = await Promise.all([
             prisma.lead.findMany({
@@ -32,7 +32,7 @@ export async function getAdminLeads() {
 
 export async function assignLeadToOrg(leadId: string, orgId: string) {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         await prisma.lead.update({
             where: { id: leadId },

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/db";
-import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 /**
  * TikTok Lead Generation Webhook
  */
 
 export async function POST(req: Request) {
+    // @security-waive: PUBLIC - TikTok leads webhook
     try {
         const rawBody = await req.text();
         const body = JSON.parse(rawBody);
@@ -72,37 +73,31 @@ export async function POST(req: Request) {
                     notas += " | [!] Lead incompleto - revisar manualmente";
                 }
 
-                // 4. Create Lead
-                const lead = await prisma.lead.create({
-                    data: {
-                        nombre: getName(),
-                        email: email || null,
-                        telefono: phone || null,
-                        canalOrigen: "TIKTOK",
-                        adId: adId,
-                        campanaId: campaignId,
-                        estado: "NUEVO",
-                        notas: notas,
-                        origen: "TIKTOK"
-                    }
+                // 4. Create Lead (Hardened: Quarantine all TikTok leads as no tenant resolution strategy is defined)
+                console.warn("[Webhook:TikTok] Tenant resolution not implemented for TikTok. Moving to LeadIntake.", { adId });
+
+                const result = await executeLeadReception({
+                    nombre: getName(),
+                    email: email || null,
+                    telefono: phone || null,
+                    campanaId: campaignId,
+                    adId: adId,
+                    estado: "NUEVO",
+                    notas: notas,
+                    origen: "TIKTOK",
+                    canalOrigen: "TIKTOK",
+                    orgId: null, // Forces quarantine
+                    sourceType: "WEBHOOK_TIKTOK",
+                    rawPayloadForIntake: body
                 });
 
-                // 5. Audit Log
-                await (prisma.auditLog.create({
-                    data: {
-                        userId: "system",
-                        action: "LEAD_INBOUND_WEBHOOK",
-                        entity: "Lead",
-                        entityId: lead.id,
-                        details: JSON.stringify({ canal: "TIKTOK", adId, campaignId })
-                    }
-                }) as any);
-
-                // 6. Trigger AI Scoring
-                console.log("[Webhook:TikTok] Triggering AI scoring", { leadId: lead.id });
-                await aiLeadScoring(lead.id).catch(err => {
-                    console.error("[Webhook:TikTok] AI Scoring failed", { leadId: lead.id, error: err.message });
-                });
+                if (!result.success && result.status !== "QUARANTINED") {
+                    console.error("[Webhook:TikTok] Failed to process lead:", result.error);
+                } else {
+                    console.log("[Webhook:TikTok] Lead safely quarantined via pipeline.", { intakeId: result.intakeId });
+                }
+                
+                return; // Do not create operative Lead
             } catch (asyncError) {
                 console.error("[Webhook:TikTok] Async processing error:", asyncError);
             }

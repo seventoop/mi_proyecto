@@ -1,23 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { z } from "zod";
-
-const leadSchema = z.object({
-    nombre: z.string().min(2, "El nombre es requerido"),
-    email: z.string().email("Email inválido"),
-    telefono: z.string().min(6, "Teléfono inválido"),
-    mensaje: z.string().optional(),
-    proyectoId: z.string().optional(),
-    origen: z.string().optional().default("WEB"),
-});
-
+import { leadSchema } from "@/lib/validations";
 import { getClientIp, checkRateLimit } from "@/lib/rate-limit";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 export async function POST(req: Request) {
+    // @security-waive: PUBLIC - Capture leads from landing pages
     try {
         // Rate Limiting: Max 10 leads per 10 minutes per IP
         const ip = getClientIp(req);
-        const { allowed } = checkRateLimit(ip, {
+        const { allowed } = await checkRateLimit(ip, {
             limit: 10,
             windowMs: 10 * 60 * 1000,
             keyPrefix: "public_lead_"
@@ -30,20 +22,22 @@ export async function POST(req: Request) {
             );
         }
         const body = await req.json();
+        
+        // 🛡️ STRICT VALIDATION
         const validation = leadSchema.safeParse(body);
 
         if (!validation.success) {
             return NextResponse.json(
-                { error: "Datos inválidos", details: validation.error.format() },
+                { error: "Datos inválidos", details: validation.error.flatten() },
                 { status: 400 }
             );
         }
 
-        const { nombre, email, telefono, mensaje, proyectoId, origen } = validation.data;
+        const data = validation.data;
 
         // Check if lead exists by email
         let lead = await db.lead.findFirst({
-            where: { email },
+            where: { email: data.email || undefined },
         });
 
         if (lead) {
@@ -51,33 +45,30 @@ export async function POST(req: Request) {
             lead = await db.lead.update({
                 where: { id: lead.id },
                 data: {
-                    telefono, // Update phone if changed
-                    // proyectosInteres: proyectoId ? { connect: { id: proyectoId } } : undefined,
-                    // We could add a "Note" or "Interaction" here
+                    telefono: data.telefono || lead.telefono,
                 },
             });
         } else {
-            // Create new lead
-            // Auto-assign to a salesperson (round-robin or random for now)
-            // For MVP, just pick the first available user or admin
-            // NOTE: In a real app we'd have a role 'SALES'
-            const vendedor = await db.user.findFirst();
-
-            lead = await db.lead.create({
-                data: {
-                    nombre,
-                    email,
-                    telefono,
-                    origen,
-                    estado: "NUEVO",
-                    asignadoAId: vendedor?.id,
-                    // proyectosInteres: proyectoId ? { connect: { id: proyectoId } } : undefined,
-                },
+            // Create in LeadIntake (Quarantine) for safety via the pipeline
+            const result = await executeLeadReception({
+                nombre: data.nombre,
+                email: data.email || null,
+                telefono: data.telefono || null,
+                proyectoId: data.proyectoId || null,
+                origen: data.origen || "PUBLIC_FORM",
+                canalOrigen: "WEB",
+                mensaje: data.mensaje || undefined,
+                notas: data.nota ? JSON.stringify([{ texto: data.nota }]) : "[]",
+                unidadInteres: data.unidadInteres || null,
+                orgId: null, // Forces quarantine in the pipeline
+                sourceType: "PUBLIC_FORM",
+                rawPayloadForIntake: data
             });
+            
+            const resData: any = { success: true };
+            if (result.intakeId) resData.intakeId = result.intakeId;
+            return NextResponse.json(resData);
         }
-
-        // TODO: Send email notification to sales rep
-        // TODO: Send confirmation email to lead
 
         return NextResponse.json({ success: true, leadId: lead.id });
     } catch (error) {

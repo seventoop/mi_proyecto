@@ -4,26 +4,10 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, handleGuardError, requireProjectOwnership } from "@/lib/guards";
 import { z } from "zod";
-import { idSchema } from "@/lib/validations";
-
-// ─── Scemas ───
-
-const leadSchema = z.object({
-    nombre: z.string().min(2, "Nombre demasiado corto").max(100),
-    email: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
-    telefono: z.string().max(30).optional().nullable(),
-    proyectoId: idSchema.optional().nullable(),
-    estado: z.string().optional().default("NUEVO"),
-    origen: z.string().optional().default("WEB")
-});
-
-const leadUpdateSchema = leadSchema.partial();
-
-const leadBulkItemSchema = z.object({
-    nombre: z.string().min(1, "Nombre requerido"),
-    email: z.string().email("Email inválido").or(z.literal("")),
-    telefono: z.string().optional().nullable(),
-});
+import { headers } from "next/headers";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { idSchema, leadSchema, leadUpdateSchema, leadBulkItemSchema } from "@/lib/validations";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 // ─── Queries ───
 
@@ -38,11 +22,20 @@ export async function getLeads(params: {
     try {
         const user = await requireAuth();
 
-        // Si es admin ve todos, si es vendedor/desarrollador ve solo los asignados o de sus proyectos
-        const where: any = user.role === "ADMIN" ? {} : {
-            OR: [
-                { asignadoAId: user.id },
-                { proyecto: { creadoPorId: user.id } }
+        // Multi-tenant scoping:
+        // ADMIN/SUPERADMIN → see all leads
+        // Users with orgId → see all leads in their org (primary filter)
+        // Users without orgId (legacy) → see only leads assigned to them or their projects
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        const where: any = isAdmin ? {} : {
+            AND: [
+                user.orgId ? { orgId: user.orgId } : {},
+                {
+                    OR: [
+                        { asignadoAId: user.id },
+                        { proyecto: { creadoPorId: user.id } }
+                    ]
+                }
             ]
         };
 
@@ -53,10 +46,13 @@ export async function getLeads(params: {
                 { telefono: { contains: search, mode: "insensitive" } }
             ];
 
-            if (user.role === "ADMIN") {
+            if (isAdmin) {
                 where.OR = searchConditions;
+            } else if (user.orgId) {
+                // org filter already set via where.orgId — add search as AND
+                where.AND = [{ OR: searchConditions }];
             } else {
-                // If already has OR from roles, we need to intersect or wrap
+                // Legacy fallback: intersect role conditions with search
                 const roleConditions = where.OR;
                 where.AND = [
                     { OR: roleConditions },
@@ -108,26 +104,29 @@ export async function createLead(input: unknown) {
         const data = parsed.data;
 
         if (!user.orgId) {
-            return { success: false, error: "Sin organización asignada. Contacta al administrador." };
+            throw new Error("El usuario no tiene una organización asignada. No se pueden crear leads sin tenant.");
         }
 
-        const lead = await prisma.lead.create({
-            data: {
-                nombre: data.nombre,
-                email: data.email || null,
-                telefono: data.telefono || null,
-                proyectoId: data.proyectoId || null,
-                estado: data.estado || "NUEVO",
-                origen: data.origen || "WEB",
-                asignadoAId: user.id,
-                orgId: user.orgId
-            }
+        const result = await executeLeadReception({
+            nombre: data.nombre,
+            email: data.email || null,
+            telefono: data.telefono || null,
+            proyectoId: data.proyectoId || null,
+            estado: data.estado || "NUEVO",
+            origen: data.origen || "WEB",
+            asignadoAId: user.id,
+            orgId: user.orgId,
+            sourceType: "MANUAL"
         });
+
+        if (!result.success) {
+            throw new Error(result.error || "Error al crear el lead en el pipeline");
+        }
 
         revalidatePath("/dashboard/developer/leads");
         revalidatePath("/dashboard/leads");
 
-        return { success: true, data: lead };
+        return { success: true, data: { id: result.leadId } };
     } catch (error) {
         return handleGuardError(error);
     }
@@ -146,16 +145,24 @@ export async function updateLead(leadId: string, input: unknown) {
 
         const data = parsed.data;
 
-        // Verify lead ownership or admin
+        // Verify lead access: org isolation first, then ownership
         const existing = await prisma.lead.findUnique({
             where: { id: leadId },
-            select: { asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
+            select: { orgId: true, asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
         });
 
         if (!existing) return { success: false, error: "Lead no encontrado" };
 
-        if (user.role !== "ADMIN" && existing.asignadoAId !== user.id && existing.proyecto?.creadoPorId !== user.id) {
-            return { success: false, error: "No tienes permisos para editar este lead" };
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            // Primary: org isolation
+            if (existing.orgId && user.orgId && existing.orgId !== user.orgId) {
+                return { success: false, error: "No tienes permisos para editar este lead" };
+            }
+            // Secondary: user-level ownership within the org
+            if (existing.asignadoAId !== user.id && existing.proyecto?.creadoPorId !== user.id) {
+                return { success: false, error: "No tienes permisos para editar este lead" };
+            }
         }
 
         await prisma.lead.update({
@@ -199,10 +206,13 @@ export async function bulkCreateLeads(leads: any[], projectId?: string) {
 
                 const lead = parsed.data;
 
-                // Check duplicate by email (if email provided)
+                // Check duplicate by email within the same org
                 if (lead.email) {
                     const existing = await prisma.lead.findFirst({
-                        where: { email: lead.email }
+                        where: {
+                            email: lead.email,
+                            ...(user.orgId ? { orgId: user.orgId } : {}),
+                        }
                     });
                     if (existing) {
                         errors.push(`Duplicado: ${lead.email} ya existe`);
@@ -210,17 +220,22 @@ export async function bulkCreateLeads(leads: any[], projectId?: string) {
                     }
                 }
 
-                await prisma.lead.create({
-                    data: {
-                        nombre: lead.nombre,
-                        email: lead.email || null,
-                        telefono: lead.telefono || null,
-                        proyectoId: projectId || null,
-                        estado: "NUEVO",
-                        origen: "IMPORTACION",
-                        asignadoAId: user.id
-                    }
+                const result = await executeLeadReception({
+                    nombre: lead.nombre,
+                    email: lead.email || null,
+                    telefono: lead.telefono || null,
+                    proyectoId: projectId || null,
+                    origen: "IMPORTACION",
+                    canalOrigen: "WEB",
+                    asignadoAId: user.id,
+                    orgId: user.orgId,
+                    sourceType: "BULK",
+                    skipAutomations: true // No spamear webhooks/IA para bulk
                 });
+                
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
                 successCount++;
             } catch (err) {
                 errors.push(`Error al insertar ${leadData.email || 'lead'}: ${(err as any).message}`);
@@ -251,14 +266,21 @@ export async function deleteLead(leadId: string) {
 
         const lead = await prisma.lead.findUnique({
             where: { id: leadId },
-            select: { asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
+            select: { orgId: true, asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
         });
 
         if (!lead) return { success: false, error: "Lead no encontrado" };
 
-        // Permisos: Admin, Asignado o Dueño del proyecto
-        if (user.role !== "ADMIN" && lead.asignadoAId !== user.id && lead.proyecto?.creadoPorId !== user.id) {
-            return { success: false, error: "No tienes permisos para eliminar este lead" };
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            // Primary: org isolation
+            if (lead.orgId && user.orgId && lead.orgId !== user.orgId) {
+                return { success: false, error: "No tienes permisos para eliminar este lead" };
+            }
+            // Secondary: user-level ownership within the org
+            if (lead.asignadoAId !== user.id && lead.proyecto?.creadoPorId !== user.id) {
+                return { success: false, error: "No tienes permisos para eliminar este lead" };
+            }
         }
 
         await prisma.lead.delete({
@@ -298,6 +320,20 @@ export async function crearLeadLanding(data: {
     origen?: string;
 }): Promise<ActionResponse> {
     try {
+        // Rate limiting: 5 submissions per IP per 10 minutes
+        const headersList = headers();
+        const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
+            || headersList.get("x-real-ip")
+            || "unknown";
+        const { allowed } = await checkRateLimit(ip, {
+            limit: 5,
+            windowMs: 10 * 60 * 1000,
+            keyPrefix: "lead_landing:",
+        });
+        if (!allowed) {
+            return { success: false, error: "Demasiadas solicitudes. Intentá de nuevo en unos minutos." };
+        }
+
         const proyectosRelacionados = await prisma.proyecto.findFirst({
             where: {
                 estado: { in: ["ACTIVO", "PROXIMO"] },
@@ -325,17 +361,23 @@ export async function crearLeadLanding(data: {
 
         const mensajeFormateado = `Intención: ${data.intencion} | Busca: ${data.categoriaProyecto} (${data.subtipoProyecto}) | Presupuesto: USD ${data.presupuestoMinUsd} - ${data.presupuestoMaxUsd} | Zona: ${data.zona}, ${data.ciudad}, ${data.provincia} | Zona sin oferta: ${zonaSinOferta ? "Sí" : "No"}`;
 
-        await prisma.lead.create({
-            data: {
-                nombre: data.nombre,
-                telefono: data.whatsapp,
-                origen: data.origen || "formulario_landing",
-                canalOrigen: "WEB",
-                mensaje: mensajeFormateado,
-                estado: "NUEVO",
-                notas: JSON.stringify(jsonMetadata),
-            }
+        const mainOrgId = process.env.SEVENTOOP_MAIN_ORG_ID ?? null;
+
+        const result = await executeLeadReception({
+            nombre: data.nombre,
+            telefono: data.whatsapp,
+            origen: data.origen || "formulario_landing",
+            canalOrigen: "WEB",
+            notas: JSON.stringify(jsonMetadata),
+            mensaje: mensajeFormateado,
+            orgId: mainOrgId,
+            sourceType: "LANDING",
+            rawPayloadForIntake: data
         });
+
+        if (!result.success && result.status !== "QUARANTINED") {
+            throw new Error(result.error || "Error al procesar lead publico");
+        }
 
         return { success: true };
     } catch (e: any) {
@@ -354,22 +396,50 @@ export async function crearConsultaContacto(data: {
     origen?: string;
 }): Promise<ActionResponse> {
     try {
+        // Rate limiting: 5 submissions per IP per 10 minutes
+        const headersList = headers();
+        const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
+            || headersList.get("x-real-ip")
+            || "unknown";
+        const { allowed } = await checkRateLimit(ip, {
+            limit: 5,
+            windowMs: 10 * 60 * 1000,
+            keyPrefix: "lead_contacto:",
+        });
+        if (!allowed) {
+            return { success: false, error: "Demasiadas solicitudes. Intentá de nuevo en unos minutos." };
+        }
+
         const mensajeFormateado = data.asunto
             ? `[Asunto: ${data.asunto.toUpperCase()}] ${data.mensaje}`
             : data.mensaje;
 
-        await prisma.lead.create({
-            data: {
-                nombre: data.nombre,
-                email: data.email,
-                telefono: data.telefono,
-                proyectoId: data.proyectoId || null,
-                origen: data.origen || "contacto",
-                canalOrigen: "WEB",
-                estado: "NUEVO",
-                mensaje: mensajeFormateado,
-            }
+        // A2 strategy: If no orgId resolved from project, move to LeadIntake quarantine.
+        let orgId: string | null = null;
+        if (data.proyectoId) {
+            const proyecto = await prisma.proyecto.findUnique({
+                where: { id: data.proyectoId },
+                select: { orgId: true },
+            });
+            if (proyecto?.orgId) orgId = proyecto.orgId;
+        }
+
+        const result = await executeLeadReception({
+            nombre: data.nombre,
+            email: data.email,
+            telefono: data.telefono,
+            proyectoId: data.proyectoId || null,
+            origen: data.origen || "contacto",
+            canalOrigen: "WEB",
+            mensaje: mensajeFormateado,
+            orgId,
+            sourceType: "CONTACTO",
+            rawPayloadForIntake: data
         });
+
+        if (!result.success && result.status !== "QUARANTINED") {
+             throw new Error(result.error || "Error al procesar consulta de contacto");
+        }
 
         return { success: true };
     } catch (e: any) {

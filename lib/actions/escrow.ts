@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 import { createNotification } from "./notifications";
@@ -118,7 +118,7 @@ export async function liberarFondosHito(id: string) {
         const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) return { success: false, error: "ID de hito inválido" };
 
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
         const hito = await prisma.escrowMilestone.update({
             where: { id },
             data: {

@@ -54,18 +54,101 @@ export async function getWalletData() {
     }
 }
 
-// ─── Mutations (DISABLED) ───
+// ─── Mutations (SIMULATED FOR PRODUCTION TESTING) ───
 
-export async function depositFunds(_input: unknown) {
-    return {
-        success: false,
-        error: "Función deshabilitada. No hay pasarela de pago configurada. Los depósitos estarán disponibles próximamente.",
-    };
+export async function depositFunds(input: { 
+    monto: number; 
+    concepto?: string; 
+    idempotencyKey?: string;
+}) {
+    try {
+        const user = await requireAuth();
+        const { monto, concepto, idempotencyKey } = input;
+
+        if (monto <= 0) return { success: false, error: "El monto debe ser positivo" };
+
+        const result = await prisma.$transaction(async (tx) => {
+            // Idempotency check
+            if (idempotencyKey) {
+                const existing = await tx.pago.findUnique({ where: { idempotencyKey } });
+                if (existing) return existing;
+            }
+
+            // 1. Create Payment record
+            const pago = await tx.pago.create({
+                data: {
+                    usuarioId: user.id,
+                    monto: monto,
+                    concepto: concepto || "Depósito de fondos (Simulado)",
+                    estado: "PAGADO",
+                    tipo: "DEPOSITO",
+                    idempotencyKey: idempotencyKey || null,
+                }
+            });
+
+            // 2. Increment user balance
+            await tx.user.update({
+                where: { id: user.id },
+                data: { saldo: { increment: monto } }
+            });
+
+            return pago;
+        });
+
+        return { success: true, data: result };
+    } catch (error) {
+        return handleGuardError(error);
+    }
 }
 
-export async function withdrawFunds(_input: unknown) {
-    return {
-        success: false,
-        error: "Función deshabilitada. No hay pasarela de pago configurada. Los retiros estarán disponibles próximamente.",
-    };
+export async function withdrawFunds(input: { 
+    monto: number; 
+    concepto?: string;
+    idempotencyKey?: string;
+}) {
+    try {
+        const user = await requireAuth();
+        const { monto, concepto, idempotencyKey } = input;
+
+        if (monto <= 0) return { success: false, error: "El monto debe ser positivo" };
+
+        const result = await prisma.$transaction(async (tx) => {
+            // Check balance
+            const userData = await tx.user.findUnique({ where: { id: user.id }, select: { saldo: true } });
+            if (!userData || Number(userData.saldo) < monto) {
+                throw new Error("Saldo insuficiente");
+            }
+
+            // Idempotency check
+            if (idempotencyKey) {
+                const existing = await tx.pago.findUnique({ where: { idempotencyKey } });
+                if (existing) return existing;
+            }
+
+            // 1. Create Payment record (negative for history)
+            const pago = await tx.pago.create({
+                data: {
+                    usuarioId: user.id,
+                    monto: monto,
+                    concepto: concepto || "Retiro de fondos (Simulado)",
+                    estado: "PAGADO",
+                    tipo: "RETIRO",
+                    idempotencyKey: idempotencyKey || null,
+                }
+            });
+
+            // 2. Decrement user balance
+            await tx.user.update({
+                where: { id: user.id },
+                data: { saldo: { decrement: monto } }
+            });
+
+            return pago;
+        });
+
+        return { success: true, data: result };
+    } catch (error: any) {
+        if (error.message === "Saldo insuficiente") return { success: false, error: error.message };
+        return handleGuardError(error);
+    }
 }

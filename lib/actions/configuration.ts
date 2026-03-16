@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 
 // ─── Schemas ───
@@ -27,7 +27,7 @@ export async function getSystemConfig(key: string) {
 
 export async function getAllSystemConfig() {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const configs = await prisma.systemConfig.findMany();
         const configMap: Record<string, string> = {};
@@ -45,7 +45,7 @@ export async function getAllSystemConfig() {
  */
 export async function updateBulkSystemConfig(updates: unknown) {
     try {
-        const user = await requireRole("ADMIN");
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const parsed = bulkUpdateSchema.safeParse(updates);
         if (!parsed.success) {

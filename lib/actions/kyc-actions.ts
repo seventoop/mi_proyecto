@@ -103,7 +103,7 @@ export async function submitKycForReview() {
 
 export async function getPendingDeveloperKyc() {
     try {
-        await requireRole("ADMIN");
+        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const profiles = await prisma.kycProfile.findMany({
             where: { estado: "EN_REVISION" },
@@ -143,7 +143,7 @@ export async function reviewDeveloperKyc(
     notas?: string
 ) {
     try {
-        const admin = await requireRole("ADMIN");
+        const admin = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
 
         const profile = await prisma.kycProfile.findUnique({
             where: { id: profileId },

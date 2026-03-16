@@ -12,7 +12,6 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { Settings2, Building2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { updateProjectFeatureFlags } from "@/lib/actions/plans";
@@ -90,7 +89,7 @@ export default function AdminProjectsMatrix({ projects }: AdminProjectsMatrixPro
     return (
         <div className="glass-card overflow-hidden border-white/10">
             <Table>
-                <TableHeader className="bg-white/5">
+                <TableHeader className="bg-slate-50 dark:bg-white/5">
                     <TableRow className="border-white/10 hover:bg-transparent">
                         <TableHead className="text-[10px] font-black uppercase text-slate-400">Proyecto</TableHead>
                         <TableHead className="text-[10px] font-black uppercase text-slate-400">Organización</TableHead>
@@ -101,17 +100,17 @@ export default function AdminProjectsMatrix({ projects }: AdminProjectsMatrixPro
                 </TableHeader>
                 <TableBody>
                     {projects.map((project) => (
-                        <TableRow key={project.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                        <TableRow key={project.id} className="border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                             <TableCell>
-                                <Link href={`/dashboard/proyectos/${project.id}`} className="flex items-center gap-3 group/row">
+                                <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center">
                                         <Building2 className="w-4 h-4 text-brand-500" />
                                     </div>
                                     <div>
-                                        <p className="font-bold text-sm text-slate-900 dark:text-white group-hover/row:text-brand-500 transition-colors leading-none mb-1">{project.nombre}</p>
+                                        <p className="font-bold text-sm text-slate-900 dark:text-white leading-none mb-1">{project.nombre}</p>
                                         <p className="text-[10px] text-slate-500 uppercase tracking-tighter">ID: {project.id}</p>
                                     </div>
-                                </Link>
+                                </div>
                             </TableCell>
                             <TableCell>
                                 <div className="flex flex-col">
@@ -252,7 +251,7 @@ export default function AdminProjectsMatrix({ projects }: AdminProjectsMatrixPro
 
 function FeatureToggle({ label, flag, value, onToggle }: { label: string, flag: string, value: boolean, onToggle: (val: boolean) => void }) {
     return (
-        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all">
+        <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 transition-all">
             <span className="text-sm font-bold text-slate-300">{label}</span>
             <Switch checked={value} onCheckedChange={onToggle} />
         </div>

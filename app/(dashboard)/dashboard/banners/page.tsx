@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, Filter, MoreVertical, Image, Play, Eye, PauseCircle, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Search, Filter, MoreVertical, Image, Play, Eye, PauseCircle, CheckCircle, XCircle, Trash2 } from "lucide-react";
 import BannerForm from "@/components/dashboard/banners/banner-form";
 import { getBanners, deleteBanner, updateBanner } from "@/lib/actions/banners";
 import { cn } from "@/lib/utils";
@@ -160,7 +160,7 @@ export default function BannersPage() {
                                     </button>
                                     <button onClick={() => handleDelete(banner.id)}
                                         className="p-2 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 rounded-lg transition-colors">
-                                        <XCircle className="w-4 h-4" />
+                                        <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>

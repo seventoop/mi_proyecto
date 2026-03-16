@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
 
-const updateLeadSchema = z.object({
-    nombre: z.string().min(1).optional(),
-    email: z.string().email().optional().or(z.literal("")),
-    telefono: z.string().optional(),
-    origen: z.enum(["WEB", "WHATSAPP", "REFERIDO"]).optional(),
-    nota: z.string().optional(), // If adding a new note
-});
+function hasLeadAccess(sessionUser: any, leadOrgId: string | null): boolean {
+    if (sessionUser.role === "ADMIN" || sessionUser.role === "SUPERADMIN") return true;
+    // A2: Leads without orgId are ADMIN-only after hardening.
+    // If legacy leads exist without orgId, run scripts/backfill-lead-orgid.ts first.
+    if (!leadOrgId) return false;
+    return (sessionUser as any).orgId === leadOrgId;
+}
+
+import { leadUpdateSchema } from "@/lib/validations";
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+        const user = await requireAuth();
 
         const lead = await db.lead.findUnique({
             where: { id: params.id },
@@ -36,26 +36,40 @@ export async function GET(request: Request, { params }: { params: { id: string }
             return NextResponse.json({ message: "Lead no encontrado" }, { status: 404 });
         }
 
+        if (!hasLeadAccess(user, lead.orgId)) {
+            return NextResponse.json({ message: "Lead no encontrado" }, { status: 404 });
+        }
+
         return NextResponse.json(lead);
     } catch (error) {
-        console.error("Error fetching lead:", error);
-        return NextResponse.json({ message: "Error interno" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+        const user = await requireAuth();
+
+        // IDOR check: verify the lead belongs to the user's org before mutating
+        const existingLead = await db.lead.findUnique({
+            where: { id: params.id },
+            select: { orgId: true },
+        });
+        if (!existingLead) {
+            return NextResponse.json({ message: "Lead no encontrado" }, { status: 404 });
+        }
+        if (!hasLeadAccess(user, existingLead.orgId)) {
+            return NextResponse.json({ message: "Lead no encontrado" }, { status: 404 });
+        }
 
         const body = await request.json();
-        const validation = updateLeadSchema.safeParse(body);
+        const validation = leadUpdateSchema.safeParse(body);
 
         if (!validation.success) {
             return NextResponse.json({ errors: validation.error.flatten() }, { status: 400 });
         }
 
-        const { nota, ...data } = validation.data;
+        const { nota, ...data } = validation.data as typeof validation.data & { nota?: string };
 
         const updateData: any = { ...data };
 
@@ -79,8 +93,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
             const newNota = {
                 fecha: new Date(),
                 texto: nota,
-                userId: session.user.id,
-                userName: session.user.name || "Usuario"
+                userId: user.id,
+                userName: user.name || "Usuario"
             };
 
             updateData.notas = JSON.stringify([...currentNotas, newNota]);
@@ -93,7 +107,6 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
         return NextResponse.json(lead);
     } catch (error) {
-        console.error("Error updating lead:", error);
-        return NextResponse.json({ message: "Error interno" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }

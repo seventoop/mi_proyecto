@@ -1,29 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleApiGuardError } from "@/lib/guards";
 
-const updatePipelineSchema = z.object({
-  oportunidadId: z.string(),
-  nuevaEtapa: z.enum([
-    "NUEVO",
-    "CONTACTADO",
-    "CALIFICADO",
-    "VISITA",
-    "NEGOCIACION",
-    "RESERVA",
-    "VENTA",
-    "PERDIDO",
-  ]),
-});
+import { updatePipelineSchema } from "@/lib/validations";
 
 export async function PUT(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-    }
+    const user = await requireAuth();
 
     const body = await request.json();
     const validation = updatePipelineSchema.safeParse(body);
@@ -44,10 +28,16 @@ export async function PUT(request: Request) {
       return NextResponse.json({ message: "Oportunidad no encontrada" }, { status: 404 });
     }
 
-    // Non-admins can only update opportunities whose lead is assigned to them
-    const role = (session.user as any).role || (session.user as any).rol;
-    if (role !== "ADMIN" && existingOp.lead?.asignadoAId !== session.user.id) {
-      return NextResponse.json({ message: "Sin permisos" }, { status: 403 });
+    // Authorization: User must be ADMIN or belong to the same ORG as the lead/opportunity
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+        const lead = await db.lead.findUnique({
+            where: { id: existingOp.leadId },
+            select: { orgId: true }
+        });
+        
+        if (lead?.orgId !== user.orgId) {
+            return NextResponse.json({ message: "No autorizado para esta organización" }, { status: 403 });
+        }
     }
 
     // Update opportunity stage

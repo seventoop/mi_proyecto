@@ -69,3 +69,36 @@ app/generated/prisma/
 # local scratch
 tmp/
 
+# =========================
+# Local uploads (dev storage)
+# =========================
+public/uploads/
+
+# =========================
+# Build/typecheck artifacts
+# =========================
+tsc_errors.txt
+tsc_output.txt
+build_output.txt
+typecheck_output.txt
+prisma_gen_error.txt
+app_structure.txt
+
+# =========================
+# Security scan output
+# =========================
+security-results.txt
+security-violations.json
+
+# =========================
+# Local one-off scripts (never commit)
+# =========================
+global_patch_roles.js
+patch_logictoop_roles.js
+reset_auth.js
+
+# =========================
+# Local tool config
+# =========================
+.claude/settings.local.json
+

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/db";
-import { aiLeadScoring } from "@/lib/actions/ai-lead-scoring";
+import { executeLeadReception } from "@/lib/crm-pipeline";
 
 /**
  * Meta (Facebook/Instagram) Lead Ads Webhook
  */
 
 export async function GET(req: Request) {
+    // @security-waive: PUBLIC - Facebook webhook verification
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get("hub.mode");
     const token = searchParams.get("hub.verify_token");
@@ -26,6 +27,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+    // @security-waive: PUBLIC - Meta leads webhook handler
     try {
         const rawBody = await req.text();
         const body = JSON.parse(rawBody);
@@ -64,11 +66,49 @@ export async function POST(req: Request) {
                             const adId = change.value.ad_id;
                             const campaignId = change.value.campaign_id;
 
-                            console.log("[Webhook:Meta] Processing lead", { leadId, adId, campaignId });
+                            console.log("[Webhook:Meta] Processing lead", { leadId, adId, campaignId, pageId });
+
+                            // 2.1 Tenant Resolution: Map pageId to OrgId
+                            const integration = await prisma.integrationConfig.findFirst({
+                                where: {
+                                    provider: "META",
+                                    OR: [
+                                        { config: { path: ["pageId"], equals: pageId } },
+                                        { config: { path: ["facebookPageId"], equals: pageId } }
+                                    ]
+                                },
+                                select: { orgId: true }
+                            });
+
+                            const orgId = integration?.orgId;
+
+                            if (!orgId) {
+                                console.error(`[Webhook:Meta] No organization mapping found for Page ID: ${pageId}. Quarantining lead ${leadId}.`);
+                                
+                                await prisma.leadIntake.create({
+                                    data: {
+                                        source: "META",
+                                        rawPayload: { change, entryTime: entry.time },
+                                        status: "PENDING",
+                                        error: `Mapeo de pageId ${pageId} no encontrado.`
+                                    }
+                                });
+
+                                const { audit } = await import("@/lib/actions/audit");
+                                await audit({
+                                    userId: "system",
+                                    action: "TENANT_RESOLUTION_FAILED",
+                                    entity: "Lead",
+                                    details: { canal: "FACEBOOK", pageId, leadId }
+                                });
+
+                                continue;
+                            }
 
                             // 3. Deduplication: Check if lead already exists by adId (or leadgen_id as unique identifier)
                             const existingLead = await prisma.lead.findFirst({
                                 where: {
+                                    orgId,
                                     OR: [
                                         { adId: adId },
                                         { notas: { contains: `Meta Lead ID: ${leadId}` } }
@@ -81,35 +121,24 @@ export async function POST(req: Request) {
                                 continue;
                             }
 
-                            // 4. Create Lead
-                            const lead = await prisma.lead.create({
-                                data: {
-                                    nombre: `Meta Lead ${leadId}`,
-                                    canalOrigen: "FACEBOOK",
-                                    adId: adId,
-                                    campanaId: campaignId,
-                                    estado: "NUEVO",
-                                    notas: `Meta Lead ID: ${leadId} | Page: ${pageId} | Entry timestamp: ${entry.time}`,
-                                    origen: "FACEBOOK"
-                                }
+                            // 4. Create Lead using executeLeadReception
+                            const result = await executeLeadReception({
+                                nombre: `Meta Lead ${leadId}`,
+                                canalOrigen: "FACEBOOK",
+                                adId: adId,
+                                campanaId: campaignId,
+                                estado: "NUEVO",
+                                notas: `Meta Lead ID: ${leadId} | Page: ${pageId} | Entry timestamp: ${entry.time}`,
+                                origen: "FACEBOOK",
+                                orgId: orgId,
+                                sourceType: "WEBHOOK_META"
                             });
-
-                            // 5. Audit Log
-                            await (prisma.auditLog.create({
-                                data: {
-                                    userId: "system", // Webhook is system-level
-                                    action: "LEAD_INBOUND_WEBHOOK",
-                                    entity: "Lead",
-                                    entityId: lead.id,
-                                    details: JSON.stringify({ canal: "FACEBOOK", adId, campaignId })
-                                }
-                            }) as any);
-
-                            // 6. Trigger AI Lead Scoring
-                            console.log("[Webhook:Meta] Triggering AI scoring", { leadId: lead.id });
-                            await aiLeadScoring(lead.id).catch(err => {
-                                console.error("[Webhook:Meta] AI Scoring failed", { leadId: lead.id, error: err.message });
-                            });
+                            
+                            if (result.success) {
+                                console.log("[Webhook:Meta] Processed successfully", { leadId: result.leadId });
+                            } else {
+                                console.error("[Webhook:Meta] Pipeline processing failed", { error: result.error });
+                            }
                         }
                     }
                 }

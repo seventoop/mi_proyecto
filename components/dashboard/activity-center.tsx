@@ -80,7 +80,7 @@ export default function ActivityCenter({ userRole, activities }: ActivityCenterP
                         const Icon = config.icon;
 
                         return (
-                            <div key={activity.id} className="p-4 hover:bg-white/5 transition-colors group">
+                            <div key={activity.id} className="p-4 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                                 <div className="flex gap-4">
                                     <div className={cn(
                                         "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border",

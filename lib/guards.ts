@@ -1,18 +1,35 @@
 /**
- * Shared auth & authorization guards for Server Actions and API Routes.
- * 
+ * CANONICAL guards — use in Server Actions and API Route handlers.
+ * These throw AuthError on failure, which is caught by handleGuardError()
+ * (returns { success: false, error }) or handleApiGuardError() (returns NextResponse).
+ *
+ * DO NOT use in Server Components / page.tsx files.
+ * For those, use lib/auth/guards.ts (calls redirect() on failure).
+ *
  * Multi-tenant aware: All guards propagate orgId.
  * ADMIN is super-admin and bypasses org checks.
- * 
+ *
  * Usage:
  *   const user = await requireAuth();
  *   await requireRole("ADMIN");
  *   await requireProjectOwnership(projectId); // also checks org
  */
 
+export const ROLES = {
+    SUPERADMIN: "SUPERADMIN",
+    ADMIN: "ADMIN",
+    DESARROLLADOR: "DESARROLLADOR",
+    VENDEDOR: "VENDEDOR",
+    INVERSOR: "INVERSOR",
+    USER: "USER",
+} as const;
+
+export type UserRole = keyof typeof ROLES;
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
 
 // ─── Types ───
 
@@ -60,9 +77,11 @@ export async function requireAuth(): Promise<AuthUser> {
 
 /**
  * Requires the user to have a specific role. Returns the user.
+ * SUPERADMIN has all permissions by default.
  */
 export async function requireRole(role: string): Promise<AuthUser> {
     const user = await requireAuth();
+    if (user.role === "SUPERADMIN") return user;
     if (user.role !== role) {
         throw new AuthError("No tienes permisos para esta acción", 403);
     }
@@ -74,6 +93,7 @@ export async function requireRole(role: string): Promise<AuthUser> {
  */
 export async function requireAnyRole(roles: string[]): Promise<AuthUser> {
     const user = await requireAuth();
+    if (user.role === "SUPERADMIN") return user;
     if (!roles.includes(user.role)) {
         throw new AuthError("No tienes permisos para esta acción", 403);
     }
@@ -90,7 +110,7 @@ export async function requireAnyRole(roles: string[]): Promise<AuthUser> {
  * Usage: prisma.proyecto.findMany({ where: { ...orgFilter(user), ...otherFilters } })
  */
 export function orgFilter(user: AuthUser): { orgId?: string } {
-    if (user.role === "ADMIN") return {};
+    if (user.role === "ADMIN" || user.role === "SUPERADMIN") return {};
     if (!user.orgId) return { orgId: "___NO_ORG___" }; // user has no org → see nothing
     return { orgId: user.orgId };
 }
@@ -244,7 +264,7 @@ export async function requireOrgAccess(orgId: string): Promise<AuthUser> {
     return user;
 }
 
-import { NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Safe wrapper for server actions that use guards.
@@ -254,6 +274,12 @@ export function handleGuardError(error: unknown): { success: false; error: strin
     if (error instanceof AuthError) {
         return { success: false, error: error.message };
     }
+    
+    // Production Observability: Capture unexpected errors
+    Sentry.captureException(error, {
+        tags: { area: "guards", context: "server-action" }
+    });
+    
     console.error("Unexpected error:", error);
     return { success: false, error: "Error interno del servidor" };
 }
@@ -266,6 +292,12 @@ export function handleApiGuardError(error: unknown): NextResponse {
     if (error instanceof AuthError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    
+    // Production Observability: Capture unexpected errors
+    Sentry.captureException(error, {
+        tags: { area: "guards", context: "api-route" }
+    });
+    
     console.error("Unexpected API error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
 }

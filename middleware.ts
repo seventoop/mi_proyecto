@@ -1,24 +1,11 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import { checkRateLimit, getClientIp, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 
-// Rate limiting map for login (single instance only)
-const loginAttempts = new Map<string, { count: number; firstAttempt: number }>();
 
-// Cleanup old entries every hour
-if (typeof setInterval !== 'undefined') {
-    setInterval(() => {
-        const now = Date.now();
-        const windowMs = 15 * 60 * 1000;
-        for (const [ip, data] of Array.from(loginAttempts.entries())) {
-            if (now - data.firstAttempt > windowMs) {
-                loginAttempts.delete(ip);
-            }
-        }
-    }, 60 * 60 * 1000);
-}
 
 export default withAuth(
-    function middleware(req) {
+    async function middleware(req) {
         const token = req.nextauth.token;
         const { pathname } = req.nextUrl;
 
@@ -30,31 +17,52 @@ export default withAuth(
             }
         }
 
-        // --- Rate Limiting for Login (STP-LANDING-AUTH-FIXES-V1) ---
-        // Simple in-memory map (resets on server restart/redeploy)
+        // --- Rate Limiting (Production Grade) ---
+        const ip = getClientIp(req);
+        const userId = token?.sub as string | undefined;
+
+        // 1. Auth & Signin (IP based)
         if (pathname === "/api/auth/signin" || pathname.startsWith("/api/auth/callback/credentials")) {
-            const ip = req.ip || req.headers.get("x-forwarded-for") || "unknown";
-            const now = Date.now();
-            const windowMs = 15 * 60 * 1000; // 15 minutes
-            const maxAttempts = 10;
-
-            const rateData = loginAttempts.get(ip) || { count: 0, firstAttempt: now };
-
-            // Reset if window expired
-            if (now - rateData.firstAttempt > windowMs) {
-                rateData.count = 1;
-                rateData.firstAttempt = now;
-            } else {
-                rateData.count++;
-            }
-
-            loginAttempts.set(ip, rateData);
-
-            if (rateData.count > maxAttempts) {
+            const { allowed } = await checkRateLimit(ip, RATE_LIMIT_POLICIES.AUTH);
+            if (!allowed) {
                 console.warn(`[AUTH] Rate limit exceeded for IP: ${ip}`);
                 return new NextResponse(
-                    JSON.stringify({ error: "Demasiados intentos. Intenta de nuevo en 15 minutos." }),
+                    JSON.stringify({ error: "Demasiados intentos. Intenta de nuevo en un minuto." }),
                     { status: 429, headers: { "Content-Type": "application/json" } }
+                );
+            }
+        }
+
+        // 2. Password Reset (IP based)
+        if (pathname === "/reset-password" || pathname.includes("forgot-password")) {
+            const { allowed } = await checkRateLimit(ip, RATE_LIMIT_POLICIES.RESET);
+            if (!allowed) {
+                return new NextResponse(
+                    JSON.stringify({ error: "Demasiadas solicitudes. Intenta de nuevo más tarde." }),
+                    { status: 429, headers: { "Content-Type": "application/json" } }
+                );
+            }
+        }
+
+        // 3. Sensitive Webhooks (Source/IP based)
+        if (pathname.startsWith("/api/webhooks")) {
+            const { allowed } = await checkRateLimit(ip, RATE_LIMIT_POLICIES.WEBHOOK);
+            if (!allowed) {
+                return new NextResponse(
+                    JSON.stringify({ error: "Exceso de tráfico" }),
+                    { status: 429 }
+                );
+            }
+        }
+
+        // 4. General API (User based if authenticated, else IP)
+        if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth") && !pathname.startsWith("/api/webhooks")) {
+            const identifier = userId || ip;
+            const { allowed } = await checkRateLimit(identifier, RATE_LIMIT_POLICIES.GENERAL_API);
+            if (!allowed) {
+                return new NextResponse(
+                    JSON.stringify({ error: "Demasiadas solicitudes a la API." }),
+                    { status: 429 }
                 );
             }
         }
@@ -96,5 +104,9 @@ export const config = {
         "/dashboard/:path*",
         "/onboarding/:path*",
         "/demo-expired",
+        "/reset-password",
+        "/api/auth/signin",
+        "/api/auth/callback/credentials",
+        "/api/webhooks/:path*",
     ],
 };
