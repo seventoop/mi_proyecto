@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import { idSchema, slugSchema } from "@/lib/validations";
+import { randomUUID } from "crypto";
 
 // ─── Scemas ───
 
@@ -378,9 +379,47 @@ export async function updateDocumentacionStatus(id: string, documentacionEstado:
 
 // --- ACCIONES DE ARCHIVOS TÉCNICOS ---
 
+// ─── PUBLIC: Proyectos destacados para home pública ───────────────────────────
+
+export async function getProyectosDestacados() {
+    try {
+        const proyectos = await prisma.proyecto.findMany({
+            where: {
+                visibilityStatus: "PUBLICADO",
+                deletedAt: null,
+                estado: { not: "SUSPENDIDO" },
+            },
+            select: {
+                id: true,
+                nombre: true,
+                slug: true,
+                estado: true,
+                tipo: true,
+                imagenPortada: true,
+                ubicacion: true,
+                precioM2Mercado: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 6,
+        });
+        return proyectos.map((p) => ({
+            id: p.id,
+            nombre: p.nombre,
+            slug: p.slug,
+            estado: p.estado,
+            tipo: p.tipo,
+            imagenPortada: p.imagenPortada,
+            ubicacion: p.ubicacion,
+            precioDesde: p.precioM2Mercado ? Number(p.precioM2Mercado) : null,
+        }));
+    } catch {
+        return [];
+    }
+}
+
 export async function getProyectoArchivos(proyectoId: string) {
     try {
-        const archivos = await prisma.proyectoArchivo.findMany({
+        const archivos = await prisma.proyecto_archivos.findMany({
             where: { proyectoId },
             orderBy: { createdAt: "desc" }
         });
@@ -413,8 +452,9 @@ export async function addProyectoArchivo(data: {
             return { success: false, error: "No autorizado" };
         }
 
-        await prisma.proyectoArchivo.create({
+        await prisma.proyecto_archivos.create({
             data: {
+                id: randomUUID(),
                 proyectoId: data.proyectoId,
                 tipo: data.tipo,
                 nombre: data.nombre,
@@ -447,7 +487,7 @@ export async function deleteProyectoArchivo(id: string, proyectoId: string) {
             return { success: false, error: "No autorizado" };
         }
 
-        await prisma.proyectoArchivo.delete({ where: { id } });
+        await prisma.proyecto_archivos.delete({ where: { id } });
 
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };

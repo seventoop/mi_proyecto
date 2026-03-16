@@ -73,9 +73,9 @@ export async function GET(req: NextRequest) {
             unidadNumero: r.unidad.numero,
             proyectoNombre: r.unidad.manzana.etapa.proyecto.nombre,
             proyectoId: r.unidad.manzana.etapa.proyecto.id,
-            clienteNombre: r.lead.nombre,
-            clienteEmail: r.lead.email,
-            clienteTelefono: r.lead.telefono,
+            clienteNombre: r.lead?.nombre ?? "",
+            clienteEmail: r.lead?.email ?? "",
+            clienteTelefono: r.lead?.telefono ?? "",
             vendedorNombre: r.vendedor.nombre,
             vendedorId: r.vendedorId,
             leadId: r.leadId,
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
         // 4. Broadcast real-time event (optional but good for CRM)
         try {
             const pusher = getPusherServer();
-            await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CREATED, {
+            if (pusher) await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CREATED, {
                 reservaId: reserva.id,
                 unidadId,
                 estado: "PENDIENTE_APROBACION",

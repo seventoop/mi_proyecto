@@ -162,14 +162,16 @@ export async function PUT(
                 });
 
                 try {
-                    await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CANCELLED, {
-                        reservaId: params.id,
-                        unidadId: reserva.unidadId,
-                    });
-                    await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
-                        unidadId: reserva.unidadId,
-                        nuevoEstado: "DISPONIBLE",
-                    });
+                    if (pusher) {
+                        await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CANCELLED, {
+                            reservaId: params.id,
+                            unidadId: reserva.unidadId,
+                        });
+                        await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
+                            unidadId: reserva.unidadId,
+                            nuevoEstado: "DISPONIBLE",
+                        });
+                    }
                 } catch { }
                 break;
             }
@@ -204,14 +206,16 @@ export async function PUT(
                 });
 
                 try {
-                    await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CONVERTED, {
-                        reservaId: params.id,
-                        unidadId: reserva.unidadId,
-                    });
-                    await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
-                        unidadId: reserva.unidadId,
-                        nuevoEstado: "VENDIDO",
-                    });
+                    if (pusher) {
+                        await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CONVERTED, {
+                            reservaId: params.id,
+                            unidadId: reserva.unidadId,
+                        });
+                        await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
+                            unidadId: reserva.unidadId,
+                            nuevoEstado: "VENDIDO",
+                        });
+                    }
                 } catch { }
                 break;
             }

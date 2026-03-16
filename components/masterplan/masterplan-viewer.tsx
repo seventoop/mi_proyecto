@@ -246,6 +246,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
     // 2. Implementation of Real-time sync via Pusher
     useEffect(() => {
         const pusher = getPusherClient();
+        if (!pusher) return;
         const channel = pusher.subscribe(CHANNELS.UNIDADES);
 
         channel.bind(EVENTS.UNIDAD_STATUS_CHANGED, (data: { id: string; estado: MasterplanUnit["estado"]; proyectoId?: string }) => {

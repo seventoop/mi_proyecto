@@ -363,11 +363,13 @@ export async function updateUnidadEstado(id: string, estado: string) {
 
         // Trigger real-time update
         const pusher = getPusherServer();
-        await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
-            id,
-            estado,
-            proyectoId: unidad.manzana.etapa.proyectoId
-        });
+        if (pusher) {
+            await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
+                id,
+                estado,
+                proyectoId: unidad.manzana.etapa.proyectoId
+            });
+        }
 
         revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
         return { success: true, data: updated };

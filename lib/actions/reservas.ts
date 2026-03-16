@@ -102,8 +102,8 @@ export async function getReservas(
             id: r.id,
             unidadNumero: r.unidad.numero,
             proyectoNombre: r.unidad.manzana.etapa.proyecto.nombre,
-            clienteNombre: r.lead.nombre,
-            leadId: r.lead.id,
+            clienteNombre: r.lead?.nombre ?? "",
+            leadId: r.lead?.id ?? r.leadId ?? "",
             vendedorNombre: r.vendedor.nombre,
             fechaInicio: r.fechaInicio.toISOString(),
             fechaVencimiento: r.fechaVencimiento.toISOString(),
@@ -267,9 +267,9 @@ export async function approveReserva(reservaId: string) {
                 unidadMoneda: reserva.unidad.moneda,
                 proyectoNombre: reserva.unidad.manzana.etapa.proyecto.nombre,
                 proyectoUbicacion: reserva.unidad.manzana.etapa.proyecto.ubicacion || "",
-                clienteNombre: reserva.lead.nombre,
-                clienteEmail: reserva.lead.email || "",
-                clienteTelefono: reserva.lead.telefono || "",
+                clienteNombre: reserva.lead?.nombre ?? "",
+                clienteEmail: reserva.lead?.email ?? "",
+                clienteTelefono: reserva.lead?.telefono ?? "",
                 vendedorNombre: reserva.vendedor.nombre
             });
 
@@ -295,7 +295,7 @@ export async function approveReserva(reservaId: string) {
                 reserva.vendedorId,
                 "EXITO",
                 "Reserva Aprobada",
-                `La reserva para ${reserva.lead.nombre} en ${reserva.unidad.numero} ha sido aprobada.`,
+                `La reserva para ${reserva.lead?.nombre ?? "cliente"} en ${reserva.unidad.numero} ha sido aprobada.`,
                 `/dashboard/leads/${reserva.leadId}`,
                 true // Send Email
             );
@@ -359,7 +359,7 @@ export async function cancelReserva(reservaId: string) {
                 reserva.vendedorId,
                 "ALERTA",
                 "Reserva Cancelada",
-                `La reserva para ${reserva.lead.nombre} en ${reserva.unidad.numero} ha sido cancelada.`,
+                `La reserva para ${reserva.lead?.nombre ?? "cliente"} en ${reserva.unidad.numero} ha sido cancelada.`,
                 `/dashboard/leads/${reserva.leadId}`,
                 true // Send Email
             );
@@ -433,7 +433,7 @@ export async function confirmarVenta(input: unknown) {
                 reserva.vendedorId,
                 "EXITO",
                 "¡Venta Confirmada! 💰",
-                `La venta de ${reserva.unidad.numero} para ${reserva.lead.nombre} ha sido confirmada.`,
+                `La venta de ${reserva.unidad.numero} para ${reserva.lead?.nombre ?? "cliente"} ha sido confirmada.`,
                 `/dashboard/leads/${reserva.leadId}`,
                 true
             );
