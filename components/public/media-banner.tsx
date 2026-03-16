@@ -168,7 +168,7 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
     // Main slider
     // ─────────────────────────────────────────────────────────────────
     return (
-        <div className="relative w-full h-[75vh] md:h-[85vh] overflow-hidden bg-black">
+        <div className="relative w-full aspect-video md:aspect-video min-h-[35vh] md:min-h-0 max-h-[calc(100vh-80px)] overflow-hidden bg-black flex items-center justify-center">
             <AnimatePresence mode="popLayout" initial={false}>
                 <motion.div
                     key={currentIndex}
@@ -184,7 +184,7 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                             src={currentBanner.mediaUrl}
                             loop
                             playsInline
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                         />
                     ) : (
                         <>
@@ -193,7 +193,7 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                                 alt={currentBanner.titulo || "Banner Media"}
                                 fill
                                 priority
-                                className="object-cover object-top"
+                                className="object-contain"
                                 sizes="100vw"
                             />
                             {(currentBanner.headline || currentBanner.titulo) && (
