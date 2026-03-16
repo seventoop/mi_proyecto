@@ -16,7 +16,7 @@ const STATUS_COLORS: Record<string, string> = {
     BLOQUEADO: "#94a3b8",
     RESERVADA: "#f59e0b",
     VENDIDA: "#ef4444",
-    SUSPENDIDA: "#64748b",
+    SUSPENDIDO: "#64748b",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,7 +24,7 @@ const STATUS_LABELS: Record<string, string> = {
     BLOQUEADO: "Bloqueado",
     RESERVADA: "Reservada",
     VENDIDA: "Vendida",
-    SUSPENDIDA: "Suspendida",
+    SUSPENDIDO: "Suspendido",
 };
 
 interface SidePanelProps {
@@ -52,17 +52,21 @@ export default function MasterplanSidePanel({ unit, modo, onClose }: SidePanelPr
 
     const handleChangeEstado = async (nuevoEstado: string) => {
         if (nuevoEstado === unit.estado || isChangingEstado) return;
+        const prevEstado = unit.estado; // capture before optimistic update
         setIsChangingEstado(true);
+        updateUnitState(unit.id, { estado: nuevoEstado as MasterplanUnit["estado"] });
         try {
             const res = await fetch(`/api/unidades/${unit.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ estado: nuevoEstado, previousEstado: unit.estado }),
+                body: JSON.stringify({ estado: nuevoEstado, previousEstado: prevEstado }),
             });
-            if (res.ok) {
-                updateUnitState(unit.id, { estado: nuevoEstado as MasterplanUnit["estado"] });
+            if (!res.ok) {
+                updateUnitState(unit.id, { estado: prevEstado });
             }
-        } catch { /* silent */ } finally {
+        } catch {
+            updateUnitState(unit.id, { estado: prevEstado });
+        } finally {
             setIsChangingEstado(false);
         }
     };

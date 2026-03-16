@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMasterplanStore, selectUnits } from "@/lib/masterplan-store";
@@ -21,7 +22,7 @@ export default function MasterplanFilters({ onClose }: FiltersProps) {
     const units = useMasterplanStore(selectUnits);
 
     // Extract unique types from real units
-    const types = Array.from(new Set(units.map(u => u.tipo))).filter(Boolean);
+    const types = useMemo(() => Array.from(new Set(units.map(u => u.tipo))).filter(Boolean), [units]);
 
     const activeCount = [
         filters.estado.length > 0,
