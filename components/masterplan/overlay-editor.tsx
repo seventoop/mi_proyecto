@@ -45,8 +45,7 @@ export default function OverlayEditor({
         if (!map || !imageUrl) return;
 
         const initOverlay = async () => {
-            // const L = (await import("leaflet")).default;
-            const L: any = null;
+            const L = (await import("leaflet")).default;
 
             // If we have existing bounds, use them. Otherwise, calculate defaults based on map center.
             let bounds: [LatLngTuple, LatLngTuple];
@@ -101,9 +100,11 @@ export default function OverlayEditor({
 
             corners.forEach(corner => {
                 const icon = L.divIcon({
-                    className: "bg-white border-2 border-brand-500 rounded-full w-4 h-4 flex items-center justify-center shadow-md cursor-move",
-                    html: "",
-                    iconSize: [16, 16]
+                    className: "",
+                    // Use inline styles — Tailwind classes don't apply to dynamically-created Leaflet DOM elements
+                    html: '<div style="width:16px;height:16px;background:white;border:2.5px solid #f97316;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.55);cursor:move;"></div>',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8],
                 });
 
                 const marker = L.marker(corner.pos, {
@@ -226,6 +227,24 @@ export default function OverlayEditor({
             </div>
 
             <div className="space-y-4">
+
+                {/* Image source indicator / URL input */}
+                <div>
+                    <label className="text-xs font-semibold mb-1 block text-slate-600 dark:text-slate-300">Imagen del Plano</label>
+                    {imageUrl && imageUrl.startsWith("blob:") ? (
+                        <div className="flex items-center gap-1.5 px-2.5 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                            ✓ Plano SVG del proyecto cargado
+                        </div>
+                    ) : (
+                        <input
+                            type="text"
+                            placeholder="https://... URL de imagen del plano"
+                            value={imageUrl}
+                            onChange={(e) => setImageUrl(e.target.value)}
+                            className="w-full text-xs px-2.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-brand-500 text-slate-800 dark:text-white placeholder-slate-400"
+                        />
+                    )}
+                </div>
 
                 <div>
                     <label className="text-xs font-semibold mb-1 block">Opacidad ({Math.round(opacity * 100)}%)</label>

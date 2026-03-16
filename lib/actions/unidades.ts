@@ -2,8 +2,8 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireAnyRole, handleGuardError, orgFilter } from "@/lib/guards";
-import { audit } from "@/lib/actions/audit";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import { idSchema, currencySchema } from "@/lib/validations";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
@@ -11,15 +11,15 @@ import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 // ─── Schemas ───
 
 const unidadCreateSchema = z.object({
-  manzanaId: idSchema,
-  numero: z.string().min(1, "Número de unidad requerido").max(20),
-  lote: z.string().max(20).optional(),
-  superficie: z.number().positive("La superficie debe ser positiva"),
-  precio: z.number().nonnegative("El precio no puede ser negativo"),
-  moneda: currencySchema.optional(),
-  estado: z.string().optional(),
-  coordsGeoJSON: z.string().optional(),
-  responsableId: idSchema.optional().nullable(),
+    manzanaId: idSchema,
+    numero: z.string().min(1, "Número de unidad requerido").max(20),
+    lote: z.string().max(20).optional(),
+    superficie: z.number().positive("La superficie debe ser positiva"),
+    precio: z.number().nonnegative("El precio no puede ser negativo"),
+    moneda: currencySchema.optional(),
+    estado: z.string().optional(),
+    coordsGeoJSON: z.string().optional(),
+    responsableId: idSchema.optional().nullable(),
 });
 
 const unidadUpdateSchema = unidadCreateSchema.partial();
@@ -27,453 +27,397 @@ const unidadUpdateSchema = unidadCreateSchema.partial();
 // ─── Queries ───
 
 export async function getAllUnidades(params: any = {}) {
-  try {
-    // ✅ AUTH GUARD
-    const user = await requireAuth();
+    try {
+        const { page = 1, pageSize = 20, proyectoId, estado, responsableId, creadoPorId } = params;
+        const skip = (page - 1) * pageSize;
 
-    const { page = 1, pageSize = 20, proyectoId, estado, responsableId } = params;
-    const skip = (page - 1) * pageSize;
-
-    const where: any = {};
-    if (estado) where.estado = estado;
-    if (responsableId) where.responsableId = responsableId;
-
-    if (proyectoId) {
-      where.manzana = {
-        etapa: {
-          proyectoId: proyectoId,
-        },
-      };
-    }
-
-    // ✅ SECURITY: do NOT accept creadoPorId from caller.
-    // If not ADMIN, force scope to projects created by this user.
-    // ✅ SECURITY: Scope to tenant or owner creator
-    const filter = orgFilter(user);
-    if (Object.keys(filter).length > 0) {
-      where.manzana = {
-        ...(where.manzana || {}),
-        etapa: {
-          ...(where.manzana?.etapa || {}),
-          proyecto: {
-            ...filter as any
-          }
+        const where: any = {};
+        if (estado) where.estado = estado;
+        if (responsableId) where.responsableId = responsableId;
+        if (proyectoId) {
+            where.manzana = {
+                etapa: {
+                    proyectoId: proyectoId
+                }
+            };
         }
-      };
-    }
 
-    const [unidades, total] = await Promise.all([
-      prisma.unidad.findMany({
-        where,
-        select: {
-          id: true,
-          numero: true,
-          tipo: true,
-          superficie: true,
-          precio: true,
-          moneda: true,
-          estado: true,
-          createdAt: true,
-          manzana: {
-            select: {
-              nombre: true,
-              etapa: {
+        if (creadoPorId) {
+            where.manzana = {
+                ...where.manzana,
+                etapa: {
+                    ...where.manzana?.etapa,
+                    proyecto: {
+                        creadoPorId: creadoPorId
+                    }
+                }
+            };
+        }
+
+        const [unidades, total] = await Promise.all([
+            prisma.unidad.findMany({
+                where,
                 select: {
-                  nombre: true,
-                  proyecto: {
-                    select: { id: true, nombre: true },
-                  },
+                    id: true,
+                    numero: true,
+                    tipo: true,
+                    superficie: true,
+                    precio: true,
+                    moneda: true,
+                    estado: true,
+                    createdAt: true,
+                    manzana: {
+                        select: {
+                            nombre: true,
+                            etapa: {
+                                select: {
+                                    nombre: true,
+                                    proyecto: {
+                                        select: { id: true, nombre: true }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    responsable: {
+                        select: { id: true, nombre: true, email: true }
+                    }
                 },
-              },
-            },
-          },
-          responsable: {
-            select: { id: true, nombre: true, email: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: pageSize,
-        skip,
-      }),
-      prisma.unidad.count({ where }),
-    ]);
+                orderBy: { createdAt: "desc" },
+                take: pageSize,
+                skip
+            }),
+            prisma.unidad.count({ where })
+        ]);
 
-    return {
-      success: true,
-      data: unidades,
-      metadata: {
-        total,
-        page,
-        pageSize,
-        totalPages: Math.ceil(total / pageSize),
-      },
-    };
-  } catch (error) {
-    console.error("Error fetching all unidades:", error);
-    return { success: false, error: "Error al obtener inventario" };
-  }
+        return {
+            success: true,
+            data: unidades,
+            metadata: {
+                total,
+                page,
+                pageSize,
+                totalPages: Math.ceil(total / pageSize)
+            }
+        };
+    } catch (error) {
+        console.error("Error fetching all unidades:", error);
+        return { success: false, error: "Error al obtener inventario" };
+    }
 }
 
 export async function getUnidades(manzanaId: string) {
-  try {
-    const user = await requireAuth();
-    const manIdParsed = idSchema.safeParse(manzanaId);
-    if (!manIdParsed.success) return { success: false, error: "ID de manzana inválido" };
+    try {
+        const manIdParsed = idSchema.safeParse(manzanaId);
+        if (!manIdParsed.success) return { success: false, error: "ID de manzana inválido" };
 
-    // 🛡️ SECURITY: Verify project ownership through Apple-style "depth check"
-    const manzana = await prisma.manzana.findUnique({
-      where: { id: manzanaId },
-      include: {
-        etapa: {
-          include: { proyecto: { select: { creadoPorId: true, orgId: true } } }
-        }
-      }
-    });
+        const unidades = await prisma.unidad.findMany({
+            where: { manzanaId },
+            orderBy: { numero: "asc" }
+        });
 
-    if (!manzana) return { success: false, error: "Manzana no encontrada" };
-
-    const project = manzana.etapa.proyecto;
-    if (user.role !== "ADMIN" && project.creadoPorId !== user.id && project.orgId !== user.orgId) {
-      return { success: false, error: "No tienes permisos para ver estas unidades" };
+        return { success: true, data: unidades };
+    } catch (error) {
+        console.error("Error fetching unidades:", error);
+        return { success: false, error: "Error al obtener unidades" };
     }
-
-    const unidades = await prisma.unidad.findMany({
-      where: { manzanaId }, // @security-waive: NO_ORG_FILTER - already verified via include/ownership above
-      orderBy: { numero: "asc" },
-    });
-
-    return { success: true, data: unidades };
-  } catch (error) {
-    return handleGuardError(error);
-  }
 }
 
 export async function getProjectBlueprintData(proyectoId: string) {
-  try {
-    const user = await requireAuth();
-    const idParsed = idSchema.safeParse(proyectoId);
-    if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
+    try {
+        const idParsed = idSchema.safeParse(proyectoId);
+        if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
 
-    // 🛡️ SECURITY: Verify project ownership
-    const proyecto = await prisma.proyecto.findUnique({
-      where: { id: proyectoId },
-      select: { creadoPorId: true, orgId: true }
-    });
-
-    if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-
-    if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id && proyecto.orgId !== user.orgId) {
-      return { success: false, error: "No tienes permisos para ver este masterplan" };
-    }
-
-    const unidades = await prisma.unidad.findMany({
-      where: {
-        manzana: {
-          etapa: {
-            proyectoId,
-          },
-        },
-      }, // @security-waive: NO_ORG_FILTER - verified via proyecto.orgId check above
-      select: {
-        id: true,
-        numero: true,
-        superficie: true,
-        precio: true,
-        moneda: true,
-        estado: true,
-        esEsquina: true,
-        orientacion: true,
-        tipo: true,
-        coordenadasMasterplan: true,
-        manzana: {
-          select: {
-            nombre: true,
-            etapa: {
-              select: { nombre: true },
+        const unidades = await prisma.unidad.findMany({
+            where: {
+                manzana: {
+                    etapa: {
+                        proyectoId
+                    }
+                }
             },
-          },
-        },
-      },
-    });
+            select: {
+                id: true,
+                numero: true,
+                superficie: true,
+                frente: true,
+                fondo: true,
+                precio: true,
+                moneda: true,
+                estado: true,
+                esEsquina: true,
+                orientacion: true,
+                tipo: true,
+                tour360Url: true,
+                coordenadasMasterplan: true,
+                manzana: {
+                    select: {
+                        id: true,
+                        nombre: true,
+                        etapa: {
+                            select: { id: true, nombre: true }
+                        }
+                    }
+                }
+            },
+            orderBy: { createdAt: "asc" }
+        });
 
-    return { success: true, data: unidades };
-  } catch (error) {
-    return handleGuardError(error);
-  }
+        return { success: true, data: unidades };
+    } catch (error) {
+        console.error("Error fetching project blueprint data:", error);
+        return { success: false, error: "Error al obtener datos del masterplan" };
+    }
 }
 
 // ─── Mutations ───
 
 export async function createUnidad(input: unknown) {
-  try {
-    const user = await requireAuth();
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
-    const parsed = unidadCreateSchema.safeParse(input);
-    if (!parsed.success) {
-      return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        const parsed = unidadCreateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
+
+        const manzana = await prisma.manzana.findUnique({
+            where: { id: data.manzanaId },
+            include: {
+                etapa: {
+                    include: { proyecto: { select: { creadoPorId: true } } }
+                }
+            }
+        });
+
+        if (!manzana) {
+            return { success: false, error: "Manzana no encontrada" };
+        }
+
+        // SECURITY CHECK
+        if (user.role !== "ADMIN" && manzana.etapa.proyecto.creadoPorId !== user.id) {
+            return { success: false, error: "No tienes permisos para crear unidades en este proyecto" };
+        }
+
+        const unidad = await prisma.unidad.create({
+            data: {
+                ...data,
+                estado: data.estado || "DISPONIBLE",
+                moneda: data.moneda || "USD"
+            }
+        });
+
+        revalidatePath(`/dashboard/proyectos/${manzana.etapa.proyectoId}`);
+        return { success: true, data: unidad };
+    } catch (error) {
+        console.error("Error creating unidad:", error);
+        return { success: false, error: "Error al crear unidad" };
     }
-    const data = parsed.data;
-
-    const manzana = await prisma.manzana.findUnique({
-      where: { id: data.manzanaId },
-      include: {
-        etapa: {
-          include: { proyecto: { select: { creadoPorId: true } } },
-        },
-      },
-    });
-
-    if (!manzana) {
-      return { success: false, error: "Manzana no encontrada" };
-    }
-
-    // SECURITY CHECK
-    if (user.role !== "ADMIN" && manzana.etapa.proyecto.creadoPorId !== user.id) {
-      return { success: false, error: "No tienes permisos para crear unidades en este proyecto" };
-    }
-
-    const unidad = await prisma.unidad.create({
-      data: {
-        ...data,
-        estado: data.estado || "DISPONIBLE",
-        moneda: data.moneda || "USD",
-      },
-    });
-
-    await audit({
-      userId: user.id,
-      action: "UNIT_CREATE",
-      entity: "Unidad",
-      entityId: unidad.id,
-      details: { numero: unidad.numero, proyectoId: manzana.etapa.proyectoId }
-    });
-
-    revalidatePath(`/dashboard/proyectos/${manzana.etapa.proyectoId}`);
-    return { success: true, data: unidad };
-  } catch (error) {
-    return handleGuardError(error);
-  }
 }
 
 export async function getUnidadHistorial(id: string) {
-  try {
-    const idParsed = idSchema.safeParse(id);
-    if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+    try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
 
-    const historial = await prisma.historialUnidad.findMany({
-      where: { unidadId: id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        usuario: { select: { nombre: true, email: true } },
-      },
-    });
+        const historial = await prisma.historialUnidad.findMany({
+            where: { unidadId: id },
+            orderBy: { createdAt: "desc" },
+            include: {
+                usuario: { select: { nombre: true, email: true } }
+            }
+        });
 
-    return { success: true, data: historial };
-  } catch (error) {
-    console.error("Error fetching unidad historial:", error);
-    return { success: false, error: "Error al obtener historial" };
-  }
+        return { success: true, data: historial };
+    } catch (error) {
+        console.error("Error fetching unidad historial:", error);
+        return { success: false, error: "Error al obtener historial" };
+    }
 }
 
 export async function updateUnidad(id: string, input: unknown) {
-  try {
-    const idParsed = idSchema.safeParse(id);
-    if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+    try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
 
-    const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
-    const parsed = unidadUpdateSchema.safeParse(input);
-    if (!parsed.success) {
-      return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        const parsed = unidadUpdateSchema.safeParse(input);
+        if (!parsed.success) {
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+        }
+        const data = parsed.data;
+
+        const unidad = await prisma.unidad.findUnique({
+            where: { id },
+            include: {
+                manzana: {
+                    include: {
+                        etapa: {
+                            include: { proyecto: { select: { creadoPorId: true } } }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!unidad) return { success: false, error: "Unidad no encontrada" };
+
+        // SECURITY CHECK
+        if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
+            return { success: false, error: "No autorizado" };
+        }
+
+        const updated = await prisma.unidad.update({
+            where: { id },
+            data,
+        });
+
+        revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Error updating unidad:", error);
+        return { success: false, error: "Error al actualizar unidad" };
     }
-    const data = parsed.data;
-
-    const unidad = await prisma.unidad.findUnique({
-      where: { id },
-      include: {
-        manzana: {
-          include: {
-            etapa: {
-              include: { proyecto: { select: { creadoPorId: true } } },
-            },
-          },
-        },
-      },
-    });
-
-    if (!unidad) return { success: false, error: "Unidad no encontrada" };
-
-    // SECURITY CHECK
-    if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
-      return { success: false, error: "No autorizado" };
-    }
-
-    const updated = await prisma.unidad.update({
-      where: { id },
-      data,
-    });
-
-    await audit({
-      userId: user.id,
-      action: "UNIT_UPDATE",
-      entity: "Unidad",
-      entityId: id,
-      details: { changes: data, proyectoId: unidad.manzana.etapa.proyectoId }
-    });
-
-    revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
-    return { success: true, data: updated };
-  } catch (error) {
-    return handleGuardError(error);
-  }
 }
 
 export async function deleteUnidad(id: string) {
-  try {
-    const idParsed = idSchema.safeParse(id);
-    if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+    try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
 
-    const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
-    const unidad = await prisma.unidad.findUnique({
-      where: { id },
-      include: {
-        manzana: {
-          include: {
-            etapa: {
-              include: { proyecto: { select: { creadoPorId: true } } },
-            },
-          },
-        },
-      },
-    });
+        const unidad = await prisma.unidad.findUnique({
+            where: { id },
+            include: {
+                manzana: {
+                    include: {
+                        etapa: {
+                            include: { proyecto: { select: { creadoPorId: true } } }
+                        }
+                    }
+                }
+            }
+        });
 
-    if (!unidad) {
-      return { success: false, error: "Unidad no encontrada" };
+        if (!unidad) {
+            return { success: false, error: "Unidad no encontrada" };
+        }
+
+        // SECURITY CHECK
+        if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
+            return { success: false, error: "No autorizado" };
+        }
+
+        await prisma.unidad.delete({ where: { id } });
+
+        revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting unidad:", error);
+        return { success: false, error: "Error al eliminar unidad" };
     }
-
-    // SECURITY CHECK
-    if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
-      return { success: false, error: "No autorizado" };
-    }
-
-    await prisma.unidad.delete({ where: { id } });
-
-    await audit({
-      userId: user.id,
-      action: "UNIT_DELETE",
-      entity: "Unidad",
-      entityId: id,
-      details: { numero: unidad.numero, proyectoId: unidad.manzana.etapa.proyectoId }
-    });
-
-    revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
-    return { success: true };
-  } catch (error) {
-    return handleGuardError(error);
-  }
 }
 
 export async function updateUnidadEstado(id: string, estado: string) {
-  try {
-    const idParsed = idSchema.safeParse(id);
-    if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+    try {
+        const idParsed = idSchema.safeParse(id);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
 
-    const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
-    const unidad = await prisma.unidad.findUnique({
-      where: { id },
-      include: {
-        manzana: {
-          include: {
-            etapa: {
-              include: { proyecto: { select: { creadoPorId: true } } },
-            },
-          },
-        },
-      },
-    });
-
-    if (!unidad) return { success: false, error: "Unidad no encontrada" };
-
-    // SECURITY CHECK
-    if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
-      return { success: false, error: "No autorizado" };
-    }
-
-    const updated = await prisma.unidad.update({
-      where: { id },
-      data: { estado },
-    });
-
-    await audit({
-      userId: user.id,
-      action: "UNIT_STATUS_UPDATE",
-      entity: "Unidad",
-      entityId: id,
-      details: { anterior: unidad.estado, nuevo: estado, proyectoId: unidad.manzana.etapa.proyectoId }
-    });
-
-    // Trigger real-time update
-    const pusher = getPusherServer();
-    if (pusher) {
-      try {
-        await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
-          id,
-          estado,
-          proyectoId: unidad.manzana.etapa.proyectoId,
+        const unidad = await prisma.unidad.findUnique({
+            where: { id },
+            include: {
+                manzana: {
+                    include: {
+                        etapa: {
+                            include: { proyecto: { select: { creadoPorId: true } } }
+                        }
+                    }
+                }
+            }
         });
-      } catch (err) {
-        console.warn("Pusher trigger failed in updateUnidadEstado:", err);
-      }
-    }
 
-    revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
-    return { success: true, data: updated };
-  } catch (error) {
-    return handleGuardError(error);
-  }
+        if (!unidad) return { success: false, error: "Unidad no encontrada" };
+
+        // SECURITY CHECK
+        if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
+            return { success: false, error: "No autorizado" };
+        }
+
+        const updated = await prisma.unidad.update({
+            where: { id },
+            data: { estado }
+        });
+
+        // Trigger real-time update
+        const pusher = getPusherServer();
+        await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
+            id,
+            estado,
+            proyectoId: unidad.manzana.etapa.proyectoId
+        });
+
+        revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Error updating unidad estado:", error);
+        return { success: false, error: "Error al actualizar estado" };
+    }
 }
 
 export async function assignResponsable(unidadId: string, userId: string) {
-  try {
-    const idParsed = idSchema.safeParse(unidadId);
-    if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
+    try {
+        const idParsed = idSchema.safeParse(unidadId);
+        if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
 
-    const userIdParsed = idSchema.safeParse(userId);
-    if (!userIdParsed.success) return { success: false, error: "ID de usuario inválido" };
+        const userIdParsed = idSchema.safeParse(userId);
+        if (!userIdParsed.success) return { success: false, error: "ID de usuario inválido" };
 
-    const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
-    const unidad = await prisma.unidad.findUnique({
-      where: { id: unidadId },
-      include: {
-        manzana: {
-          include: {
-            etapa: {
-              include: { proyecto: { select: { creadoPorId: true } } },
-            },
-          },
-        },
-      },
-    });
+        const unidad = await prisma.unidad.findUnique({
+            where: { id: unidadId },
+            include: {
+                manzana: {
+                    include: {
+                        etapa: {
+                            include: { proyecto: { select: { creadoPorId: true } } }
+                        }
+                    }
+                }
+            }
+        });
 
-    if (!unidad) return { success: false, error: "Unidad no encontrada" };
+        if (!unidad) return { success: false, error: "Unidad no encontrada" };
 
-    // SECURITY CHECK
-    if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
-      return { success: false, error: "No autorizado" };
+        // SECURITY CHECK
+        if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
+            return { success: false, error: "No autorizado" };
+        }
+
+        const updated = await prisma.unidad.update({
+            where: { id: unidadId },
+            data: { responsableId: userId },
+        });
+
+        revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Error assigning responsable:", error);
+        return { success: false, error: "Error al asignar responsable" };
     }
-
-    const updated = await prisma.unidad.update({
-      where: { id: unidadId },
-      data: { responsableId: userId },
-    });
-
-    revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
-    return { success: true, data: updated };
-  } catch (error) {
-    console.error("Error assigning responsable:", error);
-    return { success: false, error: "Error al asignar responsable" };
-  }
 }

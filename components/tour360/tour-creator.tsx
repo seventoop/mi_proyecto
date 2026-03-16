@@ -840,6 +840,9 @@ export default function TourCreator({
         try {
             const formData = new FormData();
             formData.append("file", file);
+            if (proyectoId) {
+                formData.append("projectId", proyectoId);
+            }
 
             const res = await fetch("/api/upload/360", {
                 method: "POST",

@@ -25,7 +25,6 @@ export interface MasterplanUnit {
     cx?: number;
     cy?: number;
     geoJSON?: string | null;
-    polygon?: { lat: number; lng: number }[];
 }
 
 export interface MasterplanLayer {

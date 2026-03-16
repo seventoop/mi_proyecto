@@ -7,10 +7,10 @@ import {
     Building2, Plus, Search, MapPin, ChevronRight, LayoutList, Map as MapIcon, Layers, Filter, Satellite, Edit3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
 // Leaflet imports removed to fix build
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { SuspendProjectDialog } from "./suspend-project-dialog";
-import FeatureGate from "@/components/saas/FeatureGate";
 
 const estadoConfig: Record<string, { label: string; class: string }> = {
     PLANIFICACION: { label: "Planificación", class: "bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20" },
@@ -33,14 +33,9 @@ interface ProjectsListClientProps {
         totalPages: number;
     };
     newProjectPath?: string;
-    usage?: { current: number; limit: number };
 }
 
-export default function ProjectsListClient({
-    projects,
-    newProjectPath = "/dashboard/developer/proyectos/new",
-    usage
-}: ProjectsListClientProps) {
+export default function ProjectsListClient({ projects, newProjectPath = "/dashboard/admin/proyectos/new" }: ProjectsListClientProps) {
     const [activeProjects, setActiveProjects] = useState(projects);
     const [view, setView] = useState<"list" | "map">("list");
     const [search, setSearch] = useState("");
@@ -82,20 +77,13 @@ export default function ProjectsListClient({
                             <MapIcon className="w-5 h-5" />
                         </button>
                     </div>
-                    <FeatureGate
-                        feature="proyectos"
-                        max={usage?.limit}
-                        current={usage?.current}
-                        showUpgradeCard={false}
-                    >
-                        {newProjectPath && (
-                            <Link href={newProjectPath}
-                                className="px-5 py-2.5 rounded-xl gradient-brand text-white font-semibold text-sm shadow-glow hover:shadow-glow-lg transition-all flex items-center gap-2">
-                                <Plus className="w-4 h-4" />
-                                <span className="hidden sm:inline">Nuevo Proyecto</span>
-                            </Link>
-                        )}
-                    </FeatureGate>
+                    {newProjectPath && (
+                        <Link href={newProjectPath}
+                            className="px-5 py-2.5 rounded-xl gradient-brand text-white font-semibold text-sm shadow-glow hover:shadow-glow-lg transition-all flex items-center gap-2">
+                            <Plus className="w-4 h-4" />
+                            <span className="hidden sm:inline">Nuevo Proyecto</span>
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -132,7 +120,7 @@ export default function ProjectsListClient({
                                 {filteredProjects.map((p) => (
                                     <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                                         <td className="px-5 py-4">
-                                            <Link href={`/dashboard/developer/proyectos/${p.id}`} className="flex items-center gap-3">
+                                            <Link href={`/dashboard/proyectos/${p.id}`} className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500/20 to-brand-700/30 flex items-center justify-center flex-shrink-0">
                                                     {p.imagenPortada ? (
                                                         <Image
@@ -178,7 +166,7 @@ export default function ProjectsListClient({
                                         <td className="px-5 py-4 text-center text-sm font-semibold text-rose-500">{p.unidades?.vendidas || 0}</td>
                                         <td className="px-5 py-4 text-right">
                                             <div className="flex items-center justify-end gap-1">
-                                                <Link href={`/dashboard/developer/proyectos/${p.id}`} className="p-2 inline-flex rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-brand-500 transition-colors">
+                                                <Link href={`/dashboard/proyectos/${p.id}`} className="p-2 inline-flex rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-brand-500 transition-colors">
                                                     <Edit3 className="w-4 h-4" />
                                                 </Link>
                                                 <SuspendProjectDialog

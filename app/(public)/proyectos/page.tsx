@@ -1,14 +1,8 @@
 import { Metadata } from "next";
 import { db } from "@/lib/db";
-import { Prisma } from "@prisma/client";
 import ProjectsFilter from "@/components/public/projects-filter";
 import { Building2, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { Locale } from "@/lib/i18n/config";
-// Visibility rule from adapter — single source of truth (function evaluates new Date() per request)
-import { getPublicProjectWhere } from "@/lib/project-landing/adapter";
 
 export const metadata: Metadata = {
     title: "Desarrollos | SevenToop — Infraestructura para Lanzamientos Inmobiliarios",
@@ -19,40 +13,35 @@ export const metadata: Metadata = {
 async function getProjects() {
     try {
         const projects = await db.proyecto.findMany({
-            // ↓ Centralized visibility rule — evaluated fresh per request (avoids stale Date)
-            where: getPublicProjectWhere(),
+            where: {
+                visibilityStatus: "PUBLICADO",
+                estado: { not: "SUSPENDIDO" },
+                OR: [
+                    { isDemo: false },
+                    {
+                        isDemo: true,
+                        demoExpiresAt: { gt: new Date() }
+                    }
+                ]
+            },
             orderBy: { createdAt: "desc" },
         });
 
-        if (projects.length === 0) return [];
+        const projectsWithPrices = await Promise.all(
+            projects.map(async (p) => ({
+                ...p,
+                _count: { unidades: 0 },
+                unidades: [],
+            }))
+        );
 
-        const ids = projects.map(p => p.id);
-
-        // Single query for all unit counts (avoids N+1)
-        const countRows = await db.$queryRaw<{ proyectoId: string; count: number }[]>`
-            SELECT e."proyectoId", COUNT(u.id)::int AS count
-            FROM unidades u
-            JOIN manzanas m ON u."manzanaId" = m.id
-            JOIN etapas e ON m."etapaId" = e.id
-            WHERE e."proyectoId" IN (${Prisma.join(ids)})
-            GROUP BY e."proyectoId"
-        `;
-
-        const countMap = new Map(countRows.map(r => [r.proyectoId, Number(r.count)]));
-
-        return projects.map(p => ({
-            ...p,
-            _count: { unidades: countMap.get(p.id) ?? 0 },
-            unidades: [] as { precio: number; moneda: string }[],
-        }));
-    } catch {
+        return projectsWithPrices;
+    } catch (error) {
         return [];
     }
 }
 
 export default async function ProjectsPage() {
-    const locale = (cookies().get("NEXT_LOCALE")?.value as Locale) || "es";
-    const t = await getDictionary(locale);
     const projects = await getProjects();
 
     return (
@@ -63,17 +52,18 @@ export default async function ProjectsPage() {
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-orange/10 border border-brand-orange/20 shadow-lg">
                         <Building2 className="w-4 h-4 text-brand-orange" />
                         <span className="bg-gradient-to-r from-brand-orange to-brand-orangeDark bg-clip-text text-transparent font-black uppercase text-xs tracking-widest">
-                            {t.projects.badge}
+                            Desarrollos Verificados
                         </span>
                     </div>
                     <h1 className="text-4xl md:text-6xl font-black text-foreground tracking-tight leading-[1.1]">
-                        {t.projects.title.split("SevenToop")[0]}
+                        Proyectos en{" "}
                         <span className="bg-gradient-to-r from-brand-orange to-brand-yellow bg-clip-text text-transparent">
                             SevenToop
                         </span>
                     </h1>
                     <p className="text-foreground/60 text-lg leading-relaxed">
-                        {t.projects.description}
+                        Cada desarrollo publicado cuenta con masterplan interactivo, tours 360°,
+                        ficha técnica verificada y acceso desde la comunidad.
                     </p>
                 </div>
 
@@ -83,24 +73,24 @@ export default async function ProjectsPage() {
                 {/* CTA discreto */}
                 <div className="mt-20 mb-8 max-w-4xl mx-auto rounded-3xl bg-gradient-to-br from-brand-orange/10 via-brand-orange/5 to-transparent border border-brand-orange/20 p-10 md:p-14 text-center space-y-6">
                     <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tight">
-                        {t.projects.cta.title}
+                        ¿Tenés un desarrollo para lanzar?
                     </h2>
                     <p className="text-foreground/60 text-base leading-relaxed max-w-xl mx-auto">
-                        {t.projects.cta.description}
+                        Publicá tu proyecto con infraestructura profesional, visibilidad desde el día uno y comunidad activa.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
                         <Link
                             href="/contacto"
                             className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-brand-orange hover:bg-brand-orangeDark text-white rounded-2xl font-black transition-all shadow-lg shadow-brand-orange/20 hover:scale-[1.02] active:scale-95"
                         >
-                            {t.projects.cta.developerButton}
+                            Soy Desarrollador
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </Link>
                         <Link
                             href="/#comunidad"
                             className="inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-brand-orange/20 text-brand-orange hover:bg-brand-orange hover:text-white rounded-2xl font-black transition-all active:scale-95"
                         >
-                            {t.projects.cta.communityButton}
+                            Unirme a la Comunidad
                         </Link>
                     </div>
                 </div>

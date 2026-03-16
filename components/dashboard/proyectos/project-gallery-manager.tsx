@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     Image as ImageIcon,
     Upload,
@@ -62,6 +62,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState("RENDER");
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -204,14 +205,25 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                             {CATEGORIES.map(c => <option key={c} value={c}>{c.replace("_", " ")}</option>)}
                         </select>
                         <div className="flex items-center gap-2">
-                            <label className={cn(
-                                "cursor-pointer flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-brand-500/20",
-                                uploading && "opacity-50 pointer-events-none"
-                            )}>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleFileUpload}
+                            />
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploading}
+                                className={cn(
+                                    "cursor-pointer flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-brand-500/20",
+                                    uploading && "opacity-50 pointer-events-none"
+                                )}
+                            >
                                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                                 {uploading ? "Importando..." : "Importar"}
-                                <input type="file" multiple accept="image/*" capture="environment" className="hidden" onChange={handleFileUpload} />
-                            </label>
+                            </button>
 
                             {imagenes.length > 0 && (
                                 <button
@@ -245,9 +257,15 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                                 />
                             ))}
                             {imagenes.length === 0 && !uploading && (
-                                <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                                    <ImageIcon className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                                    <p className="text-sm text-slate-400">La galería está vacía</p>
+                                <div
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-brand-500/50 hover:bg-brand-500/5 rounded-2xl cursor-pointer transition-all group"
+                                >
+                                    <Upload className="w-8 h-8 mx-auto mb-2 text-slate-300 group-hover:text-brand-500 transition-colors" />
+                                    <p className="text-sm text-slate-400 group-hover:text-brand-500 transition-colors font-medium">
+                                        Hacé clic para subir imágenes
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-1">JPG, PNG, WEBP · Máximo 20 MB por imagen</p>
                                 </div>
                             )}
                         </div>

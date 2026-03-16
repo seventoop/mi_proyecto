@@ -62,9 +62,9 @@ export async function GET(
             proyectoNombre: reserva.unidad.manzana.etapa.proyecto.nombre,
             proyectoUbicacion: reserva.unidad.manzana.etapa.proyecto.ubicacion,
 
-            clienteNombre: (reserva as any).compradorNombre || reserva.lead?.nombre || "—",
-            clienteEmail: (reserva as any).compradorEmail || reserva.lead?.email || null,
-            clienteTelefono: reserva.lead?.telefono ?? null,
+            clienteNombre: reserva.lead.nombre,
+            clienteEmail: reserva.lead.email,
+            clienteTelefono: reserva.lead.telefono,
 
             vendedorNombre: reserva.vendedor.nombre,
         });

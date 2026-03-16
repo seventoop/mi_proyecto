@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getLeadsAutocomplete, getVendedoresAutocomplete, getUnidadesDisponiblesAutocomplete } from "@/lib/actions/autocomplete";
-import { createReserva } from "@/lib/actions/reservas";
 import { toast } from "sonner";
 
 interface NuevaReservaModalProps {
@@ -81,20 +80,25 @@ export default function NuevaReservaModal({ isOpen, onClose, preselectedUnitId }
         setSubmitting(true);
 
         try {
-            const response = await createReserva({
-                unidadId: selectedUnit.id,
-                leadId: selectedLead.id,
-                vendedorId: selectedVendedor.id,
-                plazo: plazo === "custom" ? `${customHoras}` : `${plazo}hs`,
-                montoSena: montoSena ? parseFloat(montoSena) : null,
-                observaciones: observaciones || null,
+            const response = await fetch("/api/reservas", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    unidadId: selectedUnit.id,
+                    leadId: selectedLead.id,
+                    vendedorId: selectedVendedor.id,
+                    plazo: plazo === "custom" ? `${customHoras}` : `${plazo}hs`,
+                    montoSena: montoSena ? parseFloat(montoSena) : null,
+                    observaciones: observaciones || null,
+                }),
             });
 
-            if (response.success) {
+            if (response.ok) {
                 toast.success("Reserva creada exitosamente");
                 onClose();
             } else {
-                toast.error(response.error || "Error al crear la reserva");
+                const err = await response.json();
+                toast.error(err.error || "Error al crear la reserva");
             }
         } catch {
             toast.error("Error de conexión");

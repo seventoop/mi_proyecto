@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { requireAuth, requireRole, requireAnyRole, handleApiGuardError, orgFilter } from "@/lib/guards";
 
 // GET /api/developments/[id]
 export async function GET(
@@ -8,9 +7,8 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
-        const user = await requireAuth();
         const proyecto = await prisma.proyecto.findUnique({
-            where: { id: params.id, ...orgFilter(user) as any },
+            where: { id: params.id },
             include: {
                 etapas: {
                     include: {
@@ -42,7 +40,11 @@ export async function GET(
 
         return NextResponse.json(proyecto);
     } catch (error) {
-        return handleApiGuardError(error);
+        console.error("Error fetching project:", error);
+        return NextResponse.json(
+            { error: "Error al obtener proyecto" },
+            { status: 500 }
+        );
     }
 }
 
@@ -52,15 +54,10 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
-        const user = await requireAuth();
         const body = await request.json();
 
-        // Hardened: Ensure user owns the project or is admin within same org
         const proyecto = await prisma.proyecto.update({
-            where: { 
-                id: params.id,
-                ...orgFilter(user) as any
-            },
+            where: { id: params.id },
             data: {
                 nombre: body.nombre,
                 descripcion: body.descripcion,
@@ -71,12 +68,17 @@ export async function PUT(
                 galeria: body.galeria,
                 documentos: body.documentos,
                 masterplanSVG: body.masterplanSVG,
+                // masterplanConfig: body.masterplanConfig,
             },
         });
 
         return NextResponse.json(proyecto);
     } catch (error) {
-        return handleApiGuardError(error);
+        console.error("Error updating project:", error);
+        return NextResponse.json(
+            { error: "Error al actualizar proyecto" },
+            { status: 500 }
+        );
     }
 }
 
@@ -86,17 +88,16 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
-        const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
-        
         await prisma.proyecto.delete({
-            where: { 
-                id: params.id,
-                ...orgFilter(user) as any
-            },
+            where: { id: params.id },
         });
 
         return NextResponse.json({ message: "Proyecto eliminado" });
     } catch (error) {
-        return handleApiGuardError(error);
+        console.error("Error deleting project:", error);
+        return NextResponse.json(
+            { error: "Error al eliminar proyecto" },
+            { status: 500 }
+        );
     }
 }

@@ -12,7 +12,7 @@ const uploadDocumentoSchema = z.object({
     proyectoId: idSchema,
     titulo: z.string().min(1, "Título requerido").max(100),
     tipo: z.string().min(1, "Tipo de documento requerido"),
-    url: z.string().min(1, "URL de documento requerida").max(1000),
+    url: z.string().url("URL de documento inválida"),
     descripcion: z.string().max(500).optional(),
 });
 

@@ -2,12 +2,34 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireRole, requireAnyRole, requireProjectOwnership, handleGuardError, requireAuth } from "@/lib/guards";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { z } from "zod";
-import { idSchema, slugSchema, proyectoCreateSchema, proyectoUpdateSchema, uploadDocumentoSchema } from "@/lib/validations";
-import { createNotification } from "./notifications";
+import { idSchema, slugSchema } from "@/lib/validations";
 
-// ─── Queries ───
+// ─── Scemas ───
+
+const proyectoCreateSchema = z.object({
+    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres").max(100),
+    slug: slugSchema.optional(),
+    descripcion: z.string().max(2000).optional(),
+    ubicacion: z.string().max(200).optional(),
+    estado: z.string().optional(),
+    tipo: z.string().optional(),
+    imagenPortada: z.string().url("URL de imagen inválida").optional().or(z.literal("")),
+    invertible: z.boolean().optional(),
+    precioM2Inversor: z.number().positive().optional(),
+    precioM2Mercado: z.number().positive().optional(),
+    metaM2Objetivo: z.number().positive().optional(),
+    fechaLimiteFondeo: z.date().optional().or(z.string().transform(v => new Date(v))).optional(),
+    mapCenterLat: z.number().optional(),
+    mapCenterLng: z.number().optional(),
+    mapZoom: z.number().int().optional(),
+    aiKnowledgeBase: z.string().optional(),
+    aiSystemPrompt: z.string().optional(),
+});
+
+const proyectoUpdateSchema = proyectoCreateSchema.partial();
 
 export async function getProyectos(params: {
     page?: number;
@@ -23,7 +45,6 @@ export async function getProyectos(params: {
         const where: any = {
             visibilityStatus: 'PUBLICADO',
             estado: { not: 'SUSPENDIDO' },
-            deletedAt: null,
             OR: [
                 { isDemo: false },
                 { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] }
@@ -124,7 +145,10 @@ export async function getProyectos(params: {
 
 export async function getProyecto(id: string) {
     try {
-        const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+
+        if (!user) return { success: false, error: "No autorizado" };
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id },
@@ -168,9 +192,11 @@ export async function getProyecto(id: string) {
 
 export async function createProyecto(input: unknown) {
     try {
-        const user = await requireAuth();
-        const userId = user.id;
-        const userRole = user.role;
+        const session = await getServerSession(authOptions);
+        const userRole = session?.user?.role;
+        const userId = session?.user?.id;
+
+        if (!userId) return { success: false, error: "No autorizado" };
 
         const parsed = proyectoCreateSchema.safeParse(input);
         if (!parsed.success) {
@@ -204,20 +230,16 @@ export async function createProyecto(input: unknown) {
         let estado = data.estado || "PLANIFICACION";
         let documentacionEstado = (userRole === "ADMIN") ? "APROBADO" : "PENDIENTE";
 
-        const { galeria, documentos, ...rest } = data as any;
-
         const proyecto = await prisma.proyecto.create({
             data: {
-                ...rest,
-                galeria: JSON.stringify(galeria || []),
-                documentos: JSON.stringify(documentos || []),
+                ...data,
                 slug,
                 estado,
                 documentacionEstado,
                 invertible: data.invertible ?? false,
                 m2VendidosInversores: 0,
                 creadoPorId: userId,
-                orgId: (user as any).orgId || null,
+                orgId: (session?.user as any)?.orgId || null,
                 isDemo,
                 demoExpiresAt: isDemo ? (userRecord?.demoEndsAt ? new Date(userRecord.demoEndsAt) : null) : null,
                 visibilityStatus: 'PUBLICADO'
@@ -244,16 +266,20 @@ export async function updateProyecto(id: string, input: unknown) {
         const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
 
-        const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+
+        if (!user) return { success: false, error: "No autorizado" };
 
         const parsed = proyectoUpdateSchema.safeParse(input);
         if (!parsed.success) {
             return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
         }
         const data = parsed.data;
+
         const proyecto = await prisma.proyecto.findUnique({
             where: { id },
-            select: { creadoPorId: true, visibilityStatus: true, orgId: true }
+            select: { creadoPorId: true }
         });
 
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
@@ -263,69 +289,14 @@ export async function updateProyecto(id: string, input: unknown) {
             return { success: false, error: "No tienes permisos para modificar este proyecto" };
         }
 
-        const { galeria, documentos, ...rest } = data as any;
-        const updateData: any = {
-            ...rest,
-            ...(galeria ? { galeria: JSON.stringify(galeria) } : {}),
-            ...(documentos ? { documentos: JSON.stringify(documentos) } : {}),
-            updatedAt: new Date()
-        };
-
-        const result = await prisma.$transaction(async (tx) => {
-            const current = await tx.proyecto.findUnique({
-                where: { id },
-                select: { precioM2Inversor: true, precioM2Mercado: true }
-            });
-
-            if (current) {
-                // Tracking ROI / Market Price changes for transparency
-                if (data.precioM2Inversor && Number(data.precioM2Inversor) !== Number(current.precioM2Inversor)) {
-                    await tx.priceHistory.create({
-                        data: {
-                            proyectoId: id,
-                            usuarioId: user.id,
-                            precioAnterior: current.precioM2Inversor || 0,
-                            precioNuevo: data.precioM2Inversor,
-                            tipo: "INVERSOR",
-                            motivo: "Actualización de precio inversor (ROI)"
-                        }
-                    });
-                }
-                if (data.precioM2Mercado && Number(data.precioM2Mercado) !== Number(current.precioM2Mercado)) {
-                    await tx.priceHistory.create({
-                        data: {
-                            proyectoId: id,
-                            usuarioId: user.id,
-                            precioAnterior: current.precioM2Mercado || 0,
-                            precioNuevo: data.precioM2Mercado,
-                            tipo: "MERCADO",
-                            motivo: "Ajuste de valor de mercado"
-                        }
-                    });
-                }
-            }
-
-            const updated = await tx.proyecto.update({
-                where: { id },
-                data: updateData
-            });
-
-            // Audit
-            const { audit } = await import("@/lib/actions/audit");
-            await audit({
-                userId: user.id,
-                action: "PROJECT_UPDATE",
-                entity: "Proyecto",
-                entityId: id,
-                details: { changes: Object.keys(data) }
-            });
-
-            return updated;
+        const updated = await prisma.proyecto.update({
+            where: { id },
+            data
         });
 
         revalidatePath("/dashboard/proyectos");
         revalidatePath(`/dashboard/proyectos/${id}`);
-        return { success: true, data: result };
+        return { success: true, data: updated };
     } catch (error) {
         console.error("Error updating project:", error);
         return { success: false, error: "Error al actualizar proyecto" };
@@ -334,43 +305,33 @@ export async function updateProyecto(id: string, input: unknown) {
 
 export async function deleteProyecto(id: string) {
     try {
-        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
-        const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
 
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id },
-            select: { id: true, nombre: true }
-        });
+        if (!user) return { success: false, error: "No autorizado" };
 
+        const proyecto = await prisma.proyecto.findUnique({ where: { id } });
         if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
 
-        // Soft delete
-        await prisma.proyecto.update({
-            where: { id },
-            data: { deletedAt: new Date() }
-        });
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
+            return { success: false, error: "No tienes permisos para eliminar este proyecto" };
+        }
 
-        // Centralized Audit Log
-        const { audit } = await import("@/lib/actions/audit");
-        await audit({
-            userId: user.id,
-            action: "PROYECTO_ELIMINADO",
-            entity: "PROYECTO",
-            entityId: id,
-            details: { nombre: proyecto.nombre, type: "SOFT_DELETE" }
-        });
+        await prisma.proyecto.delete({ where: { id } });
 
-        revalidatePath("/dashboard/admin/proyectos");
-        revalidatePath("/dashboard/developer/proyectos");
+        revalidatePath("/dashboard/proyectos");
         return { success: true };
     } catch (error) {
-        return handleGuardError(error);
+        console.error("Error deleting project:", error);
+        return { success: false, error: "Error al eliminar proyecto" };
     }
 }
 
 export async function updateProyectoStatus(id: string, estado: string) {
     try {
-        const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id },
@@ -398,7 +359,8 @@ export async function updateProyectoStatus(id: string, estado: string) {
 
 export async function updateDocumentacionStatus(id: string, documentacionEstado: string) {
     try {
-        const user = await requireRole("ADMIN");
+        const session = await getServerSession(authOptions);
+        if (session?.user?.role !== "ADMIN") return { success: false, error: "Solo administradores pueden cambiar el estado de documentación" };
 
         const proyecto = await prisma.proyecto.update({
             where: { id },
@@ -414,6 +376,86 @@ export async function updateDocumentacionStatus(id: string, documentacionEstado:
     }
 }
 
+// --- ACCIONES DE ARCHIVOS TÉCNICOS ---
+
+export async function getProyectoArchivos(proyectoId: string) {
+    try {
+        const archivos = await prisma.proyectoArchivo.findMany({
+            where: { proyectoId },
+            orderBy: { createdAt: "desc" }
+        });
+        return { success: true, data: archivos };
+    } catch (error) {
+        console.error("Error fetching project files:", error);
+        return { success: true, data: [] };
+    }
+}
+
+export async function addProyectoArchivo(data: {
+    proyectoId: string;
+    tipo: string;
+    nombre: string;
+    url: string;
+    visiblePublicamente: boolean;
+}) {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
+
+        const proyecto = await prisma.proyecto.findUnique({
+            where: { id: data.proyectoId },
+            select: { creadoPorId: true }
+        });
+
+        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
+            return { success: false, error: "No autorizado" };
+        }
+
+        await prisma.proyectoArchivo.create({
+            data: {
+                proyectoId: data.proyectoId,
+                tipo: data.tipo,
+                nombre: data.nombre,
+                url: data.url,
+                visiblePublicamente: data.visiblePublicamente
+            }
+        });
+
+        revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Error adding project file:", error);
+        return { success: false, error: "Error al subir archivo técnico" };
+    }
+}
+
+export async function deleteProyectoArchivo(id: string, proyectoId: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
+
+        const proyecto = await prisma.proyecto.findUnique({
+            where: { id: proyectoId },
+            select: { creadoPorId: true }
+        });
+
+        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
+        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
+            return { success: false, error: "No autorizado" };
+        }
+
+        await prisma.proyectoArchivo.delete({ where: { id } });
+
+        revalidatePath(`/dashboard/proyectos/${proyectoId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting project file:", error);
+        return { success: false, error: "Error al eliminar archivo" };
+    }
+}
 
 // --- ACCIONES DE GALERÍA PROFESIONAL ---
 
@@ -438,7 +480,9 @@ export async function addProyectoImagen(data: {
     orden?: number;
 }) {
     try {
-        const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: data.proyectoId },
@@ -485,7 +529,9 @@ export async function addProyectoImagen(data: {
 
 export async function updateProyectoImagenesOrder(updates: { id: string, orden: number }[], proyectoId: string) {
     try {
-        const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: proyectoId },
@@ -514,7 +560,9 @@ export async function updateProyectoImagenesOrder(updates: { id: string, orden: 
 
 export async function deleteProyectoImagen(id: string, proyectoId: string) {
     try {
-        const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: proyectoId },
@@ -538,7 +586,9 @@ export async function deleteProyectoImagen(id: string, proyectoId: string) {
 
 export async function setMainProyectoImagen(id: string, proyectoId: string) {
     try {
-        const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        const user = session?.user;
+        if (!user) return { success: false, error: "No autorizado" };
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: proyectoId },
@@ -573,205 +623,5 @@ export async function setMainProyectoImagen(id: string, proyectoId: string) {
     } catch (error) {
         console.error("Error setting main image:", error);
         return { success: false, error: "Error al establecer imagen principal" };
-    }
-}
-
-// --- ACCIONES UNIFICADAS DE DOCUMENTACIÓN ---
-
-export async function addDocumentoProyecto(input: unknown) {
-    try {
-        const parsed = uploadDocumentoSchema.safeParse(input);
-        if (!parsed.success) {
-            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
-        }
-        const data = parsed.data;
-
-        const user = await requireProjectOwnership(data.proyectoId);
-
-        const documento = await prisma.documentacion.create({
-            data: {
-                proyectoId: data.proyectoId,
-                usuarioId: user.id,
-                nombre: data.nombre,
-                tipo: data.tipo,
-                categoria: data.categoria,
-                archivoUrl: data.url,
-                descripcion: data.descripcion,
-                visiblePublicamente: data.visiblePublicamente,
-                estado: "PENDIENTE",
-            } as any // Cast to any to handle schema sync if needed
-        });
-
-        revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
-        return { success: true, data: documento };
-    } catch (error) {
-        return handleGuardError(error);
-    }
-}
-
-export async function updateEstadoDocumentoProyecto(id: string, status: "APROBADO" | "RECHAZADO", notas?: string) {
-    try {
-        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
-
-        const doc = await (prisma.documentacion as any).findUnique({
-            where: { id },
-            select: { proyectoId: true, nombre: true }
-        });
-
-        if (!doc) return { success: false, error: "Documento no encontrado" };
-
-        await prisma.documentacion.update({
-            where: { id },
-            data: {
-                estado: status,
-                comentarios: notas
-            }
-        });
-
-        if (doc.proyectoId) {
-            revalidatePath(`/dashboard/proyectos/${doc.proyectoId}`);
-
-            // Revalidate project doc status if it's a critical doc
-            // Logic to update proyecto.documentacionEstado could go here if needed
-        }
-
-        return { success: true };
-    } catch (error) {
-        return handleGuardError(error);
-    }
-}
-
-/** @deprecated Use getDocumentosProyecto instead */
-export async function getProyectoArchivos(proyectoId: string) {
-    try {
-        const docs = await (prisma.documentacion as any).findMany({
-            where: { proyectoId, categoria: "TECNICO" }
-        });
-        return docs.map((d: any) => ({
-            id: d.id,
-            nombre: d.nombre || d.tipo,
-            archivoUrl: d.archivoUrl,
-            fechaSubida: d.createdAt
-        }));
-    } catch (error) {
-        return handleGuardError(error);
-    }
-}
-
-/** @deprecated Use addDocumentoProyecto instead */
-export async function addProyectoArchivo(data: { proyectoId: string, nombre: string, archivoUrl: string }) {
-    return addDocumentoProyecto({
-        proyectoId: data.proyectoId,
-        nombre: data.nombre,
-        tipo: "PLANO",
-        categoria: "TECNICO",
-        url: data.archivoUrl
-    });
-}
-
-/** @deprecated Use deleteDocumentoProyecto instead */
-export async function deleteProyectoArchivo(id: string, proyectoId: string) {
-    return deleteDocumentoProyecto(id, proyectoId);
-}
-
-export async function deleteDocumentoProyecto(id: string, proyectoId: string) {
-    try {
-        await requireProjectOwnership(proyectoId);
-
-        await prisma.documentacion.delete({
-            where: { id, proyectoId }
-        });
-
-        revalidatePath(`/dashboard/proyectos/${proyectoId}`);
-        return { success: true };
-    } catch (error) {
-        return handleGuardError(error);
-    }
-}
-
-export async function reviewAllProjectDocs(projectId: string, status: "APROBADO" | "RECHAZADO", notas?: string) {
-    try {
-        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
-
-        const project = await prisma.proyecto.update({
-            where: { id: projectId },
-            data: { documentacionEstado: status }
-        });
-
-        if (project.creadoPorId) {
-            await createNotification(
-                project.creadoPorId,
-                status === "APROBADO" ? "EXITO" : "ALERTA",
-                "Carpeta Técnica " + (status === "APROBADO" ? "Aprobada" : "Rechazada"),
-                notas || `La documentación de tu proyecto "${project.nombre}" ha sido marcada como ${status}.`,
-                `/dashboard/proyectos/${projectId}`
-            );
-        }
-
-        revalidatePath(`/dashboard/proyectos/${projectId}`);
-        return { success: true };
-    } catch (error) {
-        return handleGuardError(error);
-    }
-}
-
-export async function getProyectosDestacados() {
-    try {
-        const proyectos = await prisma.proyecto.findMany({
-            where: {
-                visibilityStatus: "PUBLICADO",
-                estado: { in: ["ACTIVO", "PROXIMO"] }
-            },
-            take: 6,
-            orderBy: { createdAt: "desc" },
-            select: {
-                id: true,
-                nombre: true,
-                slug: true,
-                estado: true,
-                tipo: true,
-                precioM2Inversor: true,
-                imagenPortada: true,
-                ubicacion: true,
-            }
-        });
-
-        const data = proyectos.map(p => ({
-            ...p,
-            precioDesde: p.precioM2Inversor ? Number(p.precioM2Inversor) : null,
-            ciudad: p.ubicacion ? p.ubicacion.split(",")[0].trim() : "",
-            provincia: p.ubicacion && p.ubicacion.includes(",") ? p.ubicacion.split(",").pop()?.trim() : "",
-        }));
-
-        return data;
-    } catch (e) {
-        console.error(e);
-        return [];
-    }
-}
-
-export async function getProyectoBySlug(slug: string) {
-    try {
-        const proyecto = await prisma.proyecto.findFirst({
-            where: {
-                slug,
-                visibilityStatus: "PUBLICADO"
-            },
-            include: {
-                imagenes: { orderBy: { orden: "asc" } },
-                tours: true,
-                documentacion: true,
-                etapas: {
-                    include: { manzanas: { include: { unidades: true } } },
-                    orderBy: { orden: "asc" }
-                }
-            }
-        });
-
-        if (!proyecto) return null;
-        return proyecto;
-    } catch (e) {
-        console.error("Error getProyectoBySlug:", e);
-        return null;
     }
 }

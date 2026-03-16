@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { uploadFile } from "@/lib/storage";
-import { requireAuth, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
+import { requireProjectOwnership } from "@/lib/guards";
 import { z } from "zod";
 import {
     MAX_FILE_SIZE_PLAN,
@@ -21,7 +23,10 @@ const uploadSchema = z.object({
 
 export async function POST(req: NextRequest) {
     try {
-        const user = await requireAuth();
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+        }
 
         const formData = await req.formData();
         const file = formData.get("file");
@@ -73,6 +78,7 @@ export async function POST(req: NextRequest) {
             size: uploadResult.size,
         });
     } catch (error) {
-        return handleApiGuardError(error);
+        console.error("[Upload Masterplan Error]", error);
+        return NextResponse.json({ success: false, error: "Error al subir archivo de masterplan" }, { status: 500 });
     }
 }

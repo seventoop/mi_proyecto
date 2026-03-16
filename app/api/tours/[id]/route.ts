@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireAuth, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
-import { idSchema } from "@/lib/validations";
 import { z } from "zod";
+import { requireAuth, requireProjectOwnership, AuthError } from "@/lib/guards";
 
 const updateTourSchema = z.object({
     nombre: z.string().min(3).optional(),
@@ -21,21 +20,19 @@ export async function GET(request: Request, { params }: { params: { id: string }
             return NextResponse.json({ message: "Tour no encontrado" }, { status: 404 });
         }
 
-        // Security: Ensure user owns the project this tour belongs to
-        await requireProjectOwnership(tour.proyectoId);
-
         return NextResponse.json(tour);
     } catch (error) {
-        return handleApiGuardError(error);
+        if (error instanceof AuthError) {
+            return NextResponse.json({ message: error.message }, { status: error.status });
+        }
+        console.error("Error fetching tour:", error);
+        return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
     }
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
     try {
-        await requireAuth(); // Explicit guard for security scan
         const body = await request.json();
-        
-        // 🛡️ STRICT VALIDATION
         const validation = updateTourSchema.safeParse(body);
 
         if (!validation.success) {
@@ -99,13 +96,16 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
         return NextResponse.json(tour);
     } catch (error) {
-        return handleApiGuardError(error);
+        if (error instanceof AuthError) {
+            return NextResponse.json({ message: error.message }, { status: error.status });
+        }
+        console.error("Error updating tour:", error);
+        return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
     }
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
     try {
-        await requireAuth(); // Explicit guard for security scan
         // Fetch tour to check project ownership
         const existing = await db.tour360.findUnique({
             where: { id: params.id },
@@ -124,6 +124,10 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
         return NextResponse.json({}, { status: 204 });
     } catch (error) {
-        return handleApiGuardError(error);
+        if (error instanceof AuthError) {
+            return NextResponse.json({ message: error.message }, { status: error.status });
+        }
+        console.error("Error deleting tour:", error);
+        return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
     }
 }

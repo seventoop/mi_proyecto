@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { requireAuth, requireProjectOwnership, handleApiGuardError, orgFilter } from "@/lib/guards";
+import { requireAuth, requireProjectOwnership, AuthError } from "@/lib/guards";
 
 const createTourSchema = z.object({
     proyectoId: z.string(),
@@ -19,15 +19,13 @@ const createTourSchema = z.object({
 
 export async function GET(request: Request) {
     try {
-        const user = await requireAuth();
+        await requireAuth();
 
         const { searchParams } = new URL(request.url);
         const proyectoId = searchParams.get("proyectoId");
         const unidadId = searchParams.get("unidadId");
 
-        const where: any = {
-            ...orgFilter(user) as any
-        };
+        const where: any = {};
         if (proyectoId) where.proyectoId = proyectoId;
         if (unidadId) where.unidadId = unidadId;
 
@@ -45,7 +43,11 @@ export async function GET(request: Request) {
 
         return NextResponse.json(tours);
     } catch (error) {
-        return handleApiGuardError(error);
+        if (error instanceof AuthError) {
+            return NextResponse.json({ message: error.message }, { status: error.status });
+        }
+        console.error("Error fetching tours:", error);
+        return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
     }
 }
 
@@ -100,6 +102,10 @@ export async function POST(request: Request) {
 
         return NextResponse.json(tour, { status: 201 });
     } catch (error) {
-        return handleApiGuardError(error);
+        if (error instanceof AuthError) {
+            return NextResponse.json({ message: error.message }, { status: error.status });
+        }
+        console.error("Error creating tour:", error);
+        return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
     }
 }

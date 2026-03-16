@@ -13,7 +13,6 @@ const etapaCreateSchema = z.object({
     nombre: z.string().min(1, "Nombre de etapa requerido").max(100),
     descripcion: z.string().max(500).optional(),
     orden: z.number().int().optional(),
-    estado: z.string().optional(),
 });
 
 const etapaUpdateSchema = z.object({
