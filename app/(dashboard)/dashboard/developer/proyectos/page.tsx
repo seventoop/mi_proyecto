@@ -67,8 +67,6 @@ export default async function ProyectosPage() {
     });
     const kycStatus = user?.kycStatus;
 
-    const isPrivileged = session?.user?.role === "ADMIN" || session?.user?.role === "SUPERADMIN";
-
     return (
         <div className="space-y-6">
             <KycDemoStatusCard
@@ -79,7 +77,7 @@ export default async function ProyectosPage() {
             <ProjectsListClient
                 projects={processedProyectos}
                 newProjectPath={
-                    (isPrivileged || kycStatus === "VERIFICADO" || !user || !(user as any).demoUsed || ((user as any)?.demoEndsAt && new Date((user as any).demoEndsAt) > new Date()))
+                    (kycStatus === "VERIFICADO" || !user || !(user as any).demoUsed || ((user as any)?.demoEndsAt && new Date((user as any).demoEndsAt) > new Date()))
                         ? "/dashboard/developer/proyectos/new"
                         : undefined
                 }

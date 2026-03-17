@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useSession } from "next-auth/react";
 import {
   InfraestructuraItem, InfraestructuraCategoria, InfraestructuraEstado,
   InfraestructuraGeometria, CATEGORIAS_INFRA, ESTADO_INFRA_CONFIG,
@@ -79,9 +78,6 @@ const DEFAULT_FORM = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function InfraestructuraTool({ proyectoId, map }: InfraestructuraToolProps) {
-  const { data: session } = useSession();
-  const canMutate = ["ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(session?.user?.role || "");
-
   // Panel open/close
   const [isOpen, setIsOpen] = useState(false);
   // Drawing mode
@@ -504,7 +500,7 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                {!showForm && !drawingMode && canMutate && (
+                {!showForm && !drawingMode && (
                   <button
                     onClick={() => { setShowForm(true); setEditingId(null); setDrawingPoints([]); setForm({ ...DEFAULT_FORM }); setSelectedId(null); }}
                     className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-bold rounded-lg transition-colors"
@@ -833,66 +829,62 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
                     <p className="text-xs text-slate-400 leading-relaxed">{selectedItem.descripcion}</p>
                   )}
 
-                  {canMutate && (
-                    <>
-                      {/* Estado selector */}
-                      <div>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Cambiar estado</p>
-                        <div className="flex flex-wrap gap-1">
-                          {(Object.keys(ESTADO_INFRA_CONFIG) as InfraestructuraEstado[]).map((est) => (
-                            <button
-                              key={est}
-                              onClick={async () => {
-                                const res = await fetch(`/api/infraestructura/${selectedItem.id}`, {
-                                  method: "PUT",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ estado: est }),
-                                });
-                                if (res.ok) {
-                                  const data = await res.json();
-                                  setItems((prev) => prev.map((it) => (it.id === selectedItem.id ? data.item : it)));
-                                  toast.success("Estado actualizado");
-                                }
-                              }}
-                              className={cn(
-                                "px-2 py-1 rounded-lg text-[10px] font-bold border transition-all",
-                                selectedItem.estado === est
-                                  ? "text-white"
-                                  : "bg-slate-800/60 border-slate-700/60 text-slate-400 hover:border-slate-600"
-                              )}
-                              style={selectedItem.estado === est
-                                ? { backgroundColor: `${ESTADO_INFRA_CONFIG[est].color}30`, borderColor: ESTADO_INFRA_CONFIG[est].color, color: ESTADO_INFRA_CONFIG[est].color }
-                                : {}}
-                            >
-                              {ESTADO_INFRA_CONFIG[est].label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                  {/* Estado selector */}
+                  <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Cambiar estado</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(Object.keys(ESTADO_INFRA_CONFIG) as InfraestructuraEstado[]).map((est) => (
+                        <button
+                          key={est}
+                          onClick={async () => {
+                            const res = await fetch(`/api/infraestructura/${selectedItem.id}`, {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ estado: est }),
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setItems((prev) => prev.map((it) => (it.id === selectedItem.id ? data.item : it)));
+                              toast.success("Estado actualizado");
+                            }
+                          }}
+                          className={cn(
+                            "px-2 py-1 rounded-lg text-[10px] font-bold border transition-all",
+                            selectedItem.estado === est
+                              ? "text-white"
+                              : "bg-slate-800/60 border-slate-700/60 text-slate-400 hover:border-slate-600"
+                          )}
+                          style={selectedItem.estado === est
+                            ? { backgroundColor: `${ESTADO_INFRA_CONFIG[est].color}30`, borderColor: ESTADO_INFRA_CONFIG[est].color, color: ESTADO_INFRA_CONFIG[est].color }
+                            : {}}
+                        >
+                          {ESTADO_INFRA_CONFIG[est].label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(selectedItem)}
-                          className="flex-1 flex items-center justify-center gap-1 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => toggleVisibility(selectedItem)}
-                          className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-xl transition-colors"
-                        >
-                          {selectedItem.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(selectedItem.id)}
-                          className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold rounded-xl transition-colors border border-rose-500/20"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(selectedItem)}
+                      className="flex-1 flex items-center justify-center gap-1 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => toggleVisibility(selectedItem)}
+                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-xl transition-colors"
+                    >
+                      {selectedItem.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(selectedItem.id)}
+                      className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold rounded-xl transition-colors border border-rose-500/20"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -977,14 +969,12 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
                                     </span>
                                   </div>
                                 </div>
-                                {canMutate && (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); toggleVisibility(item); }}
-                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-700 rounded-lg text-slate-400 transition-all"
-                                  >
-                                    {item.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-slate-600" />}
-                                  </button>
-                                )}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleVisibility(item); }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-700 rounded-lg text-slate-400 transition-all"
+                                >
+                                  {item.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-slate-600" />}
+                                </button>
                               </div>
                             );
                           })}

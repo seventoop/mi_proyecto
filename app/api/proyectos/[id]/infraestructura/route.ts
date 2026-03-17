@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireProjectOwnership, requireAnyRole, AuthError } from "@/lib/guards";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
 
 // GET /api/proyectos/[id]/infraestructura — list all for a project
@@ -8,7 +9,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await requireProjectOwnership(params.id);
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const items = await prisma.infraestructura.findMany({
       where: { proyectoId: params.id },
       orderBy: [{ orden: "asc" }, { createdAt: "asc" }],
@@ -22,9 +27,6 @@ export async function GET(
 
     return NextResponse.json({ items: parsed });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
     console.error("[GET /infraestructura]", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
@@ -36,8 +38,11 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    await requireAnyRole(["ADMIN", "VENDEDOR", "DESARROLLADOR"]);
-    await requireProjectOwnership(params.id);
+    const session = await getServerSession(authOptions);
+    const userRole = (session?.user as any)?.role;
+    if (!session?.user || !["ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
 
     const body = await req.json();
     const {
@@ -91,9 +96,6 @@ export async function POST(
       },
     });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
     console.error("[POST /infraestructura]", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }

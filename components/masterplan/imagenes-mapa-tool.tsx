@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useSession } from "next-auth/react";
 import { useMasterplanStore } from "@/lib/masterplan-store";
 import { ImagenMapaItem, ImagenMapaTipo, IMAGEN_TIPO_CONFIG } from "@/types/imagen-mapa";
 import { SvgViewBox } from "@/lib/geo-projection";
@@ -54,9 +53,6 @@ export default function ImagenesMapaTool({
   proyectoId, map,
   overlayBounds = null, overlayRotation = 0, svgViewBox = null,
 }: ImagenesMapaToolProps) {
-  const { data: session } = useSession();
-  const canMutate = ["ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(session?.user?.role || "");
-
   const { units } = useMasterplanStore();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -416,7 +412,7 @@ export default function ImagenesMapaTool({
             </div>
 
             {/* Upload section */}
-            {uploadState === "idle" && canMutate && (
+            {uploadState === "idle" && (
               <div className="px-4 py-3 border-b border-slate-700/50 flex-shrink-0 space-y-2">
                 <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                   Tipo de imagen a subir
@@ -692,24 +688,20 @@ export default function ImagenesMapaTool({
                           >
                             <PanelRight className="w-3.5 h-3.5" />
                           </button>
-                          {canMutate && (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); openEditForm(item); }}
-                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
-                                title="Editar"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white transition-colors"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditForm(item); }}
+                            className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                            className="p-1.5 rounded-lg bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     );

@@ -6,7 +6,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import { idSchema, slugSchema } from "@/lib/validations";
-import { randomUUID } from "crypto";
 
 // ─── Scemas ───
 
@@ -212,9 +211,8 @@ export async function createProyecto(input: unknown) {
 
         const isVerified = userRecord?.kycStatus === "VERIFICADO";
         const isDemoActive = userRecord?.demoEndsAt && new Date(userRecord.demoEndsAt) > new Date();
-        const isPrivileged = userRole === "ADMIN" || userRole === "SUPERADMIN";
 
-        if (!isVerified && !isDemoActive && !isPrivileged) {
+        if (!isVerified && !isDemoActive) {
             return {
                 success: false,
                 error: "Debes completar el proceso KYC o estar en período de prueba de 48h para publicar proyectos."
@@ -380,44 +378,6 @@ export async function updateDocumentacionStatus(id: string, documentacionEstado:
 
 // --- ACCIONES DE ARCHIVOS TÉCNICOS ---
 
-// ─── PUBLIC: Proyectos destacados para home pública ───────────────────────────
-
-export async function getProyectosDestacados() {
-    try {
-        const proyectos = await prisma.proyecto.findMany({
-            where: {
-                visibilityStatus: "PUBLICADO",
-                deletedAt: null,
-                estado: { not: "SUSPENDIDO" },
-            },
-            select: {
-                id: true,
-                nombre: true,
-                slug: true,
-                estado: true,
-                tipo: true,
-                imagenPortada: true,
-                ubicacion: true,
-                precioM2Mercado: true,
-            },
-            orderBy: { createdAt: "desc" },
-            take: 6,
-        });
-        return proyectos.map((p) => ({
-            id: p.id,
-            nombre: p.nombre,
-            slug: p.slug,
-            estado: p.estado,
-            tipo: p.tipo,
-            imagenPortada: p.imagenPortada,
-            ubicacion: p.ubicacion,
-            precioDesde: p.precioM2Mercado ? Number(p.precioM2Mercado) : null,
-        }));
-    } catch {
-        return [];
-    }
-}
-
 export async function getProyectoArchivos(proyectoId: string) {
     try {
         const archivos = await prisma.proyecto_archivos.findMany({
@@ -455,7 +415,7 @@ export async function addProyectoArchivo(data: {
 
         await prisma.proyecto_archivos.create({
             data: {
-                id: randomUUID(),
+                id: crypto.randomUUID(),
                 proyectoId: data.proyectoId,
                 tipo: data.tipo,
                 nombre: data.nombre,
@@ -664,5 +624,43 @@ export async function setMainProyectoImagen(id: string, proyectoId: string) {
     } catch (error) {
         console.error("Error setting main image:", error);
         return { success: false, error: "Error al establecer imagen principal" };
+    }
+}
+
+// --- LANDING PÚBLICA ---
+
+export async function getProyectosDestacados() {
+    try {
+        const proyectos = await prisma.proyecto.findMany({
+            where: {
+                visibilityStatus: "PUBLICADO",
+                deletedAt: null,
+                estado: { not: "SUSPENDIDO" },
+            },
+            select: {
+                id: true,
+                nombre: true,
+                slug: true,
+                estado: true,
+                tipo: true,
+                imagenPortada: true,
+                ubicacion: true,
+                precioM2Mercado: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 6,
+        });
+        return proyectos.map((p) => ({
+            id: p.id,
+            nombre: p.nombre,
+            slug: p.slug,
+            estado: p.estado,
+            tipo: p.tipo,
+            imagenPortada: p.imagenPortada,
+            ubicacion: p.ubicacion,
+            precioDesde: p.precioM2Mercado ? Number(p.precioM2Mercado) : null,
+        }));
+    } catch {
+        return [];
     }
 }

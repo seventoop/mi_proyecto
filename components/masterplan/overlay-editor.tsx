@@ -1,282 +1,402 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Save, X, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-// Valid Leaflet lat/lng tuple
 type LatLngTuple = [number, number];
 
 export interface OverlayConfig {
     imageUrl: string | null;
-    bounds: [LatLngTuple, LatLngTuple] | null; // [SouthWest, NorthEast]
+    bounds: [LatLngTuple, LatLngTuple] | null; // [SouthWest, NorthEast] — axis-aligned, pre-rotation
     rotation: number;
     opacity: number;
 }
 
 interface OverlayEditorProps {
     proyectoId: string;
-    map: any; // Leaflet map instance
+    map: any;
     existingConfig: OverlayConfig | null;
+    // rotation is now passed alongside bounds so live polygon transform can apply it
+    onBoundsChange?: (bounds: [[number, number], [number, number]], rotation: number) => void;
     onSave: (config: OverlayConfig) => void;
     onCancel: () => void;
     onDelete: () => void;
 }
 
+// Rotate the 4 AABB corners around their center by `rot` degrees
+function computeRotatedCorners(bounds: [LatLngTuple, LatLngTuple], rot: number): LatLngTuple[] {
+    const [[swLat, swLng], [neLat, neLng]] = bounds;
+    const cLat = (swLat + neLat) / 2;
+    const cLng = (swLng + neLng) / 2;
+    const rad = (rot * Math.PI) / 180;
+    return ([
+        [swLat, swLng], [swLat, neLng], [neLat, neLng], [neLat, swLng],
+    ] as LatLngTuple[]).map(([lat, lng]) => {
+        const dLat = lat - cLat, dLng = lng - cLng;
+        return [
+            cLat + dLat * Math.cos(rad) - dLng * Math.sin(rad),
+            cLng + dLat * Math.sin(rad) + dLng * Math.cos(rad),
+        ] as LatLngTuple;
+    });
+}
+
 export default function OverlayEditor({
-    proyectoId,
-    map,
-    existingConfig,
-    onSave,
-    onCancel,
-    onDelete,
+    proyectoId, map, existingConfig, onBoundsChange, onSave, onCancel, onDelete,
 }: OverlayEditorProps) {
-    const [imageUrl, setImageUrl] = useState<string>(existingConfig?.imageUrl || "");
-    const [opacity, setOpacity] = useState<number>(existingConfig?.opacity || 0.7);
-    const [rotation, setRotation] = useState<number>(existingConfig?.rotation || 0);
+    const [opacity] = useState<number>(existingConfig?.opacity ?? 0.7);
+    const [rotation, setRotation] = useState<number>(existingConfig?.rotation ?? 0);
+    const rotationRef = useRef<number>(existingConfig?.rotation ?? 0);
     const [isSaving, setIsSaving] = useState(false);
 
-    // References to Leaflet objects
-    const overlayRef = useRef<any>(null); // L.ImageOverlay
-    const anchorsRef = useRef<any[]>([]); // Drag handles
+    const overlayRef = useRef<any>(null);   // L.Polygon — visual reference frame
+    const anchorsRef = useRef<any[]>([]);   // All drag handles
 
-    // Load initial overlay
+    // Keep ref in sync with state so Leaflet event handlers always read the latest value
+    useEffect(() => { rotationRef.current = rotation; }, [rotation]);
+
     useEffect(() => {
-        if (!map || !imageUrl) return;
+        if (!map) return;
+
+        // ── Helpers ──────────────────────────────────────────────────────────────
+
+        const getBoundsFromAnchors = (): [LatLngTuple, LatLngTuple] | null => {
+            const swM = anchorsRef.current.find(m => (m as any)._hid === "sw");
+            const neM = anchorsRef.current.find(m => (m as any)._hid === "ne");
+            if (!swM || !neM) return null;
+            const sw = swM.getLatLng(), ne = neM.getLatLng();
+            return [[sw.lat, sw.lng], [ne.lat, ne.lng]];
+        };
+
+        /** Redraws polygon + repositions all derived handles from current SW/NE state. */
+        const syncAll = (skipCenter = false) => {
+            const b = getBoundsFromAnchors();
+            if (!b || !overlayRef.current) return;
+            const [[swLat, swLng], [neLat, neLng]] = b;
+            const cLat = (swLat + neLat) / 2, cLng = (swLng + neLng) / 2;
+
+            // Redraw rotated polygon border
+            overlayRef.current.setLatLngs(computeRotatedCorners(b, rotationRef.current));
+
+            // Sync all derived handles (unrotated positions for edge/corner handles)
+            const set = (id: string, pos: LatLngTuple) => {
+                const m = anchorsRef.current.find(m => (m as any)._hid === id);
+                if (m) m.setLatLng(pos);
+            };
+            set("se", [swLat, neLng]);
+            set("nw", [neLat, swLng]);
+            set("n",  [neLat, cLng]);
+            set("s",  [swLat, cLng]);
+            set("e",  [cLat,  neLng]);
+            set("w",  [cLat,  swLng]);
+            if (!skipCenter) set("center", [cLat, cLng]);
+
+            // Rotation handle: positioned above the N edge center, then rotated
+            const rotM = anchorsRef.current.find(m => (m as any)._hid === "rotation");
+            if (rotM) {
+                const offset = (neLat - swLat) * 0.22;
+                const rad = (rotationRef.current * Math.PI) / 180;
+                const dLat = neLat + offset - cLat; // above N edge
+                // rotate around center
+                rotM.setLatLng([
+                    cLat + dLat * Math.cos(rad),
+                    cLng + dLat * Math.sin(rad),
+                ]);
+            }
+
+            onBoundsChange?.([[swLat, swLng], [neLat, neLng]], rotationRef.current);
+        };
+
+        // ── Init ─────────────────────────────────────────────────────────────────
 
         const initOverlay = async () => {
             const L = (await import("leaflet")).default;
 
-            // If we have existing bounds, use them. Otherwise, calculate defaults based on map center.
             let bounds: [LatLngTuple, LatLngTuple];
-
             if (existingConfig?.bounds) {
                 bounds = existingConfig.bounds;
             } else {
-                const center = map.getCenter();
-                // Create a default square box around center
-                const latOffset = 0.002;
-                const lngOffset = 0.003;
-                bounds = [
-                    [center.lat - latOffset, center.lng - lngOffset], // SW
-                    [center.lat + latOffset, center.lng + lngOffset]  // NE
-                ];
+                const c = map.getCenter();
+                bounds = [[c.lat - 0.002, c.lng - 0.003], [c.lat + 0.002, c.lng + 0.003]];
             }
 
-            // Create overlay
-            if (overlayRef.current) {
-                map.removeLayer(overlayRef.current);
-            }
+            if (overlayRef.current) map.removeLayer(overlayRef.current);
 
-            const overlay = L.imageOverlay(imageUrl, bounds, {
-                opacity: opacity,
-                interactive: true
-            }).addTo(map);
+            // L.polygon so it can be rotated visually (L.rectangle can't)
+            overlayRef.current = (L.polygon as any)(
+                computeRotatedCorners(bounds, rotationRef.current),
+                { color: "#f97316", weight: 2, fillColor: "#f97316", fillOpacity: 0.07, dashArray: "8 5" }
+            ).addTo(map);
 
-            overlayRef.current = overlay;
-
-            // Apply rotation if needed (Leaflet doesn't support rotation natively in ImageOverlay easily without plugin,
-            // but we can transform the element)
-            const img = overlay.getElement();
-            if (img) {
-                img.style.transformOrigin = "center center";
-                img.style.transform += ` rotate(${rotation}deg)`;
-            }
-
-            createDraggableAnchors(bounds, L);
+            createHandles(bounds, L);
         };
 
-        const createDraggableAnchors = (bounds: [LatLngTuple, LatLngTuple], L: any) => {
-            // Clear old anchors
+        // ── Handle creation ───────────────────────────────────────────────────────
+
+        const createHandles = (bounds: [LatLngTuple, LatLngTuple], L: any) => {
             anchorsRef.current.forEach(a => map.removeLayer(a));
             anchorsRef.current = [];
 
-            const corners = [
-                { pos: bounds[0], id: "sw", icon: "↙️" }, // SW
-                { pos: [bounds[0][0], bounds[1][1]] as LatLngTuple, id: "se", icon: "↘️" }, // SE
-                { pos: bounds[1], id: "ne", icon: "↗️" }, // NE
-                { pos: [bounds[1][0], bounds[0][1]] as LatLngTuple, id: "nw", icon: "↖️" }, // NW
+            const [[swLat, swLng], [neLat, neLng]] = bounds;
+            const cLat = (swLat + neLat) / 2, cLng = (swLng + neLng) / 2;
+
+            // Rotation handle: above N edge center, rotated with the plan
+            const rotOffset = (neLat - swLat) * 0.22;
+            const rotRad = (rotationRef.current * Math.PI) / 180;
+            const rotPos: LatLngTuple = [
+                cLat + (neLat + rotOffset - cLat) * Math.cos(rotRad),
+                cLng + (neLat + rotOffset - cLat) * Math.sin(rotRad),
             ];
 
-            corners.forEach(corner => {
-                const icon = L.divIcon({
-                    className: "",
-                    // Use inline styles — Tailwind classes don't apply to dynamically-created Leaflet DOM elements
-                    html: '<div style="width:16px;height:16px;background:white;border:2.5px solid #f97316;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.55);cursor:move;"></div>',
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8],
-                });
+            const defs: { id: string; pos: LatLngTuple; type: "corner" | "edge" | "center" | "rotation" }[] = [
+                // Corners (resize with aspect-ratio lock)
+                { id: "sw", pos: [swLat, swLng], type: "corner" },
+                { id: "se", pos: [swLat, neLng], type: "corner" },
+                { id: "ne", pos: [neLat, neLng], type: "corner" },
+                { id: "nw", pos: [neLat, swLng], type: "corner" },
+                // Edges (resize one axis only)
+                { id: "n",  pos: [neLat, cLng],  type: "edge" },
+                { id: "s",  pos: [swLat, cLng],  type: "edge" },
+                { id: "e",  pos: [cLat,  neLng], type: "edge" },
+                { id: "w",  pos: [cLat,  swLng], type: "edge" },
+                // Special
+                { id: "center",   pos: [cLat, cLng], type: "center" },
+                { id: "rotation", pos: rotPos,        type: "rotation" },
+            ];
 
-                const marker = L.marker(corner.pos, {
-                    draggable: true,
-                    icon: icon,
-                    zIndexOffset: 1000
+            defs.forEach(def => {
+                const { id, pos, type } = def;
+                let html: string, sz: [number, number], anc: [number, number];
+
+                if (type === "center") {
+                    html = '<div style="width:20px;height:20px;background:#6366f1;border:2.5px solid #4f46e5;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.6);cursor:move;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:13px;line-height:1">✥</span></div>';
+                    sz = [20, 20]; anc = [10, 10];
+                } else if (type === "rotation") {
+                    html = '<div style="width:18px;height:18px;background:#0ea5e9;border:2.5px solid #0284c7;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.55);cursor:crosshair;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;line-height:1">↻</div>';
+                    sz = [18, 18]; anc = [9, 9];
+                } else if (type === "edge") {
+                    const horiz = id === "n" || id === "s";
+                    const cur = horiz ? "ns-resize" : "ew-resize";
+                    html = `<div style="width:${horiz ? 20 : 8}px;height:${horiz ? 8 : 20}px;background:#f97316;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,.5);cursor:${cur}"></div>`;
+                    sz  = horiz ? [20, 8]  : [8, 20];
+                    anc = horiz ? [10, 4]  : [4, 10];
+                } else {
+                    // corner
+                    html = '<div style="width:16px;height:16px;background:#fff;border:2.5px solid #f97316;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.55);cursor:move"></div>';
+                    sz = [16, 16]; anc = [8, 8];
+                }
+
+                const icon = L.divIcon({ className: "", html, iconSize: sz, iconAnchor: anc });
+                const marker = L.marker(pos, {
+                    draggable: true, icon,
+                    zIndexOffset: type === "center" ? 1500 : type === "rotation" ? 1200 : 1000,
                 }).addTo(map);
+                (marker as any)._hid = id;
 
-                marker.on("drag", () => updateOverlayFromAnchors());
-                marker.on("dragend", () => updateOverlayFromAnchors());
+                // ── Event wiring ─────────────────────────────────────────────────
 
-                // Hack to store ID on marker
-                (marker as any)._cornerId = corner.id;
+                if (type === "center") {
+                    marker.on("dragstart", () => { (marker as any)._prev = marker.getLatLng(); });
+                    marker.on("drag", () => {
+                        const cur = marker.getLatLng(), prv = (marker as any)._prev;
+                        if (!prv) return;
+                        const dLat = cur.lat - prv.lat, dLng = cur.lng - prv.lng;
+                        (marker as any)._prev = cur;
+                        anchorsRef.current.forEach(m => {
+                            if ((m as any)._hid !== "center") {
+                                const ll = m.getLatLng();
+                                m.setLatLng([ll.lat + dLat, ll.lng + dLng]);
+                            }
+                        });
+                        syncAll(true);
+                    });
+                    marker.on("dragend", () => syncAll());
+
+                } else if (type === "rotation") {
+                    marker.on("dragstart", () => {
+                        const b2 = getBoundsFromAnchors(); if (!b2) return;
+                        const [[s, w], [n, e]] = b2;
+                        const cPt = map.latLngToContainerPoint([(s + n) / 2, (w + e) / 2]);
+                        const hPt = map.latLngToContainerPoint(marker.getLatLng());
+                        (marker as any)._ia = Math.atan2(hPt.y - cPt.y, hPt.x - cPt.x) * 180 / Math.PI;
+                        (marker as any)._ir = rotationRef.current;
+                    });
+                    marker.on("drag", () => {
+                        const b2 = getBoundsFromAnchors(); if (!b2) return;
+                        const [[s, w], [n, e]] = b2;
+                        const cPt = map.latLngToContainerPoint([(s + n) / 2, (w + e) / 2]);
+                        const hPt = map.latLngToContainerPoint(marker.getLatLng());
+                        const ca = Math.atan2(hPt.y - cPt.y, hPt.x - cPt.x) * 180 / Math.PI;
+                        const newRot = (((marker as any)._ir ?? 0) + (ca - ((marker as any)._ia ?? 0)) + 360) % 360;
+                        rotationRef.current = newRot;
+                        setRotation(newRot);
+                        overlayRef.current?.setLatLngs(computeRotatedCorners(b2, newRot));
+                        onBoundsChange?.([[s, w], [n, e]], newRot);
+                    });
+                    marker.on("dragend", () => syncAll());
+
+                } else if (type === "corner") {
+                    // Capture aspect-ratio and fixed corner at dragstart
+                    marker.on("dragstart", () => {
+                        const b2 = getBoundsFromAnchors(); if (!b2) return;
+                        const [[swL, swG], [neL, neG]] = b2;
+                        const swPt = map.latLngToContainerPoint([swL, swG]);
+                        const nePt = map.latLngToContainerPoint([neL, neG]);
+                        const pxW = Math.abs(nePt.x - swPt.x);
+                        const pxH = Math.abs(nePt.y - swPt.y);
+                        (marker as any)._ar = pxW > 0 ? pxH / pxW : 1; // pxH/pxW ratio
+                        // Fixed corner = opposite of this handle
+                        (marker as any)._fixed =
+                            id === "sw" ? { lat: neL, lng: neG } :
+                            id === "ne" ? { lat: swL, lng: swG } :
+                            id === "se" ? { lat: neL, lng: swG } : // NW
+                                          { lat: swL, lng: neG };  // id === "nw" → SE
+                    });
+                    marker.on("drag", () => {
+                        const fixed = (marker as any)._fixed;
+                        const ar: number = (marker as any)._ar ?? 1;
+                        if (!fixed) { syncAll(); return; }
+
+                        // Constrain drag to aspect ratio in pixel space
+                        const fixedPt = map.latLngToContainerPoint([fixed.lat, fixed.lng]);
+                        const dragPt  = map.latLngToContainerPoint(marker.getLatLng());
+                        let dx = dragPt.x - fixedPt.x;
+                        let dy = dragPt.y - fixedPt.y;
+
+                        if (Math.abs(dx) * ar > Math.abs(dy)) {
+                            dy = (Math.sign(dy) || (id === "ne" || id === "nw" ? -1 : 1)) * Math.abs(dx) * ar;
+                        } else {
+                            dx = (Math.sign(dx) || (id === "sw" || id === "nw" ? -1 : 1)) * Math.abs(dy) / ar;
+                        }
+
+                        const constrained = map.containerPointToLatLng(
+                            L.point(fixedPt.x + dx, fixedPt.y + dy)
+                        );
+                        marker.setLatLng(constrained); // snap to aspect-ratio
+
+                        // Update SW/NE primary markers based on which corner moved
+                        const swM = anchorsRef.current.find(m => (m as any)._hid === "sw");
+                        const neM = anchorsRef.current.find(m => (m as any)._hid === "ne");
+                        if (!swM || !neM) { syncAll(); return; }
+
+                        if (id === "sw") {
+                            swM.setLatLng(constrained);
+                            neM.setLatLng(fixed);
+                        } else if (id === "ne") {
+                            neM.setLatLng(constrained);
+                            swM.setLatLng(fixed);
+                        } else if (id === "se") {
+                            // SE moves: NW is fixed → SW.lat = SE.lat, NE.lng = SE.lng
+                            swM.setLatLng([constrained.lat, fixed.lng]);
+                            neM.setLatLng([fixed.lat, constrained.lng]);
+                        } else { // nw
+                            // NW moves: SE is fixed → NE.lat = NW.lat, SW.lng = NW.lng
+                            neM.setLatLng([constrained.lat, fixed.lng]);
+                            swM.setLatLng([fixed.lat, constrained.lng]);
+                        }
+                        syncAll();
+                    });
+                    marker.on("dragend", () => syncAll());
+
+                } else { // type === "edge"
+                    marker.on("drag", () => {
+                        const ll = marker.getLatLng();
+                        const swM = anchorsRef.current.find(m => (m as any)._hid === "sw");
+                        const neM = anchorsRef.current.find(m => (m as any)._hid === "ne");
+                        if (!swM || !neM) return;
+                        if (id === "n") neM.setLatLng([ll.lat, neM.getLatLng().lng]);
+                        if (id === "s") swM.setLatLng([ll.lat, swM.getLatLng().lng]);
+                        if (id === "e") neM.setLatLng([neM.getLatLng().lat, ll.lng]);
+                        if (id === "w") swM.setLatLng([swM.getLatLng().lat, ll.lng]);
+                        syncAll();
+                    });
+                    marker.on("dragend", () => syncAll());
+                }
 
                 anchorsRef.current.push(marker);
             });
         };
 
-        const updateOverlayFromAnchors = () => {
-            // Logic to keep rectangle shape or allow distort (Distort is complex with ImageOverlay. 
-            // For MVP we usually stick to Bounds [SW, NE])
-            // Here we simple verify SW and NE markers to update bounds
-
-            const swMarker = anchorsRef.current.find(m => (m as any)._cornerId === "sw");
-            const neMarker = anchorsRef.current.find(m => (m as any)._cornerId === "ne");
-
-            if (swMarker && neMarker && overlayRef.current) {
-                const newBounds = [
-                    [swMarker.getLatLng().lat, swMarker.getLatLng().lng],
-                    [neMarker.getLatLng().lat, neMarker.getLatLng().lng]
-                ] as [LatLngTuple, LatLngTuple];
-
-                overlayRef.current.setBounds(newBounds);
-
-                // Move other markers to keep rectangle? 
-                // For true free distort we need L.DistortableImage, but for now let's stick to Rectangular bounds updating
-                // We update NW and SE to match the rectangle defined by SW and NE
-                const seMarker = anchorsRef.current.find(m => (m as any)._cornerId === "se");
-                const nwMarker = anchorsRef.current.find(m => (m as any)._cornerId === "nw");
-
-                if (seMarker) seMarker.setLatLng([swMarker.getLatLng().lat, neMarker.getLatLng().lng]);
-                if (nwMarker) nwMarker.setLatLng([neMarker.getLatLng().lat, swMarker.getLatLng().lng]);
-            }
-        };
-
         initOverlay();
-
-        // Cleanup
         return () => {
             if (overlayRef.current) map.removeLayer(overlayRef.current);
             anchorsRef.current.forEach(a => map.removeLayer(a));
         };
-    }, [map, imageUrl]); // Re-init on image change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [map]);
 
-    // React to Opacity/Rotation changes
-    useEffect(() => {
-        if (overlayRef.current) {
-            overlayRef.current.setOpacity(opacity);
-            const img = overlayRef.current.getElement();
-            if (img) {
-                // Must preserve existing leaflet transform
-                // This is a bit hacky as Leaflet manages transform for positioning
-                // Ideally use CSS class or specialized plugin
-                // For MVP: let's stick to opacity. Rotation is tricky without plugin.
-                // img.style.transform = `rotate(${rotation}deg)`; 
-            }
-        }
-    }, [opacity, rotation]);
-
+    // ── Save ──────────────────────────────────────────────────────────────────────
 
     const handleSave = async () => {
         if (!overlayRef.current) return;
         setIsSaving(true);
 
-        // Get current bounds
-        const boundsObj = overlayRef.current.getBounds();
-        const bounds = [
-            [boundsObj.getSouthWest().lat, boundsObj.getSouthWest().lng],
-            [boundsObj.getNorthEast().lat, boundsObj.getNorthEast().lng]
-        ] as [LatLngTuple, LatLngTuple];
+        const swM = anchorsRef.current.find(m => (m as any)._hid === "sw");
+        const neM = anchorsRef.current.find(m => (m as any)._hid === "ne");
+        let bounds: [LatLngTuple, LatLngTuple];
+        if (swM && neM) {
+            bounds = [[swM.getLatLng().lat, swM.getLatLng().lng], [neM.getLatLng().lat, neM.getLatLng().lng]];
+        } else {
+            const bo = overlayRef.current.getBounds();
+            bounds = [[bo.getSouthWest().lat, bo.getSouthWest().lng], [bo.getNorthEast().lat, bo.getNorthEast().lng]];
+        }
 
-        const config: OverlayConfig = {
-            imageUrl,
-            bounds,
-            rotation,
-            opacity
-        };
+        const savedImageUrl = existingConfig?.imageUrl && !existingConfig.imageUrl.startsWith("blob:")
+            ? existingConfig.imageUrl : null;
+        const rot = rotationRef.current;
 
         try {
             const res = await fetch(`/api/proyectos/${proyectoId}/overlay`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    imageUrl,
-                    bounds,
-                    rotation,
-                    mapCenter: {
-                        lat: map.getCenter().lat,
-                        lng: map.getCenter().lng,
-                        zoom: map.getZoom()
-                    }
-                })
+                    imageUrl: savedImageUrl, bounds, rotation: rot,
+                    mapCenter: { lat: map.getCenter().lat, lng: map.getCenter().lng, zoom: map.getZoom() },
+                }),
             });
-
-            if (res.ok) {
-                onSave(config);
-            }
-        } catch (e) {
-            console.error("Save failed", e);
-        } finally {
-            setIsSaving(false);
-        }
+            if (res.ok) onSave({ imageUrl: savedImageUrl, bounds, rotation: rot, opacity });
+        } catch (e) { console.error("Save failed", e); }
+        finally { setIsSaving(false); }
     };
 
+    // ── UI ────────────────────────────────────────────────────────────────────────
+
     return (
-        <div className="absolute top-4 right-16 z-[2000] bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-4 w-72 border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-sm">Editar Plano</h3>
-                <button onClick={onCancel}><X className="w-4 h-4" /></button>
+        <div className="absolute top-4 right-16 z-[2000] bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-4 w-64 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-sm">Posicionar Plano</h3>
+                <button onClick={onCancel} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <X className="w-4 h-4 text-slate-400" />
+                </button>
             </div>
 
-            <div className="space-y-4">
-
-                {/* Image source indicator / URL input */}
-                <div>
-                    <label className="text-xs font-semibold mb-1 block text-slate-600 dark:text-slate-300">Imagen del Plano</label>
-                    {imageUrl && imageUrl.startsWith("blob:") ? (
-                        <div className="flex items-center gap-1.5 px-2.5 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-                            ✓ Plano SVG del proyecto cargado
-                        </div>
-                    ) : (
-                        <input
-                            type="text"
-                            placeholder="https://... URL de imagen del plano"
-                            value={imageUrl}
-                            onChange={(e) => setImageUrl(e.target.value)}
-                            className="w-full text-xs px-2.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-brand-500 text-slate-800 dark:text-white placeholder-slate-400"
-                        />
-                    )}
-                </div>
-
-                <div>
-                    <label className="text-xs font-semibold mb-1 block">Opacidad ({Math.round(opacity * 100)}%)</label>
-                    <input
-                        type="range"
-                        min="0" max="1" step="0.1"
-                        value={opacity}
-                        onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                        className="w-full accent-brand-500 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving || !imageUrl}
-                        className="flex-1 flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-                    >
-                        {isSaving ? "Guardando..." : <><Save className="w-3 h-3" /> Guardar</>}
-                    </button>
-                    <button
-                        onClick={onDelete}
-                        className="px-3 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg"
-                        title="Borrar overlay"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
-                </div>
+            <div className="mb-3 p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-[10px] text-blue-600 dark:text-blue-300 leading-snug space-y-1">
+                <p><span style={{ color: "#6366f1", fontWeight: 700 }}>Azul ✥</span> — mover todo.</p>
+                <p><span style={{ color: "#f97316", fontWeight: 700 }}>Esquinas naranja</span> — escalar (mantiene proporción).</p>
+                <p><span style={{ color: "#f97316", fontWeight: 700 }}>Bordes naranja</span> — escalar un eje.</p>
+                <p><span style={{ color: "#0ea5e9", fontWeight: 700 }}>Celeste ↻</span> — rotar (encima del plano).</p>
             </div>
 
-            <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-[10px] text-blue-600 dark:text-blue-300">
-                💡 Arrastra los puntos blancos en el mapa para ajustar el plano a las calles satelitales.
+            {rotation !== 0 && (
+                <div className="mb-3 flex items-center justify-between px-2.5 py-1.5 bg-sky-50 dark:bg-sky-900/20 rounded-lg">
+                    <span className="text-[10px] text-sky-600 dark:text-sky-300 font-medium">Rotación</span>
+                    <span className="text-[10px] font-bold text-sky-700 dark:text-sky-200">{Math.round(rotation)}°</span>
+                </div>
+            )}
+
+            <div className="flex gap-2">
+                <button
+                    onClick={handleSave} disabled={isSaving}
+                    className="flex-1 flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                >
+                    {isSaving ? "Guardando..." : <><Save className="w-3 h-3" /> Fijar Posición</>}
+                </button>
+                <button
+                    onClick={onDelete}
+                    className="px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors"
+                    title="Resetear posición"
+                >
+                    <Trash2 className="w-4 h-4" />
+                </button>
             </div>
         </div>
     );
