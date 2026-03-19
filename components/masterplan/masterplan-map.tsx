@@ -47,6 +47,8 @@ export interface Tour360Marker {
     thumbnail?: string;
     sceneCount?: number;
     defaultSceneUrl?: string;
+    defaultSceneId?: string;
+    defaultSceneOverlay?: Record<string, number> | null;
 }
 
 interface MasterplanMapProps {
@@ -98,7 +100,7 @@ export default function MasterplanMap({
     const [isLoadingOverlay, setIsLoadingOverlay] = useState(false);
 
     // Tour 360 state
-    const [activeTour, setActiveTour] = useState<{ url: string; title: string } | null>(null);
+    const [activeTour, setActiveTour] = useState<{ url: string; title: string; sceneId?: string; initialOverlay?: Record<string, number> | null } | null>(null);
 
     // Location search state
     const [showLocationPanel, setShowLocationPanel] = useState(false);
@@ -1133,6 +1135,8 @@ export default function MasterplanMap({
                             imageUrl={activeTour.url}
                             title={activeTour.title}
                             onClose={() => setActiveTour(null)}
+                            sceneId={activeTour.sceneId}
+                            initialOverlay={activeTour.initialOverlay}
                         />
                     )}
                 </AnimatePresence>
@@ -1179,7 +1183,7 @@ export default function MasterplanMap({
                                         {tourPreview.tour.defaultSceneUrl && (
                                             <button
                                                 onClick={() => {
-                                                    setActiveTour({ url: tourPreview.tour.defaultSceneUrl!, title: tourPreview.tour.nombre });
+                                                    setActiveTour({ url: tourPreview.tour.defaultSceneUrl!, title: tourPreview.tour.nombre, sceneId: tourPreview.tour.defaultSceneId, initialOverlay: tourPreview.tour.defaultSceneOverlay });
                                                     setTourPreview(null);
                                                 }}
                                                 className="flex-1 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-bold rounded-xl transition-colors"

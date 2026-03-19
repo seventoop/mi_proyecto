@@ -273,6 +273,8 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             thumbnail: (t.scenes as any[])[0]?.imageUrl ?? undefined,
             sceneCount: (t.scenes as any[]).length,
             defaultSceneUrl: (t.scenes as any[])[0]?.imageUrl ?? undefined,
+            defaultSceneId: (t.scenes as any[])[0]?.id ?? undefined,
+            defaultSceneOverlay: (t.scenes as any[])[0]?.masterplanOverlay ?? null,
         }));
 
     return (

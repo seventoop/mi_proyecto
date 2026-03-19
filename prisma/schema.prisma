@@ -563,6 +563,7 @@ model TourScene {
   category          String    @default("RAW")
   pannellumHotspots Json?
   thumbnailUrl      String?
+  masterplanOverlay Json?
   hotspots          Hotspot[]
   tour              Tour360   @relation(fields: [tourId], references: [id], onDelete: Cascade)
 
