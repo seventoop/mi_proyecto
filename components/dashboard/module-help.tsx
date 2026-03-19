@@ -5,8 +5,10 @@ import { Info, X, ChevronDown, CheckCircle2, Target, Lightbulb, PlayCircle, EyeO
 import { cn } from "@/lib/utils";
 import { ModuleHelpContent } from "@/config/dashboard/module-help-content";
 
-export function ModuleHelp({ content }: { content: ModuleHelpContent }) {
+export function ModuleHelp({ content }: { content: ModuleHelpContent | undefined }) {
+    if (!content) return null;
     const { title, description, whatIs, howItWorks, whatFor, firstStep, moduleKey } = content;
+
     const [isOpen, setIsOpen] = useState(false);
     const [isDismissed, setIsDismissed] = useState(true);
     const [isMounted, setIsMounted] = useState(false);

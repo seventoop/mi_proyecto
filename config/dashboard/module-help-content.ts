@@ -306,5 +306,138 @@ export const MODULE_HELP_CONTENT: Record<string, ModuleHelpContent> = {
         ],
         firstStep: "Revisá los proyectos en PENDIENTE_VALIDACION y poné en EN_REVISION los que vas a auditar.",
         moduleKey: "adminValidaciones"
+    },
+    adminRiesgos: {
+        title: "Panel de Riesgos",
+        description: "Monitoreo de alertas y señales de riesgo en la plataforma.",
+        whatIs: "Es el centro de monitoreo de señales de alerta. Detecta patrones inusuales en transacciones, usuarios y proyectos para ayudarte a tomar acciones preventivas.",
+        howItWorks: [
+            "El sistema analiza eventos en tiempo real",
+            "Clasifica las alertas por nivel de riesgo (alto, medio, bajo)",
+            "Muestra un historial de incidentes recientes",
+            "Permite tomar acciones directas desde cada alerta"
+        ],
+        whatFor: [
+            "Detectar fraudes o irregularidades tempranamente",
+            "Monitorear usuarios o proyectos con comportamientos inusuales",
+            "Cumplir con obligaciones de compliance y auditoría",
+            "Mantener la integridad de la plataforma"
+        ],
+        firstStep: "Revisá las alertas de alto riesgo y resolvé las más críticas primero.",
+        moduleKey: "adminRiesgos"
+    },
+    adminTestimonios: {
+        title: "Testimonios",
+        description: "Gestioná los testimonios que se muestran en la plataforma pública.",
+        whatIs: "Es el panel de administración de testimonios de clientes. Podés crear, editar y controlar qué reseñas se publican en el sitio público de SevenToop.",
+        howItWorks: [
+            "Creás un nuevo testimonio con nombre, cargo y mensaje",
+            "Indicás si debe mostrarse en la landing pública",
+            "Editás o eliminás los existentes según corresponda",
+            "Los cambios se reflejan en tiempo real en el sitio"
+        ],
+        whatFor: [
+            "Generar confianza en nuevos usuarios",
+            "Mostrar casos de éxito reales de clientes",
+            "Controlar la imagen pública de la plataforma",
+            "Mantener el contenido testimonial actualizado"
+        ],
+        firstStep: "Creá un nuevo testimonio con los datos de un cliente satisfecho.",
+        moduleKey: "adminTestimonios"
+    },
+    investorPortafolio: {
+        title: "Mi Portafolio",
+        description: "Resumen de tus inversiones y propiedades activas.",
+        whatIs: "Es tu panel principal como inversor. Muestra el estado de tus inversiones, el rendimiento acumulado y el acceso rápido a tus propiedades.",
+        howItWorks: [
+            "El sistema consolida todas tus inversiones activas",
+            "Calcula el rendimiento y el valor actual de tu portafolio",
+            "Muestra alertas sobre hitos de escrow completados",
+            "Te conecta con los proyectos en los que participás"
+        ],
+        whatFor: [
+            "Tener una vista unificada de tu patrimonio invertido",
+            "Monitorear la evolución de tus inversiones",
+            "Recibir actualizaciones sobre los proyectos en los que participás",
+            "Tomar decisiones informadas sobre nuevas inversiones"
+        ],
+        firstStep: "Revisá el resumen de tu portafolio y explorá el detalle de cada inversión.",
+        moduleKey: "investorPortafolio"
+    },
+    investorPropiedades: {
+        title: "Mis Propiedades",
+        description: "Unidades y lotes asociados a tu cuenta como inversor.",
+        whatIs: "Es la vista de todas las unidades inmobiliarias vinculadas a tus inversiones. Podés ver el detalle de cada lote o propiedad que adquiriste o reservaste.",
+        howItWorks: [
+            "El sistema muestra las unidades asociadas a tus inversiones",
+            "Podés ver el estado de cada unidad (reservada, vendida, disponible)",
+            "Accedés a la documentación y planos de cada propiedad",
+            "Recibís actualizaciones sobre el avance del desarrollo"
+        ],
+        whatFor: [
+            "Tener registro de las propiedades en tu portafolio",
+            "Verificar el estado actual de cada unidad",
+            "Acceder a documentación técnica y legal",
+            "Monitorear el progreso de construcción o desarrollo"
+        ],
+        firstStep: "Revisá el detalle de cada propiedad y verificá su estado actual.",
+        moduleKey: "investorPropiedades"
+    },
+    investorKyc: {
+        title: "Verificación KYC",
+        description: "Completá tu verificación de identidad como inversor.",
+        whatIs: "KYC (Know Your Customer) es el proceso de verificación de identidad requerido para operar como inversor en la plataforma. Garantiza la seguridad de todas las transacciones.",
+        howItWorks: [
+            "Completás tus datos personales y financieros",
+            "Subís la documentación requerida (DNI, comprobante de fondos)",
+            "El equipo de SevenToop revisa tu perfil",
+            "Una vez aprobado, podés invertir en proyectos"
+        ],
+        whatFor: [
+            "Habilitar tu cuenta para realizar inversiones",
+            "Cumplir con requisitos regulatorios de inversión",
+            "Proteger la seguridad de las transacciones",
+            "Acceder a proyectos exclusivos para inversores verificados"
+        ],
+        firstStep: "Completá todos los campos requeridos y subí tu documentación para comenzar la revisión.",
+        moduleKey: "investorKyc"
+    },
+    investorInversiones: {
+        title: "Mis Inversiones",
+        description: "Historial y estado de tus inversiones en proyectos.",
+        whatIs: "Es el registro detallado de todas las inversiones que realizaste en la plataforma. Muestra el estado, rendimiento y evolución de cada operación.",
+        howItWorks: [
+            "Explorás los proyectos disponibles en el marketplace",
+            "Elegís cuántos m² querés adquirir",
+            "La inversión queda en estado ESCROW hasta completarse",
+            "Podés seguir el avance de los hitos del proyecto"
+        ],
+        whatFor: [
+            "Diversificar tu portafolio inmobiliario",
+            "Generar retornos sobre capital en proyectos verificados",
+            "Seguir el ciclo completo de cada inversión",
+            "Acceder a rendimientos del sector inmobiliario"
+        ],
+        firstStep: "Revisá el estado de tus inversiones activas y sus hitos de escrow pendientes.",
+        moduleKey: "investorInversiones"
+    },
+    clientePropiedades: {
+        title: "Mis Propiedades",
+        description: "Las unidades y lotes asociados a tu cuenta.",
+        whatIs: "Es la vista de todas las propiedades vinculadas a tu perfil. Podés ver el detalle de cada unidad que compraste o reservaste en los proyectos de la plataforma.",
+        howItWorks: [
+            "El sistema muestra las unidades asociadas a tu cuenta",
+            "Podés ver el estado de cada propiedad",
+            "Accedés a la documentación y planos",
+            "Recibís actualizaciones sobre el avance del proyecto"
+        ],
+        whatFor: [
+            "Tener registro de tus propiedades en un solo lugar",
+            "Verificar el estado actual de cada unidad",
+            "Acceder a documentación técnica y contractual",
+            "Monitorear el progreso del desarrollo"
+        ],
+        firstStep: "Revisá el detalle de tus propiedades y verificá el estado de cada una.",
+        moduleKey: "clientePropiedades"
     }
 };
