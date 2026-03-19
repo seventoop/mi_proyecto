@@ -397,18 +397,18 @@ export default function ImagenesMapaTool({
             {/* Panel header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 flex-shrink-0">
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setIsOpen(false); cancelPositioning(); }}
+                  className="p-1 rounded-lg hover:bg-slate-700/60 text-slate-400 hover:text-white -ml-1 mr-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
                 <Camera className="w-4 h-4 text-indigo-400" />
                 <span className="text-sm font-semibold text-white">Imágenes</span>
                 {items.length > 0 && (
                   <span className="text-xs text-slate-400">({items.length})</span>
                 )}
               </div>
-              <button
-                onClick={() => { setIsOpen(false); cancelPositioning(); }}
-                className="p-1 rounded-lg hover:bg-slate-700/60 text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
 
             {/* Upload section */}

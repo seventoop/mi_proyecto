@@ -491,6 +491,12 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setIsOpen(false); cancelDrawing(); setShowForm(false); setSelectedId(null); }}
+                  className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors -ml-1 mr-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
                 <div className="p-1.5 bg-violet-500/20 rounded-lg">
                   <Layers className="w-4 h-4 text-violet-400" />
                 </div>
@@ -509,12 +515,6 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
                     Agregar
                   </button>
                 )}
-                <button
-                  onClick={() => { setIsOpen(false); cancelDrawing(); setShowForm(false); setSelectedId(null); }}
-                  className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
             </div>
 

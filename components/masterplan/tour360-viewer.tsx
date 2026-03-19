@@ -94,6 +94,7 @@ export default function Tour360Viewer({ imageUrl, onClose, title }: Tour360Viewe
                 yaw: view.yaw,
                 pitch: view.pitch,
                 hfov: view.hfov,
+                mouseZoom: false, // Smooth zoom handler bypass
                 hotSpots: [
                     {
                         pitch: -10,
@@ -124,6 +125,22 @@ export default function Tour360Viewer({ imageUrl, onClose, title }: Tour360Viewe
             cancelled = true;
         };
     }, [activeUrl, title]);
+
+    // ─── Smooth Zoom Interceptor ───
+    useEffect(() => {
+        const el = viewerRef.current;
+        if (!el) return;
+        const handleWheel = (e: WheelEvent) => {
+            if (!instanceRef.current) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const currentFov = instanceRef.current.getHfov();
+            const delta = e.deltaY > 0 ? 5 : -5;
+            instanceRef.current.setHfov(currentFov + delta); // Instant target update for smoother scrolling
+        };
+        el.addEventListener("wheel", handleWheel as any, { capture: true, passive: false });
+        return () => el.removeEventListener("wheel", handleWheel as any, { capture: true } as any);
+    }, []);
 
     const isUpscaledState = !!upscaledUrl;
 

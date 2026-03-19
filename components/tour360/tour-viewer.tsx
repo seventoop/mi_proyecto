@@ -441,6 +441,7 @@ export default function TourViewer({
                     autoLoad: true,
                     autoRotate: isPlaying ? 2 : 0,
                     showControls: false,
+                    mouseZoom: false, // Smooth zoom handler bypass
                 },
                 scenes: scenesConfig,
             });
@@ -551,6 +552,22 @@ export default function TourViewer({
         return () => {
             if (autoTourTimer.current) clearInterval(autoTourTimer.current);
         };
+    }, []);
+
+    // ─── Smooth Zoom Interceptor ───
+    useEffect(() => {
+        const el = viewerRef.current;
+        if (!el) return;
+        const handleWheel = (e: WheelEvent) => {
+            if (!viewerInstance.current) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const currentFov = viewerInstance.current.getHfov();
+            const delta = e.deltaY > 0 ? 5 : -5;
+            viewerInstance.current.setHfov(currentFov + delta); // Instant target update for smoother scrolling
+        };
+        el.addEventListener("wheel", handleWheel as any, { capture: true, passive: false });
+        return () => el.removeEventListener("wheel", handleWheel as any, { capture: true } as any);
     }, []);
 
     // ─── Rotation toggle ───

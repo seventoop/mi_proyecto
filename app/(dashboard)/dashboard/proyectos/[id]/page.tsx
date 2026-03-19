@@ -225,7 +225,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         {
             id: "tour360",
             num: 5,
-            label: "Imágenes",
+            label: "Tour 360",
             desc: "Fotos y 360° geoposicionados",
             required: false,
             icon: Camera,

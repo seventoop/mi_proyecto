@@ -99,7 +99,7 @@ export default function ImagenViewer({
           panorama: imagen.url,
           autoLoad: true,
           showControls: false,
-          mouseZoom: true,
+          mouseZoom: false, // Smooth zoom handler bypass
           hfov: 100,
           minHfov: 40,
           maxHfov: 120,
@@ -130,6 +130,22 @@ export default function ImagenViewer({
       instanceRef.current = null;
     };
   }, [imagen.url, is360]);
+
+  // ─── Smooth Zoom Interceptor ───
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el || !is360) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (!instanceRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const currentFov = instanceRef.current.getHfov();
+      const delta = e.deltaY > 0 ? 5 : -5;
+      instanceRef.current.setHfov(currentFov + delta); // Instant target update for smoother scrolling
+    };
+    el.addEventListener("wheel", handleWheel as any, { capture: true, passive: false });
+    return () => el.removeEventListener("wheel", handleWheel as any, { capture: true } as any);
+  }, [is360]);
 
   // ── Auto-aim camera toward lots when viewer first becomes ready ───────────
   useEffect(() => {
