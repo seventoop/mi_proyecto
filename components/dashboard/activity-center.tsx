@@ -25,7 +25,7 @@ export interface Activity {
 }
 
 interface ActivityCenterProps {
-    userRole: "ADMIN" | "VENDEDOR" | "INVERSOR" | "CLIENTE";
+    userRole: "ADMIN" | "VENDEDOR" | "INVERSOR" | "CLIENTE" | "DESARROLLADOR";
     activities: Activity[];
 }
 

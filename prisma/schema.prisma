@@ -1,7 +1,7 @@
 generator client {
   provider      = "prisma-client-js"
-  engineType    = "binary"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  engineType    = "binary"
 }
 
 datasource db {
@@ -25,26 +25,26 @@ model Organization {
   logicToopRecommendations LogicToopRecommendation[]
   planRef                  Plan?                     @relation(fields: [planId], references: [id])
   pipelineEtapas           PipelineEtapa[]
+  proyectoUsuarios         ProyectoUsuario[]
   proyectos                Proyecto[]
   users                    User[]
   workflows                Workflow[]
-  proyectoUsuarios          ProyectoUsuario[]
 
   @@index([planId])
   @@map("organizations")
 }
 
 model User {
-  id                    String             @id @default(cuid())
-  email                 String             @unique
+  id                    String              @id @default(cuid())
+  email                 String              @unique
   password              String
   nombre                String
-  rol                   String             @default("VENDEDOR")
+  rol                   String              @default("VENDEDOR")
   whatsappNumber        String?
-  aiAgentTone           String             @default("PROFESIONAL")
-  useAiCopilot          Boolean            @default(true)
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
+  aiAgentTone           String              @default("PROFESIONAL")
+  useAiCopilot          Boolean             @default(true)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
   apellido              String?
   telefono              String?
   direccion             String?
@@ -52,43 +52,43 @@ model User {
   avatar                String?
   bio                   String?
   fechaNacimiento       DateTime?
-  kycStatus             String             @default("PENDIENTE")
+  kycStatus             String              @default("PENDIENTE")
   configuracion         String?
-  saldo                 Decimal            @default(0) @db.Decimal(18, 2)
+  saldo                 Decimal             @default(0) @db.Decimal(18, 2)
   demoEndsAt            DateTime?
-  demoUsed              Boolean            @default(false)
-  riskLevel             String             @default("low")
+  demoUsed              Boolean             @default(false)
+  riskLevel             String              @default("low")
   riskReason            String?
   orgId                 String?
   kycRequiredAt         DateTime?
   kycSubmittedAt        DateTime?
-  passwordResetToken    String?            @unique
+  developerVerified     Boolean             @default(false)
   passwordResetExpires  DateTime?
-  developerVerified     Boolean            @default(false)
+  passwordResetToken    String?             @unique
   auditLogs             AuditLog[]
-  bannersAprobados      Banner[]           @relation("BannerAprobador")
-  bannersCreados        Banner[]           @relation("BannerCreador")
-  blogPosts             BlogPost[]         @relation("BlogPostAutor")
+  bannersAprobados      Banner[]            @relation("BannerAprobador")
+  bannersCreados        Banner[]            @relation("BannerCreador")
+  blogPosts             BlogPost[]          @relation("BlogPostAutor")
   documentacion         Documentacion[]
   favoritos             FavoritoProyecto[]
   historialAcciones     HistorialUnidad[]
-  inversiones           Inversion[]        @relation("InversorInversion")
+  inversiones           Inversion[]         @relation("InversorInversion")
   kycProfile            KycProfile?
-  leadsAsignados        Lead[]             @relation("LeadAsignado")
-  noticiasEscritas      Noticia[]          @relation("NoticiaAutor")
+  leadsAsignados        Lead[]              @relation("LeadAsignado")
+  noticiasEscritas      Noticia[]           @relation("NoticiaAutor")
   notificaciones        Notificacion[]
   pagos                 Pago[]
   historialPrecios      PriceHistory[]
-  proyectosCreados      Proyecto[]         @relation("ProyectoCreador")
-  reservasComoComprador Reserva[]          @relation("ReservasComprador")
-  reservasVendedor      Reserva[]          @relation("VendedorReserva")
-  tareas                Tarea[]
-  unidadesResponsable   Unidad[]           @relation("ResponsableUnidad")
-  proyectosRelaciones   ProyectoUsuario[]
-  mandatosAprobados     ProyectoUsuario[]  @relation("AprobadorMandato")
-  relacionesCreadas     ProyectoUsuario[]  @relation("AsignadorRelacion")
   estadoLogsRealizados  ProyectoEstadoLog[]
-  organization          Organization?      @relation(fields: [orgId], references: [id])
+  mandatosAprobados     ProyectoUsuario[]   @relation("AprobadorMandato")
+  relacionesCreadas     ProyectoUsuario[]   @relation("AsignadorRelacion")
+  proyectosRelaciones   ProyectoUsuario[]
+  proyectosCreados      Proyecto[]          @relation("ProyectoCreador")
+  reservasComoComprador Reserva[]           @relation("ReservasComprador")
+  reservasVendedor      Reserva[]           @relation("VendedorReserva")
+  tareas                Tarea[]
+  unidadesResponsable   Unidad[]            @relation("ResponsableUnidad")
+  organization          Organization?       @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
   @@map("users")
@@ -165,55 +165,48 @@ model SystemConfig {
 }
 
 model Proyecto {
-  id                   String               @id @default(cuid())
+  id                   String                   @id @default(cuid())
   nombre               String
-  slug                 String?              @unique
+  slug                 String?                  @unique
   descripcion          String?
   ubicacion            String?
-  estado               String               @default("PLANIFICACION")
-  tipo                 String               @default("URBANIZACION")
+  estado               String                   @default("PLANIFICACION")
+  tipo                 String                   @default("URBANIZACION")
   imagenPortada        String?
   galeria              String?
   documentos           String?
   masterplanSVG        String?
-  mapCenterLat         Float?               @default(-34.6037)
-  mapCenterLng         Float?               @default(-58.3816)
-  mapZoom              Int?                 @default(16)
+  mapCenterLat         Float?                   @default(-34.6037)
+  mapCenterLng         Float?                   @default(-58.3816)
+  mapZoom              Int?                     @default(16)
   overlayUrl           String?
   overlayBounds        String?
-  overlayRotation      Float?               @default(0)
-  invertible           Boolean              @default(false)
-  precioM2Inversor     Decimal?             @db.Decimal(18, 2)
-  precioM2Mercado      Decimal?             @db.Decimal(18, 2)
-  metaM2Objetivo       Decimal?             @db.Decimal(18, 2)
-  m2VendidosInversores Decimal              @default(0) @db.Decimal(18, 2)
+  overlayRotation      Float?                   @default(0)
+  invertible           Boolean                  @default(false)
+  precioM2Inversor     Decimal?                 @db.Decimal(18, 2)
+  precioM2Mercado      Decimal?                 @db.Decimal(18, 2)
+  metaM2Objetivo       Decimal?                 @db.Decimal(18, 2)
+  m2VendidosInversores Decimal                  @default(0) @db.Decimal(18, 2)
   fechaLimiteFondeo    DateTime?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
-  documentacionEstado  String               @default("PENDIENTE")
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  documentacionEstado  String                   @default("PENDIENTE")
   creadoPorId          String?
   aiKnowledgeBase      String?
   aiSystemPrompt       String?
   demoExpiresAt        DateTime?
-  isDemo               Boolean              @default(false)
-  requireKyc           Boolean              @default(true)
-  visibilityStatus     String               @default("PUBLICADO")
+  isDemo               Boolean                  @default(false)
+  requireKyc           Boolean                  @default(true)
+  visibilityStatus     String                   @default("PUBLICADO")
   orgId                String?
   deletedAt            DateTime?
   tour360Url           String?
-
-  // ─── Validation workflow (admin-controlled) ───────────────
   estadoValidacion     EstadoValidacionProyecto @default(BORRADOR)
-
-  // ─── Operational flags — synced from estadoValidacion ─────
-  // Only ADMIN can override; override always audited.
-  // RECHAZADO/SUSPENDIDO ignore these flags (structural block wins).
-  puedePublicarse      Boolean   @default(false)
-  puedeReservarse      Boolean   @default(false)
-  puedeCaptarLeads     Boolean   @default(false)
-  flagsOverridePorId   String?
   flagsOverrideAt      DateTime?
-
+  flagsOverridePorId   String?
+  puedeCaptarLeads     Boolean                  @default(false)
+  puedePublicarse      Boolean                  @default(false)
+  puedeReservarse      Boolean                  @default(false)
   banners              Banner[]
   documentacion        Documentacion[]
   etapas               Etapa[]
@@ -228,14 +221,14 @@ model Proyecto {
   historialPrecios     PriceHistory[]
   featureFlags         ProjectFeatureFlags?
   proyecto_archivos    proyecto_archivos[]
+  estadoLogs           ProyectoEstadoLog[]
   imagenes             ProyectoImagen[]
-  creadoPor            User?                @relation("ProyectoCreador", fields: [creadoPorId], references: [id])
-  organization         Organization?        @relation(fields: [orgId], references: [id])
+  usuariosRelaciones   ProyectoUsuario[]
+  creadoPor            User?                    @relation("ProyectoCreador", fields: [creadoPorId], references: [id])
+  organization         Organization?            @relation(fields: [orgId], references: [id])
   tareas               Tarea[]
   testimonios          Testimonio[]
   tours                Tour360[]
-  usuariosRelaciones   ProyectoUsuario[]
-  estadoLogs           ProyectoEstadoLog[]
 
   @@index([estado])
   @@index([estadoValidacion])
@@ -872,9 +865,9 @@ model LogicToopFlow {
   activo                  Boolean                   @default(true)
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
-  status                  LogicToopFlowStatus       @default(DRAFT)
   metadata                Json?                     @default("{}")
   recommendationId        String?
+  status                  LogicToopFlowStatus       @default(DRAFT)
   executions              LogicToopExecution[]
   org                     Organization              @relation(fields: [orgId], references: [id])
   recommendation          LogicToopRecommendation?  @relation(fields: [recommendationId], references: [id])
@@ -893,10 +886,10 @@ model LogicToopExecution {
   triggerPayload   Json
   status           String         @default("RUNNING")
   logs             Json
-  currentStepIndex Int            @default(0)
-  resumeAt         DateTime?
   startedAt        DateTime       @default(now())
   finishedAt       DateTime?
+  resumeAt         DateTime?
+  currentStepIndex Int            @default(0)
   aiEstimatedCost  Float          @default(0)
   aiModelsUsed     Json?
   aiTokensUsed     Int            @default(0)
@@ -935,13 +928,13 @@ model LogicToopTemplate {
   id          String   @id @default(cuid())
   nombre      String
   descripcion String?
-  category    String   @default(" Lead Automation")
   triggerType String
-  flowConfig  Json
-  version     Int      @default(1)
-  createdBy   String?
   createdAt   DateTime @default(now())
+  category    String   @default(" Lead Automation")
+  createdBy   String?
+  flowConfig  Json
   updatedAt   DateTime @updatedAt
+  version     Int      @default(1)
 
   @@map("logic_toop_templates")
 }
@@ -1055,49 +1048,34 @@ model Infraestructura {
   @@map("infraestructuras")
 }
 
-// ─────────────────────────────────────────────────────────────
-// PROJECT-USER RELATION  (relation-based access model)
-// ─────────────────────────────────────────────────────────────
-
 model ProyectoUsuario {
-  id         String   @id @default(cuid())
-  proyectoId String
-  userId     String
-  orgId      String   // tenant of the assigning org — for isolation
+  id                         String                 @id @default(cuid())
+  proyectoId                 String
+  userId                     String
+  orgId                      String
+  tipoRelacion               TipoRelacionProyecto
+  estadoRelacion             EstadoRelacionProyecto @default(PENDIENTE)
+  permisoEditarProyecto      Boolean                @default(false)
+  permisoSubirDocumentacion  Boolean                @default(false)
+  permisoVerLeadsGlobales    Boolean                @default(false)
+  permisoVerMetricasGlobales Boolean                @default(false)
+  tipoMandato                TipoMandato?
+  documentoMandatoUrl        String?
+  mandatoVigenciaDesde       DateTime?
+  mandatoVigenciaHasta       DateTime?
+  confirmadoPorEmpresa       Boolean                @default(false)
+  fechaConfirmacion          DateTime?
+  aprobadoPorAdminId         String?
+  asignadoPorId              String?
+  notas                      String?
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  aprobadoPor                User?                  @relation("AprobadorMandato", fields: [aprobadoPorAdminId], references: [id])
+  asignadoPor                User?                  @relation("AsignadorRelacion", fields: [asignadoPorId], references: [id])
+  org                        Organization           @relation(fields: [orgId], references: [id])
+  proyecto                   Proyecto               @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  user                       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Relation type & state
-  tipoRelacion   TipoRelacionProyecto
-  estadoRelacion EstadoRelacionProyecto @default(PENDIENTE)
-
-  // Granular permissions (complement the relation type; do not replace it)
-  permisoEditarProyecto      Boolean @default(false)
-  permisoSubirDocumentacion  Boolean @default(false)
-  permisoVerLeadsGlobales    Boolean @default(false)
-  permisoVerMetricasGlobales Boolean @default(false)
-
-  // Commercial mandate (required for COMERCIALIZADOR_* types)
-  tipoMandato           TipoMandato?
-  documentoMandatoUrl   String?
-  mandatoVigenciaDesde  DateTime?
-  mandatoVigenciaHasta  DateTime?
-  confirmadoPorEmpresa  Boolean     @default(false)
-  fechaConfirmacion     DateTime?
-  aprobadoPorAdminId    String?
-
-  // Traceability
-  asignadoPorId String?
-  notas         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  proyecto    Proyecto      @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  org         Organization  @relation(fields: [orgId], references: [id])
-  aprobadoPor User?         @relation("AprobadorMandato",  fields: [aprobadoPorAdminId], references: [id])
-  asignadoPor User?         @relation("AsignadorRelacion", fields: [asignadoPorId],      references: [id])
-
-  // One relation per user per project
   @@unique([proyectoId, userId])
   @@index([proyectoId])
   @@index([userId])
@@ -1113,20 +1091,14 @@ model ProyectoEstadoLog {
   estadoNuevo    EstadoValidacionProyecto
   realizadoPorId String
   motivo         String?
-  // Snapshot of operational flags at the moment of transition
   flagsSnapshot  Json
-  createdAt      DateTime @default(now())
-
-  proyecto     Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  realizadoPor User     @relation(fields: [realizadoPorId], references: [id])
+  createdAt      DateTime                 @default(now())
+  proyecto       Proyecto                 @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  realizadoPor   User                     @relation(fields: [realizadoPorId], references: [id])
 
   @@index([proyectoId, createdAt])
   @@map("proyecto_estado_logs")
 }
-
-// ─────────────────────────────────────────────────────────────
-// ENUMS — Project access model
-// ─────────────────────────────────────────────────────────────
 
 enum TipoRelacionProyecto {
   OWNER
