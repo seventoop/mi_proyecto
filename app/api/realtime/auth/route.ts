@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPusherServer } from "@/lib/pusher";
 import prisma from "@/lib/db";
 import { requireAuth, handleApiGuardError } from "@/lib/guards";
+import { getProjectAccess } from "@/lib/project-access";
 
 /**
  * STP-P1-4: Advanced Pusher channel authorization.
@@ -45,16 +46,20 @@ export async function POST(req: NextRequest) {
             if (user.role === "ADMIN") {
                 authorized = true;
             } else {
-                // Check if user is the Owner/Developer
-                const project = await prisma.proyecto.findUnique({
-                    where: { id: projectId },
-                    select: { creadoPorId: true }
-                });
+                // Relation-based check: any active ProyectoUsuario relation or legacy creator.
+                // getProjectAccess handles legacy creadoPorId fallback internally.
+                // Wrapped in try-catch: investors may be outside the project's org boundary.
+                try {
+                    const ctx = await getProjectAccess(user, projectId);
+                    if (ctx.relacion?.estadoRelacion === "ACTIVA" || ctx.isLegacy) {
+                        authorized = true;
+                    }
+                } catch {
+                    // No org match or project not found — fall through to investor check
+                }
 
-                if (project && project.creadoPorId === userId) {
-                    authorized = true;
-                } else {
-                    // Check if user is an Investor in this project
+                // Investor check: inversors may belong to a different org or have no org
+                if (!authorized) {
                     const investment = await prisma.inversion.findFirst({
                         where: {
                             proyectoId: projectId,

@@ -212,7 +212,7 @@ export async function updateLead(leadId: string, input: unknown) {
         // Verify lead access: org isolation first, then ownership
         const existing = await prisma.lead.findUnique({
             where: { id: leadId },
-            select: { orgId: true, asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
+            select: { orgId: true, asignadoAId: true, proyectoId: true }
         });
 
         if (!existing) return { success: false, error: "Lead no encontrado" };
@@ -228,9 +228,17 @@ export async function updateLead(leadId: string, input: unknown) {
                 // Lead legacy sin orgId: denegar acceso a no-admin (fail-secure)
                 return { success: false, error: "No tienes permisos para editar este lead" };
             }
-            // Secondary: user-level ownership within the org
-            if (existing.asignadoAId !== user.id && existing.proyecto?.creadoPorId !== user.id) {
-                return { success: false, error: "No tienes permisos para editar este lead" };
+            // Secondary: assigned vendor (own) OR global lead access on the project.
+            // Legacy creadoPorId fallback is inside getProjectAccess.
+            const isAssigned = existing.asignadoAId === user.id;
+            if (!isAssigned) {
+                if (!existing.proyectoId) {
+                    return { success: false, error: "No tienes permisos para editar este lead" };
+                }
+                const ctx = await getProjectAccess(user, existing.proyectoId);
+                if (!ctx.can(ProjectPermission.VER_LEADS_GLOBALES)) {
+                    return { success: false, error: "No tienes permisos para editar este lead" };
+                }
             }
         }
 
@@ -350,7 +358,7 @@ export async function deleteLead(leadId: string) {
 
         const lead = await prisma.lead.findUnique({
             where: { id: leadId },
-            select: { orgId: true, asignadoAId: true, proyecto: { select: { creadoPorId: true } } }
+            select: { orgId: true, asignadoAId: true, proyectoId: true }
         });
 
         if (!lead) return { success: false, error: "Lead no encontrado" };
@@ -366,9 +374,17 @@ export async function deleteLead(leadId: string) {
                 // Lead legacy sin orgId: denegar acceso a no-admin (fail-secure)
                 return { success: false, error: "No tienes permisos para eliminar este lead" };
             }
-            // Secondary: user-level ownership within the org
-            if (lead.asignadoAId !== user.id && lead.proyecto?.creadoPorId !== user.id) {
-                return { success: false, error: "No tienes permisos para eliminar este lead" };
+            // Secondary: assigned vendor (own) OR global lead access on the project.
+            // Legacy creadoPorId fallback is inside getProjectAccess.
+            const isAssigned = lead.asignadoAId === user.id;
+            if (!isAssigned) {
+                if (!lead.proyectoId) {
+                    return { success: false, error: "No tienes permisos para eliminar este lead" };
+                }
+                const ctx = await getProjectAccess(user, lead.proyectoId);
+                if (!ctx.can(ProjectPermission.VER_LEADS_GLOBALES)) {
+                    return { success: false, error: "No tienes permisos para eliminar este lead" };
+                }
             }
         }
 

@@ -43,12 +43,40 @@ export async function getReservas(
 
         const where: any = {};
 
-        // Role based access: Admins/Superadmins see all. Developers see their projects. Sellers see their sales.
+        // Role based access: Admins/Superadmins see all.
+        // Non-admin: own reservas (vendedorId) always visible.
+        // Projects with global metric access (OWNER, COMERCIALIZADOR_EXCLUSIVO) → all reservas.
+        // Projects with own-only access → covered by vendedorId filter.
+        // Legacy (creadoPorId, no ProyectoUsuario row) → treated as full-access OWNER.
         if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
-            where.OR = [
-                { vendedorId: user.id },
-                { unidad: { manzana: { etapa: { proyecto: { creadoPorId: user.id } } } } }
-            ];
+            const relaciones = await prisma.proyectoUsuario.findMany({
+                where: { userId: user.id, estadoRelacion: "ACTIVA" },
+                select: { proyectoId: true, permisoVerMetricasGlobales: true },
+            });
+            const globalIds = relaciones
+                .filter(r => r.permisoVerMetricasGlobales)
+                .map(r => r.proyectoId);
+
+            // Legacy: projects created by user with no ProyectoUsuario row
+            const legacyProjects = await prisma.proyecto.findMany({
+                where: {
+                    creadoPorId: user.id,
+                    deletedAt: null,
+                    NOT: { usuariosRelaciones: { some: { userId: user.id } } },
+                },
+                select: { id: true },
+            });
+            const legacyIds = legacyProjects.map(p => p.id);
+
+            const allGlobalIds = [...globalIds, ...legacyIds].filter((id, i, arr) => arr.indexOf(id) === i);
+
+            const orClauses: any[] = [{ vendedorId: user.id }];
+            if (allGlobalIds.length > 0) {
+                orClauses.push({
+                    unidad: { manzana: { etapa: { proyectoId: { in: allGlobalIds } } } }
+                });
+            }
+            where.OR = orClauses;
         }
 
         // Apply filters
@@ -365,16 +393,15 @@ export async function cancelReserva(reservaId: string) {
 
         const isPrivileged = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
-        // Fail-secure org check for non-privileged users
-        if (!isPrivileged) {
-            const reservaOrgId = reserva.unidad.manzana.etapa.proyecto.orgId ?? null;
-            if (!user.orgId || !reservaOrgId || reservaOrgId !== user.orgId) {
-                return { success: false, error: "Reserva no encontrada" };
-            }
-        }
+        // Relation-based gate — org boundary + legacy creadoPorId fallback inside getProjectAccess
+        const proyectoId = reserva.unidad.manzana.etapa.proyecto.id;
+        const ctx = await getProjectAccess(user, proyectoId);
 
-        // Permisos: ADMIN/SUPERADMIN, dueño del proyecto, o vendedor de la reserva
-        if (!isPrivileged && reserva.unidad.manzana.etapa.proyecto.creadoPorId !== user.id && reserva.vendedorId !== user.id) {
+        const isSeller = reserva.vendedorId === user.id;
+        // OWNER-level (EDITAR_PROYECTO) or the specific vendor of this reserva
+        const canEdit = ctx.can(ProjectPermission.EDITAR_PROYECTO);
+
+        if (!isPrivileged && !canEdit && !isSeller) {
             return { success: false, error: "No tienes permisos para cancelar esta reserva" };
         }
 
