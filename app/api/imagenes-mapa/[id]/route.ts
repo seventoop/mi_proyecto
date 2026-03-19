@@ -15,7 +15,7 @@ export async function PUT(
     await requireProjectOwnership(existing.proyectoId);
 
     const body = await req.json();
-    const { titulo, tipo, lat, lng, unidadId, orden, altitudM, imageHeading, latOffset, lngOffset } = body;
+    const { titulo, tipo, lat, lng, unidadId, orden, altitudM, imageHeading, latOffset, lngOffset, planRotation } = body;
 
     const updateData: any = {};
     if (titulo !== undefined) updateData.titulo = titulo || null;
@@ -28,6 +28,7 @@ export async function PUT(
     if (imageHeading !== undefined) updateData.imageHeading = imageHeading != null ? Number(imageHeading) : null;
     if (latOffset !== undefined) updateData.latOffset = latOffset != null ? Number(latOffset) : 0;
     if (lngOffset !== undefined) updateData.lngOffset = lngOffset != null ? Number(lngOffset) : 0;
+    if (planRotation !== undefined) updateData.planRotation = planRotation != null ? Number(planRotation) : 0;
 
     const item = await prisma.imagenMapa.update({
       where: { id: params.id },

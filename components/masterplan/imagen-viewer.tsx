@@ -13,7 +13,7 @@ interface ImagenViewerProps {
   imagen: ImagenMapaItem;
   onClose: () => void;
   // Called after a successful calibration save — lets the parent refresh its items list
-  onCalibrationSaved?: (updates: Pick<ImagenMapaItem, "altitudM" | "imageHeading" | "latOffset" | "lngOffset">) => void;
+  onCalibrationSaved?: (updates: Pick<ImagenMapaItem, "altitudM" | "imageHeading" | "latOffset" | "lngOffset" | "planRotation">) => void;
   // Optional overlay data — only used for tipo="360"
   units?: MasterplanUnit[];
   overlayBounds?: [[number, number], [number, number]] | null;
@@ -74,6 +74,7 @@ export default function ImagenViewer({
   const [overlayHdg,    setOverlayHdg]    = useState<number>(imagen.imageHeading ?? 0);
   const [latOffset,     setLatOffset]     = useState<number>(imagen.latOffset ?? 0);
   const [lngOffset,     setLngOffset]     = useState<number>(imagen.lngOffset ?? 0);
+  const [planRotation,  setPlanRotation]  = useState<number>(imagen.planRotation ?? 0);
   const [isSavingCalib, setIsSavingCalib] = useState(false);
   const [calibSaved,    setCalibSaved]    = useState(false);
 
@@ -224,19 +225,19 @@ export default function ImagenViewer({
       const res = await fetch(`/api/imagenes-mapa/${imagen.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset }),
+        body: JSON.stringify({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset, planRotation }),
       });
       if (!res.ok) throw new Error("Error al guardar");
       setCalibSaved(true);
       setTimeout(() => setCalibSaved(false), 2000);
       // Notify parent so it can refresh its items list (fixes stale data on reopen)
-      onCalibrationSaved?.({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset });
+      onCalibrationSaved?.({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset, planRotation });
     } catch {
       toast.error("No se pudo guardar la calibración");
     } finally {
       setIsSavingCalib(false);
     }
-  }, [imagen.id, overlayAlt, overlayHdg, latOffset, lngOffset, onCalibrationSaved]);
+  }, [imagen.id, overlayAlt, overlayHdg, latOffset, lngOffset, planRotation, onCalibrationSaved]);
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -293,14 +294,16 @@ export default function ImagenViewer({
                 imageHeading={overlayHdg}
                 latOffset={latOffset}
                 lngOffset={lngOffset}
+                planRotation={planRotation}
                 isEditing={isEditing}
                 onEnterEdit={() => setIsEditing(true)}
                 onExitEdit={() => setIsEditing(false)}
-                onParamsChange={({ latOffset: lo, lngOffset: lng, camAlt, imageHeading }) => {
+                onParamsChange={({ latOffset: lo, lngOffset: lng, camAlt, imageHeading, planRotation: pr }) => {
                   setLatOffset(lo);
                   setLngOffset(lng);
                   setOverlayAlt(camAlt);
                   setOverlayHdg(imageHeading);
+                  setPlanRotation(pr);
                 }}
               />
             )}

@@ -1001,6 +1001,7 @@ model ImagenMapa {
   imageHeading Float?   @default(0)
   latOffset    Float?   @default(0)
   lngOffset    Float?   @default(0)
+  planRotation Float?   @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   proyecto     Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)

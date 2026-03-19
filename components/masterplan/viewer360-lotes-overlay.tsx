@@ -37,19 +37,21 @@ type DragMode = "translate" | "scale" | "rotate";
 
 interface DragState {
   mode: DragMode;
-  startX: number; startY: number; // viewport px at drag start
-  startLat: number; startLng: number; // latOffset / lngOffset at drag start
-  startAlt: number;                   // camAlt at drag start
-  startHdg: number;                   // imageHeading at drag start
-  startAngle: number;                 // for rotate: atan2 angle at drag start
-  centX: number; centY: number;       // overlay centroid (local px) at drag start
+  startX: number; startY: number;
+  startLat: number; startLng: number;
+  startAlt: number;
+  startHdg: number;
+  startPlanRot: number;
+  startAngle: number;
+  centX: number; centY: number;
 }
 
 interface LiveDelta {
-  latM: number;   // meters to add to latOffset
-  lngM: number;   // meters to add to lngOffset
-  altFactor: number; // camAlt multiplier
-  hdgDelta: number;  // degrees to add to imageHeading
+  latM: number;
+  lngM: number;
+  altFactor: number;
+  hdgDelta: number;
+  planRotDelta: number;
 }
 
 export interface Viewer360LotesOverlayProps {
@@ -64,21 +66,45 @@ export interface Viewer360LotesOverlayProps {
   imageHeading: number;
   latOffset: number;
   lngOffset: number;
+  planRotation: number;
   isEditing: boolean;
   onEnterEdit?: () => void;
   onExitEdit?: () => void;
   onParamsChange?: (p: {
     latOffset: number; lngOffset: number;
     camAlt: number; imageHeading: number;
+    planRotation: number;
   }) => void;
 }
 
 // ─── SVG helpers ──────────────────────────────────────────────────────────────
 
-function svgEl(tag: string, attrs: Record<string, string | number>) {
+function svgEl(tag: string, attrs: Record<string, string | number>, text?: string) {
   const el = document.createElementNS(NS, tag);
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  if (text !== undefined) el.textContent = text;
   return el;
+}
+
+// Andrew's monotone chain — O(n log n) convex hull
+function convexHull(pts: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (pts.length < 3) return pts;
+  const sorted = [...pts].sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
+  const cross = (o: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower: { x: number; y: number }[] = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper: { x: number; y: number }[] = [];
+  for (const p of [...sorted].reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  upper.pop();
+  lower.pop();
+  return lower.concat(upper);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -88,11 +114,13 @@ export default function Viewer360LotesOverlay({
   units, overlayBounds, overlayRotation, svgViewBox,
   camLat, camLng, camAlt, imageHeading,
   latOffset, lngOffset,
+  planRotation,
   isEditing,
   onEnterEdit, onExitEdit, onParamsChange,
 }: Viewer360LotesOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef       = useRef<SVGSVGElement>(null);
+  const hitAreaRef   = useRef<HTMLDivElement>(null);
   const rafRef       = useRef<number>();
 
   // ── Prop refs — synced every render, read inside rAF/event handlers ─────────
@@ -102,6 +130,7 @@ export default function Viewer360LotesOverlay({
   const camLngRef        = useRef(camLng);
   const latOffsetRef     = useRef(latOffset);
   const lngOffsetRef     = useRef(lngOffset);
+  const planRotRef       = useRef(planRotation);
   const overlayBoundsRef = useRef(overlayBounds);
   const overlayRotRef    = useRef(overlayRotation);
   const svgViewBoxRef    = useRef(svgViewBox);
@@ -117,6 +146,7 @@ export default function Viewer360LotesOverlay({
   camLngRef.current        = camLng;
   latOffsetRef.current     = latOffset;
   lngOffsetRef.current     = lngOffset;
+  planRotRef.current       = planRotation;
   overlayBoundsRef.current = overlayBounds;
   overlayRotRef.current    = overlayRotation;
   svgViewBoxRef.current    = svgViewBox;
@@ -126,11 +156,11 @@ export default function Viewer360LotesOverlay({
   onExitEditRef.current    = onExitEdit;
   onParamsChangeRef.current= onParamsChange;
 
-  // Bounding box of all visible lots — computed each frame, used in event handlers
+  // AABB of all visible lots — for hit-testing in event handlers
   const bboxRef = useRef<Bbox | null>(null);
 
   // Live drag delta — added on top of prop values in rAF loop for zero-lag rendering
-  const liveDeltaRef = useRef<LiveDelta>({ latM: 0, lngM: 0, altFactor: 1, hdgDelta: 0 });
+  const liveDeltaRef = useRef<LiveDelta>({ latM: 0, lngM: 0, altFactor: 1, hdgDelta: 0, planRotDelta: 0 });
 
   // Drag state
   const dragRef = useRef<DragState | null>(null);
@@ -140,6 +170,7 @@ export default function Viewer360LotesOverlay({
     const frame = () => {
       const svg       = svgRef.current;
       const container = containerRef.current;
+      const hitDiv    = hitAreaRef.current;
       if (!svg || !container || !viewer) { rafRef.current = requestAnimationFrame(frame); return; }
 
       const _units    = unitsRef.current;
@@ -150,12 +181,17 @@ export default function Viewer360LotesOverlay({
       const delta     = liveDeltaRef.current;
 
       // Apply live drag deltas on top of prop values
-      const _alt = camAltRef.current * delta.altFactor;
-      const _hdg = imageHeadingRef.current + delta.hdgDelta;
-      const DEG  = Math.PI / 180;
-      const _camLat = camLatRef.current + delta.latM / 111320;
-      const _camLng = camLngRef.current + delta.lngM /
+      const _alt      = camAltRef.current * delta.altFactor;
+      const _hdg      = imageHeadingRef.current + delta.hdgDelta;
+      const _planRot  = planRotRef.current + delta.planRotDelta;
+      const DEG       = Math.PI / 180;
+      const _camLat   = camLatRef.current + delta.latM / 111320;
+      const _camLng   = camLngRef.current + delta.lngM /
         (111320 * Math.cos(camLatRef.current * DEG));
+
+      // Update SVG pointer-events: only intercept events when editing
+      svg.style.pointerEvents = _editing ? "all" : "none";
+      svg.style.cursor        = _editing ? "crosshair" : "default";
 
       const viewPitch = viewer.getPitch() as number;
       const viewYaw   = viewer.getYaw()   as number;
@@ -165,9 +201,30 @@ export default function Viewer360LotesOverlay({
 
       svg.innerHTML = "";
 
-      // ── Pass 1: project all units to screen coords ───────────────────────
+      // ── Plan rotation helpers ────────────────────────────────────────────
+      const planRotRad = _planRot * DEG;
+      const cosPR      = Math.cos(planRotRad);
+      const sinPR      = Math.sin(planRotRad);
+
+      // ── Pass 0: collect all geo points to compute rotation centroid ──────
+      const allLatLngs: [number, number][][] = [];
+      let centLat = 0, centLng = 0, centCount = 0;
+
+      for (const unit of _units) {
+        let svgPath = unit.path as string | undefined;
+        if (!svgPath && (unit as any).coordenadasMasterplan) {
+          try { const c = JSON.parse((unit as any).coordenadasMasterplan); svgPath = c.path; } catch {}
+        }
+        if (!svgPath) { allLatLngs.push([]); continue; }
+        const latLngs = svgPathToLatLng(svgPath, _viewBox, _bounds, _rotation);
+        allLatLngs.push(latLngs);
+        for (const [lat, lng] of latLngs) { centLat += lat; centLng += lng; centCount++; }
+      }
+      if (centCount > 0) { centLat /= centCount; centLng /= centCount; }
+      const cosCent = Math.cos(centLat * DEG);
+
+      // ── Pass 1: apply plan rotation, project to screen ───────────────────
       interface UnitData {
-        screenPts: ({ x: number; y: number } | null)[];
         visiblePts: { x: number; y: number }[];
         color: string;
         numero: string;
@@ -175,18 +232,23 @@ export default function Viewer360LotesOverlay({
       }
       const unitData: UnitData[] = [];
       let bbMinX = Infinity, bbMinY = Infinity, bbMaxX = -Infinity, bbMaxY = -Infinity;
+      const allVisiblePts: { x: number; y: number }[] = [];
 
-      for (const unit of _units) {
-        let svgPath = unit.path as string | undefined;
-        if (!svgPath && (unit as any).coordenadasMasterplan) {
-          try { const c = JSON.parse((unit as any).coordenadasMasterplan); svgPath = c.path; } catch {}
-        }
-        if (!svgPath) continue;
+      for (let i = 0; i < _units.length; i++) {
+        const unit = _units[i];
+        const rawLatLngs = allLatLngs[i];
+        if (!rawLatLngs || rawLatLngs.length < 3) continue;
 
-        const latLngs = svgPathToLatLng(svgPath, _viewBox, _bounds, _rotation);
-        if (latLngs.length < 3) continue;
+        // Rotate each geo point around the plan centroid
+        const rotatedLatLngs: [number, number][] = rawLatLngs.map(([lat, lng]) => {
+          const dLat = (lat - centLat) * 111320;
+          const dLng = (lng - centLng) * 111320 * cosCent;
+          const rdLat = dLat * cosPR - dLng * sinPR;
+          const rdLng = dLat * sinPR + dLng * cosPR;
+          return [centLat + rdLat / 111320, centLng + rdLng / (111320 * cosCent)];
+        });
 
-        const screenPts = latLngs.map(([lat, lng]) => {
+        const screenPts = rotatedLatLngs.map(([lat, lng]) => {
           const { pitch, yaw } = geoToPitchYaw(lat, lng, _camLat, _camLng, _alt, _hdg);
           return projectSphericalToScreen(pitch, yaw, viewPitch, viewYaw, hfov, W, H);
         });
@@ -194,12 +256,13 @@ export default function Viewer360LotesOverlay({
         const visiblePts = screenPts.filter(Boolean) as { x: number; y: number }[];
         if (visiblePts.length < 3) continue;
 
-        // Update bounding box
+        // Accumulate for AABB bbox
         for (const pt of visiblePts) {
           if (pt.x < bbMinX) bbMinX = pt.x;
           if (pt.y < bbMinY) bbMinY = pt.y;
           if (pt.x > bbMaxX) bbMaxX = pt.x;
           if (pt.y > bbMaxY) bbMaxY = pt.y;
+          allVisiblePts.push(pt);
         }
 
         let d = "";
@@ -210,14 +273,14 @@ export default function Viewer360LotesOverlay({
         d += "Z";
 
         unitData.push({
-          screenPts, visiblePts,
+          visiblePts,
           color: ESTADO_COLORS[unit.estado] ?? "#94a3b8",
           numero: unit.numero,
           d,
         });
       }
 
-      // Store bbox (with padding) for hit-testing in event handlers
+      // Store AABB bbox (with padding) for hit-testing
       if (unitData.length > 0 && isFinite(bbMinX)) {
         bboxRef.current = {
           minX: bbMinX - BBOX_PAD, minY: bbMinY - BBOX_PAD,
@@ -226,6 +289,22 @@ export default function Viewer360LotesOverlay({
         };
       } else {
         bboxRef.current = null;
+      }
+
+      // Update hit-area div (for entering edit mode)
+      if (hitDiv) {
+        if (!_editing && bboxRef.current) {
+          const bb = bboxRef.current;
+          hitDiv.style.left         = `${bb.minX}px`;
+          hitDiv.style.top          = `${bb.minY}px`;
+          hitDiv.style.width        = `${bb.maxX - bb.minX}px`;
+          hitDiv.style.height       = `${bb.maxY - bb.minY}px`;
+          hitDiv.style.pointerEvents = "auto";
+          hitDiv.style.cursor       = "pointer";
+        } else {
+          hitDiv.style.pointerEvents = "none";
+          hitDiv.style.cursor        = "default";
+        }
       }
 
       // ── Pass 2: draw units ───────────────────────────────────────────────
@@ -240,27 +319,43 @@ export default function Viewer360LotesOverlay({
 
         const cx = (visiblePts.reduce((s, p) => s + p.x, 0) / visiblePts.length).toFixed(1);
         const cy = (visiblePts.reduce((s, p) => s + p.y, 0) / visiblePts.length).toFixed(1);
-        const textAttrs = { x: cx, y: cy, "font-size": "13", "font-family": "Inter,system-ui,sans-serif", "font-weight": "700", "text-anchor": "middle", "dominant-baseline": "middle" };
+        const textAttrs = {
+          x: cx, y: cy,
+          "font-size": "13", "font-family": "Inter,system-ui,sans-serif",
+          "font-weight": "700", "text-anchor": "middle", "dominant-baseline": "middle",
+        };
 
-        svg.appendChild(svgEl("text", { ...textAttrs, fill: "none", stroke: "rgba(0,0,0,0.75)", "stroke-width": "4", "stroke-linejoin": "round", textContent: numero } as any));
+        // Outline (stroke for legibility)
+        const outline = svgEl("text", { ...textAttrs, fill: "none", stroke: "rgba(0,0,0,0.75)", "stroke-width": "4", "stroke-linejoin": "round" });
+        outline.textContent = numero;
+        svg.appendChild(outline);
+
         const lbl = svgEl("text", { ...textAttrs, fill: "white" });
         lbl.textContent = numero;
         svg.appendChild(lbl);
       }
 
       // ── Pass 3: draw edit handles ────────────────────────────────────────
-      if (_editing && bboxRef.current) {
-        const bb = bboxRef.current;
-        const cx = bb.centX, cy = bb.centY;
+      if (_editing && bboxRef.current && allVisiblePts.length >= 3) {
+        const bb  = bboxRef.current;
+        const cx  = bb.centX, cy = bb.centY;
         const rotY = bb.minY - ROT_GAP;
 
-        // Dashed selection rectangle
-        svg.appendChild(svgEl("rect", {
-          x: bb.minX, y: bb.minY,
-          width: bb.maxX - bb.minX, height: bb.maxY - bb.minY,
-          fill: "none", stroke: "rgba(99,102,241,0.8)", "stroke-width": "1.5",
-          "stroke-dasharray": "6 4", "rx": "4",
-        }));
+        // ── Convex hull selection outline (follows actual lot shape) ──────
+        const hull = convexHull(allVisiblePts);
+        if (hull.length >= 3) {
+          const hullD = hull.map((p, i) =>
+            `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`
+          ).join(" ") + " Z";
+          svg.appendChild(svgEl("path", {
+            d: hullD,
+            fill: "none",
+            stroke: "rgba(99,102,241,0.8)",
+            "stroke-width": "1.5",
+            "stroke-dasharray": "6 4",
+            rx: "4",
+          }));
+        }
 
         // Line to rotation handle
         svg.appendChild(svgEl("line", {
@@ -268,13 +363,16 @@ export default function Viewer360LotesOverlay({
           stroke: "rgba(99,102,241,0.6)", "stroke-width": "1.5", "stroke-dasharray": "4 3",
         }));
 
-        // Corner handles (scale)
+        // Corner handles (scale) — at AABB corners
         const corners = [
           [bb.minX, bb.minY], [bb.maxX, bb.minY],
           [bb.maxX, bb.maxY], [bb.minX, bb.maxY],
         ] as const;
         for (const [hx, hy] of corners) {
-          svg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: HANDLE_R, fill: "white", stroke: "#6366f1", "stroke-width": "2" }));
+          svg.appendChild(svgEl("circle", {
+            cx: hx, cy: hy, r: HANDLE_R,
+            fill: "white", stroke: "#6366f1", "stroke-width": "2",
+          }));
         }
 
         // Rotation handle
@@ -282,7 +380,6 @@ export default function Viewer360LotesOverlay({
           cx, cy: rotY, r: HANDLE_R,
           fill: "#6366f1", stroke: "white", "stroke-width": "2",
         }));
-        // Rotation arc symbol inside rotation handle
         svg.appendChild(svgEl("path", {
           d: `M${cx - 4},${rotY} a4,4 0 1,1 5,3`,
           fill: "none", stroke: "white", "stroke-width": "1.5", "stroke-linecap": "round",
@@ -305,9 +402,10 @@ export default function Viewer360LotesOverlay({
 
   // ── Pointer event handling ─────────────────────────────────────────────────
   useEffect(() => {
-    const svg = svgRef.current;
+    const svg     = svgRef.current;
+    const hitArea = hitAreaRef.current;
     const container = containerRef.current;
-    if (!svg || !container) return;
+    if (!svg || !container || !hitArea) return;
 
     function localPt(e: PointerEvent) {
       const rect = container!.getBoundingClientRect();
@@ -322,21 +420,17 @@ export default function Viewer360LotesOverlay({
       return pt.x >= bb.minX && pt.x <= bb.maxX && pt.y >= bb.minY && pt.y <= bb.maxY;
     }
 
-    const onDown = (e: PointerEvent) => {
+    // ── Hit area: click to enter edit mode ──────────────────────────────────
+    const onHitAreaDown = (e: PointerEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onEnterEditRef.current?.();
+    };
+
+    // ── SVG: all edit-mode interactions ─────────────────────────────────────
+    const onSvgDown = (e: PointerEvent) => {
       const bb = bboxRef.current;
       const pt = localPt(e);
-
-      if (!isEditingRef.current) {
-        // Only enter edit mode if clicking inside the lot bounding box
-        if (bb && insideBbox(pt, bb)) {
-          e.stopPropagation();
-          e.preventDefault();
-          onEnterEditRef.current?.();
-        }
-        return;
-      }
-
-      // ── In edit mode ────────────────────────────────────────────────────
       e.stopPropagation();
       e.preventDefault();
 
@@ -356,14 +450,13 @@ export default function Viewer360LotesOverlay({
       } else if (insideBbox(pt, bb)) {
         mode = "translate";
       } else {
-        // Click outside → exit edit mode
+        // Click outside overlay → exit edit mode
         onExitEditRef.current?.();
         return;
       }
 
       svg.setPointerCapture(e.pointerId);
-
-      liveDeltaRef.current = { latM: 0, lngM: 0, altFactor: 1, hdgDelta: 0 };
+      liveDeltaRef.current = { latM: 0, lngM: 0, altFactor: 1, hdgDelta: 0, planRotDelta: 0 };
       dragRef.current = {
         mode,
         startX: e.clientX, startY: e.clientY,
@@ -371,6 +464,7 @@ export default function Viewer360LotesOverlay({
         startLng: lngOffsetRef.current,
         startAlt: camAltRef.current,
         startHdg: imageHeadingRef.current,
+        startPlanRot: planRotRef.current,
         startAngle: Math.atan2(pt.y - bb.centY, pt.x - bb.centX) * (180 / Math.PI),
         centX: bb.centX, centY: bb.centY,
       };
@@ -378,37 +472,33 @@ export default function Viewer360LotesOverlay({
 
     const onMove = (e: PointerEvent) => {
       const drag = dragRef.current;
-      if (!drag || !isEditingRef.current) return;
+      if (!drag) return;
 
-      const W = container.clientWidth;
-      const H = container.clientHeight;
+      const W   = container.clientWidth;
+      const H   = container.clientHeight;
       const hfov = (() => { try { return viewer.getHfov() as number; } catch { return 100; } })();
-      const DEG = Math.PI / 180;
-
-      const dx = e.clientX - drag.startX;
-      const dy = e.clientY - drag.startY;
+      const DEG  = Math.PI / 180;
+      const dx   = e.clientX - drag.startX;
+      const dy   = e.clientY - drag.startY;
 
       if (drag.mode === "translate") {
-        // Scale: meters per pixel at current altitude
-        const mpp = (2 * drag.startAlt * Math.tan((hfov * DEG) / 2)) / W;
-        const hdgRad = drag.startHdg * DEG;
+        const mpp          = (2 * drag.startAlt * Math.tan((hfov * DEG) / 2)) / W;
+        const hdgRad       = drag.startHdg * DEG;
         const screen_right_m = dx * mpp;
         const screen_down_m  = dy * mpp;
-        // Rotate from screen-space to geo North/East
         const north_m = screen_right_m * (-Math.sin(hdgRad)) + screen_down_m * (-Math.cos(hdgRad));
         const east_m  = screen_right_m * ( Math.cos(hdgRad)) + screen_down_m * (-Math.sin(hdgRad));
-        liveDeltaRef.current = { latM: north_m, lngM: east_m, altFactor: 1, hdgDelta: 0 };
+        liveDeltaRef.current = { latM: north_m, lngM: east_m, altFactor: 1, hdgDelta: 0, planRotDelta: 0 };
 
       } else if (drag.mode === "scale") {
-        // Drag up (dy < 0) = lower altitude = bigger lots
         const factor = Math.exp(-dy / H * 3);
-        liveDeltaRef.current = { latM: 0, lngM: 0, altFactor: factor, hdgDelta: 0 };
+        liveDeltaRef.current = { latM: 0, lngM: 0, altFactor: factor, hdgDelta: 0, planRotDelta: 0 };
 
       } else if (drag.mode === "rotate") {
-        const rect = container.getBoundingClientRect();
-        const curPt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const rect     = container.getBoundingClientRect();
+        const curPt    = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         const curAngle = Math.atan2(curPt.y - drag.centY, curPt.x - drag.centX) * (180 / Math.PI);
-        liveDeltaRef.current = { latM: 0, lngM: 0, altFactor: 1, hdgDelta: curAngle - drag.startAngle };
+        liveDeltaRef.current = { latM: 0, lngM: 0, altFactor: 1, hdgDelta: 0, planRotDelta: curAngle - drag.startAngle };
       }
     };
 
@@ -416,45 +506,50 @@ export default function Viewer360LotesOverlay({
       const drag = dragRef.current;
       if (!drag) return;
 
-      const d = liveDeltaRef.current;
-      const finalLat = drag.startLat + d.latM;
-      const finalLng = drag.startLng + d.lngM;
-      const finalAlt = Math.max(10, drag.startAlt * d.altFactor);
-      const finalHdg = ((drag.startHdg + d.hdgDelta) % 360 + 360) % 360;
+      const d         = liveDeltaRef.current;
+      const finalLat  = drag.startLat + d.latM;
+      const finalLng  = drag.startLng + d.lngM;
+      const finalAlt  = Math.max(10, drag.startAlt * d.altFactor);
+      const finalHdg  = ((drag.startHdg + d.hdgDelta) % 360 + 360) % 360;
+      const finalPlanRot = ((drag.startPlanRot + d.planRotDelta) % 360 + 360) % 360;
 
-      // Reset delta — rAF will use prop values (updated by parent re-render)
-      liveDeltaRef.current = { latM: 0, lngM: 0, altFactor: 1, hdgDelta: 0 };
+      liveDeltaRef.current = { latM: 0, lngM: 0, altFactor: 1, hdgDelta: 0, planRotDelta: 0 };
       dragRef.current = null;
 
       onParamsChangeRef.current?.({
-        latOffset: finalLat,
-        lngOffset: finalLng,
-        camAlt: finalAlt,
+        latOffset:    finalLat,
+        lngOffset:    finalLng,
+        camAlt:       finalAlt,
         imageHeading: finalHdg,
+        planRotation: finalPlanRot,
       });
     };
 
-    svg.addEventListener("pointerdown", onDown);
-    svg.addEventListener("pointermove", onMove);
-    svg.addEventListener("pointerup",   onUp);
+    hitArea.addEventListener("pointerdown", onHitAreaDown);
+    svg.addEventListener("pointerdown",   onSvgDown);
+    svg.addEventListener("pointermove",   onMove);
+    svg.addEventListener("pointerup",     onUp);
     svg.addEventListener("pointercancel", onUp);
 
     return () => {
-      svg.removeEventListener("pointerdown", onDown);
-      svg.removeEventListener("pointermove", onMove);
-      svg.removeEventListener("pointerup",   onUp);
+      hitArea.removeEventListener("pointerdown", onHitAreaDown);
+      svg.removeEventListener("pointerdown",   onSvgDown);
+      svg.removeEventListener("pointermove",   onMove);
+      svg.removeEventListener("pointerup",     onUp);
       svg.removeEventListener("pointercancel", onUp);
     };
   }, [viewer]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 z-10" style={{ pointerEvents: "none" }}>
+      {/* Transparent hit area — positioned imperatively over the lot bbox when not editing */}
+      <div ref={hitAreaRef} className="absolute" />
+      {/* Overlay SVG — pointer-events managed imperatively in rAF loop */}
       <svg
         ref={svgRef}
         data-overlay-svg="true"
         className="w-full h-full overflow-visible"
         xmlns="http://www.w3.org/2000/svg"
-        style={{ pointerEvents: "auto", cursor: isEditing ? "crosshair" : "default" }}
       />
     </div>
   );
