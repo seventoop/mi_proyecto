@@ -23,6 +23,8 @@ interface ImagenesMapaToolProps {
   overlayBounds?: [[number, number], [number, number]] | null;
   overlayRotation?: number;
   svgViewBox?: SvgViewBox | null;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 // ─── Default form ─────────────────────────────────────────────────────────────
@@ -52,10 +54,9 @@ function markerHtml(color: string, emoji: string) {
 export default function ImagenesMapaTool({
   proyectoId, map,
   overlayBounds = null, overlayRotation = 0, svgViewBox = null,
+  isOpen, onOpenChange,
 }: ImagenesMapaToolProps) {
   const { units } = useMasterplanStore();
-
-  const [isOpen, setIsOpen] = useState(false);
   const [items, setItems] = useState<ImagenMapaItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -137,7 +138,7 @@ export default function ImagenesMapaTool({
         });
         marker.on("click", () => {
           setSelectedId(item.id);
-          setIsOpen(true);
+          onOpenChange(true);
         });
         marker.addTo(map);
         markersRef.current.set(item.id, marker);
@@ -351,19 +352,22 @@ export default function ImagenesMapaTool({
     <>
       {/* Toolbar button */}
       <button
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => onOpenChange(!isOpen)}
         className={cn(
-          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap",
           isOpen
-            ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-            : "bg-slate-700/60 hover:bg-slate-700 text-slate-300"
+            ? "bg-indigo-500 text-white border-transparent"
+            : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
         )}
         title="Imágenes del mapa"
       >
         <Camera className="w-3.5 h-3.5" />
         <span>Imágenes</span>
         {items.length > 0 && (
-          <span className="bg-white/20 text-white text-[10px] font-bold px-1 rounded-full">
+          <span className={cn(
+            "ml-0.5 text-[10px] font-black px-1.5 py-0.5 rounded-full",
+            isOpen ? "bg-white/20 text-white" : "bg-indigo-500/20 text-indigo-400"
+          )}>
             {items.length}
           </span>
         )}
@@ -398,7 +402,7 @@ export default function ImagenesMapaTool({
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => { setIsOpen(false); cancelPositioning(); }}
+                  onClick={() => { onOpenChange(false); cancelPositioning(); }}
                   className="p-1 rounded-lg hover:bg-slate-700/60 text-slate-400 hover:text-white -ml-1 mr-1"
                 >
                   <X className="w-4 h-4" />

@@ -114,6 +114,9 @@ export default function MasterplanMap({
     const [isSavingPlan, setIsSavingPlan] = useState(false);
     const [planSaved, setPlanSaved] = useState(false);
 
+    // Active tool panel (mutually exclusive)
+    const [activePanel, setActivePanel] = useState<"infraestructura" | "imagenes" | null>(null);
+
     // Tour 360° preview card state
     const [tourPreview, setTourPreview] = useState<{
         tour: Tour360Marker;
@@ -925,6 +928,8 @@ export default function MasterplanMap({
                             <InfraestructuraTool
                                 proyectoId={proyectoId}
                                 map={leafletMapRef.current}
+                                isOpen={activePanel === "infraestructura"}
+                                onOpenChange={(open) => setActivePanel(open ? "infraestructura" : null)}
                             />
                         )}
 
@@ -938,6 +943,8 @@ export default function MasterplanMap({
                                 overlayBounds={overlayConfig?.bounds ?? null}
                                 overlayRotation={overlayConfig?.rotation ?? 0}
                                 svgViewBox={svgViewBox}
+                                isOpen={activePanel === "imagenes"}
+                                onOpenChange={(open) => setActivePanel(open ? "imagenes" : null)}
                             />
                         )}
                     </div>

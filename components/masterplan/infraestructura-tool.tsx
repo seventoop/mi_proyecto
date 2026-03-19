@@ -61,6 +61,8 @@ function polygonAreaM2(coords: [number, number][]): number {
 interface InfraestructuraToolProps {
   proyectoId: string;
   map: any; // Leaflet map instance (passed when ready)
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 // ─── Default form state ───────────────────────────────────────────────────────
@@ -77,9 +79,7 @@ const DEFAULT_FORM = {
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function InfraestructuraTool({ proyectoId, map }: InfraestructuraToolProps) {
-  // Panel open/close
-  const [isOpen, setIsOpen] = useState(false);
+export default function InfraestructuraTool({ proyectoId, map, isOpen, onOpenChange }: InfraestructuraToolProps) {
   // Drawing mode
   const [drawingMode, setDrawingMode] = useState<InfraestructuraGeometria | null>(null);
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
@@ -191,7 +191,7 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
 
         layer.on("click", () => {
           setSelectedId(item.id);
-          if (!isOpen) setIsOpen(true);
+          if (!isOpen) onOpenChange(true);
         });
 
         layer.addTo(map);
@@ -457,7 +457,7 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
     <>
       {/* Toolbar button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => onOpenChange(!isOpen)}
         title="Infraestructura y Amenities"
         className={cn(
           "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap",
@@ -492,7 +492,7 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
             <div className="flex items-center justify-between p-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => { setIsOpen(false); cancelDrawing(); setShowForm(false); setSelectedId(null); }}
+                  onClick={() => { onOpenChange(false); cancelDrawing(); setShowForm(false); setSelectedId(null); }}
                   className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors -ml-1 mr-1"
                 >
                   <X className="w-4 h-4" />
