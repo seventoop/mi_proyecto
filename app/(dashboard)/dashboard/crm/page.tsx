@@ -11,17 +11,21 @@ export const metadata: Metadata = {
     title: "CRM | Seventoop",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function CRMPage() {
     const session = await getServerSession(authOptions);
 
     if (!session) {
-        redirect("/auth/login");
+        redirect("/login");
     }
 
-    // Fetch Opportunities for Kanban
-    // We fetch ALL opportunities for the project (if admin/manager) or assigned ones?
-    // For now, let's fetch all 50 most recent for demo
+    const orgId = (session.user as any).orgId as string | null;
+    const isAdmin = (session.user as any).role === "ADMIN" || (session.user as any).role === "SUPERADMIN";
+
+    // Org-scoped fetch: non-admin users only see their org's oportunidades
     const oportunidades = await db.oportunidad.findMany({
+        where: isAdmin ? {} : { lead: { orgId: orgId ?? "__none__" } },
         orderBy: { updatedAt: "desc" },
         take: 100,
         include: {

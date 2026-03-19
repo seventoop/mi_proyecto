@@ -4,7 +4,10 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, handleGuardError, requireOrgAccess, requireCrmRead, requireCrmWrite } from "@/lib/guards";
 import { z } from "zod";
-import { idSchema } from "@/lib/validations";
+import { idSchema, closeOportunidadSchema, updateOportunidadSchema } from "@/lib/validations";
+import { createNotification } from "@/lib/actions/notifications";
+import { audit } from "@/lib/actions/audit";
+import { createReserva } from "@/lib/actions/reservas";
 
 const etapaSchema = z.object({
     nombre: z.string().min(2, "Nombre demasiado corto"),
@@ -262,6 +265,159 @@ export async function getCrmMetrics(orgId: string) {
                 topStage,
             }
         };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+/**
+ * Closes an Oportunidad by creating a linked Reserva, advancing the Lead to CONVERTIDO,
+ * and moving the Oportunidad stage to RESERVA.
+ * Reuses createReserva (atomic unit lock, permission check, audit).
+ */
+export async function closeOportunidad(
+    oportunidadId: string,
+    rawInput: { unidadId: string; montoSena: number; fechaVencimiento?: string }
+) {
+    try {
+        const user = await requireAuth();
+
+        const parsed = closeOportunidadSchema.safeParse(rawInput);
+        if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+        const input = parsed.data;
+
+        const oportunidad = await prisma.oportunidad.findUnique({
+            where: { id: oportunidadId },
+            include: {
+                lead: { select: { id: true, orgId: true, asignadoAId: true, nombre: true } }
+            }
+        });
+        if (!oportunidad) return { success: false, error: "Oportunidad no encontrada" };
+
+        const lead = oportunidad.lead;
+
+        // Org isolation
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            if (!lead.orgId || lead.orgId !== user.orgId) {
+                return { success: false, error: "Acceso denegado" };
+            }
+        }
+
+        if (oportunidad.etapa === "RESERVA" || oportunidad.etapa === "VENTA") {
+            return { success: false, error: "Esta oportunidad ya fue convertida a reserva" };
+        }
+
+        const unidadId = input.unidadId;
+        const fechaVencimiento = input.fechaVencimiento
+            ?? new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
+        // Reuse createReserva: handles atomic unit lock, RESERVAR permission, historialUnidad, audit
+        const reservaResult = await createReserva({
+            unidadId,
+            leadId: lead.id,
+            montoSena: input.montoSena,
+            fechaVencimiento,
+        });
+
+        if (!reservaResult.success) {
+            return { success: false, error: (reservaResult as any).error ?? "Error al crear la reserva" };
+        }
+
+        const reservaId = (reservaResult as any).data?.id;
+
+        // Find "Convertido" pipeline stage for this org (if configured)
+        const etapaConvertido = lead.orgId
+            ? await prisma.pipelineEtapa.findFirst({
+                where: { orgId: lead.orgId, nombre: { contains: "Conver", mode: "insensitive" } }
+            })
+            : null;
+
+        // Advance Lead + Oportunidad atomically
+        await prisma.$transaction([
+            prisma.lead.update({
+                where: { id: lead.id },
+                data: {
+                    estado: "CONVERTIDO",
+                    ...(etapaConvertido ? { etapaId: etapaConvertido.id } : {}),
+                }
+            }),
+            prisma.oportunidad.update({
+                where: { id: oportunidadId },
+                data: { etapa: "RESERVA" }
+            }),
+        ]);
+
+        // Notify vendedor (assigned user) if present
+        if (lead.asignadoAId) {
+            await createNotification(
+                lead.asignadoAId,
+                "EXITO",
+                "Oportunidad convertida a reserva",
+                `La oportunidad de ${lead.nombre} fue convertida a reserva. Pendiente de aprobación.`,
+                "/dashboard/developer/reservas"
+            );
+        }
+
+        await audit({
+            userId: user.id,
+            action: "OPORTUNIDAD_CLOSED",
+            entity: "Oportunidad",
+            entityId: oportunidadId,
+            details: { unidadId, leadId: lead.id, reservaId },
+        });
+
+        revalidatePath("/dashboard/developer/oportunidades");
+        revalidatePath("/dashboard/developer/reservas");
+        revalidatePath("/dashboard/developer/leads");
+
+        return { success: true, data: { reservaId } };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+/**
+ * Updates operational fields on an Oportunidad (stage, probability, value, dates).
+ * Used by the kanban card interactive controls.
+ */
+export async function updateOportunidad(
+    oportunidadId: string,
+    rawInput: unknown
+) {
+    try {
+        const user = await requireAuth();
+
+        const parsed = updateOportunidadSchema.safeParse(rawInput);
+        if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+        const input = parsed.data;
+
+        const oportunidad = await prisma.oportunidad.findUnique({
+            where: { id: oportunidadId },
+            include: { lead: { select: { orgId: true } } }
+        });
+        if (!oportunidad) return { success: false, error: "Oportunidad no encontrada" };
+
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            if (!oportunidad.lead?.orgId || oportunidad.lead.orgId !== user.orgId) {
+                return { success: false, error: "Acceso denegado" };
+            }
+        }
+
+        const updated = await prisma.oportunidad.update({
+            where: { id: oportunidadId },
+            data: {
+                ...(input.probabilidad !== undefined ? { probabilidad: input.probabilidad } : {}),
+                ...(input.valorEstimado !== undefined ? { valorEstimado: input.valorEstimado } : {}),
+                ...(input.fechaCierreEstimada ? { fechaCierreEstimada: new Date(input.fechaCierreEstimada) } : {}),
+                ...(input.proximaAccion !== undefined ? { proximaAccion: input.proximaAccion } : {}),
+                ...(input.etapa ? { etapa: input.etapa } : {}),
+            }
+        });
+
+        revalidatePath("/dashboard/developer/oportunidades");
+        return { success: true, data: { id: updated.id, etapa: updated.etapa } };
     } catch (error) {
         return handleGuardError(error);
     }

@@ -1,6 +1,20 @@
 import { z } from "zod";
 import { idSchema } from "./common";
 
+export const updateOportunidadSchema = z.object({
+    probabilidad: z.number().int().min(0).max(100).optional(),
+    valorEstimado: z.number().positive().optional(),
+    fechaCierreEstimada: z.string().optional(),
+    proximaAccion: z.string().max(500).optional(),
+    etapa: z.enum(["NUEVO", "CONTACTADO", "CALIFICADO", "VISITA", "NEGOCIACION", "RESERVA", "PERDIDO"]).optional(),
+});
+
+export const closeOportunidadSchema = z.object({
+    unidadId: idSchema,
+    montoSena: z.number().positive("El monto de seña debe ser positivo"),
+    fechaVencimiento: z.string().optional(),
+});
+
 export const updatePipelineSchema = z.object({
   oportunidadId: idSchema,
   nuevaEtapa: z.enum([

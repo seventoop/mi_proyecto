@@ -6,6 +6,7 @@ import { Target } from "lucide-react";
 import ModuleHelp from "@/components/dashboard/module-help";
 import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 import EmptyOrgState from "@/components/dashboard/empty-org-state";
+import OportunidadCard from "@/components/crm/oportunidad-card";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,6 @@ export default async function OportunidadesPage() {
     const session = await getServerSession(authOptions);
     if (!session?.user) redirect("/login");
 
-    const userId = session.user.id;
     const orgId = session.user.orgId;
 
     if (!orgId) {
@@ -37,7 +37,7 @@ export default async function OportunidadesPage() {
 
     const where: any = { lead: { orgId } };
 
-    const oportunidades = await prisma.oportunidad.findMany({
+    const rawOportunidades = await prisma.oportunidad.findMany({
         where,
         include: {
             lead: { select: { nombre: true } },
@@ -45,6 +45,18 @@ export default async function OportunidadesPage() {
         },
         orderBy: { createdAt: "desc" },
     });
+
+    // Serialize Decimal/Date fields before passing to client components
+    const oportunidades = rawOportunidades.map(op => ({
+        id: op.id,
+        leadId: op.leadId,
+        unidadId: op.unidadId,
+        etapa: op.etapa,
+        probabilidad: op.probabilidad,
+        valorEstimado: op.valorEstimado ? Number(op.valorEstimado) : null,
+        lead: op.lead,
+        proyecto: op.proyecto,
+    }));
 
     // Group by etapa
     const grouped: Record<string, typeof oportunidades> = {};
@@ -99,33 +111,7 @@ export default async function OportunidadesPage() {
                                 </div>
                                 <div className="p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-280px)] custom-scrollbar">
                                     {items.map((op) => (
-                                        <div
-                                            key={op.id}
-                                            className="bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/[0.12] hover:bg-slate-50 dark:hover:bg-white/[0.03] p-4 rounded-xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer group"
-                                        >
-                                            <p className="text-[13px] font-black text-slate-900 dark:text-zinc-100 group-hover:text-brand-500 transition-colors uppercase tracking-tight truncate">
-                                                {op.lead.nombre}
-                                            </p>
-                                            <p className="text-[9px] font-bold text-slate-500 dark:text-white/20 uppercase tracking-tighter mt-1">
-                                                {op.proyecto.nombre}
-                                            </p>
-                                            <div className="flex items-center justify-between mt-4">
-                                                <span className="text-[11px] font-black text-brand-500 px-2 py-0.5 rounded-md bg-brand-500/10 border border-brand-500/20">
-                                                    {op.valorEstimado
-                                                        ? `$${Number(op.valorEstimado).toLocaleString("es-AR")}`
-                                                        : "—"}
-                                                </span>
-                                                <span className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                                                    {op.probabilidad}% prob.
-                                                </span>
-                                            </div>
-                                            <div className="mt-3 h-1 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full bg-brand-500"
-                                                    style={{ width: `${op.probabilidad}%` }}
-                                                />
-                                            </div>
-                                        </div>
+                                        <OportunidadCard key={op.id} op={op} />
                                     ))}
                                 </div>
                             </div>
