@@ -28,6 +28,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
                 proyecto: true,
                 asignadoA: {
                     select: { id: true, nombre: true, email: true }
+                },
+                mensajes: {
+                    where: { role: "note" },
+                    orderBy: { createdAt: "asc" },
+                    select: { id: true, content: true, createdAt: true }
                 }
             },
         });

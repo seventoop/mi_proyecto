@@ -3,11 +3,10 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Gauge as Badge } from "lucide-react"; // Temporary replacement if Badge component not found
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Mail, Phone, Plus, MessageSquare } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Lead, Oportunidad, Tarea } from "@prisma/client";
+import { useState, useEffect, useTransition } from "react";
+import { addLeadNote } from "@/lib/actions/crm-actions";
 
 interface LeadDetailModalProps {
     leadId: string | null;
@@ -15,31 +14,29 @@ interface LeadDetailModalProps {
     onOpenChange: (open: boolean) => void;
 }
 
-// Helper types since we don't have full generated types in this context
-interface LeadNote {
-    timestamp: Date | string;
-    text: string;
-    userName?: string;
-    fecha: string;
-    texto: string;
+interface LeadMessage {
+    id: string;
+    content: string;
+    createdAt: string;
 }
 
-type LeadFull = Lead & {
-    oportunidades: Oportunidad[];
-    tareas: Tarea[];
-    notas: LeadNote[];
-    estado: string;
+interface LeadFull {
+    id: string;
     nombre: string;
+    estado: string;
     origen: string;
     email: string | null;
     telefono: string | null;
-    createdAt: Date;
-};
+    createdAt: string;
+    mensajes: LeadMessage[];
+}
 
 export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDetailModalProps) {
     const [lead, setLead] = useState<LeadFull | null>(null);
     const [loading, setLoading] = useState(false);
     const [newNote, setNewNote] = useState("");
+    const [error, setError] = useState<string | null>(null);
+    const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
         if (open && leadId) {
@@ -49,6 +46,7 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
 
     const fetchLead = async (id: string) => {
         setLoading(true);
+        setError(null);
         try {
             const res = await fetch(`/api/crm/leads/${id}`);
             if (res.ok) {
@@ -62,34 +60,25 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
         }
     };
 
-    const handleAddNote = async () => {
+    const handleAddNote = () => {
         if (!leadId || !newNote.trim()) return;
-        try {
-            const res = await fetch(`/api/crm/leads/${leadId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nota: newNote })
-            });
-            if (res.ok) {
-                setNewNote("");
-                fetchLead(leadId); // Refresh
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
+        const content = newNote.trim();
+        setNewNote("");
+        setError(null);
 
-    // Parse JSON string
-    // Parse JSON string
-    const notasList = lead && lead.notas
-        ? (typeof lead.notas === 'string' ? JSON.parse(lead.notas) : (Array.isArray(lead.notas) ? lead.notas : []))
-        : [];
+        startTransition(async () => {
+            const result = await addLeadNote(leadId, content);
+            if (result.success) {
+                fetchLead(leadId);
+            } else {
+                setError(result.error ?? "Error al guardar la nota");
+            }
+        });
+    };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl bg-brand-black border-white/10 text-brand-surface h-[80vh] flex flex-col p-0 overflow-hidden shadow-2xl">
-
-
                 {loading || !lead ? (
                     <div className="flex-1 flex items-center justify-center text-slate-500">
                         Cargando detalles...
@@ -151,26 +140,29 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
                                         />
                                         <button
                                             onClick={handleAddNote}
-                                            disabled={!newNote.trim()}
+                                            disabled={!newNote.trim() || isPending}
                                             className="h-[80px] w-14 flex items-center justify-center bg-brand-orange hover:bg-brand-orangeDark disabled:opacity-50 disabled:bg-white/5 rounded-xl transition-all shadow-lg shadow-brand-orange/10"
                                         >
                                             <MessageSquare className="w-5 h-5 text-white" />
                                         </button>
                                     </div>
 
+                                    {error && (
+                                        <p className="text-xs text-red-400 mb-4">{error}</p>
+                                    )}
+
                                     <div className="space-y-6">
                                         <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-xs mb-4">Historial</h4>
-                                        {notasList && notasList.length > 0 ? (
+                                        {lead.mensajes.length > 0 ? (
                                             <div className="space-y-6 border-l-2 border-slate-800 ml-2 pl-6">
-                                                {notasList.map((nota: LeadNote, idx: number) => (
-                                                    <div key={idx} className="relative">
+                                                {lead.mensajes.map((msg) => (
+                                                    <div key={msg.id} className="relative">
                                                         <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-slate-600 ring-4 ring-slate-950" />
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-xs font-bold text-white">{nota.userName || "Sistema"}</span>
-                                                            <span className="text-xs text-slate-500">{format(new Date(nota.fecha), "dd MMM HH:mm", { locale: es })}</span>
+                                                            <span className="text-xs text-slate-500">{format(new Date(msg.createdAt), "dd MMM HH:mm", { locale: es })}</span>
                                                         </div>
                                                         <p className="text-sm text-slate-300 bg-slate-900/50 p-3 rounded-lg border border-white/5">
-                                                            {nota.texto}
+                                                            {msg.content}
                                                         </p>
                                                     </div>
                                                 ))}

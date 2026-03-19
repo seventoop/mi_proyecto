@@ -16,6 +16,7 @@ import { createPortal } from "react-dom";
 import { Oportunidad, Lead } from "@prisma/client";
 import { useDroppable } from "@dnd-kit/core";
 import LeadDetailModal from "./lead-detail-modal";
+import { updateOportunidad } from "@/lib/actions/crm-actions";
 
 // Define columns based on Schema Enum
 const COLUMNS = [
@@ -72,15 +73,10 @@ export default function KanbanBoard({ oportunidades: initialData }: KanbanBoardP
                 )
             );
 
-            // API Call
-            try {
-                await fetch("/api/crm/pipeline", {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ oportunidadId: opId, nuevaEtapa: newStage }),
-                });
-            } catch (error) {
-                console.error("Failed to update status", error);
+            // Update via server action
+            const result = await updateOportunidad(opId, { etapa: newStage });
+            if (!result.success) {
+                console.error("Failed to update status", result.error);
                 // Revert on error
                 setOportunidades((prev) =>
                     prev.map((item) =>

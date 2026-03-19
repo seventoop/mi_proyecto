@@ -51,11 +51,11 @@ export default async function CRMPage() {
                     CRM & Pipeline
                 </h1>
                 <div className="flex items-center gap-3">
-                    {/* <NewLeadModal> */}
-                    <button className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-brand-500/20">
-                        + Nuevo Lead
-                    </button>
-                    {/* </NewLeadModal> */}
+                    <NewLeadModal>
+                        <button className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-brand-500/20">
+                            + Nuevo Lead
+                        </button>
+                    </NewLeadModal>
                     <div className="h-8 w-[1px] bg-slate-200 dark:bg-white/10 mx-2" />
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-xs font-bold">
