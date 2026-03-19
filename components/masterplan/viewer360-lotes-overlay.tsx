@@ -531,12 +531,26 @@ export default function Viewer360LotesOverlay({
     svg.addEventListener("pointerup",     onUp);
     svg.addEventListener("pointercancel", onUp);
 
+    const stopFn = (e: Event) => {
+      e.stopPropagation();
+      if (e.type !== "wheel") e.preventDefault();
+    };
+    svg.addEventListener("mousedown", stopFn);
+    svg.addEventListener("touchstart", stopFn, { passive: false });
+    svg.addEventListener("touchmove", stopFn, { passive: false });
+    svg.addEventListener("touchend", stopFn);
+
     return () => {
       hitArea.removeEventListener("pointerdown", onHitAreaDown);
       svg.removeEventListener("pointerdown",   onSvgDown);
       svg.removeEventListener("pointermove",   onMove);
       svg.removeEventListener("pointerup",     onUp);
       svg.removeEventListener("pointercancel", onUp);
+      
+      svg.removeEventListener("mousedown", stopFn);
+      svg.removeEventListener("touchstart", stopFn, { capture: false } as any);
+      svg.removeEventListener("touchmove", stopFn, { capture: false } as any);
+      svg.removeEventListener("touchend", stopFn);
     };
   }, [viewer]);
 

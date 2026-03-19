@@ -320,10 +320,14 @@ export default function ImagenViewer({
                 lngOffset={lngOffset}
                 onLatOffsetChange={setLatOffset}
                 onLngOffsetChange={setLngOffset}
+                planRotation={planRotation}
+                onPlanRotChange={setPlanRotation}
                 onSave={saveCalibration}
                 isSaving={isSavingCalib}
                 saved={calibSaved}
                 isEditing={isEditing}
+                onEnterEdit={() => setIsEditing(true)}
+                onExitEdit={() => setIsEditing(false)}
               />
             )}
 
@@ -363,10 +367,14 @@ interface OverlayControlsProps {
   lngOffset: number;
   onLatOffsetChange: (v: number) => void;
   onLngOffsetChange: (v: number) => void;
+  planRotation: number;
+  onPlanRotChange: (v: number) => void;
   onSave: () => void;
   isSaving: boolean;
   saved: boolean;
   isEditing: boolean;
+  onEnterEdit: () => void;
+  onExitEdit: () => void;
 }
 
 function OverlayControls({
@@ -375,200 +383,177 @@ function OverlayControls({
   imageHeading, onHeadingChange,
   latOffset, lngOffset,
   onLatOffsetChange, onLngOffsetChange,
+  planRotation, onPlanRotChange,
   onSave, isSaving, saved,
-  isEditing,
+  isEditing, onEnterEdit, onExitEdit,
 }: OverlayControlsProps) {
-  const [expanded, setExpanded] = useState(false);
-
   const sign = (n: number) => n >= 0 ? `+${n}` : `${n}`;
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
-
-      {/* Expanded calibration panel */}
-      {expanded && (
-        <div className="bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl px-5 py-4 shadow-2xl flex flex-col gap-4 min-w-[300px]">
-
-          {/* Altitud */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide flex items-center justify-between">
-              Altitud del dron
-              <span className="text-indigo-400 font-bold">{altitudM} m</span>
-            </label>
-            <input
-              type="number" min={1} max={2000} step={10}
-              value={altitudM}
-              onChange={(e) => onAltChange(Math.max(1, Number(e.target.value)))}
-              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-            />
-            <input
-              type="range" min={10} max={1000} step={5}
-              value={altitudM}
-              onChange={(e) => onAltChange(Number(e.target.value))}
-              className="w-full accent-indigo-500"
-            />
-            <p className="text-[11px] text-slate-500">
-              Ajustá hasta que los lotes coincidan verticalmente con la foto.
-            </p>
-          </div>
-
-          {/* Orientación */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide flex items-center justify-between">
-              Orientación (rumbo)
-              <span className="text-indigo-400 font-bold">{imageHeading}°</span>
-            </label>
-            <input
-              type="number" min={0} max={359} step={1}
-              value={imageHeading}
-              onChange={(e) => onHeadingChange(((Number(e.target.value) % 360) + 360) % 360)}
-              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-            />
-            <input
-              type="range" min={0} max={359} step={1}
-              value={imageHeading}
-              onChange={(e) => onHeadingChange(Number(e.target.value))}
-              className="w-full accent-indigo-500"
-            />
-            <p className="text-[11px] text-slate-500">
-              Dirección (brújula) hacia la que apunta el centro de la imagen. 0 = Norte.
-            </p>
-          </div>
-
-          {/* Desplazamiento */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
-              Posición — desplazamiento
-            </label>
-            <p className="text-[11px] text-slate-500">
-              Mové el plano si los lotes aparecen corridos. Cada flecha = {MOVE_STEP} m.
-            </p>
-
-            {/* N/S display + flechas verticales */}
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-slate-400 w-24">
-                N/S: <span className="text-indigo-400 font-bold">{sign(Math.round(latOffset))} m</span>
-              </span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => onLatOffsetChange(latOffset + MOVE_STEP)}
-                  className="w-8 h-8 rounded-lg bg-slate-700 hover:bg-indigo-600 text-white flex items-center justify-center transition-colors"
-                  title="Mover Norte"
-                >
-                  <ArrowUp className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onLatOffsetChange(latOffset - MOVE_STEP)}
-                  className="w-8 h-8 rounded-lg bg-slate-700 hover:bg-indigo-600 text-white flex items-center justify-center transition-colors"
-                  title="Mover Sur"
-                >
-                  <ArrowDown className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* E/O display + flechas horizontales */}
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-slate-400 w-24">
-                E/O: <span className="text-indigo-400 font-bold">{sign(Math.round(lngOffset))} m</span>
-              </span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => onLngOffsetChange(lngOffset - MOVE_STEP)}
-                  className="w-8 h-8 rounded-lg bg-slate-700 hover:bg-indigo-600 text-white flex items-center justify-center transition-colors"
-                  title="Mover Oeste"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onLngOffsetChange(lngOffset + MOVE_STEP)}
-                  className="w-8 h-8 rounded-lg bg-slate-700 hover:bg-indigo-600 text-white flex items-center justify-center transition-colors"
-                  title="Mover Este"
-                >
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Reset offset */}
-            {(latOffset !== 0 || lngOffset !== 0) && (
-              <button
-                onClick={() => { onLatOffsetChange(0); onLngOffsetChange(0); }}
-                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
-              >
-                Resetear posición
-              </button>
-            )}
-          </div>
-
-          {/* Save */}
+    <>
+      {/* ── Toolbar pill (Visible when NOT editing) ── */}
+      {!isEditing && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full px-2 py-1.5 shadow-xl">
           <button
-            onClick={onSave}
-            disabled={isSaving}
+            onClick={onToggle}
             className={cn(
-              "flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all",
-              saved
-                ? "bg-green-600 text-white"
-                : "bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white"
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
+              showOverlay
+                ? "bg-indigo-600 text-white"
+                : "text-white/60 hover:text-white hover:bg-white/10"
             )}
           >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : saved ? (
-              <><Check className="w-4 h-4" /> Guardado</>
-            ) : (
-              "Guardar calibración"
-            )}
+            <Layers className="w-3.5 h-3.5" />
+            {showOverlay ? "Lotes ON" : "Lotes OFF"}
+          </button>
+          
+          <div className="w-px h-4 bg-white/10" />
+          
+          <button
+            onClick={onEnterEdit}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white/60 hover:text-white hover:bg-white/10 transition-all"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Editar Overlay
           </button>
         </div>
       )}
 
-      {/* Toolbar pill */}
-      <div className="flex items-center gap-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full px-2 py-1.5 shadow-xl">
+      {/* ── Right Sidebar (Visible WHEN editing) ── */}
+      {isEditing && (
+        <div className="absolute top-16 right-4 bottom-24 w-80 bg-black/85 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl flex flex-col z-[9999] animate-in slide-in-from-right-8 pointer-events-auto">
+          
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 flex-shrink-0">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-indigo-400" />
+              Modo Edición
+            </h3>
+            <button
+              onClick={onExitEdit}
+              className="p-1 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-        {/* Edit mode badge */}
-        {isEditing && (
-          <>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              <Pencil className="w-3 h-3" />
-              Editando
+          <div className="flex-1 overflow-y-auto p-5 space-y-6 flex flex-col gap-2">
+            
+            {/* 1. Calibración del Panorama */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Layers className="w-3.5 h-3.5" /> Cámara 360
+              </h4>
+              
+              <div className="space-y-2 bg-white/5 p-3 rounded-xl border border-white/5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                  Altitud (Zoom Perspectiva)
+                  <span className="text-indigo-400 font-bold">{altitudM} m</span>
+                </label>
+                <input
+                  type="range" min={10} max={1000} step={5}
+                  value={altitudM}
+                  onChange={(e) => onAltChange(Number(e.target.value))}
+                  className="w-full accent-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-2 bg-white/5 p-3 rounded-xl border border-white/5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                  Orientación (Rumbo)
+                  <span className="text-indigo-400 font-bold">{imageHeading}°</span>
+                </label>
+                <input
+                  type="range" min={0} max={359} step={1}
+                  value={imageHeading}
+                  onChange={(e) => onHeadingChange(Number(e.target.value))}
+                  className="w-full accent-indigo-500"
+                />
+              </div>
             </div>
-            <div className="w-px h-4 bg-white/10" />
-          </>
-        )}
 
-        <button
-          onClick={onToggle}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
-            showOverlay
-              ? "bg-indigo-600 text-white"
-              : "text-white/60 hover:text-white hover:bg-white/10"
-          )}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          {showOverlay ? "Lotes ON" : "Lotes OFF"}
-        </button>
+            {/* 2. Edición del Plano */}
+            <div className="space-y-4 pt-2">
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Move className="w-3.5 h-3.5" /> Edición del Plano
+              </h4>
+              
+              <div className="space-y-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between relative -top-1">
+                  Tamaño / Escala
+                  <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded ml-2">arrastrar esquinas</span>
+                </label>
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between mt-1 pt-2 border-t border-white/10">
+                  Mover plano (Offset)
+                </label>
+                {/* N/S + E/O */}
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <div className="flex flex-col items-center justify-center p-2 bg-black/40 rounded-lg">
+                    <button onClick={() => onLatOffsetChange(latOffset + MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowUp className="w-4 h-4" /></button>
+                    <span className="text-[10px] text-slate-400 my-0.5">N/S {sign(Math.round(latOffset))}</span>
+                    <button onClick={() => onLatOffsetChange(latOffset - MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowDown className="w-4 h-4" /></button>
+                  </div>
+                  <div className="flex flex-col items-center justify-center p-2 bg-black/40 rounded-lg">
+                    <button onClick={() => onLngOffsetChange(lngOffset + MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowRight className="w-4 h-4" /></button>
+                    <span className="text-[10px] text-slate-400 my-0.5">E/O {sign(Math.round(lngOffset))}</span>
+                    <button onClick={() => onLngOffsetChange(lngOffset - MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowLeft className="w-4 h-4" /></button>
+                  </div>
+                </div>
 
-        <div className="w-px h-4 bg-white/10" />
+                <div className="pt-2 border-t border-white/10">
+                  <label className="text-xs font-semibold text-slate-300 flex items-center justify-between mb-2">
+                    Girar plano
+                    <span className="text-indigo-400 font-bold">{Math.round(planRotation)}°</span>
+                  </label>
+                  <input
+                    type="range" min={-180} max={180} step={1}
+                    value={planRotation}
+                    onChange={(e) => onPlanRotChange(Number(e.target.value))}
+                    className="w-full accent-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
 
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
-            expanded
-              ? "bg-white/10 text-white"
-              : "text-white/60 hover:text-white hover:bg-white/10"
-          )}
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          Calibrar
-          {expanded
-            ? <ChevronDown className="w-3 h-3" />
-            : <ChevronUp className="w-3 h-3" />
-          }
-        </button>
-      </div>
-    </div>
+            {/* Hint overlay */}
+            <p className="text-[10px] leading-relaxed text-slate-500 text-center px-2">
+              También puedes arrastrar el plano directamente o usar <b>Shift + Flechas</b> en tu teclado.
+            </p>
+
+          </div>
+
+          {/* 3. Acciones (Footer) */}
+          <div className="p-4 border-t border-white/10 bg-black/50 rounded-b-2xl space-y-2">
+             <button
+              onClick={onToggle}
+              className="w-full flex items-center justify-center py-2 text-xs font-medium text-slate-300 hover:text-white transition-colors border border-white/10 rounded-lg mb-2"
+            >
+              {showOverlay ? <Eye className="w-3.5 h-3.5 mr-1.5" /> : <Eye className="w-3.5 h-3.5 mr-1.5 opacity-50" />}
+              {showOverlay ? "Ocultar Lotes" : "Mostrar Lotes"}
+            </button>
+
+            <button
+              onClick={onSave}
+              disabled={isSaving}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all",
+                saved
+                  ? "bg-green-600 text-white"
+                  : "bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white shadow-lg shadow-indigo-500/25"
+              )}
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : saved ? (
+                <><Check className="w-4 h-4" /> Guardado</>
+              ) : (
+                "Guardar Alineación"
+              )}
+            </button>
+          </div>
+          
+        </div>
+      )}
+    </>
   );
 }
