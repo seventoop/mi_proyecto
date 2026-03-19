@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 import { requireAuth, requireRole, handleApiGuardError } from "@/lib/guards";
-
-// Helper: resolve project orgId from a fully-loaded reserva
-function getReservaOrgId(reserva: any): string | null {
-    return reserva?.unidad?.manzana?.etapa?.proyecto?.orgId ?? null;
-}
+import { getProjectAccess, ProjectPermission } from "@/lib/project-access";
 
 // ─── GET /api/reservas/[id] — Single reservation detail ───
 export async function GET(
@@ -65,19 +61,16 @@ export async function GET(
 
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
-        // Fail-secure org check for non-privileged users
-        if (!isAdmin) {
-            const reservaOrgId = getReservaOrgId(reserva);
-            if (!user.orgId || !reservaOrgId || reservaOrgId !== user.orgId) {
-                return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
-            }
-        }
+        // Resolve access context — handles org boundary + legacy creadoPorId fallback.
+        // Throws AuthError(404) if project not found or user outside org.
+        const proyectoId = reserva.unidad.manzana.etapa.proyecto.id;
+        const ctx = await getProjectAccess(user, proyectoId);
 
-        // Authorization Check: org members may read if they are vendor or project creator
-        const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
         const isSeller = reserva.vendedorId === user.id;
+        // Global metrics access implies visibility over all reservas on the project
+        const hasGlobalAccess = ctx.can(ProjectPermission.VER_METRICAS_GLOBALES);
 
-        if (!isAdmin && !isOwner && !isSeller) {
+        if (!isAdmin && !hasGlobalAccess && !isSeller) {
             return NextResponse.json({ error: "No autorizado para ver esta reserva" }, { status: 403 });
         }
 
@@ -112,23 +105,20 @@ export async function PUT(
 
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
-        // Fail-secure org check for non-privileged users
-        if (!isAdmin) {
-            const reservaOrgId = getReservaOrgId(reserva);
-            if (!user.orgId || !reservaOrgId || reservaOrgId !== user.orgId) {
-                return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
-            }
-        }
+        // Resolve access context — handles org boundary + legacy creadoPorId fallback.
+        const proyectoId = reserva.unidad.manzana.etapa.proyecto.id;
+        const ctx = await getProjectAccess(user, proyectoId);
 
-        const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
         const isSeller = reserva.vendedorId === user.id;
+        // EDITAR_PROYECTO: OWNER-level — manages financial/date operations on reservas
+        const canEdit = ctx.can(ProjectPermission.EDITAR_PROYECTO);
 
         let updated;
         const pusher = getPusherServer();
 
         switch (action) {
             case "registrarPago": {
-                if (!isAdmin && !isOwner) {
+                if (!isAdmin && !canEdit) {
                     return NextResponse.json({ error: "No autorizado para registrar pagos" }, { status: 403 });
                 }
                 updated = await prisma.reserva.update({
@@ -142,7 +132,7 @@ export async function PUT(
             }
 
             case "extender": {
-                if (!isAdmin && !isOwner) {
+                if (!isAdmin && !canEdit) {
                     return NextResponse.json({ error: "No autorizado para extender reservas" }, { status: 403 });
                 }
                 if (!data.nuevaFechaVencimiento) {
@@ -158,7 +148,7 @@ export async function PUT(
             }
 
             case "cancelar": {
-                if (!isAdmin && !isOwner && !isSeller) {
+                if (!isAdmin && !canEdit && !isSeller) {
                     return NextResponse.json({ error: "No autorizado para cancelar esta reserva" }, { status: 403 });
                 }
                 updated = await prisma.$transaction(async (tx) => {

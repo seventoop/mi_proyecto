@@ -3,6 +3,7 @@
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireRole, requireAnyRole, handleGuardError, orgFilter } from "@/lib/guards";
+import { getProjectAccess, ProjectPermission } from "@/lib/project-access";
 import { audit } from "@/lib/actions/audit";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
@@ -182,15 +183,10 @@ export async function getInversionesPorProyecto(proyectoId: string) {
         const idParsed = idSchema.safeParse(proyectoId);
         if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
 
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-
-        // SECURITY: Only Admin or Owner or same Org
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id && (proyecto as any).orgId !== user.orgId) {
+        // Relation-based gate: admin, OWNER, or any relation with global metrics access.
+        // getProjectAccess handles org boundary + legacy creadoPorId fallback.
+        const ctx = await getProjectAccess(user, proyectoId);
+        if (!ctx.can(ProjectPermission.VER_METRICAS_GLOBALES)) {
             return { success: false, error: "No autorizado" };
         }
 
