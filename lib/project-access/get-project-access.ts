@@ -165,11 +165,24 @@ export async function getProjectAccess(
                 permisoSubirDocumentacion:   true,
                 permisoVerLeadsGlobales:     true,
                 permisoVerMetricasGlobales:  true,
+                mandatoVigenciaHasta:        true,
             },
         });
 
         if (row) {
-            relacion = row;
+            // 2c: COMERCIALIZADOR_* relations with an expired mandate are treated as VENCIDA.
+            // This degrades their access to the same level as a VENCIDA relation (no commercial perms).
+            const isComercializador =
+                row.tipoRelacion === "COMERCIALIZADOR_EXCLUSIVO" ||
+                row.tipoRelacion === "COMERCIALIZADOR_NO_EXCLUSIVO";
+            const mandatoExpired =
+                isComercializador &&
+                row.mandatoVigenciaHasta !== null &&
+                row.mandatoVigenciaHasta < new Date();
+
+            relacion = mandatoExpired
+                ? { ...row, estadoRelacion: "VENCIDA" }
+                : row;
         } else if (proyecto.creadoPorId === user.id) {
             // Legacy fallback: creator without a ProyectoUsuario row
             isLegacy = true;
@@ -180,6 +193,7 @@ export async function getProjectAccess(
                 permisoSubirDocumentacion:   true,
                 permisoVerLeadsGlobales:     true,
                 permisoVerMetricasGlobales:  true,
+                mandatoVigenciaHasta:        null, // OWNER has no mandate
             };
         }
         // else: no relation, no legacy match → can() will return false for most permissions

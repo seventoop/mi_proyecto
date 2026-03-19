@@ -5,6 +5,24 @@
  *
  * Server Actions for ProyectoUsuario relation management:
  * assign, revoke, and permission defaults per relation type.
+ *
+ * ── Relation type ownership ──────────────────────────────────────────────────
+ *
+ * OWNER/COLABORADOR/VENDEDOR_ASIGNADO/SOLO_LECTURA:
+ *   assignUserToProject — direct assignment, no approval step needed.
+ *
+ * COMERCIALIZADOR_EXCLUSIVO / COMERCIALIZADOR_NO_EXCLUSIVO:
+ *   Non-admin callers MUST use createComercializadorRelacion (mandate-actions.ts).
+ *   That flow starts as PENDIENTE and requires admin approval via approveMandate.
+ *
+ *   ADMIN callers may use assignUserToProject to bypass the PENDIENTE step and
+ *   create a COMERCIALIZADOR_* relation directly as ACTIVA. This is an intentional
+ *   admin override, always audited.
+ *
+ *   Rationale: mandate fields (vigencia, tipoMandato, documentoMandatoUrl) are
+ *   contractual; an OWNER should not be able to self-grant commercial relations
+ *   without an admin review. Keeping the guard here closes the bypass path for
+ *   non-admin actors.
  */
 
 import prisma from "@/lib/db";
@@ -51,6 +69,48 @@ export async function assignUserToProject(input: unknown) {
         const ctx = await getProjectAccess(user, data.proyectoId);
         assertPermission(ctx, ProjectPermission.GESTIONAR_RELACIONES);
 
+        // 1b. COMERCIALIZADOR_* guard: non-admin callers must use createComercializadorRelacion.
+        //     ADMIN may bypass to ACTIVA directly (explicit, audited override), but must
+        //     still provide a valid future mandatoVigenciaHasta so the mandate-expiry check
+        //     in getProjectAccess works correctly. A COMERCIALIZADOR_* ACTIVA with no expiry
+        //     would never degrade to VENCIDA — making the bypass inconsistent with the model.
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        const isComercializador =
+            data.tipoRelacion === "COMERCIALIZADOR_EXCLUSIVO" ||
+            data.tipoRelacion === "COMERCIALIZADOR_NO_EXCLUSIVO";
+
+        if (isComercializador) {
+            if (!isAdmin) {
+                return {
+                    success: false,
+                    error: "Las relaciones comercializadoras requieren aprobación de administrador. Usá createComercializadorRelacion para iniciar el flujo de mandato.",
+                };
+            }
+            // Admin bypass: mandate expiry date is required and must be in the future.
+            if (!data.mandatoVigenciaHasta) {
+                return {
+                    success: false,
+                    error: "mandatoVigenciaHasta es obligatoria para relaciones COMERCIALIZADOR_*",
+                };
+            }
+            const hasta = new Date(data.mandatoVigenciaHasta);
+            if (hasta <= new Date()) {
+                return {
+                    success: false,
+                    error: "mandatoVigenciaHasta debe ser una fecha futura",
+                };
+            }
+            if (data.mandatoVigenciaDesde) {
+                const desde = new Date(data.mandatoVigenciaDesde);
+                if (hasta <= desde) {
+                    return {
+                        success: false,
+                        error: "mandatoVigenciaHasta debe ser posterior a mandatoVigenciaDesde",
+                    };
+                }
+            }
+        }
+
         // 2. Tenant check: target user must belong to the same org
         const targetUser = await prisma.user.findUnique({
             where: { id: data.targetUserId },
@@ -61,7 +121,6 @@ export async function assignUserToProject(input: unknown) {
             return { success: false, error: "Usuario no encontrado" };
         }
 
-        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
         if (!isAdmin && targetUser.orgId !== user.orgId) {
             return { success: false, error: "El usuario debe pertenecer a la misma organización" };
         }

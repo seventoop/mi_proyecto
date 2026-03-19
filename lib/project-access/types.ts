@@ -45,6 +45,12 @@ export interface ProjectRelation {
     permisoSubirDocumentacion:   boolean;
     permisoVerLeadsGlobales:     boolean;
     permisoVerMetricasGlobales:  boolean;
+    /**
+     * Mandate expiration date for COMERCIALIZADOR_* relations.
+     * null for all other relation types.
+     * Read by getProjectAccess to degrade estadoRelacion to "VENCIDA" when past.
+     */
+    mandatoVigenciaHasta:        Date | null;
 }
 
 // ─── ProjectAccessContext ─────────────────────────────────────────────────────
