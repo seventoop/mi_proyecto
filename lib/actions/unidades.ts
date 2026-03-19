@@ -121,6 +121,20 @@ export async function getUnidades(manzanaId: string) {
         const manIdParsed = idSchema.safeParse(manzanaId);
         if (!manIdParsed.success) return { success: false, error: "ID de manzana inválido" };
 
+        const user = await requireAuth();
+
+        // Org boundary check: resolve project org via manzana → etapa → proyecto.
+        // Non-admin users can only access manzanas from their own org's projects.
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            const manzana = await prisma.manzana.findUnique({
+                where: { id: manzanaId },
+                select: { etapa: { select: { proyecto: { select: { orgId: true } } } } },
+            });
+            if (!manzana || manzana.etapa.proyecto.orgId !== user.orgId) {
+                return { success: false, error: "Manzana no encontrada" };
+            }
+        }
+
         const unidades = await prisma.unidad.findMany({
             where: { manzanaId },
             orderBy: { numero: "asc" }
@@ -137,6 +151,20 @@ export async function getProjectBlueprintData(proyectoId: string) {
     try {
         const idParsed = idSchema.safeParse(proyectoId);
         if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
+
+        const user = await requireAuth();
+
+        // Org boundary check: non-admin users can only access blueprints from their own org.
+        // ADMIN/SUPERADMIN bypass (see all orgs by design).
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            const proyecto = await prisma.proyecto.findUnique({
+                where: { id: proyectoId },
+                select: { orgId: true },
+            });
+            if (!proyecto || proyecto.orgId !== user.orgId) {
+                return { success: false, error: "Proyecto no encontrado" };
+            }
+        }
 
         const unidades = await prisma.unidad.findMany({
             where: {

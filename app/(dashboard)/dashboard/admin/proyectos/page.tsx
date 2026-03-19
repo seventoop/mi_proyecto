@@ -1,8 +1,22 @@
 import prisma from "@/lib/db";
 import ProjectsListClient from "@/components/dashboard/proyectos/projects-list-client";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default async function ProyectosPage() {
-    // Fetch real projects from DB
+    const session = await getServerSession(authOptions);
+    const userRole = (session?.user as any)?.role;
+
+    if (!session || (userRole !== "ADMIN" && userRole !== "SUPERADMIN")) {
+        redirect("/dashboard");
+    }
+
+    // ADMIN/SUPERADMIN see all projects across all orgs — correct by design
     const proyectos = await prisma.proyecto.findMany({
         include: {
             etapas: {
@@ -47,7 +61,10 @@ export default async function ProyectosPage() {
     });
 
     return (
-        <ProjectsListClient projects={processedProyectos} />
+        <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-fade-in">
+            <ModuleHelp content={MODULE_HELP_CONTENT.adminProyectos} />
+            <ProjectsListClient projects={processedProyectos} />
+        </div>
     );
 }
 
