@@ -12,6 +12,8 @@ export interface ImagenMapaItem {
   orden: number;
   altitudM: number | null;
   imageHeading: number | null;
+  latOffset: number | null;
+  lngOffset: number | null;
   createdAt: string;
   updatedAt: string;
   // populated if included

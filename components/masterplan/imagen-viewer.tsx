@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { X, Loader2, Layers, ChevronUp, ChevronDown, Check, RotateCcw } from "lucide-react";
+import { X, Loader2, Layers, ChevronUp, ChevronDown, Check, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ImagenMapaItem, IMAGEN_TIPO_CONFIG } from "@/types/imagen-mapa";
@@ -12,6 +12,8 @@ import Viewer360LotesOverlay from "./viewer360-lotes-overlay";
 interface ImagenViewerProps {
   imagen: ImagenMapaItem;
   onClose: () => void;
+  // Called after a successful calibration save — lets the parent refresh its items list
+  onCalibrationSaved?: (updates: Pick<ImagenMapaItem, "altitudM" | "imageHeading" | "latOffset" | "lngOffset">) => void;
   // Optional overlay data — only used for tipo="360"
   units?: MasterplanUnit[];
   overlayBounds?: [[number, number], [number, number]] | null;
@@ -54,6 +56,7 @@ function loadPannellum(callback: () => void) {
 export default function ImagenViewer({
   imagen,
   onClose,
+  onCalibrationSaved,
   units = [],
   overlayBounds = null,
   overlayRotation = 0,
@@ -69,6 +72,8 @@ export default function ImagenViewer({
   const [showOverlay,   setShowOverlay]   = useState(true);
   const [overlayAlt,    setOverlayAlt]    = useState<number>(imagen.altitudM ?? 500);
   const [overlayHdg,    setOverlayHdg]    = useState<number>(imagen.imageHeading ?? 0);
+  const [latOffset,     setLatOffset]     = useState<number>(imagen.latOffset ?? 0);
+  const [lngOffset,     setLngOffset]     = useState<number>(imagen.lngOffset ?? 0);
   const [isSavingCalib, setIsSavingCalib] = useState(false);
   const [calibSaved,    setCalibSaved]    = useState(false);
 
@@ -81,6 +86,10 @@ export default function ImagenViewer({
     units.length > 0 &&
     overlayBounds != null &&
     svgViewBox != null;
+
+  // Adjust camera position by offset (meters → degrees)
+  const camLat = imagen.lat + latOffset / 111320;
+  const camLng = imagen.lng + lngOffset / (111320 * Math.cos((imagen.lat * Math.PI) / 180));
 
   // ── Init Pannellum ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -99,7 +108,7 @@ export default function ImagenViewer({
           panorama: imagen.url,
           autoLoad: true,
           showControls: false,
-          mouseZoom: false, // Smooth zoom handler bypass
+          mouseZoom: false,
           hfov: 100,
           minHfov: 40,
           maxHfov: 120,
@@ -109,7 +118,6 @@ export default function ImagenViewer({
 
         instanceRef.current.on("load", () => setViewerReady(true));
 
-        // Safety fallback: if "load" already fired (cached image) or never fires
         const poll = setInterval(() => {
           try {
             if (instanceRef.current?.isLoaded?.()) {
@@ -141,7 +149,7 @@ export default function ImagenViewer({
       e.stopPropagation();
       const currentFov = instanceRef.current.getHfov();
       const delta = e.deltaY > 0 ? 5 : -5;
-      instanceRef.current.setHfov(currentFov + delta); // Instant target update for smoother scrolling
+      instanceRef.current.setHfov(currentFov + delta);
     };
     el.addEventListener("wheel", handleWheel as any, { capture: true, passive: false });
     return () => el.removeEventListener("wheel", handleWheel as any, { capture: true } as any);
@@ -151,7 +159,6 @@ export default function ImagenViewer({
   useEffect(() => {
     if (!viewerReady || !hasOverlayData || !instanceRef.current) return;
 
-    // Compute the centroid pitch/yaw across all lot polygons
     let sumPitch = 0, sumYaw = 0, count = 0;
     for (const unit of units) {
       let svgPath = unit.path as string | undefined;
@@ -165,26 +172,19 @@ export default function ImagenViewer({
 
       const cLat = latLngs.reduce((s, [lat]) => s + lat, 0) / latLngs.length;
       const cLng = latLngs.reduce((s, [, lng]) => s + lng, 0) / latLngs.length;
-      const { pitch, yaw } = geoToPitchYaw(
-        cLat, cLng, imagen.lat, imagen.lng, overlayAlt, overlayHdg
-      );
+      const { pitch, yaw } = geoToPitchYaw(cLat, cLng, camLat, camLng, overlayAlt, overlayHdg);
       sumPitch += pitch;
       sumYaw   += yaw;
       count++;
     }
 
     if (count === 0) return;
-
-    const avgPitch = sumPitch / count;
-    const avgYaw   = sumYaw   / count;
-    // Aim camera at the centroid of all lots so they're visible immediately.
-    // setPitch/setYaw are more reliable than lookAt() across Pannellum versions.
     try {
-      instanceRef.current.setPitch(avgPitch);
-      instanceRef.current.setYaw(avgYaw);
+      instanceRef.current.setPitch(sumPitch / count);
+      instanceRef.current.setYaw(sumYaw / count);
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewerReady]); // intentionally runs once when viewer becomes ready
+  }, [viewerReady]);
 
   // ── Save calibration ──────────────────────────────────────────────────────
   const saveCalibration = useCallback(async () => {
@@ -193,17 +193,19 @@ export default function ImagenViewer({
       const res = await fetch(`/api/imagenes-mapa/${imagen.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ altitudM: overlayAlt, imageHeading: overlayHdg }),
+        body: JSON.stringify({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset }),
       });
       if (!res.ok) throw new Error("Error al guardar");
       setCalibSaved(true);
       setTimeout(() => setCalibSaved(false), 2000);
+      // Notify parent so it can refresh its items list (fixes stale data on reopen)
+      onCalibrationSaved?.({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset });
     } catch {
       toast.error("No se pudo guardar la calibración");
     } finally {
       setIsSavingCalib(false);
     }
-  }, [imagen.id, overlayAlt, overlayHdg]);
+  }, [imagen.id, overlayAlt, overlayHdg, latOffset, lngOffset, onCalibrationSaved]);
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -245,10 +247,8 @@ export default function ImagenViewer({
 
         {is360 ? (
           <>
-            {/* Pannellum container */}
             <div ref={viewerRef} className="w-full h-full" />
 
-            {/* Lots overlay — mounted only after viewer is ready */}
             {viewerReady && hasOverlayData && showOverlay && (
               <Viewer360LotesOverlay
                 viewer={instanceRef.current}
@@ -256,14 +256,13 @@ export default function ImagenViewer({
                 overlayBounds={overlayBounds!}
                 overlayRotation={overlayRotation}
                 svgViewBox={svgViewBox!}
-                camLat={imagen.lat}
-                camLng={imagen.lng}
+                camLat={camLat}
+                camLng={camLng}
                 camAlt={overlayAlt}
                 imageHeading={overlayHdg}
               />
             )}
 
-            {/* Overlay controls bar — only when overlay data is available */}
             {!isLoading && hasOverlayData && (
               <OverlayControls
                 showOverlay={showOverlay}
@@ -272,13 +271,16 @@ export default function ImagenViewer({
                 onAltChange={setOverlayAlt}
                 imageHeading={overlayHdg}
                 onHeadingChange={setOverlayHdg}
+                latOffset={latOffset}
+                lngOffset={lngOffset}
+                onLatOffsetChange={setLatOffset}
+                onLngOffsetChange={setLngOffset}
                 onSave={saveCalibration}
                 isSaving={isSavingCalib}
                 saved={calibSaved}
               />
             )}
 
-            {/* Hint */}
             {!isLoading && !hasOverlayData && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/40 pointer-events-none">
                 Arrastrá para rotar · Scroll para zoom
@@ -286,7 +288,6 @@ export default function ImagenViewer({
             )}
           </>
         ) : (
-          /* Normal / panoramic photo */
           <div className="w-full h-full flex items-center justify-center p-4">
             <img
               src={imagen.url}
@@ -303,6 +304,8 @@ export default function ImagenViewer({
 
 // ─── Overlay Controls ─────────────────────────────────────────────────────────
 
+const MOVE_STEP = 5; // metros por click de flecha
+
 interface OverlayControlsProps {
   showOverlay: boolean;
   onToggle: () => void;
@@ -310,6 +313,10 @@ interface OverlayControlsProps {
   onAltChange: (v: number) => void;
   imageHeading: number;
   onHeadingChange: (v: number) => void;
+  latOffset: number;
+  lngOffset: number;
+  onLatOffsetChange: (v: number) => void;
+  onLngOffsetChange: (v: number) => void;
   onSave: () => void;
   isSaving: boolean;
   saved: boolean;
@@ -319,16 +326,20 @@ function OverlayControls({
   showOverlay, onToggle,
   altitudM, onAltChange,
   imageHeading, onHeadingChange,
+  latOffset, lngOffset,
+  onLatOffsetChange, onLngOffsetChange,
   onSave, isSaving, saved,
 }: OverlayControlsProps) {
   const [expanded, setExpanded] = useState(false);
+
+  const sign = (n: number) => n >= 0 ? `+${n}` : `${n}`;
 
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
 
       {/* Expanded calibration panel */}
       {expanded && (
-        <div className="bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl px-5 py-4 shadow-2xl flex flex-col gap-4 min-w-[280px]">
+        <div className="bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl px-5 py-4 shadow-2xl flex flex-col gap-4 min-w-[300px]">
 
           {/* Altitud */}
           <div className="space-y-2">
@@ -337,19 +348,13 @@ function OverlayControls({
               <span className="text-indigo-400 font-bold">{altitudM} m</span>
             </label>
             <input
-              type="number"
-              min={1}
-              max={2000}
-              step={10}
+              type="number" min={1} max={2000} step={10}
               value={altitudM}
               onChange={(e) => onAltChange(Math.max(1, Number(e.target.value)))}
               className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
             />
             <input
-              type="range"
-              min={10}
-              max={1000}
-              step={5}
+              type="range" min={10} max={1000} step={5}
               value={altitudM}
               onChange={(e) => onAltChange(Number(e.target.value))}
               className="w-full accent-indigo-500"
@@ -359,26 +364,20 @@ function OverlayControls({
             </p>
           </div>
 
-          {/* Norte / Heading */}
+          {/* Orientación */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide flex items-center justify-between">
               Orientación (rumbo)
               <span className="text-indigo-400 font-bold">{imageHeading}°</span>
             </label>
             <input
-              type="number"
-              min={0}
-              max={359}
-              step={1}
+              type="number" min={0} max={359} step={1}
               value={imageHeading}
               onChange={(e) => onHeadingChange(((Number(e.target.value) % 360) + 360) % 360)}
               className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
             />
             <input
-              type="range"
-              min={0}
-              max={359}
-              step={1}
+              type="range" min={0} max={359} step={1}
               value={imageHeading}
               onChange={(e) => onHeadingChange(Number(e.target.value))}
               className="w-full accent-indigo-500"
@@ -386,6 +385,72 @@ function OverlayControls({
             <p className="text-[11px] text-slate-500">
               Dirección (brújula) hacia la que apunta el centro de la imagen. 0 = Norte.
             </p>
+          </div>
+
+          {/* Desplazamiento */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
+              Posición — desplazamiento
+            </label>
+            <p className="text-[11px] text-slate-500">
+              Mové el plano si los lotes aparecen corridos. Cada flecha = {MOVE_STEP} m.
+            </p>
+
+            {/* N/S display + flechas verticales */}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-slate-400 w-24">
+                N/S: <span className="text-indigo-400 font-bold">{sign(Math.round(latOffset))} m</span>
+              </span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => onLatOffsetChange(latOffset + MOVE_STEP)}
+                  className="w-8 h-8 rounded-lg bg-slate-700 hover:bg-indigo-600 text-white flex items-center justify-center transition-colors"
+                  title="Mover Norte"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onLatOffsetChange(latOffset - MOVE_STEP)}
+                  className="w-8 h-8 rounded-lg bg-slate-700 hover:bg-indigo-600 text-white flex items-center justify-center transition-colors"
+                  title="Mover Sur"
+                >
+                  <ArrowDown className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* E/O display + flechas horizontales */}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-slate-400 w-24">
+                E/O: <span className="text-indigo-400 font-bold">{sign(Math.round(lngOffset))} m</span>
+              </span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => onLngOffsetChange(lngOffset - MOVE_STEP)}
+                  className="w-8 h-8 rounded-lg bg-slate-700 hover:bg-indigo-600 text-white flex items-center justify-center transition-colors"
+                  title="Mover Oeste"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onLngOffsetChange(lngOffset + MOVE_STEP)}
+                  className="w-8 h-8 rounded-lg bg-slate-700 hover:bg-indigo-600 text-white flex items-center justify-center transition-colors"
+                  title="Mover Este"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Reset offset */}
+            {(latOffset !== 0 || lngOffset !== 0) && (
+              <button
+                onClick={() => { onLatOffsetChange(0); onLngOffsetChange(0); }}
+                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                Resetear posición
+              </button>
+            )}
           </div>
 
           {/* Save */}
@@ -413,7 +478,6 @@ function OverlayControls({
       {/* Toolbar pill */}
       <div className="flex items-center gap-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full px-2 py-1.5 shadow-xl">
 
-        {/* Toggle overlay */}
         <button
           onClick={onToggle}
           className={cn(
@@ -429,7 +493,6 @@ function OverlayControls({
 
         <div className="w-px h-4 bg-white/10" />
 
-        {/* Calibrar */}
         <button
           onClick={() => setExpanded((v) => !v)}
           className={cn(

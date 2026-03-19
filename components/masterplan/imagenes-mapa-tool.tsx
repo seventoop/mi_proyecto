@@ -761,6 +761,11 @@ export default function ImagenesMapaTool({
         <ImagenViewer
           imagen={viewerItem}
           onClose={() => setViewerItem(null)}
+          onCalibrationSaved={(updates) => {
+            setItems((prev) =>
+              prev.map((it) => (it.id === viewerItem.id ? { ...it, ...updates } : it))
+            );
+          }}
           units={units}
           overlayBounds={overlayBounds}
           overlayRotation={overlayRotation}

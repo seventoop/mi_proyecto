@@ -999,6 +999,8 @@ model ImagenMapa {
   orden        Int      @default(0)
   altitudM     Float?   @default(500)
   imageHeading Float?   @default(0)
+  latOffset    Float?   @default(0)
+  lngOffset    Float?   @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   proyecto     Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
