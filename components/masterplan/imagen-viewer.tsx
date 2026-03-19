@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { X, Loader2, Layers, ChevronUp, ChevronDown, Check, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react";
+import { X, Loader2, Layers, ChevronUp, ChevronDown, Check, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ImagenMapaItem, IMAGEN_TIPO_CONFIG } from "@/types/imagen-mapa";
@@ -77,6 +77,11 @@ export default function ImagenViewer({
   const [isSavingCalib, setIsSavingCalib] = useState(false);
   const [calibSaved,    setCalibSaved]    = useState(false);
 
+  // Edit mode — activated by clicking on the lot overlay
+  const [isEditing, setIsEditing] = useState(false);
+  const isEditingRef = useRef(false);
+  isEditingRef.current = isEditing;
+
   const is360 = imagen.tipo === "360";
   const tipoConfig = IMAGEN_TIPO_CONFIG[imagen.tipo];
 
@@ -86,6 +91,9 @@ export default function ImagenViewer({
     units.length > 0 &&
     overlayBounds != null &&
     svgViewBox != null;
+
+  const hasOverlayDataRef = useRef(hasOverlayData);
+  hasOverlayDataRef.current = hasOverlayData;
 
   // Adjust camera position by offset (meters → degrees)
   const camLat = imagen.lat + latOffset / 111320;
@@ -139,7 +147,7 @@ export default function ImagenViewer({
     };
   }, [imagen.url, is360]);
 
-  // ─── Smooth Zoom Interceptor ───
+  // ─── Smooth Zoom / Overlay Scale Interceptor ───
   useEffect(() => {
     const el = viewerRef.current;
     if (!el || !is360) return;
@@ -147,13 +155,36 @@ export default function ImagenViewer({
       if (!instanceRef.current) return;
       e.preventDefault();
       e.stopPropagation();
-      const currentFov = instanceRef.current.getHfov();
-      const delta = e.deltaY > 0 ? 5 : -5;
-      instanceRef.current.setHfov(currentFov + delta);
+
+      if (isEditingRef.current && hasOverlayDataRef.current) {
+        // Scale the overlay altitude: scroll up = lower alt = bigger lots
+        const factor = e.deltaY > 0 ? 1.08 : 0.925;
+        setOverlayAlt((prev) => Math.max(10, Math.round(prev * factor)));
+      } else {
+        const currentFov = instanceRef.current.getHfov();
+        const delta = e.deltaY > 0 ? 5 : -5;
+        instanceRef.current.setHfov(currentFov + delta);
+      }
     };
     el.addEventListener("wheel", handleWheel as any, { capture: true, passive: false });
     return () => el.removeEventListener("wheel", handleWheel as any, { capture: true } as any);
   }, [is360]);
+
+  // ─── Keyboard arrow keys when editing ───
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (!isEditingRef.current || !hasOverlayDataRef.current) return;
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 25 : 5;
+      if (e.key === "ArrowUp")    setLatOffset((v) => v + step);
+      if (e.key === "ArrowDown")  setLatOffset((v) => v - step);
+      if (e.key === "ArrowLeft")  setLngOffset((v) => v - step);
+      if (e.key === "ArrowRight") setLngOffset((v) => v + step);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   // ── Auto-aim camera toward lots when viewer first becomes ready ───────────
   useEffect(() => {
@@ -260,6 +291,17 @@ export default function ImagenViewer({
                 camLng={camLng}
                 camAlt={overlayAlt}
                 imageHeading={overlayHdg}
+                latOffset={latOffset}
+                lngOffset={lngOffset}
+                isEditing={isEditing}
+                onEnterEdit={() => setIsEditing(true)}
+                onExitEdit={() => setIsEditing(false)}
+                onParamsChange={({ latOffset: lo, lngOffset: lng, camAlt, imageHeading }) => {
+                  setLatOffset(lo);
+                  setLngOffset(lng);
+                  setOverlayAlt(camAlt);
+                  setOverlayHdg(imageHeading);
+                }}
               />
             )}
 
@@ -278,6 +320,7 @@ export default function ImagenViewer({
                 onSave={saveCalibration}
                 isSaving={isSavingCalib}
                 saved={calibSaved}
+                isEditing={isEditing}
               />
             )}
 
@@ -320,6 +363,7 @@ interface OverlayControlsProps {
   onSave: () => void;
   isSaving: boolean;
   saved: boolean;
+  isEditing: boolean;
 }
 
 function OverlayControls({
@@ -329,6 +373,7 @@ function OverlayControls({
   latOffset, lngOffset,
   onLatOffsetChange, onLngOffsetChange,
   onSave, isSaving, saved,
+  isEditing,
 }: OverlayControlsProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -477,6 +522,17 @@ function OverlayControls({
 
       {/* Toolbar pill */}
       <div className="flex items-center gap-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full px-2 py-1.5 shadow-xl">
+
+        {/* Edit mode badge */}
+        {isEditing && (
+          <>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <Pencil className="w-3 h-3" />
+              Editando
+            </div>
+            <div className="w-px h-4 bg-white/10" />
+          </>
+        )}
 
         <button
           onClick={onToggle}
