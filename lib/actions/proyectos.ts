@@ -2,10 +2,11 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema, slugSchema } from "@/lib/validations";
+import { audit } from "@/lib/actions/audit";
+import { flagsFromEstado } from "@/lib/project-access";
 
 // ─── Scemas ───
 
@@ -145,10 +146,7 @@ export async function getProyectos(params: {
 
 export async function getProyecto(id: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-
-        if (!user) return { success: false, error: "No autorizado" };
+        await requireProjectOwnership(id);
 
         const proyecto = await prisma.proyecto.findUnique({
             where: { id },
@@ -172,31 +170,15 @@ export async function getProyecto(id: string) {
             return { success: false, error: "Proyecto no encontrado" };
         }
 
-        // SECURITY CHECK: Only Admin or Owner can see the full dashboard detail
-        // MULTI-TENANT: Non-admin must be in the same org
-        if (user.role !== "ADMIN") {
-            if ((proyecto as any).orgId && (user as any).orgId && (proyecto as any).orgId !== (user as any).orgId) {
-                return { success: false, error: "Proyecto no encontrado" };
-            }
-            if ((proyecto as any).creadoPorId !== user.id) {
-                return { success: false, error: "No tienes permisos para ver este proyecto" };
-            }
-        }
-
         return { success: true, data: proyecto };
     } catch (error) {
-        console.error("Error fetching project:", error);
-        return { success: false, error: "Error al obtener proyecto" };
+        return handleGuardError(error);
     }
 }
 
 export async function createProyecto(input: unknown) {
     try {
-        const session = await getServerSession(authOptions);
-        const userRole = session?.user?.role;
-        const userId = session?.user?.id;
-
-        if (!userId) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const parsed = proyectoCreateSchema.safeParse(input);
         if (!parsed.success) {
@@ -204,22 +186,32 @@ export async function createProyecto(input: unknown) {
         }
         const data = parsed.data;
 
-        const userRecord = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { kycStatus: true, demoEndsAt: true }
-        });
+        // ADMIN and SUPERADMIN bypass KYC and demo checks
+        const isPrivileged = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
-        const isVerified = userRecord?.kycStatus === "VERIFICADO";
-        const isDemoActive = userRecord?.demoEndsAt && new Date(userRecord.demoEndsAt) > new Date();
+        let isDemo = false;
+        let demoExpiresAt: Date | null = null;
 
-        if (!isVerified && !isDemoActive) {
-            return {
-                success: false,
-                error: "Debes completar el proceso KYC o estar en período de prueba de 48h para publicar proyectos."
-            };
+        if (!isPrivileged) {
+            const userRecord = await prisma.user.findUnique({
+                where: { id: user.id },
+                select: { kycStatus: true, demoEndsAt: true }
+            });
+
+            const isVerified = userRecord?.kycStatus === "VERIFICADO";
+            const isDemoActive = userRecord?.demoEndsAt && new Date(userRecord.demoEndsAt) > new Date();
+
+            if (!isVerified && !isDemoActive) {
+                return {
+                    success: false,
+                    error: "Debes completar el proceso KYC o estar en período de prueba de 48h para publicar proyectos."
+                };
+            }
+
+            isDemo = !isVerified;
+            demoExpiresAt = isDemo && userRecord?.demoEndsAt ? new Date(userRecord.demoEndsAt) : null;
         }
 
-        const isDemo = !isVerified;
         const slug = data.slug || data.nombre.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 
         const existing = await prisma.proyecto.findUnique({ where: { slug } });
@@ -228,27 +220,69 @@ export async function createProyecto(input: unknown) {
         }
 
         let estado = data.estado || "PLANIFICACION";
-        let documentacionEstado = (userRole === "ADMIN") ? "APROBADO" : "PENDIENTE";
+        let documentacionEstado = (user.role === "ADMIN") ? "APROBADO" : "PENDIENTE";
 
-        const proyecto = await prisma.proyecto.create({
+        // INTENTIONAL BYPASS: ADMIN/SUPERADMIN projects skip the validation state machine
+        // and are born directly in APROBADO with all flags enabled.
+        // Rationale: ADMIN represents the platform operator; their projects are showcase/demo
+        // assets that don't require self-review. They can transition state at any time.
+        // Non-privileged users always start in BORRADOR and must go through the full flow.
+        const estadoValidacion = (user.role === "ADMIN" || user.role === "SUPERADMIN") ? "APROBADO" : "BORRADOR";
+        const opFlags = flagsFromEstado(estadoValidacion);
+
+        const proyecto = await prisma.$transaction(async (tx) => {
+            const created = await tx.proyecto.create({
+                data: {
+                    ...data,
+                    slug,
+                    estado,
+                    documentacionEstado,
+                    estadoValidacion,
+                    ...opFlags,
+                    invertible: data.invertible ?? false,
+                    m2VendidosInversores: 0,
+                    creadoPorId: user.id,
+                    orgId: user.orgId,
+                    isDemo,
+                    demoExpiresAt,
+                    visibilityStatus: 'PUBLICADO'
+                }
+            });
+
+            // Auto-create OWNER relation for the creator
+            if (user.orgId) {
+                await tx.proyectoUsuario.create({
+                    data: {
+                        proyectoId:                created.id,
+                        userId:                    user.id,
+                        orgId:                     user.orgId,
+                        tipoRelacion:              "OWNER",
+                        estadoRelacion:            "ACTIVA",
+                        permisoEditarProyecto:      true,
+                        permisoSubirDocumentacion:  true,
+                        permisoVerLeadsGlobales:    true,
+                        permisoVerMetricasGlobales: true,
+                    }
+                });
+            }
+
+            return created;
+        });
+
+        // AUDIT LOG
+        await prisma.auditLog.create({
             data: {
-                ...data,
-                slug,
-                estado,
-                documentacionEstado,
-                invertible: data.invertible ?? false,
-                m2VendidosInversores: 0,
-                creadoPorId: userId,
-                orgId: (session?.user as any)?.orgId || null,
-                isDemo,
-                demoExpiresAt: isDemo ? (userRecord?.demoEndsAt ? new Date(userRecord.demoEndsAt) : null) : null,
-                visibilityStatus: 'PUBLICADO'
+                userId: user.id,
+                action: "CREATE_PROJECT",
+                entity: "Proyecto",
+                entityId: proyecto.id,
+                details: `Proyecto creado: ${proyecto.nombre}`
             }
         });
 
         if (isDemo) {
             await prisma.user.update({
-                where: { id: userId },
+                where: { id: user.id },
                 data: { demoUsed: true }
             });
         }
@@ -256,8 +290,7 @@ export async function createProyecto(input: unknown) {
         revalidatePath("/dashboard/proyectos");
         return { success: true, data: proyecto };
     } catch (error) {
-        console.error("Error creating project:", error);
-        return { success: false, error: "Error al crear proyecto" };
+        return handleGuardError(error);
     }
 }
 
@@ -266,10 +299,7 @@ export async function updateProyecto(id: string, input: unknown) {
         const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
 
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireProjectOwnership(id);
 
         const parsed = proyectoUpdateSchema.safeParse(input);
         if (!parsed.success) {
@@ -277,102 +307,102 @@ export async function updateProyecto(id: string, input: unknown) {
         }
         const data = parsed.data;
 
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-
-        // SECURITY CHECK
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No tienes permisos para modificar este proyecto" };
-        }
-
         const updated = await prisma.proyecto.update({
             where: { id },
             data
+        });
+
+        await audit({
+            userId: user.id,
+            action: "PROJECT_UPDATE",
+            entity: "Proyecto",
+            entityId: id,
+            details: { campos: Object.keys(data) },
         });
 
         revalidatePath("/dashboard/proyectos");
         revalidatePath(`/dashboard/proyectos/${id}`);
         return { success: true, data: updated };
     } catch (error) {
-        console.error("Error updating project:", error);
-        return { success: false, error: "Error al actualizar proyecto" };
+        return handleGuardError(error);
     }
 }
 
 export async function deleteProyecto(id: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-
-        if (!user) return { success: false, error: "No autorizado" };
-
-        const proyecto = await prisma.proyecto.findUnique({ where: { id } });
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No tienes permisos para eliminar este proyecto" };
-        }
+        const user = await requireProjectOwnership(id);
 
         await prisma.proyecto.delete({ where: { id } });
+
+        // AUDIT LOG
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: "DELETE_PROJECT",
+                entity: "Proyecto",
+                entityId: id,
+                details: `Proyecto eliminado ID: ${id}`
+            }
+        });
 
         revalidatePath("/dashboard/proyectos");
         return { success: true };
     } catch (error) {
-        console.error("Error deleting project:", error);
-        return { success: false, error: "Error al eliminar proyecto" };
+        return handleGuardError(error);
     }
 }
 
 export async function updateProyectoStatus(id: string, estado: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireProjectOwnership(id);
 
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        const prev = await prisma.proyecto.findUnique({ where: { id }, select: { estado: true } });
 
         const updated = await prisma.proyecto.update({
             where: { id },
             data: { estado }
         });
 
+        await audit({
+            userId: user.id,
+            action: "PROJECT_STATUS_CHANGED",
+            entity: "Proyecto",
+            entityId: id,
+            details: { estadoAnterior: prev?.estado ?? null, estadoNuevo: estado },
+        });
+
         revalidatePath("/dashboard/proyectos");
         revalidatePath(`/dashboard/proyectos/${id}`);
         return { success: true, data: updated };
     } catch (error) {
-        console.error("Error updating project status:", error);
-        return { success: false, error: "Error al actualizar estado" };
+        return handleGuardError(error);
     }
 }
 
 export async function updateDocumentacionStatus(id: string, documentacionEstado: string) {
     try {
-        const session = await getServerSession(authOptions);
-        if (session?.user?.role !== "ADMIN") return { success: false, error: "Solo administradores pueden cambiar el estado de documentación" };
+        const admin = await requireRole("ADMIN");
+
+        const prev = await prisma.proyecto.findUnique({ where: { id }, select: { documentacionEstado: true } });
 
         const proyecto = await prisma.proyecto.update({
             where: { id },
             data: { documentacionEstado }
         });
 
+        await audit({
+            userId: admin.id,
+            action: "PROJECT_DOCUMENTACION_STATUS_CHANGED",
+            entity: "Proyecto",
+            entityId: id,
+            details: { estadoAnterior: prev?.documentacionEstado ?? null, estadoNuevo: documentacionEstado },
+        });
+
         revalidatePath("/dashboard/proyectos");
         revalidatePath(`/dashboard/proyectos/${id}`);
         return { success: true, data: proyecto };
     } catch (error) {
-        console.error("Error updating documentation status:", error);
-        return { success: false, error: "Error al actualizar estado de documentación" };
+        return handleGuardError(error);
     }
 }
 
@@ -399,19 +429,7 @@ export async function addProyectoArchivo(data: {
     visiblePublicamente: boolean;
 }) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
-
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: data.proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        await requireProjectOwnership(data.proyectoId);
 
         await prisma.proyecto_archivos.create({
             data: {
@@ -427,34 +445,20 @@ export async function addProyectoArchivo(data: {
         revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
         return { success: true };
     } catch (error) {
-        console.error("Error adding project file:", error);
-        return { success: false, error: "Error al subir archivo técnico" };
+        return handleGuardError(error);
     }
 }
 
 export async function deleteProyectoArchivo(id: string, proyectoId: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
-
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        await requireProjectOwnership(proyectoId);
 
         await prisma.proyecto_archivos.delete({ where: { id } });
 
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };
     } catch (error) {
-        console.error("Error deleting project file:", error);
-        return { success: false, error: "Error al eliminar archivo" };
+        return handleGuardError(error);
     }
 }
 
@@ -481,19 +485,7 @@ export async function addProyectoImagen(data: {
     orden?: number;
 }) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
-
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: data.proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        await requireProjectOwnership(data.proyectoId);
 
         const esPrincipal = data.esPrincipal || false;
 
@@ -523,26 +515,13 @@ export async function addProyectoImagen(data: {
         revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
         return { success: true };
     } catch (error) {
-        console.error("Error adding project image:", error);
-        return { success: false, error: "Error al subir imagen" };
+        return handleGuardError(error);
     }
 }
 
 export async function updateProyectoImagenesOrder(updates: { id: string, orden: number }[], proyectoId: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
-
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        await requireProjectOwnership(proyectoId);
 
         await prisma.$transaction(
             updates.map(u => prisma.proyectoImagen.update({
@@ -554,52 +533,26 @@ export async function updateProyectoImagenesOrder(updates: { id: string, orden: 
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };
     } catch (error) {
-        console.error("Error updating image order:", error);
-        return { success: false, error: "Error al reordenar imágenes" };
+        return handleGuardError(error);
     }
 }
 
 export async function deleteProyectoImagen(id: string, proyectoId: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
-
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        await requireProjectOwnership(proyectoId);
 
         await prisma.proyectoImagen.delete({ where: { id } });
 
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };
     } catch (error) {
-        console.error("Error deleting image:", error);
-        return { success: false, error: "Error al eliminar imagen" };
+        return handleGuardError(error);
     }
 }
 
 export async function setMainProyectoImagen(id: string, proyectoId: string) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
-
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && (proyecto as any).creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        await requireProjectOwnership(proyectoId);
 
         const img = await prisma.proyectoImagen.findUnique({ where: { id } });
         if (!img) return { success: false, error: "Imagen no encontrada" };
@@ -622,8 +575,7 @@ export async function setMainProyectoImagen(id: string, proyectoId: string) {
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };
     } catch (error) {
-        console.error("Error setting main image:", error);
-        return { success: false, error: "Error al establecer imagen principal" };
+        return handleGuardError(error);
     }
 }
 

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { uploadFile } from "@/lib/storage";
-import { requireProjectOwnership } from "@/lib/guards";
+import { requireAnyRole, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
 import { z } from "zod";
 import {
     MAX_FILE_SIZE_360,
@@ -18,15 +16,12 @@ const uploadSchema = z.object({
         .refine(f => ALLOWED_MIME_TYPES_360.includes(f.type as any) || f.type.startsWith("image/"), {
             message: "Tipo de archivo 360 no permitido"
         }),
-    projectId: z.string().optional(),
+    projectId: z.string().min(1, "projectId es obligatorio"),
 });
 
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
-            return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
-        }
+        await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR", "VENDEDOR"]);
 
         const formData = await req.formData();
         const file = formData.get("file");
@@ -34,22 +29,16 @@ export async function POST(req: NextRequest) {
 
         const result = uploadSchema.safeParse({ file, projectId: projectId || undefined });
         if (!result.success) {
-            console.error("[Upload 360 Validation Error]", result.error.format());
             return NextResponse.json({
                 success: false,
                 error: result.error.issues[0]?.message || "Validación fallida"
             }, { status: 400 });
         }
 
-        const validFile = result.data.file;
+        const { file: validFile, projectId: validProjectId } = result.data;
 
-        if (result.data.projectId) {
-            try {
-                await requireProjectOwnership(result.data.projectId);
-            } catch (e: any) {
-                return NextResponse.json({ success: false, error: e.message }, { status: 403 });
-            }
-        }
+        // Security: Mandatory project ownership check
+        await requireProjectOwnership(validProjectId);
 
         try {
             sanitizeFilename(validFile.name);
@@ -76,7 +65,6 @@ export async function POST(req: NextRequest) {
             size: uploadResult.size,
         });
     } catch (error) {
-        console.error("[Upload 360 Error]", error);
-        return NextResponse.json({ success: false, error: "Error al subir archivo 360" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }

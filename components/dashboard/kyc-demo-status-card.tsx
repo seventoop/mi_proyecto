@@ -61,7 +61,7 @@ export function KycDemoStatusCard({ kycStatus, demoEndsAt, demoUsed }: KycDemoSt
 
     return (
         <div className={cn(
-            "relative overflow-hidden group rounded-3xl border transition-all duration-300",
+            "relative overflow-hidden group rounded-2xl border transition-all duration-300",
             hasDemo
                 ? "bg-gradient-to-br from-brand-500/10 via-brand-500/5 to-transparent border-brand-500/20 shadow-lg shadow-brand-500/5"
                 : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"

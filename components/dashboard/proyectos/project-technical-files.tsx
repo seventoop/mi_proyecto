@@ -97,7 +97,7 @@ export default function ProjectTechnicalFiles({ proyectoId, readOnly = false }: 
                 setNewFile({ nombre: "", tipo: "PLANO", visiblePublicamente: false });
                 loadArchivos();
             } else {
-                throw new Error(addRes.error);
+                throw new Error('error' in addRes ? addRes.error : "Error al importar archivo");
             }
         } catch (error: any) {
             toast.error(error.message || "Error al importar archivo", { id: toastId });

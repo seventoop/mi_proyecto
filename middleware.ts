@@ -22,7 +22,7 @@ export default withAuth(
         const userId = token?.sub as string | undefined;
 
         // 1. Auth & Signin (IP based)
-        if (pathname === "/api/auth/signin" || pathname.startsWith("/api/auth/callback/credentials")) {
+        if ((pathname === "/api/auth/signin" || pathname.startsWith("/api/auth/callback/credentials")) && req.method === "POST") {
             const { allowed } = await checkRateLimit(ip, RATE_LIMIT_POLICIES.AUTH);
             if (!allowed) {
                 console.warn(`[AUTH] Rate limit exceeded for IP: ${ip}`);
@@ -71,7 +71,7 @@ export default withAuth(
         const isKycRoute = pathname.startsWith("/onboarding/kyc");
         const isDemoExpiredRoute = pathname.startsWith("/demo-expired");
 
-        if (!isKycRoute && !isDemoExpiredRoute) {
+        if (!isKycRoute && !isDemoExpiredRoute && !pathname.startsWith("/api/")) {
             const role = token?.role as string | undefined;
             const kycStatus = token?.kycStatus as string | undefined;
             const demoEndsAt = token?.demoEndsAt as string | Date | null | undefined;
@@ -100,7 +100,13 @@ export default withAuth(
     },
     {
         callbacks: {
-            authorized: ({ token }) => !!token,
+            // API routes handle their own auth via guards — allow all through for rate limiting.
+            // Page routes (dashboard, onboarding) require a valid session token.
+            authorized: ({ token, req }) => {
+                const { pathname } = req.nextUrl;
+                if (pathname.startsWith("/api/")) return true;
+                return !!token;
+            },
         },
     }
 );
@@ -114,5 +120,9 @@ export const config = {
         "/api/auth/signin",
         "/api/auth/callback/credentials",
         "/api/webhooks/:path*",
+        // Include authenticated API routes for GENERAL_API rate limiting.
+        // withAuth authorized callback returns true for API routes regardless of token
+        // so unauthenticated API calls are handled by individual route guards, not here.
+        "/api/:path*",
     ],
 };

@@ -8,6 +8,8 @@ import { generateReservaPDF } from "@/lib/pdf-generator";
 import { uploadFile } from "@/lib/storage";
 import { createNotification } from "@/lib/actions/notifications";
 import { idSchema } from "@/lib/validations";
+import { audit } from "@/lib/actions/audit";
+import { getProjectAccess, assertPermission, ProjectPermission } from "@/lib/project-access";
 
 // ─── Scemas ───
 
@@ -41,8 +43,8 @@ export async function getReservas(
 
         const where: any = {};
 
-        // Role based access: Admins see all. Developers see their projects. Sellers see their sales.
-        if (user.role !== "ADMIN") {
+        // Role based access: Admins/Superadmins see all. Developers see their projects. Sellers see their sales.
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
             where.OR = [
                 { vendedorId: user.id },
                 { unidad: { manzana: { etapa: { proyecto: { creadoPorId: user.id } } } } }
@@ -142,6 +144,20 @@ export async function createReserva(input: unknown) {
         }
         const data = parsed.data;
 
+        // Resolve project from the unit (needed for permission + flag checks)
+        const unidad = await prisma.unidad.findUnique({
+            where: { id: data.unidadId },
+            select: { manzana: { select: { etapa: { select: { proyectoId: true } } } } },
+        });
+        if (!unidad) {
+            return { success: false, error: "Unidad no encontrada" };
+        }
+        const proyectoId = unidad.manzana.etapa.proyectoId;
+
+        // Permission check: requires RESERVAR (checks puedeReservarse flag + blocking states)
+        const ctx = await getProjectAccess(user, proyectoId);
+        assertPermission(ctx, ProjectPermission.RESERVAR);
+
         const result = await prisma.$transaction(async (tx) => {
             // 1. Atomic logical lock: Try to update state only if it is "DISPONIBLE"
             const updated = await tx.unidad.updateMany({
@@ -184,6 +200,14 @@ export async function createReserva(input: unknown) {
             });
 
             return newReserva;
+        });
+
+        await audit({
+            userId: user.id,
+            action: "RESERVA_CREATED",
+            entity: "Reserva",
+            entityId: result.id,
+            details: { unidadId: data.unidadId, leadId: data.leadId, montoSena: data.montoSena },
         });
 
         revalidatePath("/dashboard/developer/reservas");
@@ -230,8 +254,8 @@ export async function approveReserva(reservaId: string) {
 
         const proyectoId = reserva.unidad.manzana.etapa.proyectoId;
 
-        // 2. Ownership security check
-        if (adminOrDev.role !== "ADMIN") {
+        // 2. Ownership security check (ADMIN and SUPERADMIN bypass)
+        if (adminOrDev.role !== "ADMIN" && adminOrDev.role !== "SUPERADMIN") {
             await requireProjectOwnership(proyectoId);
         }
 
@@ -300,6 +324,17 @@ export async function approveReserva(reservaId: string) {
                 true // Send Email
             );
 
+            // NEW: AUDIT LOG (inside transaction)
+            await tx.auditLog.create({
+                data: {
+                    userId: adminOrDev.id,
+                    action: "APPROVE_RESERVA",
+                    entity: "Reserva",
+                    entityId: reservaId,
+                    details: `Reserva aprobada para unidad ${reserva.unidad.numero}`
+                }
+            });
+
             return updatedReserva;
         });
 
@@ -328,8 +363,18 @@ export async function cancelReserva(reservaId: string) {
 
         if (!reserva) return { success: false, error: "Reserva no encontrada" };
 
-        // Permisos: ADMIN o Dueño del proyecto
-        if (user.role !== "ADMIN" && reserva.unidad.manzana.etapa.proyecto.creadoPorId !== user.id && reserva.vendedorId !== user.id) {
+        const isPrivileged = user.role === "ADMIN" || user.role === "SUPERADMIN";
+
+        // Fail-secure org check for non-privileged users
+        if (!isPrivileged) {
+            const reservaOrgId = reserva.unidad.manzana.etapa.proyecto.orgId ?? null;
+            if (!user.orgId || !reservaOrgId || reservaOrgId !== user.orgId) {
+                return { success: false, error: "Reserva no encontrada" };
+            }
+        }
+
+        // Permisos: ADMIN/SUPERADMIN, dueño del proyecto, o vendedor de la reserva
+        if (!isPrivileged && reserva.unidad.manzana.etapa.proyecto.creadoPorId !== user.id && reserva.vendedorId !== user.id) {
             return { success: false, error: "No tienes permisos para cancelar esta reserva" };
         }
 
@@ -363,6 +408,17 @@ export async function cancelReserva(reservaId: string) {
                 `/dashboard/leads/${reserva.leadId}`,
                 true // Send Email
             );
+
+            // NEW: AUDIT LOG (inside transaction)
+            await tx.auditLog.create({
+                data: {
+                    userId: user.id,
+                    action: "CANCEL_RESERVA",
+                    entity: "Reserva",
+                    entityId: reservaId,
+                    details: `Reserva cancelada para unidad ${reserva.unidad.numero}`
+                }
+            });
         });
 
         revalidatePath("/dashboard/developer/reservas");
@@ -448,6 +504,17 @@ export async function confirmarVenta(input: unknown) {
                     true
                 );
             }
+
+            // NEW: AUDIT LOG (inside transaction)
+            await tx.auditLog.create({
+                data: {
+                    userId: user.id,
+                    action: "CONFIRM_SALE",
+                    entity: "Reserva",
+                    entityId: reservaId,
+                    details: `Venta confirmada para unidad ${reserva.unidad.numero}`
+                }
+            });
         });
 
         revalidatePath("/dashboard/developer/reservas");
@@ -462,7 +529,11 @@ export async function getReservasProyecto(proyectoId: string) {
         const idParsed = idSchema.safeParse(proyectoId);
         if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
 
-        await requireProjectOwnership(proyectoId);
+        // requireProjectOwnership bypasses ADMIN but not SUPERADMIN — check explicitly
+        const caller = await requireAuth();
+        if (caller.role !== "ADMIN" && caller.role !== "SUPERADMIN") {
+            await requireProjectOwnership(proyectoId);
+        }
 
         const reservas = await prisma.reserva.findMany({
             where: {

@@ -13,7 +13,7 @@ export default function DashboardContainer({
     return (
         <div
             className={cn(
-                "transition-[margin] duration-150 ease-out min-h-screen",
+                "transition-[margin] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] min-h-screen",
                 sidebarOpen ? "lg:ml-64" : "lg:ml-20"
             )}
         >

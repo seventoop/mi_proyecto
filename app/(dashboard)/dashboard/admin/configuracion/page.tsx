@@ -3,6 +3,8 @@
 import { useState, useEffect, useTransition } from "react";
 import { toast } from "sonner";
 import { Settings, Globe, Shield, MessageCircle, Database, CheckCircle, XCircle, Save } from "lucide-react";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 interface ConfigMap { [key: string]: string; }
 
@@ -44,12 +46,12 @@ const CONFIG_SECTIONS = [
 
 function ServiceHealth({ label, status }: { label: string; status: boolean }) {
     return (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
+        <div className="flex items-center gap-3 px-5 py-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-colors">
             {status
-                ? <CheckCircle className="w-4 h-4 text-emerald-500" />
-                : <XCircle className="w-4 h-4 text-rose-500" />}
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{label}</span>
-            <span className={`text-[10px] font-black uppercase ml-auto ${status ? "text-emerald-500" : "text-rose-500"}`}>
+                ? <CheckCircle className="w-5 h-5 text-emerald-500" />
+                : <XCircle className="w-5 h-5 text-rose-500" />}
+            <span className="text-[11px] font-black tracking-widest uppercase text-slate-300">{label}</span>
+            <span className={`text-[10px] font-black uppercase ml-auto tracking-widest px-2.5 py-1 rounded-md ${status ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
                 {status ? "OK" : "ERROR"}
             </span>
         </div>
@@ -91,24 +93,21 @@ export default function AdminConfiguracionPage() {
     };
 
     return (
-        <div className="space-y-6 pb-12 animate-fade-in">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                        <Settings className="w-7 h-7 text-brand-500" /> Configuración de Plataforma
-                    </h1>
-                    <p className="text-slate-500 font-medium mt-1">Ajustes globales del sistema</p>
+        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div className="flex-1">
+                    <ModuleHelp content={MODULE_HELP_CONTENT.adminConfiguracion} />
                 </div>
                 <button onClick={handleSave} disabled={isPending}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl gradient-brand text-white font-bold shadow-glow hover:shadow-glow-lg transition-all disabled:opacity-50">
+                    className="mt-1 flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-[10px] uppercase font-black tracking-widest text-white transition-all shadow-lg shadow-brand-500/20 disabled:opacity-50">
                     <Save className="w-4 h-4" /> Guardar Todo
                 </button>
             </div>
 
             {/* Health Section */}
-            <div className="glass-card p-6">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                    <Database className="w-5 h-5 text-brand-500" /> Salud de Servicios
+            <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6">
+                <h2 className="text-[12px] font-black uppercase tracking-widest text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                    <Database className="w-4 h-4 text-brand-500" /> Salud de Servicios
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <ServiceHealth label="Base de Datos" status={health.db} />
@@ -119,29 +118,29 @@ export default function AdminConfiguracionPage() {
 
             {/* Config Sections */}
             {CONFIG_SECTIONS.map(section => (
-                <div key={section.title} className="glass-card p-6">
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                        <section.icon className="w-5 h-5 text-brand-500" /> {section.title}
+                <div key={section.title} className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6">
+                    <h2 className="text-[12px] font-black uppercase tracking-widest text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                        <section.icon className="w-4 h-4 text-brand-500" /> {section.title}
                     </h2>
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                         {section.keys.map(({ key, label, type, options, default: def }) => (
-                            <div key={key} className="flex items-center gap-4">
-                                <label className="w-48 text-sm font-bold text-slate-500 shrink-0">{label}</label>
+                            <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+                                <label className="w-48 text-[10px] font-black uppercase tracking-widest text-slate-500 shrink-0">{label}</label>
                                 {type === "toggle" ? (
                                     <button
                                         onClick={() => updateKey(key, (config[key] || def) === "true" ? "false" : "true")}
-                                        className={`w-12 h-6 rounded-full transition-colors relative ${(config[key] || def) === "true" ? "bg-brand-500" : "bg-white/10"}`}>
-                                        <span className={`absolute w-5 h-5 rounded-full bg-white top-0.5 transition-all ${(config[key] || def) === "true" ? "left-[26px]" : "left-0.5"}`} />
+                                        className={`w-12 h-6 rounded-full transition-colors relative border border-white/[0.06] ${(config[key] || def) === "true" ? "bg-brand-500" : "bg-white/[0.02]"}`}>
+                                        <span className={`absolute w-4 h-4 rounded-full bg-white top-0.5 transition-all ${(config[key] || def) === "true" ? "left-[26px]" : "left-1"}`} />
                                     </button>
                                 ) : type === "select" ? (
                                     <select value={config[key] || def} onChange={e => updateKey(key, e.target.value)}
-                                        className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-slate-900 dark:text-white">
+                                        className="flex-1 px-4 py-2 rounded-xl bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-[11px] font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50">
                                         {options?.map(o => <option key={o} value={o}>{o}</option>)}
                                     </select>
                                 ) : (
                                     <input type={type === "password" ? "password" : "text"} value={config[key] || ""} onChange={e => updateKey(key, e.target.value)}
                                         placeholder={def}
-                                        className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-slate-900 dark:text-white" />
+                                        className="flex-1 px-4 py-2 rounded-xl bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-[11px] font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50" />
                                 )}
                             </div>
                         ))}

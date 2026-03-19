@@ -9,6 +9,8 @@ import {
 import { getAdminDashboardData, getHealthStatus } from "@/lib/actions/admin-actions";
 import AdminManagementPanel from "@/components/dashboard/admin/admin-management-panel";
 import { cn } from "@/lib/utils";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 interface DashboardData {
     financials: {
@@ -69,18 +71,10 @@ export default async function AdminDashboard() {
         <div className="space-y-8 pb-12 animate-fade-in">
             {/* Header / Central Control */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic">
-                        Matriz <span className="text-brand-500 underline decoration-4">Admin Fundacional</span>
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-bold flex items-center gap-2 mt-2">
-                        <Activity className="w-4 h-4 text-emerald-500" />
-                        Monitoreo Global de Activos y Usuarios
-                    </p>
-                </div>
+                <ModuleHelp content={MODULE_HELP_CONTENT.adminGlobal} />
 
                 {/* Health Indicators */}
-                <div className="flex items-center gap-3 bg-slate-100 dark:bg-white/5 p-2 rounded-2xl border border-slate-200 dark:border-white/10">
+                <div className="flex items-center gap-3 bg-white dark:bg-[#0A0A0C] p-2 rounded-2xl border border-slate-200 dark:border-white/[0.06]">
                     <HealthBadge label="DB" status={health.db} icon={Database} />
                     <HealthBadge label="Storage" status={health.storage} icon={Cloud} />
                     <HealthBadge label="Pusher" status={health.pusher} icon={Activity} />
@@ -91,9 +85,9 @@ export default async function AdminDashboard() {
             {/* Global Stats Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                 {statsCards.map((stat) => (
-                    <div key={stat.label} className="glass-card p-4 hover:border-brand-500/30 transition-all group">
+                    <div key={stat.label} className="bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] p-5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/[0.02] hover:dark:border-white/[0.12] transition-colors group">
                         <div className="flex items-center gap-3 mb-2">
-                            <div className={cn("p-2 rounded-lg bg-slate-100 dark:bg-white/5", stat.color)}>
+                            <div className={cn("p-2 rounded-lg bg-slate-50 dark:bg-white/[0.04]", stat.color)}>
                                 <stat.icon className="w-4 h-4" />
                             </div>
                             <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
@@ -113,36 +107,36 @@ export default async function AdminDashboard() {
             {/* Audit Logs & Terminal Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Audit Logs - Table Section */}
-                <div className="lg:col-span-2 glass-card p-6">
+                <div className="lg:col-span-2 bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] rounded-2xl overflow-hidden p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white uppercase tracking-tighter">Registro de Auditoría</h2>
                         <span className="text-[10px] font-black bg-brand-500/10 text-brand-500 px-2 py-1 rounded">ÚLTIMOS 20 EVENTOS</span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
-                            <thead className="bg-slate-50 dark:bg-white/5 text-[10px] uppercase font-black text-slate-400">
+                            <thead className="bg-slate-50 dark:bg-white/[0.02] text-[10px] uppercase font-black text-slate-500 dark:text-slate-400">
                                 <tr>
-                                    <th className="px-3 py-2">Usuario</th>
-                                    <th className="px-3 py-2">Acción</th>
-                                    <th className="px-3 py-2">Entidad</th>
-                                    <th className="px-3 py-2">Fecha</th>
+                                    <th className="px-3 py-3 border-b border-slate-100 dark:border-white/[0.06]">Usuario</th>
+                                    <th className="px-3 py-3 border-b border-slate-100 dark:border-white/[0.06]">Acción</th>
+                                    <th className="px-3 py-3 border-b border-slate-100 dark:border-white/[0.06]">Entidad</th>
+                                    <th className="px-3 py-3 border-b border-slate-100 dark:border-white/[0.06]">Fecha</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {auditLogs.map((log: any) => (
-                                    <tr key={log.id} className="border-b border-slate-100 dark:border-white/5 text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                                        <td className="px-3 py-2 font-bold text-slate-700 dark:text-slate-300">{log.user?.nombre || "System"}</td>
-                                        <td className="px-3 py-2">
-                                            <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-[10px] font-bold">
+                                    <tr key={log.id} className="border-b border-slate-100 dark:border-white/[0.04] text-[11px] hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-colors">
+                                        <td className="px-3 py-3 font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tight">{log.user?.nombre || "System"}</td>
+                                        <td className="px-3 py-3">
+                                            <span className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-white/[0.06] text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
                                                 {log.action}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-2 text-slate-500 font-mono">{log.entity}</td>
-                                        <td className="px-3 py-2 text-slate-500">{new Date(log.createdAt).toLocaleString()}</td>
+                                        <td className="px-3 py-3 text-slate-500 font-bold uppercase tracking-widest text-[10px]">{log.entity}</td>
+                                        <td className="px-3 py-3 text-slate-500 font-bold uppercase tracking-widest text-[9px]">{new Date(log.createdAt).toLocaleString()}</td>
                                     </tr>
                                 ))}
                                 {auditLogs.length === 0 && (
-                                    <tr><td colSpan={4} className="px-3 py-4 text-center text-slate-500 italic">No hay registros recientes</td></tr>
+                                    <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">No hay registros recientes</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -209,13 +203,15 @@ function TerminalLink({ href, label, subText, icon: Icon, color }: { href: strin
 
     return (
         <Link href={href} className={cn(
-            "group flex items-center gap-3 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5 transition-all w-full",
+            "group flex items-center gap-3 p-4 bg-white dark:bg-[#0A0A0C] rounded-2xl border border-slate-200 dark:border-white/[0.06] transition-colors w-full",
             colorClasses[color]
         )}>
-            <Icon className="w-5 h-5 flex-shrink-0" />
+            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/[0.04] flex items-center justify-center">
+                <Icon className="w-5 h-5 flex-shrink-0" />
+            </div>
             <div className="text-left">
-                <h3 className="font-bold text-xs text-slate-900 dark:text-white uppercase">{label}</h3>
-                <p className="text-[10px] text-slate-500">{subText}</p>
+                <h3 className="font-black text-[12px] uppercase tracking-tighter text-slate-900 dark:text-white transition-colors">{label}</h3>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{subText}</p>
             </div>
         </Link>
     );

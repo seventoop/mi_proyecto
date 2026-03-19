@@ -1,21 +1,18 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireAuth, requireAnyRole, handleApiGuardError } from "@/lib/guards";
 
 export async function GET(
     request: Request,
     { params }: { params: { id: string } }
 ) {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     try {
+        const user = await requireAuth();
+
         const project = await prisma.proyecto.findUnique({
             where: { id: params.id },
             select: {
+                orgId: true,
                 overlayUrl: true,
                 overlayBounds: true,
                 overlayRotation: true,
@@ -26,7 +23,14 @@ export async function GET(
         });
 
         if (!project) {
-            return NextResponse.json({ error: "Project not found" }, { status: 404 });
+            return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+        }
+
+        // Tenant boundary fail-secure: non-privileged users cannot see projects from other orgs.
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            if (!user.orgId || !project.orgId || project.orgId !== user.orgId) {
+                return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+            }
         }
 
         // Parse JSON bounds if they exist
@@ -54,8 +58,7 @@ export async function GET(
         });
 
     } catch (error) {
-        console.error("Error fetching overlay config:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }
 
@@ -63,12 +66,26 @@ export async function POST(
     request: Request,
     { params }: { params: { id: string } }
 ) {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     try {
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+
+        // Resolve project for tenant check
+        const project = await prisma.proyecto.findUnique({
+            where: { id: params.id },
+            select: { orgId: true },
+        });
+
+        if (!project) {
+            return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+        }
+
+        // Tenant boundary check (even for ADMINs if they are organization-scoped in the future)
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            if (!user.orgId || !project.orgId || project.orgId !== user.orgId) {
+                return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+            }
+        }
+
         const body = await request.json();
         const { imageUrl, bounds, rotation, mapCenter } = body;
 
@@ -91,7 +108,6 @@ export async function POST(
         return NextResponse.json({ success: true, project: updatedProject });
 
     } catch (error) {
-        console.error("Error saving overlay config:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }

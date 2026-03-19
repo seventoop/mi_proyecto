@@ -30,27 +30,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { getProjectAccess, ProjectPermission } from "@/lib/project-access";
 
-// ─── Types ───
+// ─── Types (defined in lib/auth-types.ts, re-exported here for backward compat) ───
 
-export interface AuthUser {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-    orgId: string | null;
-    kycStatus: string;
-    demoEndsAt: string | null;
-}
-
-export class AuthError extends Error {
-    public status: number;
-    constructor(message: string, status: number = 401) {
-        super(message);
-        this.name = "AuthError";
-        this.status = status;
-    }
-}
+export type { AuthUser } from "@/lib/auth-types";
+export { AuthError } from "@/lib/auth-types";
+import type { AuthUser } from "@/lib/auth-types";
+import { AuthError } from "@/lib/auth-types";
 
 // ─── Core Guards ───
 
@@ -116,29 +103,19 @@ export function orgFilter(user: AuthUser): { orgId?: string } {
 }
 
 /**
- * Requires the user to be ADMIN or the owner/member of the project's org.
- * Also checks creadoPorId for backward compatibility.
+ * Requires the user to be ADMIN or have EDITAR_PROYECTO permission on the project.
+ *
+ * Resolution order (getProjectAccess handles all fallbacks):
+ *  1. ADMIN/SUPERADMIN → always allowed
+ *  2. ProyectoUsuario(ACTIVA) with permisoEditarProyecto or tipoRelacion=OWNER → allowed
+ *  3. Legacy fallback: creadoPorId match within same org → allowed (implicit OWNER)
  */
 export async function requireProjectOwnership(projectId: string): Promise<AuthUser> {
     const user = await requireAuth();
-    if (user.role === "ADMIN") return user;
+    if (user.role === "ADMIN" || user.role === "SUPERADMIN") return user;
 
-    const proyecto = await prisma.proyecto.findUnique({
-        where: { id: projectId },
-        select: { creadoPorId: true, orgId: true },
-    });
-
-    if (!proyecto) {
-        throw new AuthError("Proyecto no encontrado", 404);
-    }
-
-    // Multi-tenant check: user must be in the same org as the project
-    if (proyecto.orgId && user.orgId && proyecto.orgId !== user.orgId) {
-        throw new AuthError("Proyecto no encontrado", 404); // 404 not 403 (don't leak existence)
-    }
-
-    // Ownership check: must be creator (within org)
-    if (proyecto.creadoPorId !== user.id) {
+    const ctx = await getProjectAccess(user, projectId);
+    if (!ctx.can(ProjectPermission.EDITAR_PROYECTO)) {
         throw new AuthError("No tienes permisos sobre este proyecto", 403);
     }
     return user;
@@ -149,7 +126,7 @@ export async function requireProjectOwnership(projectId: string): Promise<AuthUs
  */
 export async function requireNotificationOwnership(notificationId: string): Promise<AuthUser> {
     const user = await requireAuth();
-    if (user.role === "ADMIN") return user;
+    if (user.role === "ADMIN" || user.role === "SUPERADMIN") return user;
 
     const notif = await prisma.notificacion.findUnique({
         where: { id: notificationId },
@@ -173,7 +150,7 @@ export async function requireNotificationOwnership(notificationId: string): Prom
  */
 export async function requireReservaPermission(reservaId: string): Promise<AuthUser> {
     const user = await requireAuth();
-    if (user.role === "ADMIN") return user;
+    if (user.role === "ADMIN" || user.role === "SUPERADMIN") return user;
 
     const reserva = await prisma.reserva.findUnique({
         where: { id: reservaId },
@@ -200,8 +177,8 @@ export async function requireReservaPermission(reservaId: string): Promise<AuthU
 
     const projectOrgId = reserva.unidad.manzana.etapa.proyecto.orgId;
 
-    // Multi-tenant check
-    if (projectOrgId && user.orgId && projectOrgId !== user.orgId) {
+    // Tenant boundary fail-secure: check must be symmetric and strictly equal
+    if (!user.orgId || !projectOrgId || projectOrgId !== user.orgId) {
         throw new AuthError("Reserva no encontrada", 404);
     }
 
@@ -263,6 +240,72 @@ export async function requireOrgAccess(orgId: string): Promise<AuthUser> {
     if (user.orgId !== orgId) {
         throw new AuthError("No tienes acceso a esta organización", 403);
     }
+    return user;
+}
+
+// ─── CRM Access Guards ────────────────────────────────────────────────────────
+//
+// Policy (documented):
+//
+// READ  — Pipeline stage config is org-level metadata needed by all roles to
+//         render the CRM UI. Any authenticated org member can read.
+//         Rule: requireOrgAccess (org boundary only).
+//
+// WRITE — Structural CRM mutations (create/update/delete pipeline stages) require
+//         an active project relation with operational authority.
+//         Allowed:  OWNER · VENDEDOR_ASIGNADO · COMERCIALIZADOR_EXCLUSIVO ·
+//                   COMERCIALIZADOR_NO_EXCLUSIVO
+//         Denied:   COLABORADOR (docs/ops only, no CRM authority)
+//                   SOLO_LECTURA (explicit read-only role)
+//         Legacy:   users with no ProyectoUsuario rows → allowed (creadoPorId era)
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Relation types that grant CRM write authority */
+const CRM_WRITE_ROLES = [
+    "OWNER",
+    "VENDEDOR_ASIGNADO",
+    "COMERCIALIZADOR_EXCLUSIVO",
+    "COMERCIALIZADOR_NO_EXCLUSIVO",
+] as const;
+
+/**
+ * Requires CRM read access.
+ * Pipeline etapas are org-level config — any org member needs them to use the CRM UI.
+ */
+export async function requireCrmRead(orgId: string): Promise<AuthUser> {
+    return requireOrgAccess(orgId);
+}
+
+/**
+ * Requires CRM write access.
+ * User must have at least one ACTIVA relation with CRM write authority (OWNER,
+ * VENDEDOR_ASIGNADO, COMERCIALIZADOR_*). COLABORADOR and SOLO_LECTURA are denied.
+ * Legacy users (no relation rows) are allowed for backward compatibility.
+ */
+export async function requireCrmWrite(orgId: string): Promise<AuthUser> {
+    const user = await requireOrgAccess(orgId);
+    if (user.role === "ADMIN" || user.role === "SUPERADMIN") return user;
+
+    const activeRelations = await prisma.proyectoUsuario.findMany({
+        where: { userId: user.id, orgId, estadoRelacion: "ACTIVA" },
+        select: { tipoRelacion: true },
+    });
+
+    // Legacy fallback: no relation rows → permitted (pre-relation-model era)
+    if (activeRelations.length === 0) return user;
+
+    // Require at least one relation with CRM write authority
+    const hasCrmAuthority = activeRelations.some(r =>
+        (CRM_WRITE_ROLES as readonly string[]).includes(r.tipoRelacion)
+    );
+    if (!hasCrmAuthority) {
+        throw new AuthError(
+            "Tu rol en este proyecto no te permite modificar la configuración del CRM",
+            403,
+        );
+    }
+
     return user;
 }
 

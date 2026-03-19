@@ -20,8 +20,9 @@ const createWorkflowSchema = z.object({
 // GET /api/workflows — list workflows for the caller's org
 export async function GET() {
     try {
-        const user = await requireAnyRole(["ADMIN", "DESARROLLADOR"]);
-        const where = user.role === "ADMIN" ? {} : { orgId: user.orgId ?? "___NO_ORG___" };
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        const where = isAdmin ? {} : { orgId: user.orgId ?? "___NO_ORG___" };
 
         const workflows = await prisma.workflow.findMany({
             where,
@@ -47,9 +48,10 @@ export async function GET() {
 // POST /api/workflows — create a new workflow
 export async function POST(request: Request) {
     try {
-        const user = await requireAnyRole(["ADMIN", "DESARROLLADOR"]);
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
-        if (!user.orgId && user.role !== "ADMIN") {
+        if (!user.orgId && !isAdmin) {
             return NextResponse.json({ error: "Usuario sin organización" }, { status: 400 });
         }
 

@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function AdminRisksPage({
     searchParams
@@ -28,21 +30,18 @@ export default async function AdminRisksPage({
     }
 
     return (
-        <div className="space-y-8 animate-fade-in pb-12">
-            <div>
-                <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">
-                    Control de <span className="text-rose-500 underline decoration-4">Riesgos de Usuarios</span>
-                </h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-2 font-bold lowercase italic">
-                    monitoreo proactivo de integridad de perfiles y documentación.
-                </p>
+        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div className="flex-1">
+                    <ModuleHelp content={MODULE_HELP_CONTENT.adminRiesgos} />
+                </div>
             </div>
 
             {/* Risk Distribution Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Link href="/dashboard/admin/riesgos?level=low" className={cn(
-                    "glass-card p-5 border-l-4 border-emerald-500 hover:bg-emerald-500/5 transition-all text-left",
-                    searchParams.level === "low" && "bg-emerald-500/5 border-emerald-500/50"
+                    "bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 border-l-4 border-l-emerald-500 hover:border-r-white/[0.12] hover:border-y-white/[0.12] hover:bg-white/[0.02] transition-all text-left shadow-sm",
+                    searchParams.level === "low" && "bg-white/[0.02] border-r-white/[0.12] border-y-white/[0.12]"
                 )}>
                     <div className="flex justify-between items-start mb-2">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Riesgo Bajo</p>
@@ -53,8 +52,8 @@ export default async function AdminRisksPage({
                 </Link>
 
                 <Link href="/dashboard/admin/riesgos?level=medium" className={cn(
-                    "glass-card p-5 border-l-4 border-amber-500 hover:bg-amber-500/5 transition-all text-left",
-                    searchParams.level === "medium" && "bg-amber-500/5 border-amber-500/50"
+                    "bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 border-l-4 border-l-amber-500 hover:border-r-white/[0.12] hover:border-y-white/[0.12] hover:bg-white/[0.02] transition-all text-left shadow-sm",
+                    searchParams.level === "medium" && "bg-white/[0.02] border-r-white/[0.12] border-y-white/[0.12]"
                 )}>
                     <div className="flex justify-between items-start mb-2">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Riesgo Medio</p>
@@ -65,8 +64,8 @@ export default async function AdminRisksPage({
                 </Link>
 
                 <Link href="/dashboard/admin/riesgos?level=high" className={cn(
-                    "glass-card p-5 border-l-4 border-rose-500 hover:bg-rose-500/5 transition-all text-left",
-                    searchParams.level === "high" && "bg-rose-500/5 border-rose-500/50"
+                    "bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 border-l-4 border-l-rose-500 hover:border-r-white/[0.12] hover:border-y-white/[0.12] hover:bg-white/[0.02] transition-all text-left shadow-sm",
+                    searchParams.level === "high" && "bg-white/[0.02] border-r-white/[0.12] border-y-white/[0.12]"
                 )}>
                     <div className="flex justify-between items-start mb-2">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Riesgo Alto</p>
@@ -78,10 +77,10 @@ export default async function AdminRisksPage({
             </div>
 
             {/* Users List */}
-            <div className="glass-card overflow-hidden">
-                <div className="p-5 border-b border-white/5 flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
+            <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden shadow-sm">
+                <div className="p-5 border-b border-white/[0.06] flex items-center justify-between bg-white/[0.02]">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
+                        <h2 className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
                             <Search className="w-4 h-4 text-slate-500" />
                             Listado de Perfiles Analizados
                         </h2>
@@ -91,16 +90,15 @@ export default async function AdminRisksPage({
                             </Link>
                         )}
                     </div>
-                    <div className="text-[10px] text-slate-500 font-bold italic">
+                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                         {users.length} usuarios encontrados
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-white/[0.02] text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-white/5">
-                                <th className="px-6 py-4">Usuario</th>
+                        <thead className="bg-white/[0.02] border-b border-white/[0.06] text-[10px] uppercase text-slate-500 font-black tracking-widest">
+                            <tr>
                                 <th className="px-6 py-4">Rol</th>
                                 <th className="px-6 py-4">Estado KYC</th>
                                 <th className="px-6 py-4">Nivel de Riesgo</th>
@@ -109,23 +107,23 @@ export default async function AdminRisksPage({
                                 <th className="px-6 py-4 text-center">Acción</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-white/[0.04]">
                             {users.map((user: any) => (
                                 <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.nombre}</span>
-                                            <span className="text-[10px] text-slate-500 font-bold italic">{user.email}</span>
+                                            <span className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.nombre}</span>
+                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{user.email}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-[10px] font-black text-slate-500 border border-white/10 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                        <span className="text-[10px] font-black text-slate-500 border border-white/[0.06] px-2.5 py-1 rounded-md uppercase tracking-widest">
                                             {user.rol}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={cn(
-                                            "text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter",
+                                            "text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-widest",
                                             user.kycStatus === "VERIFICADO" ? "text-emerald-500 bg-emerald-500/10" : "text-amber-500 bg-amber-500/10"
                                         )}>
                                             {user.kycStatus}
@@ -135,18 +133,18 @@ export default async function AdminRisksPage({
                                         <RiskBadge level={user.riskLevel} />
                                     </td>
                                     <td className="px-6 py-4">
-                                        <p className="text-[10px] text-slate-600 dark:text-slate-400 font-bold italic max-w-xs truncate">
+                                        <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium max-w-xs truncate uppercase tracking-widest">
                                             {user.riskReason || "Sin reportes adicionales"}
                                         </p>
                                     </td>
                                     <td className="px-6 py-4 text-right whitespace-nowrap">
-                                        <p className="text-[10px] text-slate-900 dark:text-slate-400 font-bold">
+                                        <p className="text-[10px] text-slate-900 dark:text-slate-500 font-black tracking-widest uppercase">
                                             {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: es })}
                                         </p>
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                        <Link href={`/dashboard/admin/kyc/${user.id}`} className="p-1.5 hover:bg-white/10 rounded-lg inline-block transition-colors">
-                                            <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-brand-400" />
+                                        <Link href={`/dashboard/admin/kyc/${user.id}`} className="p-2 border border-white/[0.06] hover:bg-white/[0.06] rounded-xl flex items-center justify-center transition-colors">
+                                            <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white" />
                                         </Link>
                                     </td>
                                 </tr>

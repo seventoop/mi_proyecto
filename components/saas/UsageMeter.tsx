@@ -18,7 +18,7 @@ export default function UsageMeter({ resource, current, limit, label, className 
 
     return (
         <div className={cn("space-y-1.5", className)}>
-            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight text-slate-500">
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight text-slate-500 dark:text-white/40">
                 <span>{label}</span>
                 <span className={cn(percentage >= 100 && !isUnlimited ? "text-rose-500" : "text-slate-400")}>
                     {current} / {isUnlimited ? "∞" : limit}

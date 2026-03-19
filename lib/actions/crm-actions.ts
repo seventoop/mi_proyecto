@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, handleGuardError, requireOrgAccess } from "@/lib/guards";
+import { requireAuth, handleGuardError, requireOrgAccess, requireCrmRead, requireCrmWrite } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 
@@ -14,7 +14,7 @@ const etapaSchema = z.object({
 
 export async function getPipelineEtapas(orgId: string) {
     try {
-        await requireOrgAccess(orgId);
+        await requireCrmRead(orgId);
         const etapas = await prisma.pipelineEtapa.findMany({
             where: { orgId },
             orderBy: { orden: "asc" }
@@ -34,7 +34,7 @@ export async function getPipelineEtapas(orgId: string) {
 
 export async function createPipelineEtapa(orgId: string, input: any) {
     try {
-        await requireOrgAccess(orgId);
+        await requireCrmWrite(orgId);
         const parsed = etapaSchema.safeParse(input);
         if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
@@ -60,7 +60,7 @@ export async function updatePipelineEtapa(etapaId: string, input: any) {
         });
         if (!etapa) return { success: false, error: "Etapa no encontrada" };
 
-        await requireOrgAccess(etapa.orgId);
+        await requireCrmWrite(etapa.orgId);
 
         const parsed = etapaSchema.partial().safeParse(input);
         if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
@@ -85,7 +85,7 @@ export async function deletePipelineEtapa(etapaId: string, destEtapaId?: string)
         });
         if (!etapa) return { success: false, error: "Etapa no encontrada" };
 
-        await requireOrgAccess(etapa.orgId);
+        await requireCrmWrite(etapa.orgId);
 
         // Si tiene leads, requiere etapa destino
         if (etapa._count.leads > 0) {
@@ -168,7 +168,17 @@ export async function convertLeadToOportunidad(leadId: string, proyectoId: strin
         });
 
         if (!lead) return { success: false, error: "Lead no encontrado" };
-        if (lead.orgId && lead.orgId !== orgId) return { success: false, error: "Acceso denegado" };
+
+        const isAdminCvt = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdminCvt) {
+            if (lead.orgId) {
+                if (!orgId || lead.orgId !== orgId) return { success: false, error: "Acceso denegado" };
+            } else {
+                // Lead legacy sin orgId: denegar a no-admin (fail-secure)
+                return { success: false, error: "Lead no encontrado" };
+            }
+        }
+
         if (lead.oportunidades.length > 0) return { success: false, error: "Ya existe una oportunidad para este lead en este proyecto" };
 
         const oportunidad = await prisma.oportunidad.create({
@@ -272,8 +282,17 @@ export async function addLeadNote(leadId: string, contenido: string) {
             select: { orgId: true }
         });
         if (!lead) return { success: false, error: "Lead no encontrado" };
-        if (lead.orgId && user.orgId && lead.orgId !== user.orgId) {
-            return { success: false, error: "Acceso denegado" };
+
+        const isAdminNote = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdminNote) {
+            if (lead.orgId) {
+                if (!user.orgId || lead.orgId !== user.orgId) {
+                    return { success: false, error: "Acceso denegado" };
+                }
+            } else {
+                // Lead legacy sin orgId: denegar a no-admin (fail-secure)
+                return { success: false, error: "Acceso denegado" };
+            }
         }
 
         const message = await prisma.leadMessage.create({

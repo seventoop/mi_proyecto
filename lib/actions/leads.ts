@@ -8,6 +8,8 @@ import { headers } from "next/headers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { idSchema, leadSchema, leadUpdateSchema, leadBulkItemSchema } from "@/lib/validations";
 import { executeLeadReception } from "@/lib/crm-pipeline";
+import { audit } from "@/lib/actions/audit";
+import { getProjectAccess, ProjectPermission } from "@/lib/project-access";
 
 // ─── Queries ───
 
@@ -22,43 +24,69 @@ export async function getLeads(params: {
     try {
         const user = await requireAuth();
 
-        // Multi-tenant scoping:
-        // ADMIN/SUPERADMIN → see all leads
-        // Users with orgId → see all leads in their org (primary filter)
-        // Users without orgId (legacy) → see only leads assigned to them or their projects
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
-        const where: any = isAdmin ? {} : {
-            AND: [
-                user.orgId ? { orgId: user.orgId } : {},
-                {
-                    OR: [
-                        { asignadoAId: user.id },
-                        { proyecto: { creadoPorId: user.id } }
-                    ]
-                }
-            ]
-        };
 
+        let where: any;
+
+        if (isAdmin) {
+            // ADMIN/SUPERADMIN: see all leads without any restriction
+            where = {};
+        } else if (!user.orgId) {
+            // Legacy: no org → only own assigned leads or leads on own projects (creadoPorId)
+            where = {
+                OR: [
+                    { asignadoAId: user.id },
+                    { proyecto: { creadoPorId: user.id } },
+                ],
+            };
+        } else {
+            // Relation-based scoping within the org:
+            //   permisoVerLeadsGlobales=true  → see ALL leads for that project
+            //   permisoVerLeadsGlobales=false → see only own assigned leads for that project
+            //   legacy (creadoPorId, no relation row) → see all leads (treated as implicit OWNER)
+            const relaciones = await prisma.proyectoUsuario.findMany({
+                where: { userId: user.id, orgId: user.orgId, estadoRelacion: "ACTIVA" },
+                select: { proyectoId: true, permisoVerLeadsGlobales: true },
+            });
+
+            const globalProyectoIds = relaciones
+                .filter(r => r.permisoVerLeadsGlobales)
+                .map(r => r.proyectoId);
+
+            const restrictedProyectoIds = relaciones
+                .filter(r => !r.permisoVerLeadsGlobales)
+                .map(r => r.proyectoId);
+
+            where = {
+                orgId: user.orgId,
+                OR: [
+                    // All leads for projects where user has global visibility
+                    ...(globalProyectoIds.length > 0
+                        ? [{ proyectoId: { in: globalProyectoIds } }]
+                        : []),
+                    // Only own leads for projects where user has restricted visibility
+                    ...(restrictedProyectoIds.length > 0
+                        ? [{ proyectoId: { in: restrictedProyectoIds }, asignadoAId: user.id }]
+                        : []),
+                    // Directly assigned leads (no project context)
+                    { asignadoAId: user.id },
+                    // Legacy fallback: projects where user is creator but has no relation row
+                    { proyecto: { creadoPorId: user.id } },
+                ],
+            };
+        }
+
+        // Apply search filter
         if (search) {
             const searchConditions = [
-                { nombre: { contains: search, mode: "insensitive" } },
-                { email: { contains: search, mode: "insensitive" } },
-                { telefono: { contains: search, mode: "insensitive" } }
+                { nombre:   { contains: search, mode: "insensitive" } },
+                { email:    { contains: search, mode: "insensitive" } },
+                { telefono: { contains: search, mode: "insensitive" } },
             ];
-
             if (isAdmin) {
                 where.OR = searchConditions;
-            } else if (user.orgId) {
-                // org filter already set via where.orgId — add search as AND
-                where.AND = [{ OR: searchConditions }];
             } else {
-                // Legacy fallback: intersect role conditions with search
-                const roleConditions = where.OR;
-                where.AND = [
-                    { OR: roleConditions },
-                    { OR: searchConditions }
-                ];
-                delete where.OR;
+                where = { AND: [where, { OR: searchConditions }] };
             }
         }
 
@@ -70,10 +98,10 @@ export async function getLeads(params: {
                 orderBy: { createdAt: "desc" },
                 include: {
                     proyecto: { select: { nombre: true } },
-                    asignadoA: { select: { nombre: true } }
-                }
+                    asignadoA: { select: { nombre: true } },
+                },
             }),
-            prisma.lead.count({ where })
+            prisma.lead.count({ where }),
         ]);
 
         return {
@@ -83,8 +111,8 @@ export async function getLeads(params: {
                 total,
                 page,
                 pageSize,
-                totalPages: Math.ceil(total / pageSize)
-            }
+                totalPages: Math.ceil(total / pageSize),
+            },
         };
     } catch (error) {
         return handleGuardError(error);
@@ -107,6 +135,34 @@ export async function createLead(input: unknown) {
             throw new Error("El usuario no tiene una organización asignada. No se pueden crear leads sin tenant.");
         }
 
+        // If a project is specified, check puedeCaptarLeads.
+        // If captación is disabled, the lead is quarantined to LeadIntake instead of created directly.
+        if (data.proyectoId) {
+            const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+            if (!isAdmin) {
+                const ctx = await getProjectAccess(user, data.proyectoId);
+                if (!ctx.can(ProjectPermission.CAPTAR_LEADS)) {
+                    // Route to LeadIntake quarantine — preserve data without blocking the form
+                    const intake = await (prisma as any).leadIntake.create({
+                        data: {
+                            source: "MANUAL",
+                            rawPayload: { ...data, captadorId: user.id },
+                            status: "PENDING",
+                            error: `Captación deshabilitada para proyecto ${data.proyectoId} (estado: ${ctx.proyecto.estadoValidacion})`,
+                        },
+                    });
+                    await audit({
+                        userId: user.id,
+                        action: "LEAD_QUARANTINED",
+                        entity: "LeadIntake",
+                        entityId: intake.id,
+                        details: { proyectoId: data.proyectoId, estadoValidacion: ctx.proyecto.estadoValidacion },
+                    });
+                    return { success: true, data: { id: intake.id, quarantined: true } };
+                }
+            }
+        }
+
         const result = await executeLeadReception({
             nombre: data.nombre,
             email: data.email || null,
@@ -122,6 +178,14 @@ export async function createLead(input: unknown) {
         if (!result.success) {
             throw new Error(result.error || "Error al crear el lead en el pipeline");
         }
+
+        await audit({
+            userId: user.id,
+            action: "LEAD_CREATED",
+            entity: "Lead",
+            entityId: result.leadId,
+            details: { origen: data.origen, proyectoId: data.proyectoId ?? null },
+        });
 
         revalidatePath("/dashboard/developer/leads");
         revalidatePath("/dashboard/leads");
@@ -155,8 +219,13 @@ export async function updateLead(leadId: string, input: unknown) {
 
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
         if (!isAdmin) {
-            // Primary: org isolation
-            if (existing.orgId && user.orgId && existing.orgId !== user.orgId) {
+            if (existing.orgId) {
+                // Primary: org isolation — symmetric fail-secure check
+                if (!user.orgId || existing.orgId !== user.orgId) {
+                    return { success: false, error: "No tienes permisos para editar este lead" };
+                }
+            } else {
+                // Lead legacy sin orgId: denegar acceso a no-admin (fail-secure)
                 return { success: false, error: "No tienes permisos para editar este lead" };
             }
             // Secondary: user-level ownership within the org
@@ -171,6 +240,14 @@ export async function updateLead(leadId: string, input: unknown) {
                 ...data,
                 updatedAt: new Date()
             }
+        });
+
+        await audit({
+            userId: user.id,
+            action: "LEAD_UPDATE",
+            entity: "Lead",
+            entityId: leadId,
+            details: { campos: Object.keys(data) },
         });
 
         revalidatePath("/dashboard/developer/leads");
@@ -242,6 +319,13 @@ export async function bulkCreateLeads(leads: any[], projectId?: string) {
             }
         }
 
+        await audit({
+            userId: user.id,
+            action: "LEAD_BULK_CREATE",
+            entity: "Lead",
+            details: { count: successCount, errores: errors.length, proyectoId: projectId ?? null },
+        });
+
         revalidatePath("/dashboard/developer/leads");
         revalidatePath("/dashboard/leads");
 
@@ -273,8 +357,13 @@ export async function deleteLead(leadId: string) {
 
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
         if (!isAdmin) {
-            // Primary: org isolation
-            if (lead.orgId && user.orgId && lead.orgId !== user.orgId) {
+            if (lead.orgId) {
+                // Primary: org isolation — symmetric fail-secure check
+                if (!user.orgId || lead.orgId !== user.orgId) {
+                    return { success: false, error: "No tienes permisos para eliminar este lead" };
+                }
+            } else {
+                // Lead legacy sin orgId: denegar acceso a no-admin (fail-secure)
                 return { success: false, error: "No tienes permisos para eliminar este lead" };
             }
             // Secondary: user-level ownership within the org
@@ -285,6 +374,14 @@ export async function deleteLead(leadId: string) {
 
         await prisma.lead.delete({
             where: { id: leadId }
+        });
+
+        await audit({
+            userId: user.id,
+            action: "LEAD_DELETE",
+            entity: "Lead",
+            entityId: leadId,
+            details: { orgId: lead.orgId ?? null },
         });
 
         revalidatePath("/dashboard/developer/leads");

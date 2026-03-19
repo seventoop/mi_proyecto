@@ -37,7 +37,7 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
         <div className="space-y-6">
             {/* Global Control KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="glass-card p-5 border-l-4 border-brand-500">
+                <div className="bg-white dark:bg-[#0A0A0C] rounded-2xl p-5 border border-slate-200 dark:border-white/[0.06]">
                     <div className="flex justify-between items-start mb-2">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Volumen Global</p>
                         <Globe className="w-4 h-4 text-brand-500" />
@@ -45,10 +45,10 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                     <p className="text-2xl font-black text-slate-900 dark:text-white">
                         ${financials.globalVolume.toLocaleString()}
                     </p>
-                    <p className="text-[9px] text-slate-500 font-bold mt-1">Transaccionado en plataforma</p>
+                    <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase tracking-widest">Transaccionado en plataforma</p>
                 </div>
 
-                <div className="glass-card p-5 border-l-4 border-blue-500">
+                <div className="bg-white dark:bg-[#0A0A0C] rounded-2xl p-5 border border-slate-200 dark:border-white/[0.06]">
                     <div className="flex justify-between items-start mb-2">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recaudación Fee</p>
                         <CreditCard className="w-4 h-4 text-blue-500" />
@@ -56,10 +56,10 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                     <p className="text-2xl font-black text-slate-900 dark:text-white">
                         ${financials.platformRevenue.toLocaleString()}
                     </p>
-                    <p className="text-[9px] text-emerald-500 font-black mt-1">Ingresos operativos netos</p>
+                    <p className="text-[9px] text-emerald-500 font-black mt-1 uppercase tracking-widest">Ingresos operativos netos</p>
                 </div>
 
-                <div className="glass-card p-5 border-l-4 border-emerald-500">
+                <div className="bg-white dark:bg-[#0A0A0C] rounded-2xl p-5 border border-slate-200 dark:border-white/[0.06]">
                     <div className="flex justify-between items-start mb-2">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Monto en Escrow</p>
                         <ShieldAlert className="w-4 h-4 text-emerald-500" />
@@ -67,10 +67,10 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                     <p className="text-2xl font-black text-slate-900 dark:text-white">
                         ${financials.totalEscrow.toLocaleString()}
                     </p>
-                    <p className="text-[9px] text-slate-500 font-bold mt-1">Capital bajo custodia</p>
+                    <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase tracking-widest">Capital bajo custodia</p>
                 </div>
 
-                <div className="glass-card p-5 border-l-4 border-amber-500">
+                <div className="bg-white dark:bg-[#0A0A0C] rounded-2xl p-5 border border-slate-200 dark:border-white/[0.06]">
                     <div className="flex justify-between items-start mb-2">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Salud del Sistema</p>
                         <Server className="w-4 h-4 text-amber-500" />
@@ -79,37 +79,37 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                         <p className="text-2xl font-black text-slate-900 dark:text-white">100%</p>
                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     </div>
-                    <p className="text-[9px] text-slate-500 font-bold mt-1">Todos los servicios activos</p>
+                    <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase tracking-widest">Todos los servicios activos</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Approval Queues */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="glass-card overflow-hidden">
-                        <div className="p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.01]">
+                    <div className="bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] rounded-2xl overflow-hidden shadow-none">
+                        <div className="p-5 border-b border-slate-100 dark:border-white/[0.06]">
                             <h2 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
                                 <ShieldAlert className="w-4 h-4 text-amber-500" />
                                 Cola de Verificación KYC
                             </h2>
                         </div>
-                        <div className="divide-y divide-slate-100 dark:divide-white/5">
+                        <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                             {queues.kyc.length > 0 ? (
                                 queues.kyc.map((item) => (
-                                    <Link key={item.id} href={`/dashboard/admin/kyc/${item.id}`} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+                                    <Link key={item.id} href={`/dashboard/admin/kyc/${item.id}`} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 font-black text-xs">
                                                 {item.nombre.charAt(0)}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-black text-slate-900 dark:text-white lowercase tracking-tight">
+                                                <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">
                                                     {item.nombre}
                                                 </p>
-                                                <p className="text-[10px] text-slate-500 font-bold italic">{item.email}</p>
+                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{item.email}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
-                                            <span className="text-[10px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full uppercase italic tracking-tighter">
+                                            <span className="text-[9px] font-black text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-md uppercase tracking-widest">
                                                 {item.kycStatus === "EN_REVISION" ? "En revisión" : "Pendiente"}
                                             </span>
                                             <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-brand-500 transition-colors" />
@@ -119,32 +119,32 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                             ) : (
                                 <div className="p-8 text-center">
                                     <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-20" />
-                                    <p className="text-xs text-slate-500 font-bold italic lowercase italic">no hay verificaciones pendientes</p>
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">No hay verificaciones pendientes</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    <div className="glass-card overflow-hidden">
-                        <div className="p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.01]">
+                    <div className="bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] rounded-2xl overflow-hidden shadow-none">
+                        <div className="p-5 border-b border-slate-100 dark:border-white/[0.06]">
                             <h2 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
                                 <FileSignature className="w-4 h-4 text-rose-500" />
                                 Aprobación Técnica de Proyectos
                             </h2>
                         </div>
-                        <div className="divide-y divide-slate-100 dark:divide-white/5">
+                        <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                             {queues.projects.length > 0 ? (
                                 queues.projects.map((project) => (
-                                    <Link key={project.id} href={`/dashboard/admin/proyectos/${project.id}`} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+                                    <Link key={project.id} href={`/dashboard/admin/proyectos/${project.id}`} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/[0.04] flex items-center justify-center text-slate-500">
                                                 <Activity className="w-5 h-5" />
                                             </div>
                                             <div>
                                                 <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter">
                                                     {project.nombre}
                                                 </p>
-                                                <p className="text-[10px] text-slate-500 font-bold">Documentación pendiente de validación</p>
+                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Documentación pendiente</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3 text-right">
@@ -161,7 +161,7 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                             ) : (
                                 <div className="p-8 text-center">
                                     <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-20" />
-                                    <p className="text-xs text-slate-500 font-bold italic lowercase italic">todos los proyectos están al día</p>
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Todos los proyectos están al día</p>
                                 </div>
                             )}
                         </div>
@@ -170,22 +170,22 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
 
                 {/* Sidebar: Recent Registrations & Quick Monitor */}
                 <div className="space-y-6">
-                    <div className="glass-card p-5">
+                    <div className="bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] rounded-2xl p-5">
                         <h2 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest mb-4 flex items-center gap-2">
                             <Users className="w-4 h-4 text-blue-500" />
                             Nuevos Registros
                         </h2>
                         <div className="space-y-4">
                             {recentUsers.map((user) => (
-                                <div key={user.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5">
+                                <div key={user.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-white/[0.02] rounded-xl border border-slate-100 dark:border-white/[0.06]">
                                     <div className="w-8 h-8 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 font-black text-[10px]">
                                         {user.nombre.charAt(0)}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-black text-slate-900 dark:text-white truncate">{user.nombre}</p>
+                                        <p className="text-xs font-black text-slate-900 dark:text-white truncate uppercase tracking-tight">{user.nombre}</p>
                                         <div className="flex items-center justify-between mt-0.5">
-                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">{user.rol}</span>
-                                            <span className="text-[9px] text-slate-500 italic">hace {formatDistanceToNow(new Date(user.createdAt), { locale: es })}</span>
+                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{user.rol}</span>
+                                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">hace {formatDistanceToNow(new Date(user.createdAt), { locale: es })}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -196,12 +196,13 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                         </button>
                     </div>
 
-                    <div className="bg-brand-500 p-6 rounded-2xl text-white shadow-[0_12px_24px_rgba(245,158,11,0.3)] relative overflow-hidden group">
-                        <TrendingUp className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 group-hover:scale-110 transition-transform duration-500" />
-                        <h3 className="text-xs font-black uppercase tracking-widest mb-1">Plusvalía Estimada</h3>
-                        <p className="text-3xl font-black italic">$24.8M</p>
-                        <p className="text-[10px] font-bold opacity-80 mt-2 leading-tight lowercase italic">
-                            proyección de crecimiento basada en m2 vigentes y mercado.
+                    <div className="bg-[#0A0A0C] border border-white/[0.06] p-6 rounded-2xl relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-brand-500/5 mix-blend-overlay group-hover:bg-brand-500/10 transition-colors" />
+                        <TrendingUp className="absolute -right-4 -bottom-4 w-32 h-32 opacity-[0.03] text-brand-500 group-hover:scale-110 group-hover:opacity-[0.06] transition-all duration-500" />
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 relative z-10">Plusvalía Estimada</h3>
+                        <p className="text-3xl font-black text-white relative z-10">$24.8M</p>
+                        <p className="text-[9px] font-bold text-slate-500 mt-2 leading-tight uppercase tracking-widest relative z-10">
+                            Proyección de crecimiento basada en M²
                         </p>
                     </div>
                 </div>

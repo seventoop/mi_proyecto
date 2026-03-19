@@ -30,10 +30,11 @@ const STATUS_LABELS: Record<string, string> = {
 interface SidePanelProps {
     unit: MasterplanUnit;
     modo: "admin" | "public";
+    canEdit: boolean;
     onClose: () => void;
 }
 
-export default function MasterplanSidePanel({ unit, modo, onClose }: SidePanelProps) {
+export default function MasterplanSidePanel({ unit, modo, canEdit, onClose }: SidePanelProps) {
     const { comparisonIds, toggleComparison, updateUnitState } = useMasterplanStore();
     const isComparing = comparisonIds.includes(unit.id);
     const [isReservaModalOpen, setIsReservaModalOpen] = useState(false);
@@ -138,8 +139,8 @@ export default function MasterplanSidePanel({ unit, modo, onClose }: SidePanelPr
                         ))}
                     </div>
 
-                    {/* Actions — admin mode: gestión de estado */}
-                    {modo === "admin" ? (
+                    {/* Actions — canEdit: gestión de estado; read-only: reserva pública */}
+                    {canEdit ? (
                         <div className="space-y-2.5">
                             <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                 {isChangingEstado ? "Actualizando..." : "Cambiar Estado"}

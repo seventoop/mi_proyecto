@@ -51,49 +51,62 @@ import { toast } from "sonner";
 
 // Admin navigation
 const adminNavItems = [
+    { section: "Plataforma" },
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Riesgos", href: "/dashboard/admin/riesgos", icon: AlertTriangle },
+    { section: "Entidades" },
+    { label: "Proyectos", href: "/dashboard/admin/proyectos", icon: Building2 },
+    { label: "Usuarios", href: "/dashboard/admin/usuarios", icon: UserCheck },
+    { label: "KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck },
+    { label: "Planes", href: "/dashboard/admin/planes", icon: CreditCard },
+    { section: "Engagement" },
     { label: "CRM / Leads", href: "/dashboard/admin/crm/leads", icon: Users },
     { label: "Pipeline CRM", href: "/dashboard/crm/pipeline", icon: Workflow },
     { label: "BI Métricas", href: "/dashboard/crm/metricas", icon: BarChart3 },
-    { label: "Proyectos", href: "/dashboard/admin/proyectos", icon: Building2 },
+    { section: "CMS & Setup" },
     { label: "Banners", href: "/dashboard/admin/banners", icon: ImageIcon },
     { label: "Testimonios", href: "/dashboard/admin/testimonios", icon: MessageSquare },
-    { label: "KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck },
-    { label: "Usuarios", href: "/dashboard/admin/usuarios", icon: UserCheck },
-    { label: "Planes", href: "/dashboard/admin/planes", icon: CreditCard },
-    { label: "Riesgos", href: "/dashboard/admin/riesgos", icon: AlertTriangle },
     { label: "Automation", href: "/dashboard/admin/logictoop", icon: Workflow },
     { label: "Configuración", href: "/dashboard/admin/configuracion", icon: Settings },
 ];
 
 // Developer navigation
 const developerNavItems = [
+    { section: "General" },
     { label: "Dashboard", href: "/dashboard/developer", icon: LayoutDashboard },
     { label: "Mis Proyectos", href: "/dashboard/developer/proyectos", icon: Building2 },
+    { section: "Comercial & CRM" },
     { label: "Leads", href: "/dashboard/developer/leads", icon: Users },
     { label: "Pipeline CRM", href: "/dashboard/crm/pipeline", icon: Workflow },
     { label: "BI Métricas", href: "/dashboard/crm/metricas", icon: BarChart3 },
     { label: "Oportunidades", href: "/dashboard/developer/oportunidades", icon: Target },
     { label: "Reservas", href: "/dashboard/developer/reservas", icon: BookmarkCheck },
+    { section: "Cuenta" },
     { label: "Mi Perfil / KYC", href: "/dashboard/developer/mi-perfil/kyc", icon: ShieldCheck },
     { label: "Configuración", href: "/dashboard/developer/configuracion", icon: Settings },
 ];
+
 // Portafolio Navigation (CLIENTE)
 const clienteNavItems = [
+    { section: "General" },
     { label: "Mi Portafolio", href: "/dashboard/portafolio", icon: LayoutDashboard },
     { label: "Mis Propiedades", href: "/dashboard/portafolio/propiedades", icon: Home },
+    { section: "Cuenta" },
     { label: "Verificar Perfil", href: "/dashboard/portafolio/kyc", icon: ShieldCheck },
     { label: "Configuración", href: "/dashboard/portafolio/configuracion", icon: Settings },
 ];
 
 // Portafolio Navigation (INVERSOR)
 const inversorNavItems = [
+    { section: "General" },
     { label: "Mi Portafolio", href: "/dashboard/portafolio", icon: LayoutDashboard },
     { label: "Mis Propiedades", href: "/dashboard/portafolio/propiedades", icon: Home },
     { label: "Mis Inversiones", href: "/dashboard/portafolio/inversiones", icon: ArrowUpCircle },
+    { section: "Explorar" },
     { label: "Marketplace", href: "/dashboard/portafolio/marketplace", icon: Building2 },
     { label: "Wallet", href: "/dashboard/portafolio/wallet", icon: CreditCard },
     { label: "Favoritos", href: "/dashboard/portafolio/favoritos", icon: BookmarkCheck },
+    { section: "Cuenta" },
     { label: "Mi Perfil KYC", href: "/dashboard/portafolio/kyc", icon: ShieldCheck },
     { label: "Configuración", href: "/dashboard/portafolio/configuracion", icon: Settings },
 ];
@@ -109,7 +122,6 @@ export default function Sidebar() {
     let navItems: any[] = [];
     
     if (sessionStatus === "loading") {
-        // Show nothing while loading to prevent role flashing
         navItems = [];
     } else if (userRole === "ADMIN" || userRole === "SUPERADMIN") {
         navItems = adminNavItems;
@@ -120,7 +132,7 @@ export default function Sidebar() {
     } else if (userRole === "CLIENTE") {
         navItems = clienteNavItems;
     } else {
-        navItems = []; // Final fallback for unauthenticated/unknown
+        navItems = [];
     }
 
     const [isMounted, setIsMounted] = useState(false);
@@ -147,15 +159,15 @@ export default function Sidebar() {
             {/* Mobile toggle */}
             <button
                 onClick={toggleSidebar}
-                className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-xl bg-[#111116] text-white shadow-lg border border-white/10"
+                className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-xl bg-[#09090b] text-white shadow-lg border border-white/10 hover:bg-[#1a1a1f] transition-colors"
             >
-                <Menu className="w-5 h-5" />
+                <Menu className="w-5 h-5 opacity-80" />
             </button>
 
             {/* Overlay for mobile */}
             {sidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/60 z-30 lg:hidden"
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
                     onClick={toggleSidebar}
                 />
             )}
@@ -163,38 +175,38 @@ export default function Sidebar() {
             {/* Sidebar */}
             <aside
                 className={cn(
-                    "fixed top-0 left-0 z-40 h-screen transition-all duration-150 ease-out will-change-[width,transform]",
-                    "bg-[#111116] border-r border-brand-orange/15 shadow-[4px_0_24px_-6px_rgba(249,115,22,0.15)]",
+                    "fixed top-0 left-0 z-40 h-screen transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[width,transform]",
+                    "bg-[#09090b] border-r border-white/[0.06] shadow-2xl flex flex-col",
                     sidebarOpen ? "w-64" : "w-20",
                     "lg:translate-x-0"
                 )}
             >
                 {/* Logo & Plan */}
-                <div className="flex flex-col items-center justify-center p-4 border-b border-white/10 space-y-4">
-                    <Link href="/dashboard" className="flex items-center gap-3">
+                <div className="flex flex-col items-center justify-center p-5 border-b border-white/[0.04] space-y-5">
+                    <Link href="/dashboard" className="flex items-center gap-3 w-full justify-center group opacity-90 hover:opacity-100 transition-opacity">
                         {sidebarOpen ? (
                             <Image
                                 src="/logo.png"
                                 alt="SevenToop"
-                                width={180}
-                                height={54}
+                                width={160}
+                                height={48}
                                 className="object-contain"
                                 priority
                             />
                         ) : (
-                            <div className="w-10 h-10 rounded-xl bg-brand-orange flex items-center justify-center shadow-[0_0_15px_rgba(249,115,22,0.3)]">
-                                <Building2 className="w-6 h-6 text-white" />
+                            <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20 group-hover:shadow-brand-500/40 transition-shadow">
+                                <Building2 className="w-5 h-5 text-white" strokeWidth={2.5} />
                             </div>
                         )}
                     </Link>
 
                     {sidebarOpen && planData && (
-                        <div className="w-full px-2 animate-in fade-in duration-500">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-[9px] font-bold text-slate-500 uppercase">Estado Cuenta</span>
+                        <div className="w-full animate-in fade-in duration-500 flex flex-col gap-3">
+                            <div className="flex items-center justify-between px-1">
+                                <span className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">Plan Activo</span>
                                 <PlanBadge plan={planData.planName} />
                             </div>
-                            <div className="space-y-3 bg-white/5 p-3 rounded-2xl border border-white/5">
+                            <div className="space-y-2.5 bg-[#161618]/50 p-3 rounded-xl border border-white/[0.04] shadow-inner">
                                 <UsageMeter
                                     label="Leads"
                                     resource="leads"
@@ -207,54 +219,84 @@ export default function Sidebar() {
                                     current={planData.usage.proyectos.current}
                                     limit={planData.usage.proyectos.limit}
                                 />
-                                <Link
-                                    href="/dashboard/developer/planes"
-                                    className="flex items-center justify-center gap-2 py-1.5 w-full bg-brand-orange/10 hover:bg-brand-orange/20 text-brand-orange rounded-lg text-[9px] font-black uppercase transition-all"
-                                >
-                                    <ArrowUpCircle className="w-3 h-3" />
-                                    Gestionar Plan
-                                </Link>
+                                <div className="pt-2 mt-2 border-t border-white/[0.04]">
+                                    <Link
+                                        href="/dashboard/developer/planes"
+                                        className="group/upgrade flex items-center justify-center gap-2 py-1.5 w-full bg-white/[0.03] hover:bg-white/[0.08] text-white/70 hover:text-white rounded-md text-[10px] font-semibold uppercase tracking-wider transition-all"
+                                    >
+                                        <ArrowUpCircle className="w-3.5 h-3.5 text-brand-400 group-hover/upgrade:text-brand-300" />
+                                        Upgrade
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
-                    {navItems.map((item) => {
+                <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                    {navItems.map((item, idx) => {
+                        if (item.section) {
+                            if (!sidebarOpen) return <div key={idx} className="h-4 my-2" />;
+                            return (
+                                <div key={idx} className="px-3 pt-6 pb-2 text-[10px] font-bold text-white/30 uppercase tracking-widest flex items-center">
+                                    {item.section}
+                                </div>
+                            );
+                        }
+
                         const isActive =
                             pathname === item.href ||
                             (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+                        
                         return (
                             <Link
                                 key={item.href}
-                                href={item.href}
+                                href={item.href!}
                                 className={cn(
-                                    "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-100",
+                                    "group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out",
                                     isActive
-                                        ? "bg-brand-orange text-white shadow-[0_0_20px_rgba(249,115,22,0.3)]"
-                                        : "text-white/70 hover:text-brand-orange hover:bg-white/5"
+                                        ? "bg-white/[0.08] text-white shadow-sm"
+                                        : "text-white/60 hover:text-white hover:bg-white/[0.04]"
                                 )}
                             >
-                                <item.icon
-                                    className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-white" : "text-white/50")}
-                                />
-                                {sidebarOpen && (
-                                    <span className="whitespace-nowrap">{item.label}</span>
+                                {isActive && (
+                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-brand-500 rounded-r-full shadow-[0_0_10px_rgba(249,115,22,0.5)]" />
                                 )}
+                                <div className="flex items-center justify-center w-6 h-6 shrink-0 relative">
+                                    {item.icon && (
+                                        <item.icon
+                                            className={cn(
+                                                "w-[18px] h-[18px] transition-colors duration-200", 
+                                                isActive ? "text-brand-400" : "text-white/50 group-hover:text-white/80"
+                                            )}
+                                            strokeWidth={isActive ? 2.5 : 2}
+                                        />
+                                    )}
+                                </div>
+                                {sidebarOpen ? (
+                                    <span className={cn(
+                                        "truncate transition-opacity duration-200",
+                                        isActive ? "font-semibold" : ""
+                                    )}>
+                                        {item.label}
+                                    </span>
+                                ) : null}
                             </Link>
                         );
                     })}
                 </nav>
 
                 {/* Bottom section */}
-                <div className="px-3 py-4 border-t border-white/10 space-y-1">
+                <div className="px-3 py-4 border-t border-white/[0.04] space-y-1 bg-[#09090b]">
                     <button
                         onClick={() => signOut({ callbackUrl: "/login" })}
-                        className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-sm font-bold text-white/70 hover:text-rose-500 hover:bg-rose-500/10 transition-all duration-200"
+                        className="group flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-white/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-200"
                     >
-                        <LogOut className="w-5 h-5 flex-shrink-0 text-white/50" />
-                        {sidebarOpen && <span>Cerrar sesión</span>}
+                        <div className="flex items-center justify-center w-6 h-6 shrink-0">
+                            <LogOut className="w-[18px] h-[18px] text-white/50 group-hover:text-rose-400 transition-colors" />
+                        </div>
+                        {sidebarOpen && <span className="truncate">Cerrar sesión</span>}
                     </button>
 
                     {userRole !== "ADMIN" && userRole !== "SUPERADMIN" && (
@@ -290,17 +332,19 @@ function AccountDeletionButton({ sidebarOpen }: { sidebarOpen: boolean }) {
             <AlertDialogTrigger asChild>
                 <button
                     disabled={isDeleting}
-                    className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-xs font-bold text-white/40 hover:text-rose-400 hover:bg-rose-500/5 transition-all duration-200"
+                    className="group flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-white/40 hover:text-rose-400 hover:bg-rose-500/5 transition-all duration-200"
                 >
-                    {isDeleting ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
-                    ) : (
-                        <Trash2 className="w-4 h-4 flex-shrink-0" />
-                    )}
-                    {sidebarOpen && <span>Baja / Arrepentimiento</span>}
+                    <div className="flex items-center justify-center w-6 h-6 shrink-0">
+                        {isDeleting ? (
+                            <Loader2 className="w-[18px] h-[18px] animate-spin text-rose-500" />
+                        ) : (
+                            <Trash2 className="w-[18px] h-[18px] text-white/30 group-hover:text-rose-400 transition-colors" />
+                        )}
+                    </div>
+                    {sidebarOpen && <span className="truncate">Baja / Arrepentimiento</span>}
                 </button>
             </AlertDialogTrigger>
-            <AlertDialogContent className="dark:bg-[#111116] border-white/10">
+            <AlertDialogContent className="dark:bg-[#09090b] border-white/10 shadow-2xl">
                 <AlertDialogHeader>
                     <AlertDialogTitle className="text-xl font-black text-white flex items-center gap-2">
                         <AlertTriangle className="w-6 h-6 text-rose-500" />
@@ -311,12 +355,12 @@ function AccountDeletionButton({ sidebarOpen }: { sidebarOpen: boolean }) {
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10">
+                    <AlertDialogCancel className="rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white transition-colors">
                         Cancelar
                     </AlertDialogCancel>
                     <AlertDialogAction
                         onClick={handleDelete}
-                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl"
+                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-lg shadow-rose-900/20"
                     >
                         Confirmar Baja
                     </AlertDialogAction>

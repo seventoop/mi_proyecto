@@ -74,7 +74,7 @@ export async function createPayment(input: unknown) {
         }
 
         await prisma.$transaction(async (tx) => {
-            await tx.pago.create({
+            const pago = await tx.pago.create({
                 data: {
                     proyectoId: data.proyectoId,
                     usuarioId: data.usuarioId,
@@ -91,6 +91,22 @@ export async function createPayment(input: unknown) {
             await tx.proyecto.update({
                 where: { id: data.proyectoId },
                 data: { estado: "PENDIENTE_PAGO" }
+            });
+
+            // ─── TAREA 10: Audit Log ───
+            await tx.auditLog.create({
+                data: {
+                    userId: user.id,
+                    action: "CREATE_PAYMENT",
+                    entity: "PAGO",
+                    entityId: pago.id as string,
+                    details: JSON.stringify({
+                        monto: data.monto,
+                        proyectoId: data.proyectoId,
+                        metodo: data.metodo,
+                        tipo: "PROJECT_ACTIVATION"
+                    })
+                }
             });
         });
 

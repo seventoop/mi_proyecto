@@ -258,9 +258,10 @@ const UnitPolygon = memo(function UnitPolygon({
 interface MasterplanViewerProps {
     proyectoId: string;
     modo: "admin" | "public";
+    canEdit?: boolean;
 }
 
-export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerProps) {
+export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: MasterplanViewerProps) {
     const {
         setUnits,
         updateUnitState,
@@ -555,6 +556,7 @@ export default function MasterplanViewer({ proyectoId, modo }: MasterplanViewerP
                     <MasterplanSidePanel
                         unit={selectedUnit}
                         modo={modo}
+                        canEdit={canEdit}
                         onClose={() => setSelectedUnitId(null)}
                     />
                 )}

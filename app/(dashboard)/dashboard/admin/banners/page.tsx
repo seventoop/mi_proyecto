@@ -15,6 +15,8 @@ import {
 } from "@/lib/actions/banners";
 import { BANNER_ESTADOS } from "@/lib/actions/banners-constants";
 import { cn } from "@/lib/utils";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 interface Banner {
     id: string;
@@ -128,36 +130,35 @@ export default function AdminBannersPage() {
     return (
         <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Gestión de Banners</h1>
-                    <p className="text-slate-600 dark:text-slate-400">Aprueba, pausa y administra todos los banners de la plataforma.</p>
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div className="flex-1">
+                    <ModuleHelp content={MODULE_HELP_CONTENT.adminBanners} />
                 </div>
                 <button
                     onClick={() => { setEditingBanner(null); setShowEditor(true); }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-medium shadow-lg shadow-brand-600/20 transition-all"
+                    className="mt-1 flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-[10px] uppercase font-black tracking-widest text-white transition-all shadow-lg shadow-brand-500/20"
                 >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="w-4 h-4" />
                     Nuevo Banner
                 </button>
             </div>
 
             {/* Filters */}
-            <div className="flex items-center gap-3 overflow-x-auto pb-2">
+            <div className="flex gap-2 bg-[#0A0A0C] border border-white/[0.06] p-1.5 rounded-xl w-fit overflow-x-auto">
                 {FILTERS.map((f) => (
                     <button
                         key={f.id}
                         onClick={() => setFilter(f.id)}
                         className={cn(
-                            "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap border flex items-center gap-2",
+                            "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
                             filter === f.id
-                                ? "bg-white dark:bg-slate-800 border-brand-500 text-brand-600 dark:text-brand-400 shadow-sm"
-                                : "bg-transparent border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                                ? "bg-white/[0.06] text-white"
+                                : "text-slate-500 hover:text-white"
                         )}
                     >
                         {f.label}
                         {f.id === BANNER_ESTADOS.PENDING_APPROVAL && pendingCount > 0 && (
-                            <span className="bg-rose-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+                            <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded-md flex items-center justify-center">
                                 {pendingCount}
                             </span>
                         )}
@@ -167,24 +168,24 @@ export default function AdminBannersPage() {
 
             {/* Grid */}
             {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="h-64 rounded-2xl bg-slate-100 dark:bg-slate-800/50 animate-pulse" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="h-64 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />
                     ))}
                 </div>
             ) : filteredBanners.length === 0 ? (
-                <div className="text-center py-20 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-800">
-                    <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <ImageIcon className="w-8 h-8 text-slate-400" />
+                <div className="text-center py-20 bg-[#0A0A0C] border border-white/[0.06] rounded-3xl">
+                    <div className="w-16 h-16 bg-white/[0.02] border border-white/[0.06] rounded-full flex items-center justify-center mx-auto mb-4">
+                        <ImageIcon className="w-8 h-8 text-white/[0.06]" />
                     </div>
-                    <h3 className="text-lg font-medium text-slate-900 dark:text-white">No hay banners en esta categoría</h3>
+                    <h3 className="text-[12px] font-black text-slate-500 uppercase tracking-widest">No hay banners en esta categoría</h3>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredBanners.map((banner) => (
-                        <div key={banner.id} className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-xl transition-all duration-300">
+                        <div key={banner.id} className="bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl group flex flex-col h-full overflow-hidden transition-all shadow-sm">
                             {/* Media Preview */}
-                            <div className="aspect-video relative bg-slate-100 dark:bg-slate-800">
+                            <div className="aspect-video relative bg-white/[0.02]">
                                 {banner.mediaUrl ? (
                                     banner.tipo === "VIDEO" ? (
                                         <video src={banner.mediaUrl} className="w-full h-full object-cover" muted loop />
@@ -197,21 +198,21 @@ export default function AdminBannersPage() {
                                         />
                                     )
                                 ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-slate-400">
+                                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-white/[0.06]">
                                         <ImageIcon className="w-8 h-8" />
-                                        <p className="text-[10px] uppercase font-bold tracking-widest">Sin Media</p>
+                                        <p className="text-[10px] uppercase font-black tracking-widest">Sin Media</p>
                                     </div>
                                 )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                 <div className="absolute bottom-3 left-4 right-4 text-white">
-                                    <h3 className="font-bold truncate text-sm">{banner.internalName || banner.titulo}</h3>
+                                    <h3 className="font-black truncate text-[12px] uppercase tracking-tight">{banner.internalName || banner.titulo}</h3>
                                     {banner.headline && (
-                                        <p className="text-xs text-white/60 truncate">{banner.headline}</p>
+                                        <p className="text-[10px] text-white/60 truncate uppercase tracking-widest">{banner.headline}</p>
                                     )}
                                 </div>
                                 <div className="absolute top-3 right-3">
                                     <span className={cn(
-                                        "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border",
+                                        "px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border-none",
                                         STATE_STYLE[banner.estado] || STATE_STYLE.DRAFT
                                     )}>
                                         {STATE_LABEL[banner.estado] || banner.estado}
@@ -219,15 +220,15 @@ export default function AdminBannersPage() {
                                 </div>
                                 {banner.context && (
                                     <div className="absolute top-3 left-3">
-                                        <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-black/40 text-white/70 uppercase tracking-wider backdrop-blur-sm">
-                                            {banner.context === "PROJECT_LANDING" ? "Proyecto" : "Org"}
+                                        <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-white/[0.06] text-slate-300 uppercase tracking-widest backdrop-blur-sm border-none">
+                                            {banner.context === "PROJECT_LANDING" ? "PROYECTO" : "ORG"}
                                         </span>
                                     </div>
                                 )}
                             </div>
 
                             {/* Actions */}
-                            <div className="p-3 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800">
+                            <div className="p-4 flex items-center justify-between gap-2 border-t border-white/[0.06] mt-auto">
                                 <div className="flex items-center gap-1">
                                     {(banner.estado === BANNER_ESTADOS.PENDING_APPROVAL || 
                                       banner.estado === BANNER_ESTADOS.DRAFT || 
@@ -238,10 +239,10 @@ export default function AdminBannersPage() {
                                                 disabled={!banner.mediaUrl}
                                                 title={banner.estado === BANNER_ESTADOS.PENDING_APPROVAL ? "Aprobar y Publicar" : "Publicar Ahora"}
                                                 className={cn(
-                                                    "p-2 rounded-lg transition-colors",
+                                                    "p-1.5 rounded-lg transition-colors",
                                                     banner.mediaUrl 
-                                                        ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40"
-                                                        : "opacity-30 cursor-not-allowed bg-slate-100 text-slate-400"
+                                                        ? "hover:bg-emerald-500/10 text-emerald-500"
+                                                        : "opacity-30 cursor-not-allowed text-slate-500"
                                                 )}
                                             >
                                                 <CheckCircle className="w-4 h-4" />
@@ -250,7 +251,7 @@ export default function AdminBannersPage() {
                                                 <button
                                                     onClick={() => { setRejectingId(banner.id); setRejectReason(""); }}
                                                     title="Rechazar"
-                                                    className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 rounded-lg transition-colors"
+                                                    className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
                                                 >
                                                     <XCircle className="w-4 h-4" />
                                                 </button>
@@ -261,7 +262,7 @@ export default function AdminBannersPage() {
                                         <button
                                             onClick={() => handlePause(banner.id)}
                                             title="Pausar"
-                                            className="p-2 hover:bg-amber-500/10 text-slate-400 hover:text-amber-500 rounded-lg transition-colors"
+                                            className="p-1.5 hover:bg-amber-500/10 text-slate-400 hover:text-amber-500 rounded-lg transition-colors"
                                         >
                                             <PauseCircle className="w-4 h-4" />
                                         </button>
@@ -270,7 +271,7 @@ export default function AdminBannersPage() {
                                         <button
                                             onClick={() => handlePublish(banner.id)}
                                             title="Republicar"
-                                            className="p-2 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-500 rounded-lg transition-colors"
+                                            className="p-1.5 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-500 rounded-lg transition-colors"
                                         >
                                             <Play className="w-4 h-4" />
                                         </button>
@@ -279,7 +280,7 @@ export default function AdminBannersPage() {
                                         <button
                                             onClick={() => handleArchive(banner.id)}
                                             title="Archivar"
-                                            className="p-2 hover:bg-slate-500/10 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg transition-colors"
+                                            className="p-1.5 hover:bg-slate-500/10 text-slate-400 hover:text-slate-300 rounded-lg transition-colors"
                                         >
                                             <Archive className="w-4 h-4" />
                                         </button>
@@ -290,14 +291,14 @@ export default function AdminBannersPage() {
                                     <button
                                         onClick={() => { setEditingBanner(banner); setShowEditor(true); }}
                                         title="Editar"
-                                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg transition-colors"
+                                        className="p-1.5 hover:bg-white/[0.06] text-slate-400 hover:text-white rounded-lg transition-colors"
                                     >
                                         <Pencil className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(banner.id)}
                                         title="Eliminar"
-                                        className="p-2 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                                        className="p-1.5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -326,9 +327,9 @@ export default function AdminBannersPage() {
             {/* Reject Reason Modal */}
             {rejectingId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 w-full max-w-md shadow-2xl">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Rechazar Banner</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                    <div className="bg-[#0A0A0C] rounded-2xl border border-white/[0.06] ring-1 ring-white/[0.04] p-6 w-full max-w-md shadow-2xl">
+                        <h3 className="text-[14px] font-black uppercase tracking-tight text-slate-900 dark:text-white mb-2">Rechazar Banner</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 font-bold">
                             Opcionalmente indicá el motivo (se notificará al creador).
                         </p>
                         <textarea
@@ -336,18 +337,18 @@ export default function AdminBannersPage() {
                             onChange={(e) => setRejectReason(e.target.value)}
                             placeholder="Motivo del rechazo..."
                             rows={3}
-                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/40 resize-none mb-4"
+                            className="w-full px-4 py-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] text-[12px] font-bold text-slate-300 focus:outline-none focus:ring-2 focus:ring-rose-500/40 resize-none mb-4 placeholder:text-slate-500/50"
                         />
-                        <div className="flex gap-3 justify-end">
+                        <div className="flex gap-3 justify-end mt-4">
                             <button
                                 onClick={() => setRejectingId(null)}
-                                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                className="px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.06] text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-white/[0.04] transition-colors"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleRejectSubmit}
-                                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium transition-colors"
+                                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] uppercase font-black tracking-widest transition-colors shadow-lg shadow-rose-500/20"
                             >
                                 Confirmar Rechazo
                             </button>

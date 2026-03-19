@@ -276,6 +276,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         <MasterplanMap
                             proyectoId={proyecto.id}
                             modo="admin"
+                            canEdit={["ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole)}
                             centerLat={proyecto.mapCenterLat || -33.0943}
                             centerLng={proyecto.mapCenterLng || -60.5475}
                         />
@@ -284,7 +285,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                 {activeTab === "masterplan" && (
                     <ResizableContainer defaultHeight={620} minHeight={420}>
-                        <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
+                        <MasterplanViewer proyectoId={proyecto.id} modo="admin" canEdit={["ADMIN", "SUPERADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole)} />
                     </ResizableContainer>
                 )}
 

@@ -19,38 +19,33 @@ export default function UpgradePrompt({ resource, percentage, className }: Upgra
 
     return (
         <div className={cn(
-            "relative overflow-hidden bg-brand-orange text-white p-4 rounded-2xl shadow-lg border border-white/20 animate-in fade-in slide-in-from-top-4 duration-500",
+            "relative overflow-hidden rounded-xl border border-amber-500/20 bg-amber-500/[0.07] dark:bg-amber-500/[0.05] animate-in fade-in slide-in-from-top-4 duration-300",
             className
         )}>
-            {/* Background patterns */}
-            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-24 h-24 bg-black/10 rounded-full blur-xl" />
-
-            <div className="relative flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4 text-center md:text-left">
-                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md">
-                        <ArrowUpCircle className="w-6 h-6 text-white" />
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-4 py-3.5">
+                <div className="flex items-center gap-3.5 text-center md:text-left">
+                    <div className="p-2 rounded-lg bg-amber-500/15 shrink-0">
+                        <ArrowUpCircle className="w-4 h-4 text-amber-500" />
                     </div>
                     <div>
-                        <h4 className="text-sm font-black uppercase tracking-tighter italic">¡Capacidad al límite!</h4>
-                        <p className="text-xs font-bold opacity-90">
-                            Has usado el <span className="underline decoration-2">{percentage.toFixed(0)}%</span> de tus {resource}.
-                            Actualiza tu plan para seguir creciendo sin límites.
+                        <p className="text-[12px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest leading-none mb-0.5">Capacidad al límite</p>
+                        <p className="text-[11px] font-medium text-amber-600 dark:text-amber-500/80">
+                            Usaste el <span className="font-black">{percentage.toFixed(0)}%</span> de tus {resource}. Actualizá tu plan para seguir creciendo.
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Button asChild className="bg-white text-brand-orange hover:bg-white/90 font-black rounded-xl uppercase italic text-[10px] px-6 py-1 h-8">
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button asChild className="bg-amber-500 hover:bg-amber-600 text-white font-black rounded-lg text-[10px] uppercase tracking-wider px-4 py-1 h-7 shadow-sm shadow-amber-500/20">
                         <Link href="/dashboard/developer/planes">
                             Mejorar Plan
                         </Link>
                     </Button>
                     <button
                         onClick={() => setIsVisible(false)}
-                        className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors text-amber-500/60 hover:text-amber-500"
                     >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                     </button>
                 </div>
             </div>

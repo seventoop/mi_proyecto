@@ -61,6 +61,7 @@ function polygonAreaM2(coords: [number, number][]): number {
 interface InfraestructuraToolProps {
   proyectoId: string;
   map: any; // Leaflet map instance (passed when ready)
+  canEdit: boolean;
 }
 
 // ─── Default form state ───────────────────────────────────────────────────────
@@ -77,7 +78,7 @@ const DEFAULT_FORM = {
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function InfraestructuraTool({ proyectoId, map }: InfraestructuraToolProps) {
+export default function InfraestructuraTool({ proyectoId, map, canEdit }: InfraestructuraToolProps) {
   // Panel open/close
   const [isOpen, setIsOpen] = useState(false);
   // Drawing mode
@@ -500,7 +501,7 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                {!showForm && !drawingMode && (
+                {canEdit && !showForm && !drawingMode && (
                   <button
                     onClick={() => { setShowForm(true); setEditingId(null); setDrawingPoints([]); setForm({ ...DEFAULT_FORM }); setSelectedId(null); }}
                     className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-bold rounded-lg transition-colors"
@@ -521,7 +522,7 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
             <div className="flex-1 overflow-y-auto">
 
               {/* ─── Drawing mode active ─── */}
-              {drawingMode && (
+              {canEdit && drawingMode && (
                 <div className="m-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
@@ -558,7 +559,7 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
               )}
 
               {/* ─── Create/Edit Form ─── */}
-              {showForm && !drawingMode && (
+              {canEdit && showForm && !drawingMode && (
                 <div className="p-3 space-y-3">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="flex-1">
@@ -830,6 +831,7 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
                   )}
 
                   {/* Estado selector */}
+                  {canEdit && (
                   <div>
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Cambiar estado</p>
                     <div className="flex flex-wrap gap-1">
@@ -863,7 +865,9 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
                       ))}
                     </div>
                   </div>
+                  )}
 
+                  {canEdit && (
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleEdit(selectedItem)}
@@ -885,6 +889,7 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                  )}
                 </div>
               )}
 
@@ -969,12 +974,14 @@ export default function InfraestructuraTool({ proyectoId, map }: Infraestructura
                                     </span>
                                   </div>
                                 </div>
+                                {canEdit && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); toggleVisibility(item); }}
                                   className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-700 rounded-lg text-slate-400 transition-all"
                                 >
                                   {item.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-slate-600" />}
                                 </button>
+                                )}
                               </div>
                             );
                           })}

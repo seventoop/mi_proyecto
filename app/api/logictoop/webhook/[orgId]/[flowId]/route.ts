@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleExternalWebhook } from "@/lib/logictoop/webhooks/webhookRouter";
+import { checkRateLimit, getClientIp, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
+import { handleApiGuardError } from "@/lib/guards";
 
 /**
  * PUBLIC LogicToop Webhook Endpoint
@@ -11,6 +13,12 @@ export async function POST(
 ) {
     // @security-waive: PUBLIC - Secured by x-logictoop-secret
     try {
+        const ip = getClientIp(req);
+        const { allowed } = await checkRateLimit(ip, RATE_LIMIT_POLICIES.WEBHOOK);
+        if (!allowed) {
+            return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 });
+        }
+
         const { orgId, flowId } = params;
         const secret = req.headers.get("x-logictoop-secret") || "";
         const payload = await req.json().catch(() => ({}));
@@ -27,7 +35,6 @@ export async function POST(
             message: "Flow disparado correctamente" 
         });
     } catch (error: any) {
-        console.error("[LogicToop Webhook API] Error:", error.message);
-        return NextResponse.json({ error: error.message }, { status: 403 });
+        return handleApiGuardError(error);
     }
 }

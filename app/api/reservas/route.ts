@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
-import { requireAuth, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, requireAnyRole, handleApiGuardError } from "@/lib/guards";
 
 // ─── GET /api/reservas — List with filters ───
 export async function GET(req: NextRequest) {
@@ -17,8 +17,8 @@ export async function GET(req: NextRequest) {
 
         const where: any = {};
 
-        // Authorization: Admin sees all, others see their own or their project's
-        if (user.role !== "ADMIN") {
+        // Authorization: Admin/Superadmin sees all, others see their own or their project's
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
             where.OR = [
                 { vendedorId: user.id },
                 { unidad: { manzana: { etapa: { proyecto: { creadoPorId: user.id } } } } }
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/reservas — Create new reservation ───
 export async function POST(req: NextRequest) {
     try {
-        const user = await requireAuth();
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "VENDEDOR", "DESARROLLADOR"]);
         const body = await req.json();
         const { unidadId, leadId, plazo, montoSena } = body;
 
@@ -105,40 +105,58 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "unidadId y leadId son requeridos" }, { status: 400 });
         }
 
-        // 1. Check unit availability
-        const unidad = await prisma.unidad.findUnique({
-            where: { id: unidadId },
-        });
-
-        if (!unidad) {
-            return NextResponse.json({ error: "Unidad no encontrada" }, { status: 404 });
-        }
-        if (unidad.estado !== "DISPONIBLE") {
-            return NextResponse.json(
-                { error: `La unidad no está disponible (estado actual: ${unidad.estado})` },
-                { status: 409 }
-            );
-        }
-
-        // 2. Calculate deadline
+        // 1. Calculate deadline pre-transaction
         const now = new Date();
         const plazoHoras = plazo === "24hs" ? 24 : plazo === "48hs" ? 48 : plazo === "72hs" ? 72 : parseInt(plazo) || 48;
         const fechaVencimiento = new Date(now.getTime() + plazoHoras * 60 * 60 * 1000);
 
-        // 3. Transaction: create reserva with PENDING status
+        // 2. Transaction: validate and create
         const reserva = await prisma.$transaction(async (tx) => {
-            // Double-check availability inside transaction
-            const unitCheck = await tx.unidad.findUnique({ where: { id: unidadId } });
-            if (unitCheck?.estado !== "DISPONIBLE") {
-                throw new Error("CONFLICT: Unidad ya no está disponible");
+            // Check unit availability + tenant boundary
+            const unidad = await tx.unidad.findUnique({
+                where: { id: unidadId },
+                include: {
+                    manzana: {
+                        select: { etapa: { select: { proyecto: { select: { orgId: true } } } } },
+                    },
+                },
+            });
+
+            if (!unidad) {
+                throw new Error("NOT_FOUND: Unidad no encontrada");
             }
 
-            // Create reserva in PENDING_APROBACION
+            // Fail-secure tenant check
+            if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+                const unitOrgId = unidad.manzana?.etapa?.proyecto?.orgId ?? null;
+                if (!user.orgId || !unitOrgId || unitOrgId !== user.orgId) {
+                    throw new Error("NOT_FOUND: Unidad no encontrada");
+                }
+
+                // Lead must belong to same org
+                const lead = await tx.lead.findUnique({
+                    where: { id: leadId },
+                    select: { orgId: true },
+                });
+                if (!lead) {
+                    throw new Error("NOT_FOUND: Lead no encontrado");
+                }
+                if (lead.orgId && user.orgId && lead.orgId !== user.orgId) {
+                    throw new Error("NOT_FOUND: Lead no encontrado");
+                }
+            }
+
+            // Status check (fresh data from transaction)
+            if (unidad.estado !== "DISPONIBLE") {
+                throw new Error(`CONFLICT: La unidad no está disponible (estado actual: ${unidad.estado})`);
+            }
+
+            // Create reserva
             return tx.reserva.create({
                 data: {
                     unidadId,
                     leadId,
-                    vendedorId: user.id, // Derived from session
+                    vendedorId: user.id,
                     fechaVencimiento,
                     montoSena: montoSena ? parseFloat(montoSena) : null,
                     estadoPago: "PENDIENTE",
@@ -165,8 +183,11 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(reserva, { status: 201 });
     } catch (error: any) {
+        if (error.message?.includes("NOT_FOUND")) {
+            return NextResponse.json({ error: error.message.split(": ")[1] }, { status: 404 });
+        }
         if (error.message?.includes("CONFLICT")) {
-            return NextResponse.json({ error: "La unidad ya no está disponible" }, { status: 409 });
+            return NextResponse.json({ error: error.message.split(": ")[1] || "La unidad ya no está disponible" }, { status: 409 });
         }
         return handleApiGuardError(error);
     }

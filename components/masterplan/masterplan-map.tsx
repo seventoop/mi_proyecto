@@ -52,6 +52,7 @@ export interface Tour360Marker {
 interface MasterplanMapProps {
     proyectoId: string;
     modo: "admin" | "public";
+    canEdit?: boolean;
     initialUnits?: MasterplanUnit[];
     overlayImageUrl?: string;
     centerLat?: number;
@@ -63,6 +64,7 @@ interface MasterplanMapProps {
 export default function MasterplanMap({
     proyectoId,
     modo,
+    canEdit = false,
     initialUnits = [],
     overlayImageUrl,
     centerLat = -34.6037,
@@ -871,6 +873,7 @@ export default function MasterplanMap({
                             <InfraestructuraTool
                                 proyectoId={proyectoId}
                                 map={leafletMapRef.current}
+                                canEdit={canEdit}
                             />
                         )}
 
@@ -884,6 +887,7 @@ export default function MasterplanMap({
                                 overlayBounds={overlayConfig?.bounds ?? null}
                                 overlayRotation={overlayConfig?.rotation ?? 0}
                                 svgViewBox={svgViewBox}
+                                canEdit={canEdit}
                             />
                         )}
                     </div>
@@ -1025,6 +1029,7 @@ export default function MasterplanMap({
                         <MasterplanSidePanel
                             unit={selectedUnit}
                             modo={modo}
+                            canEdit={canEdit}
                             onClose={() => setSelectedUnitId(null)}
                         />
                     )}

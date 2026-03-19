@@ -12,7 +12,7 @@ export default async function DashboardPage() {
     } else if (userRole === "VENDEDOR" || userRole === "DESARROLLADOR") {
         redirect("/dashboard/developer");
     } else if (userRole === "INVERSOR") {
-        redirect("/dashboard/inversor");
+        redirect("/dashboard/portafolio");
     } else if (userRole === "CLIENTE") {
         redirect("/dashboard/cliente");
     }

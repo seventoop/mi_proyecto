@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { requireOrgAccess, handleGuardError } from "@/lib/guards";
 
 /**
  * Fetches all available LogicToop templates.
@@ -25,6 +26,9 @@ import { checkOrgLimits } from "@/lib/logictoop/governance";
  */
 export async function installTemplate(templateId: string, orgId: string) {
     try {
+        // Verify the calling user belongs to the target org (or is ADMIN/SUPERADMIN)
+        await requireOrgAccess(orgId);
+
         const limitCheck = await checkOrgLimits(orgId, "INSTALL_TEMPLATE");
         if (!limitCheck.allowed) throw new Error(limitCheck.reason);
 
@@ -50,8 +54,7 @@ export async function installTemplate(templateId: string, orgId: string) {
 
         return { success: true, flowId: newFlow.id };
     } catch (error: any) {
-        console.error("Error installing template:", error);
-        return { success: false, error: error.message };
+        return handleGuardError(error);
     }
 }
 

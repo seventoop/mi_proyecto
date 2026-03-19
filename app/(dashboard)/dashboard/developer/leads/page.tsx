@@ -3,8 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import LeadsView from "@/components/dashboard/leads/leads-view";
+import EmptyOrgState from "@/components/dashboard/empty-org-state";
 import { getOrgPlanWithUsage } from "@/lib/actions/plan-actions";
 import { getPipelineEtapas } from "@/lib/actions/crm-actions";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function LeadsPage() {
     const session = await getServerSession(authOptions);
@@ -30,7 +33,7 @@ export default async function LeadsPage() {
     }
 
     if (!orgId) {
-        redirect("/dashboard/developer");
+        return <EmptyOrgState moduleName="Leads" />;
     }
 
     const LEADS_LIMIT = 100;
@@ -65,7 +68,9 @@ export default async function LeadsPage() {
     const etapas = etapasRes.success ? etapasRes.data : [];
 
     return (
-        <div className="h-[calc(100vh-100px)] p-6 animate-fade-in">
+        <div className="h-[calc(100vh-100px)] p-6 animate-fade-in flex flex-col">
+            <ModuleHelp content={MODULE_HELP_CONTENT.leads} />
+
             {hasMoreLeads && (
                 <div className="mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
                     Mostrando los {LEADS_LIMIT} leads más recientes de {totalLeadsCount} total. Usa los filtros para encontrar leads específicos.

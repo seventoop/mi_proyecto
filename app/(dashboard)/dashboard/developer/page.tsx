@@ -44,7 +44,7 @@ export default async function DeveloperDashboard() {
     const stats = [
         { label: "Leads este mes", value: global.leadsThisMonth, icon: TrendingUp, color: "text-emerald-500", href: "/dashboard/developer/leads" },
         { label: "Reservas activas", value: global.reservasActivas, icon: AlertCircle, color: "text-amber-500", href: "/dashboard/developer/reservas" },
-        { label: "Conversión", value: `${global.conversionRate}%`, icon: FileText, color: "text-violet-500", href: "/dashboard/developer/crm/metricas" },
+        { label: "Conversión", value: `${global.conversionRate}%`, icon: FileText, color: "text-violet-500", href: "/dashboard/crm/metricas" },
         { label: "Ingreso mes", value: `$${global.revenueThisMonth.toLocaleString()}`, icon: DollarSign, color: "text-brand-500", href: "/dashboard/developer/reservas" },
     ];
 
@@ -85,94 +85,86 @@ export default async function DeveloperDashboard() {
     const demoEndsAtValue = user?.demoEndsAt;
 
     return (
-        <div className="space-y-8 pb-12 animate-fade-in">
+        <div className="space-y-6 pb-12 animate-fade-in">
+            {/* KYC / Demo Status Banner */}
             <KycDemoStatusCard
                 kycStatus={(user?.kycStatus as any) || "PENDIENTE"}
                 demoEndsAt={user?.demoEndsAt || null}
                 demoUsed={user?.demoUsed || false}
             />
 
+            {/* Upgrade Banner (usage limit alert) */}
             {showUpgrade && planData && (
-                <div className="mb-8">
-                    <UpgradePrompt
-                        resource={leadsPerc >= 90 ? "leads" : "proyectos"}
-                        percentage={Math.max(leadsPerc, projectsPerc)}
-                    />
-                </div>
+                <UpgradePrompt
+                    resource={leadsPerc >= 90 ? "leads" : "proyectos"}
+                    percentage={Math.max(leadsPerc, projectsPerc)}
+                />
             )}
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+
+            {/* Hero Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                 <div>
-                    <h1 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic">
-                        Terminal <span className="text-brand-500 underline decoration-4">Desarrollador</span>
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-zinc-100 tracking-tight">
+                        Dashboard
                     </h1>
-                    <div className="text-slate-900 dark:text-slate-400 mt-2 font-bold flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            Sincronizado con Central de Operaciones
-                        </div>
+                    <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                        <span className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500 dark:text-white/50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Sincronizado
+                        </span>
                         <RiskBadge level={user?.riskLevel || "medium"} />
                         {user?.developerVerified && (
-                            <span className="flex items-center gap-1 px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full text-xs font-bold border border-emerald-500/20">
+                            <span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full text-[11px] font-bold border border-emerald-500/20">
                                 <CheckCircle className="w-3 h-3" />
-                                Desarrollador Verificado
+                                Verificado
                             </span>
                         )}
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="px-4 py-2 bg-slate-100 dark:bg-white/5 rounded-xl border border-white/5 flex flex-col items-center">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Operativo</span>
-                        <span className="text-xs font-black text-slate-900 dark:text-white tracking-widest">{userId?.slice(0, 8) ?? "—"}</span>
-                    </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-white/[0.04] rounded-lg border border-slate-200 dark:border-white/[0.06] shadow-sm dark:shadow-none">
+                    <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">ID</span>
+                    <span className="text-[12px] font-black text-slate-900 dark:text-white/80 tracking-widest font-mono">{userId?.slice(0, 8) ?? "—"}</span>
                 </div>
             </div>
 
-            {/* Stats Grid & Financial Panel */}
-            <div className="space-y-8">
-                {/* Visual Stats Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {stats.map((stat) => (
-                        <Link key={stat.label} href={stat.href} className="block group">
-                            <div className="glass-card p-4 transition-all duration-200 group-hover:bg-white/5 group-hover:border-brand-500/30">
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg bg-white/5 ${stat.color} group-hover:bg-white/10 transition-colors`}>
-                                        <stat.icon className="w-5 h-5" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between items-end">
-                                            <div>
-                                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
-                                                <p className="text-xs text-slate-900 dark:text-slate-400 font-bold group-hover:text-brand-400 transition-colors uppercase tracking-tight">{stat.label}</p>
-                                            </div>
-                                        </div>
-                                        {planData && stat.label === "Leads este mes" && (
-                                            <div className="mt-3">
-                                                <UsageMeter
-                                                    label="Cupo Plan"
-                                                    resource="leads"
-                                                    current={planData.usage.leads.current}
-                                                    limit={planData.usage.leads.limit}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
+            {/* KPI Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {stats.map((stat) => (
+                    <Link key={stat.label} href={stat.href} className="block group">
+                        <div className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] hover:shadow-md dark:hover:shadow-none">
+                            <div className="flex items-start justify-between mb-3">
+                                <p className="text-[10px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">{stat.label}</p>
+                                <div className={`p-1.5 rounded-lg bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.08] ${stat.color}`}>
+                                    <stat.icon className="w-3.5 h-3.5" />
                                 </div>
                             </div>
-                        </Link>
-                    ))}
-                </div>
-
-                {/* Professional Financial Module */}
-                <DeveloperFinancialPanel
-                    global={global}
-                    projectStats={projectStats}
-                    kycStatus={user?.kycStatus || "PENDIENTE"}
-                />
+                            <p className="text-3xl font-black text-slate-900 dark:text-zinc-100 tracking-tighter leading-none">
+                                {stat.value}
+                            </p>
+                            {planData && stat.label === "Leads este mes" && (
+                                <div className="mt-3">
+                                    <UsageMeter
+                                        label="Cupo Plan"
+                                        resource="leads"
+                                        current={planData.usage.leads.current}
+                                        limit={planData.usage.leads.limit}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </Link>
+                ))}
             </div>
 
-            {/* Middle Section: Activity & Actions */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Financial Panel */}
+            <DeveloperFinancialPanel
+                global={global}
+                projectStats={projectStats}
+                kycStatus={user?.kycStatus || "PENDIENTE"}
+            />
+
+            {/* Bottom Row: Activity Feed + Quick Access */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2">
                     <ActivityCenter
                         userRole="VENDEDOR"
@@ -180,49 +172,52 @@ export default async function DeveloperDashboard() {
                     />
                 </div>
 
-                {/* Quick Actions Specialized */}
-                <div className="space-y-4">
-                    <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Terminal de Acceso</h2>
-                    <div className="grid grid-cols-1 gap-3">
-                        <Link href="/dashboard/developer/proyectos" className="group glass-card p-4 hover:border-brand-500/40 transition-all flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-brand-500/10 rounded-xl text-brand-500 group-hover:bg-brand-500 transition-colors group-hover:text-white">
-                                    <Building2 className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-slate-900 dark:text-white">Mis Proyectos</h3>
-                                    <p className="text-[10px] text-slate-500 font-bold">Gestión técnica y comercial</p>
-                                </div>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </Link>
+                {/* Quick Access Panel */}
+                <div className="space-y-2">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest px-1 mb-3">Acceso Rápido</p>
+                    <Link href="/dashboard/developer/proyectos" className="group flex items-center gap-3 py-3 px-4 rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+                        <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500 group-hover:bg-brand-500 group-hover:text-white transition-all duration-200">
+                            <Building2 className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-bold text-slate-900 dark:text-zinc-100 leading-none mb-0.5">Mis Proyectos</p>
+                            <p className="text-[11px] text-slate-500 dark:text-white/40 font-medium">Gestión técnica y comercial</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-white/20 group-hover:text-brand-400 group-hover:translate-x-0.5 transition-all" />
+                    </Link>
 
-                        <Link href="/dashboard/developer/leads" className="group glass-card p-4 hover:border-emerald-500/40 transition-all flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500 group-hover:bg-emerald-500 transition-colors group-hover:text-white">
-                                    <TrendingUp className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-slate-900 dark:text-white">Conversiones</h3>
-                                    <p className="text-[10px] text-slate-500 font-bold">Monitor de leads calificados</p>
-                                </div>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </Link>
+                    <Link href="/dashboard/developer/leads" className="group flex items-center gap-3 py-3 px-4 rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+                        <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200">
+                            <TrendingUp className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-bold text-slate-900 dark:text-zinc-100 leading-none mb-0.5">Leads</p>
+                            <p className="text-[11px] text-slate-500 dark:text-white/40 font-medium">Monitor de contactos calificados</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-white/20 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
+                    </Link>
 
-                        <Link href="/dashboard/developer/mi-perfil/kyc" className="group glass-card p-4 hover:border-amber-500/40 transition-all flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-amber-500/10 rounded-xl text-amber-500 group-hover:bg-amber-500 transition-colors group-hover:text-white">
-                                    <AlertCircle className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-slate-900 dark:text-white">Perfil KYC</h3>
-                                    <p className="text-[10px] text-slate-500 font-bold">Cumplimiento regulatorio</p>
-                                </div>
-                            </div>
-                            <span className="text-[9px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">{user?.kycStatus}</span>
-                        </Link>
-                    </div>
+                    <Link href="/dashboard/developer/reservas" className="group flex items-center gap-3 py-3 px-4 rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+                        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-all duration-200">
+                            <FileText className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-bold text-slate-900 dark:text-zinc-100 leading-none mb-0.5">Reservas</p>
+                            <p className="text-[11px] text-slate-500 dark:text-white/40 font-medium">Control de unidades reservadas</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-white/20 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
+                    </Link>
+
+                    <Link href="/dashboard/developer/mi-perfil/kyc" className="group flex items-center gap-3 py-3 px-4 rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+                        <div className="p-2 rounded-lg bg-violet-500/10 text-violet-500 group-hover:bg-violet-500 group-hover:text-white transition-all duration-200">
+                            <AlertCircle className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-bold text-slate-900 dark:text-zinc-100 leading-none mb-0.5">KYC</p>
+                            <p className="text-[11px] text-slate-500 dark:text-white/40 font-medium">Estado: <span className="font-bold text-amber-500">{user?.kycStatus || "PENDIENTE"}</span></p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-white/20 group-hover:text-violet-400 group-hover:translate-x-0.5 transition-all" />
+                    </Link>
                 </div>
             </div>
         </div>

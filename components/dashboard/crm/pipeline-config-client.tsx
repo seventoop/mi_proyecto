@@ -223,15 +223,8 @@ export default function PipelineConfigClient({ orgId, initialEtapas }: { orgId: 
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-white flex items-center gap-3">
-                        <Settings2 className="w-8 h-8 text-brand-orange" />
-                        Configuración de Pipeline
-                    </h1>
-                    <p className="text-slate-400 mt-1">Personaliza las etapas de tu embudo de ventas</p>
-                </div>
+        <div className="space-y-6">
+            <div className="flex justify-end items-center">
                 <Button onClick={() => setIsAdding(true)} className="gradient-brand shadow-glow hover:shadow-glow-lg text-white font-bold gap-2">
                     <Plus className="w-4 h-4" /> Nueva Etapa
                 </Button>

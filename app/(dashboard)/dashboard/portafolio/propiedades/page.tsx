@@ -6,6 +6,8 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { Home, MapPin, ChevronRight, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function PortafolioPropiedadesPage() {
     const session = await getServerSession(authOptions);
@@ -33,10 +35,11 @@ export default async function PortafolioPropiedadesPage() {
     const reservadas = misUnidades.filter(u => u.estado === "RESERVADA").length;
 
     return (
-        <div className="p-8 space-y-8 max-w-7xl mx-auto">
-            <div>
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">Mis Propiedades</h1>
-                <p className="text-slate-500 dark:text-slate-400">Todas tus unidades adquiridas y reservadas</p>
+        <div className="p-6 max-w-7xl mx-auto space-y-8 animate-fade-in">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div className="flex-1">
+                    <ModuleHelp content={MODULE_HELP_CONTENT.investorPropiedades} />
+                </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -46,15 +49,15 @@ export default async function PortafolioPropiedadesPage() {
                     { label: "Reservadas", value: reservadas },
                     { label: "Inversión Total", value: formatCurrency(totalInversion) },
                 ].map(({ label, value }) => (
-                    <div key={label} className="glass-card p-5">
-                        <p className="text-2xl font-bold text-brand-500">{value}</p>
+                    <div key={label} className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5">
+                        <p className="text-2xl font-semibold text-brand-500">{value}</p>
                         <p className="text-sm text-slate-500 mt-1">{label}</p>
                     </div>
                 ))}
             </div>
 
             {misUnidades.length === 0 ? (
-                <div className="glass-card p-16 text-center border-dashed">
+                <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-16 text-center border-dashed">
                     <Package className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                     <h3 className="text-lg font-bold text-slate-700 dark:text-white mb-2">Sin propiedades aún</h3>
                     <p className="text-slate-500 mb-4">Explorá el marketplace para encontrar tu próxima oportunidad.</p>
@@ -70,7 +73,7 @@ export default async function PortafolioPropiedadesPage() {
                             <Link
                                 key={unidad.id}
                                 href={`/dashboard/portafolio/propiedades/${unidad.id}`}
-                                className="glass-card p-6 group hover:border-brand-500/50 transition-all"
+                                className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6 group hover:border-white/[0.12] hover:bg-white/[0.02] transition-colors ease-[cubic-bezier(0.16,1,0.3,1)] duration-300"
                             >
                                 <div className="flex items-start justify-between mb-4">
                                     <div>

@@ -19,14 +19,26 @@ const createTourSchema = z.object({
 
 export async function GET(request: Request) {
     try {
-        await requireAuth();
+        const user = await requireAuth();
 
         const { searchParams } = new URL(request.url);
         const proyectoId = searchParams.get("proyectoId");
         const unidadId = searchParams.get("unidadId");
 
         const where: any = {};
-        if (proyectoId) where.proyectoId = proyectoId;
+        
+        // Security: If specific project is requested, check ownership
+        if (proyectoId) {
+            await requireProjectOwnership(proyectoId);
+            where.proyectoId = proyectoId;
+        } else {
+            // If listing all, filter by user's organization unless ADMIN/SUPERADMIN
+            const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+            if (!isAdmin) {
+                where.proyecto = { orgId: user.orgId ?? "___NO_ORG___" };
+            }
+        }
+
         if (unidadId) where.unidadId = unidadId;
 
         const tours = await db.tour360.findMany({

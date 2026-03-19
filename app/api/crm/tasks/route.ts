@@ -21,6 +21,29 @@ export async function POST(request: Request) {
 
         const { titulo, descripcion, fechaVencimiento, prioridad, leadId, proyectoId } = validation.data;
 
+        // A2: Validate tenant isolation for project and lead
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            if (proyectoId) {
+                const proyecto = await db.proyecto.findUnique({
+                    where: { id: proyectoId },
+                    select: { orgId: true },
+                });
+                if (!proyecto || !user.orgId || proyecto.orgId !== user.orgId) {
+                    return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+                }
+            }
+
+            if (leadId) {
+                const lead = await db.lead.findUnique({
+                    where: { id: leadId },
+                    select: { orgId: true },
+                });
+                if (!lead || !user.orgId || lead.orgId !== user.orgId) {
+                    return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
+                }
+            }
+        }
+
         // Create Task assigned to current user
         const task = await db.tarea.create({
             data: {
@@ -31,6 +54,7 @@ export async function POST(request: Request) {
                 usuarioId: user.id,
                 leadId: leadId || null,
                 proyectoId: proyectoId || null,
+                estado: "PENDIENTE"
             },
         });
 

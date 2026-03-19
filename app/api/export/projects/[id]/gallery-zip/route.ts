@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
 import archiver from "archiver";
 import { PassThrough } from "stream";
 
@@ -10,27 +9,18 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return new NextResponse("Unauthorized", { status: 401 });
-        }
+        await requireProjectOwnership(params.id);
 
         const projectId = params.id;
-        const user = session.user as any;
 
-        // Verify project existence and ownership
+        // Verify project existence
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: projectId },
-            select: { id: true, nombre: true, creadoPorId: true }
+            select: { id: true, nombre: true }
         });
 
         if (!proyecto) {
-            return new NextResponse("Project not found", { status: 404 });
-        }
-
-        // Security check: Admin or Owner
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
-            return new NextResponse("Forbidden", { status: 403 });
+            return new NextResponse("Proyecto no encontrado", { status: 404 });
         }
 
         // Fetch all images
@@ -88,7 +78,6 @@ export async function GET(
         });
 
     } catch (error) {
-        console.error("[GALLERY_ZIP_EXPORT]", error);
-        return new NextResponse("Internal Server Error", { status: 500 });
+        return handleApiGuardError(error);
     }
 }

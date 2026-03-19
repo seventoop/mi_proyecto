@@ -2,11 +2,11 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { idSchema, currencySchema } from "@/lib/validations";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
+import { audit } from "@/lib/actions/audit";
 
 // ─── Schemas ───
 
@@ -174,9 +174,7 @@ export async function getProjectBlueprintData(proyectoId: string) {
 
 export async function createUnidad(input: unknown) {
     try {
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const parsed = unidadCreateSchema.safeParse(input);
         if (!parsed.success) {
@@ -188,7 +186,7 @@ export async function createUnidad(input: unknown) {
             where: { id: data.manzanaId },
             include: {
                 etapa: {
-                    include: { proyecto: { select: { creadoPorId: true } } }
+                    select: { proyectoId: true }
                 }
             }
         });
@@ -197,10 +195,8 @@ export async function createUnidad(input: unknown) {
             return { success: false, error: "Manzana no encontrada" };
         }
 
-        // SECURITY CHECK
-        if (user.role !== "ADMIN" && manzana.etapa.proyecto.creadoPorId !== user.id) {
-            return { success: false, error: "No tienes permisos para crear unidades en este proyecto" };
-        }
+        // SECURITY CHECK - Official Guard
+        await requireProjectOwnership(manzana.etapa.proyectoId);
 
         const unidad = await prisma.unidad.create({
             data: {
@@ -210,11 +206,19 @@ export async function createUnidad(input: unknown) {
             }
         });
 
+        await audit({
+            userId: user.id,
+            action: "UNIT_CREATE",
+            entity: "Unidad",
+            entityId: unidad.id,
+            details: { manzanaId: data.manzanaId, numero: data.numero, estado: unidad.estado },
+        });
+
         revalidatePath(`/dashboard/proyectos/${manzana.etapa.proyectoId}`);
         return { success: true, data: unidad };
     } catch (error) {
         console.error("Error creating unidad:", error);
-        return { success: false, error: "Error al crear unidad" };
+        return handleGuardError(error);
     }
 }
 
@@ -243,9 +247,7 @@ export async function updateUnidad(id: string, input: unknown) {
         const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
 
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const parsed = unidadUpdateSchema.safeParse(input);
         if (!parsed.success) {
@@ -257,9 +259,9 @@ export async function updateUnidad(id: string, input: unknown) {
             where: { id },
             include: {
                 manzana: {
-                    include: {
+                    select: {
                         etapa: {
-                            include: { proyecto: { select: { creadoPorId: true } } }
+                            select: { proyectoId: true }
                         }
                     }
                 }
@@ -268,21 +270,27 @@ export async function updateUnidad(id: string, input: unknown) {
 
         if (!unidad) return { success: false, error: "Unidad no encontrada" };
 
-        // SECURITY CHECK
-        if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        // SECURITY CHECK - Official Guard
+        await requireProjectOwnership(unidad.manzana.etapa.proyectoId);
 
         const updated = await prisma.unidad.update({
             where: { id },
             data,
         });
 
+        await audit({
+            userId: user.id,
+            action: "UNIT_UPDATE",
+            entity: "Unidad",
+            entityId: id,
+            details: { campos: Object.keys(data) },
+        });
+
         revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
         return { success: true, data: updated };
     } catch (error) {
         console.error("Error updating unidad:", error);
-        return { success: false, error: "Error al actualizar unidad" };
+        return handleGuardError(error);
     }
 }
 
@@ -291,17 +299,15 @@ export async function deleteUnidad(id: string) {
         const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
 
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const unidad = await prisma.unidad.findUnique({
             where: { id },
             include: {
                 manzana: {
-                    include: {
+                    select: {
                         etapa: {
-                            include: { proyecto: { select: { creadoPorId: true } } }
+                            select: { proyectoId: true }
                         }
                     }
                 }
@@ -312,37 +318,46 @@ export async function deleteUnidad(id: string) {
             return { success: false, error: "Unidad no encontrada" };
         }
 
-        // SECURITY CHECK
-        if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        // SECURITY CHECK - Official Guard
+        await requireProjectOwnership(unidad.manzana.etapa.proyectoId);
 
         await prisma.unidad.delete({ where: { id } });
+
+        await audit({
+            userId: user.id,
+            action: "UNIT_DELETE",
+            entity: "Unidad",
+            entityId: id,
+            details: { proyectoId: unidad.manzana.etapa.proyectoId },
+        });
 
         revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
         return { success: true };
     } catch (error) {
         console.error("Error deleting unidad:", error);
-        return { success: false, error: "Error al eliminar unidad" };
+        return handleGuardError(error);
     }
 }
+
+const unidadEstadoSchema = z.string().min(1, "Estado requerido").max(50);
 
 export async function updateUnidadEstado(id: string, estado: string) {
     try {
         const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) return { success: false, error: "ID de unidad inválido" };
 
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const estadoParsed = unidadEstadoSchema.safeParse(estado);
+        if (!estadoParsed.success) return { success: false, error: "Estado inválido" };
+
+        const user = await requireAuth();
 
         const unidad = await prisma.unidad.findUnique({
             where: { id },
             include: {
                 manzana: {
-                    include: {
+                    select: {
                         etapa: {
-                            include: { proyecto: { select: { creadoPorId: true } } }
+                            select: { proyectoId: true }
                         }
                     }
                 }
@@ -351,10 +366,8 @@ export async function updateUnidadEstado(id: string, estado: string) {
 
         if (!unidad) return { success: false, error: "Unidad no encontrada" };
 
-        // SECURITY CHECK
-        if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        // SECURITY CHECK - Official Guard
+        await requireProjectOwnership(unidad.manzana.etapa.proyectoId);
 
         const updated = await prisma.unidad.update({
             where: { id },
@@ -371,11 +384,19 @@ export async function updateUnidadEstado(id: string, estado: string) {
             });
         }
 
+        await audit({
+            userId: user.id,
+            action: "UNIT_STATUS_CHANGED",
+            entity: "Unidad",
+            entityId: id,
+            details: { estadoAnterior: unidad.estado, estadoNuevo: estado },
+        });
+
         revalidatePath(`/dashboard/proyectos/${unidad.manzana.etapa.proyectoId}`);
         return { success: true, data: updated };
     } catch (error) {
         console.error("Error updating unidad estado:", error);
-        return { success: false, error: "Error al actualizar estado" };
+        return handleGuardError(error);
     }
 }
 
@@ -387,17 +408,15 @@ export async function assignResponsable(unidadId: string, userId: string) {
         const userIdParsed = idSchema.safeParse(userId);
         if (!userIdParsed.success) return { success: false, error: "ID de usuario inválido" };
 
-        const session = await getServerSession(authOptions);
-        const user = session?.user;
-        if (!user) return { success: false, error: "No autorizado" };
+        const user = await requireAuth();
 
         const unidad = await prisma.unidad.findUnique({
             where: { id: unidadId },
             include: {
                 manzana: {
-                    include: {
+                    select: {
                         etapa: {
-                            include: { proyecto: { select: { creadoPorId: true } } }
+                            select: { proyectoId: true }
                         }
                     }
                 }
@@ -406,10 +425,8 @@ export async function assignResponsable(unidadId: string, userId: string) {
 
         if (!unidad) return { success: false, error: "Unidad no encontrada" };
 
-        // SECURITY CHECK
-        if (user.role !== "ADMIN" && unidad.manzana.etapa.proyecto.creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        // SECURITY CHECK - Official Guard
+        await requireProjectOwnership(unidad.manzana.etapa.proyectoId);
 
         const updated = await prisma.unidad.update({
             where: { id: unidadId },
@@ -420,6 +437,6 @@ export async function assignResponsable(unidadId: string, userId: string) {
         return { success: true, data: updated };
     } catch (error) {
         console.error("Error assigning responsable:", error);
-        return { success: false, error: "Error al asignar responsable" };
+        return handleGuardError(error);
     }
 }

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import {
+    requireAuth,
+    requireProjectOwnership,
+    handleApiGuardError,
+} from "@/lib/guards";
 
 // GET /api/proyectos/[id] — detalle completo
 export async function GET(
@@ -7,6 +12,8 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
+        const user = await requireAuth();
+
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: params.id },
             include: {
@@ -53,6 +60,18 @@ export async function GET(
             );
         }
 
+        // Multi-tenant check: non-admin users can only see projects in their org.
+        // Fail-secure: deny if either side has no orgId (prevents legacy data leaks).
+        // Returns 404 (not 403) to avoid leaking existence of other tenants' projects.
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+            if (!user.orgId || !proyecto.orgId || proyecto.orgId !== user.orgId) {
+                return NextResponse.json(
+                    { error: "Proyecto no encontrado" },
+                    { status: 404 }
+                );
+            }
+        }
+
         // Compute stats
         const allUnidades = proyecto.etapas.flatMap((e) =>
             e.manzanas.flatMap((m) => m.unidades)
@@ -74,11 +93,7 @@ export async function GET(
 
         return NextResponse.json({ ...proyecto, stats });
     } catch (error) {
-        console.error("Error fetching proyecto:", error);
-        return NextResponse.json(
-            { error: "Error al obtener proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
@@ -88,6 +103,8 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        await requireProjectOwnership(params.id);
+
         const body = await request.json();
 
         const proyecto = await prisma.proyecto.update({
@@ -108,11 +125,7 @@ export async function PUT(
 
         return NextResponse.json(proyecto);
     } catch (error) {
-        console.error("Error updating proyecto:", error);
-        return NextResponse.json(
-            { error: "Error al actualizar proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
@@ -122,6 +135,8 @@ export async function PATCH(
     { params }: { params: { id: string } }
 ) {
     try {
+        await requireProjectOwnership(params.id);
+
         const body = await request.json();
         const data: Record<string, any> = {};
         if (body.mapCenterLat != null) data.mapCenterLat = Number(body.mapCenterLat);
@@ -138,8 +153,7 @@ export async function PATCH(
         });
         return NextResponse.json({ success: true, proyecto });
     } catch (error) {
-        console.error("Error patching proyecto:", error);
-        return NextResponse.json({ error: "Error al actualizar proyecto" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }
 
@@ -153,8 +167,10 @@ export async function DELETE(
     const result = await deleteProyecto(params.id);
 
     if (!result.success) {
+        // Safe access to union type without 'as any' 
+        const errorMessage = 'error' in result ? result.error : "No tienes permisos para eliminar este proyecto";
         return NextResponse.json(
-            { error: result.error },
+            { error: errorMessage },
             { status: 403 } // Forbidden/Unauthorized
         );
     }

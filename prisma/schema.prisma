@@ -28,6 +28,7 @@ model Organization {
   proyectos                Proyecto[]
   users                    User[]
   workflows                Workflow[]
+  proyectoUsuarios          ProyectoUsuario[]
 
   @@index([planId])
   @@map("organizations")
@@ -83,6 +84,10 @@ model User {
   reservasVendedor      Reserva[]          @relation("VendedorReserva")
   tareas                Tarea[]
   unidadesResponsable   Unidad[]           @relation("ResponsableUnidad")
+  proyectosRelaciones   ProyectoUsuario[]
+  mandatosAprobados     ProyectoUsuario[]  @relation("AprobadorMandato")
+  relacionesCreadas     ProyectoUsuario[]  @relation("AsignadorRelacion")
+  estadoLogsRealizados  ProyectoEstadoLog[]
   organization          Organization?      @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
@@ -196,6 +201,19 @@ model Proyecto {
   orgId                String?
   deletedAt            DateTime?
   tour360Url           String?
+
+  // ─── Validation workflow (admin-controlled) ───────────────
+  estadoValidacion     EstadoValidacionProyecto @default(BORRADOR)
+
+  // ─── Operational flags — synced from estadoValidacion ─────
+  // Only ADMIN can override; override always audited.
+  // RECHAZADO/SUSPENDIDO ignore these flags (structural block wins).
+  puedePublicarse      Boolean   @default(false)
+  puedeReservarse      Boolean   @default(false)
+  puedeCaptarLeads     Boolean   @default(false)
+  flagsOverridePorId   String?
+  flagsOverrideAt      DateTime?
+
   banners              Banner[]
   documentacion        Documentacion[]
   etapas               Etapa[]
@@ -216,8 +234,11 @@ model Proyecto {
   tareas               Tarea[]
   testimonios          Testimonio[]
   tours                Tour360[]
+  usuariosRelaciones   ProyectoUsuario[]
+  estadoLogs           ProyectoEstadoLog[]
 
   @@index([estado])
+  @@index([estadoValidacion])
   @@index([createdAt])
   @@index([visibilityStatus])
   @@index([isDemo])
@@ -1032,6 +1053,110 @@ model Infraestructura {
 
   @@index([proyectoId])
   @@map("infraestructuras")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PROJECT-USER RELATION  (relation-based access model)
+// ─────────────────────────────────────────────────────────────
+
+model ProyectoUsuario {
+  id         String   @id @default(cuid())
+  proyectoId String
+  userId     String
+  orgId      String   // tenant of the assigning org — for isolation
+
+  // Relation type & state
+  tipoRelacion   TipoRelacionProyecto
+  estadoRelacion EstadoRelacionProyecto @default(PENDIENTE)
+
+  // Granular permissions (complement the relation type; do not replace it)
+  permisoEditarProyecto      Boolean @default(false)
+  permisoSubirDocumentacion  Boolean @default(false)
+  permisoVerLeadsGlobales    Boolean @default(false)
+  permisoVerMetricasGlobales Boolean @default(false)
+
+  // Commercial mandate (required for COMERCIALIZADOR_* types)
+  tipoMandato           TipoMandato?
+  documentoMandatoUrl   String?
+  mandatoVigenciaDesde  DateTime?
+  mandatoVigenciaHasta  DateTime?
+  confirmadoPorEmpresa  Boolean     @default(false)
+  fechaConfirmacion     DateTime?
+  aprobadoPorAdminId    String?
+
+  // Traceability
+  asignadoPorId String?
+  notas         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  proyecto    Proyecto      @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org         Organization  @relation(fields: [orgId], references: [id])
+  aprobadoPor User?         @relation("AprobadorMandato",  fields: [aprobadoPorAdminId], references: [id])
+  asignadoPor User?         @relation("AsignadorRelacion", fields: [asignadoPorId],      references: [id])
+
+  // One relation per user per project
+  @@unique([proyectoId, userId])
+  @@index([proyectoId])
+  @@index([userId])
+  @@index([orgId])
+  @@index([tipoRelacion, estadoRelacion])
+  @@map("proyecto_usuarios")
+}
+
+model ProyectoEstadoLog {
+  id             String                   @id @default(cuid())
+  proyectoId     String
+  estadoAnterior EstadoValidacionProyecto
+  estadoNuevo    EstadoValidacionProyecto
+  realizadoPorId String
+  motivo         String?
+  // Snapshot of operational flags at the moment of transition
+  flagsSnapshot  Json
+  createdAt      DateTime @default(now())
+
+  proyecto     Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  realizadoPor User     @relation(fields: [realizadoPorId], references: [id])
+
+  @@index([proyectoId, createdAt])
+  @@map("proyecto_estado_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS — Project access model
+// ─────────────────────────────────────────────────────────────
+
+enum TipoRelacionProyecto {
+  OWNER
+  VENDEDOR_ASIGNADO
+  COMERCIALIZADOR_EXCLUSIVO
+  COMERCIALIZADOR_NO_EXCLUSIVO
+  COLABORADOR
+  SOLO_LECTURA
+}
+
+enum EstadoRelacionProyecto {
+  ACTIVA
+  PENDIENTE
+  RECHAZADA
+  VENCIDA
+}
+
+enum EstadoValidacionProyecto {
+  BORRADOR
+  PENDIENTE_VALIDACION
+  EN_REVISION
+  APROBADO
+  OBSERVADO
+  RECHAZADO
+  SUSPENDIDO
+}
+
+enum TipoMandato {
+  EXCLUSIVO
+  NO_EXCLUSIVO
 }
 
 enum LogicToopFlowStatus {

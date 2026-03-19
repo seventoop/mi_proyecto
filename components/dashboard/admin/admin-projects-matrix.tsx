@@ -230,7 +230,7 @@ export default function AdminProjectsMatrix({ projects }: AdminProjectsMatrixPro
                                                         toast.success("Proyecto eliminado");
                                                         window.location.reload();
                                                     } else {
-                                                        toast.error(res.error || "Error al eliminar");
+                                                        toast.error('error' in res ? res.error : "Error al eliminar");
                                                     }
                                                 }}
                                                 className="bg-rose-600 hover:bg-rose-700 text-white border-none"

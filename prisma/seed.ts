@@ -9,50 +9,69 @@ async function main() {
     const commonPassword = "catalina0112192122";
     const hashedPassword = await bcrypt.hash(commonPassword, 10);
 
-    // 1. Admin User
+    // ─── 0. Organization principal (deterministic ID) ───
+    const org = await prisma.organization.upsert({
+        where: { slug: "seventoop" },
+        update: { nombre: "Seventoop" },
+        create: {
+            id: "seventoop-main",
+            nombre: "Seventoop",
+            slug: "seventoop",
+            plan: "FREE",
+        },
+    });
+
+    console.log(`✅ Organization: ${org.nombre} (id: ${org.id})`);
+
+    // ─── 1. Admin User ───
     const admin = await prisma.user.upsert({
         where: { email: "dany76162@gmail.com" },
-        update: { password: hashedPassword, rol: "ADMIN" },
+        update: { password: hashedPassword, rol: "ADMIN", orgId: org.id },
         create: {
             email: "dany76162@gmail.com",
             password: hashedPassword,
             nombre: "Dany Admin",
             rol: "ADMIN",
+            orgId: org.id,
         },
     });
 
-    // 2. Developer User
+    // ─── 2. Developer User ───
     const developer = await prisma.user.upsert({
         where: { email: "dany202109@gmail.com" },
-        update: { password: hashedPassword, rol: "VENDEDOR" },
+        update: { password: hashedPassword, rol: "VENDEDOR", orgId: org.id },
         create: {
             email: "dany202109@gmail.com",
             password: hashedPassword,
             nombre: "Héctor Desarrollador",
             rol: "VENDEDOR",
+            orgId: org.id,
         },
     });
 
-    // 3. Investor User (INVERSOR)
+    // ─── 3. Investor User (INVERSOR) ───
     const investor = await prisma.user.upsert({
         where: { email: "danielcata2023@gmail.com" },
-        update: { password: hashedPassword, rol: "INVERSOR" },
+        update: { password: hashedPassword, rol: "INVERSOR", orgId: org.id },
         create: {
             email: "danielcata2023@gmail.com",
             password: hashedPassword,
             nombre: "Daniel Inversor",
             rol: "INVERSOR",
+            orgId: org.id,
         },
     });
 
     console.log("✅ Users created/updated: Admin, Developer, Inversor.");
 
-    // 4. Regular Sales Project
+    // ─── 4. Regular Sales Project ───
     const proyectoVenta = await prisma.proyecto.upsert({
         where: { slug: "barrio-los-alamos" },
         update: {
             estado: "EN_VENTA",
-            invertible: false
+            invertible: false,
+            orgId: org.id,
+            creadoPorId: admin.id,
         },
         create: {
             nombre: "Barrio Los Álamos",
@@ -62,6 +81,8 @@ async function main() {
             estado: "EN_VENTA",
             tipo: "URBANIZACION",
             invertible: false,
+            orgId: org.id,
+            creadoPorId: admin.id,
             etapas: {
                 create: [
                     {
@@ -93,8 +114,8 @@ async function main() {
         },
     });
 
-    // 5. Geodevia — 24 lotes con polígonos reales
-    // Primero, borrar etapas existentes de Geodevia para evitar duplicados
+    // ─── 5. Geodevia — 24 lotes con polígonos reales ───
+    // Borrar etapas existentes para evitar duplicados
     const existingGeodevia = await prisma.proyecto.findUnique({ where: { slug: "reserva-geodevia" }, select: { id: true } });
     if (existingGeodevia) {
         await prisma.etapa.deleteMany({ where: { proyectoId: existingGeodevia.id } });
@@ -156,6 +177,8 @@ async function main() {
                 "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?q=80&w=1000"
             ]),
             fechaLimiteFondeo: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+            orgId: org.id,
+            creadoPorId: admin.id,
         } as any,
         create: {
             nombre: "Reserva Geodevia",
@@ -175,6 +198,8 @@ async function main() {
             mapZoom: 16,
             fechaLimiteFondeo: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
             imagenPortada: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2000&auto=format&fit=crop",
+            orgId: org.id,
+            creadoPorId: admin.id,
             hitosEscrow: {
                 create: [
                     { titulo: "Soft Cap: 20%", porcentaje: 20, estado: "COMPLETADO", fechaLogro: new Date() },
@@ -213,7 +238,7 @@ async function main() {
 
     console.log(`✅ Geodevia: 24 lotes creados (Manzana A + B)`);
 
-    // 6. Create a mock investment for our investor
+    // ─── 6. Mock investment for investor ───
     await prisma.inversion.create({
         data: {
             proyectoId: proyectoInversion.id,
@@ -227,7 +252,27 @@ async function main() {
     });
 
     console.log(`✅ Investment scenario created: ${proyectoInversion.nombre}`);
+
+    // ─── 7. Default CRM Pipeline Stages ───
+    const defaultStages = [
+        { nombre: "Nuevo",           color: "#6366f1", orden: 1, esDefault: true  },
+        { nombre: "Contactado",      color: "#3b82f6", orden: 2, esDefault: false },
+        { nombre: "Calificado",      color: "#f59e0b", orden: 3, esDefault: false },
+        { nombre: "Propuesta",       color: "#8b5cf6", orden: 4, esDefault: false },
+        { nombre: "Cerrado Ganado",  color: "#10b981", orden: 5, esDefault: false },
+        { nombre: "Cerrado Perdido", color: "#ef4444", orden: 6, esDefault: false },
+    ];
+
+    // deleteMany + createMany — idempotent via delete-first
+    await prisma.pipelineEtapa.deleteMany({ where: { orgId: org.id } });
+    await prisma.pipelineEtapa.createMany({
+        data: defaultStages.map(s => ({ ...s, orgId: org.id })),
+    });
+
+    console.log(`✅ Pipeline: ${defaultStages.length} etapas CRM creadas para org ${org.id}`);
     console.log("✅ Seed completed successfully!");
+    console.log(`\n📌 SEVENTOOP_MAIN_ORG_ID=${org.id}`);
+    console.log("   Add this value to your .env and Neon dashboard environment variables.\n");
 }
 
 main()

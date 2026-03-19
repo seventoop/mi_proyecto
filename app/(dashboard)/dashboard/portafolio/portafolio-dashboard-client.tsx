@@ -12,6 +12,8 @@ import {
 import InversorUpgradeModal from "@/components/portafolio/inversor-upgrade-modal";
 import InvestorFinancialSummary from "@/components/dashboard/investor-financial-summary";
 import InvestorMovementsTable from "@/components/dashboard/investor-movements-table";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 interface Props {
     user: { id: string; nombre: string; email: string; kycStatus: string; riskLevel: string; rol: string };
@@ -38,16 +40,9 @@ export default function PortafolioDashboardClient({ user, role, misUnidades, inv
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-10 animate-fade-in">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-                        Mi Portafolio
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">
-                        {isInversor
-                            ? "Gestión de propiedades e inversiones en m²."
-                            : "Administrá tus propiedades adquiridas."}
-                    </p>
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div className="flex-1">
+                    <ModuleHelp content={MODULE_HELP_CONTENT.investorPortafolio} />
                 </div>
                 {isInversor && (
                     <Link
@@ -78,7 +73,7 @@ export default function PortafolioDashboardClient({ user, role, misUnidades, inv
                 </div>
 
                 {misUnidades.length === 0 ? (
-                    <div className="glass-card p-10 text-center border-dashed">
+                    <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-10 text-center border-dashed">
                         <Home className="w-12 h-12 text-slate-400 mx-auto mb-3" />
                         <h3 className="text-lg font-bold text-slate-700 dark:text-white mb-2">Aún no tenés propiedades</h3>
                         <p className="text-slate-500 mb-4">Explorá los proyectos disponibles y comenzá a invertir.</p>
@@ -94,7 +89,7 @@ export default function PortafolioDashboardClient({ user, role, misUnidades, inv
                                 <Link
                                     key={unidad.id}
                                     href={`/dashboard/portafolio/propiedades/${unidad.id}`}
-                                    className="glass-card p-5 group hover:border-brand-500/50 transition-all"
+                                    className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 group hover:border-white/[0.12] hover:bg-white/[0.02] transition-colors ease-[cubic-bezier(0.16,1,0.3,1)] duration-300"
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div>
@@ -155,13 +150,13 @@ export default function PortafolioDashboardClient({ user, role, misUnidades, inv
                             <h3 className="font-bold text-slate-900 dark:text-white">Oportunidades</h3>
                             {oportunidades.slice(0, 3).map((p: any) => (
                                 <Link key={p.id} href="/dashboard/portafolio/marketplace"
-                                    className="block glass-card p-4 hover:border-brand-500/50 transition-all">
+                                    className="block bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-4 hover:border-white/[0.12] hover:bg-white/[0.02] transition-colors ease-[cubic-bezier(0.16,1,0.3,1)] duration-300">
                                     <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{p.nombre}</h4>
                                     <p className="text-xs text-slate-500 mt-0.5">{p.ubicacion}</p>
                                 </Link>
                             ))}
                             {oportunidades.length === 0 && (
-                                <div className="glass-card p-6 text-center">
+                                <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6 text-center">
                                     <p className="text-sm text-slate-500">Sin oportunidades disponibles.</p>
                                 </div>
                             )}
@@ -172,39 +167,41 @@ export default function PortafolioDashboardClient({ user, role, misUnidades, inv
                 /* ─── CTA: Upgrade to INVERSOR ─────────────────────────────── */
                 <section>
                     {upgradeSucceeded || inversorKycStatus === "EN_REVISION" ? (
-                        <div className="glass-card p-8 border border-amber-500/20 bg-amber-500/5 flex flex-col md:flex-row items-center gap-6">
-                            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                        <div className="bg-[#0A0A0C] rounded-2xl p-8 border border-white/[0.06] flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-amber-500/5 pointer-events-none" />
+                            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 z-10">
                                 <Clock className="w-8 h-8 text-amber-500" />
                             </div>
-                            <div>
-                                <h3 className="text-xl font-black text-white mb-1">Solicitud en revisión</h3>
+                            <div className="z-10">
+                                <h3 className="text-xl font-bold text-white mb-1">Solicitud en revisión</h3>
                                 <p className="text-slate-400 text-sm leading-relaxed">
                                     Tu solicitud de verificación como Inversor está siendo revisada. Recibirás una notificación en 24-48hs hábiles.
                                 </p>
                             </div>
-                            <span className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-sm font-bold shrink-0">
+                            <span className="z-10 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-sm font-bold shrink-0">
                                 PENDIENTE
                             </span>
                         </div>
                     ) : inversorKycStatus === "RECHAZADO" ? (
-                        <div className="glass-card p-8 border border-rose-500/20 bg-rose-500/5">
-                            <div className="flex items-start gap-4 mb-6">
+                        <div className="bg-[#0A0A0C] rounded-2xl p-8 border border-rose-500/20 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-rose-500/5 pointer-events-none" />
+                            <div className="relative z-10 flex items-start gap-4 mb-6">
                                 <AlertCircle className="w-8 h-8 text-rose-500 shrink-0" />
                                 <div>
-                                    <h3 className="text-xl font-black text-white mb-1">Solicitud rechazada</h3>
+                                    <h3 className="text-xl font-bold text-white mb-1">Solicitud rechazada</h3>
                                     <p className="text-slate-400 text-sm">Tu solicitud fue rechazada. Revisá las observaciones y volvé a enviar la documentación corregida.</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowUpgradeModal(true)}
-                                className="px-6 py-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm transition-all shadow-lg shadow-brand-500/20"
+                                className="relative z-10 px-6 py-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm transition-all shadow-lg shadow-brand-500/20"
                             >
                                 Volver a solicitar
                             </button>
                         </div>
                     ) : (
                         /* CTA principal */
-                        <div className="relative overflow-hidden glass-card p-8 border border-brand-500/20">
+                        <div className="relative overflow-hidden bg-[#0A0A0C] rounded-2xl p-8 border border-white/[0.06]">
                             <div className="absolute inset-0 bg-gradient-to-br from-brand-500/5 via-transparent to-purple-500/5 pointer-events-none" />
                             <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/5 blur-3xl rounded-full pointer-events-none" />
 
@@ -269,10 +266,10 @@ export default function PortafolioDashboardClient({ user, role, misUnidades, inv
                                     { label: "ROI Promedio", value: "—" },
                                     { label: "Valor Cartera", value: "—" },
                                 ].map(({ label, value }) => (
-                                    <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
+                                    <div key={label} className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
                                         <Lock className="w-4 h-4 text-slate-500" />
                                         <p className="text-xs text-slate-500">{label}</p>
-                                        <p className="text-lg font-black text-slate-600">{value}</p>
+                                        <p className="text-lg font-bold text-slate-600">{value}</p>
                                     </div>
                                 ))}
                             </div>

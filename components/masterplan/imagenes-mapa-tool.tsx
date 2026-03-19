@@ -23,6 +23,7 @@ interface ImagenesMapaToolProps {
   overlayBounds?: [[number, number], [number, number]] | null;
   overlayRotation?: number;
   svgViewBox?: SvgViewBox | null;
+  canEdit: boolean;
 }
 
 // ─── Default form ─────────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ function markerHtml(color: string, emoji: string) {
 export default function ImagenesMapaTool({
   proyectoId, map,
   overlayBounds = null, overlayRotation = 0, svgViewBox = null,
+  canEdit,
 }: ImagenesMapaToolProps) {
   const { units } = useMasterplanStore();
 
@@ -231,8 +233,9 @@ export default function ImagenesMapaTool({
       fd.append("file", file);
       fd.append("projectId", proyectoId);
 
-      // Use /api/upload/360 for 360° images, /api/upload for others
-      const endpoint = pendingTipo === "360" ? "/api/upload/360" : "/api/upload/360";
+      // 360° panoramas go to /api/upload/360 (50MB limit, equirectangular).
+      // foto and panoramica go to /api/upload (20MB limit, standard images).
+      const endpoint = pendingTipo === "360" ? "/api/upload/360" : "/api/upload";
       const res = await fetch(endpoint, { method: "POST", body: fd });
       const data = await res.json();
 
@@ -412,7 +415,7 @@ export default function ImagenesMapaTool({
             </div>
 
             {/* Upload section */}
-            {uploadState === "idle" && (
+            {canEdit && uploadState === "idle" && (
               <div className="px-4 py-3 border-b border-slate-700/50 flex-shrink-0 space-y-2">
                 <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                   Tipo de imagen a subir
@@ -455,7 +458,7 @@ export default function ImagenesMapaTool({
             )}
 
             {/* Uploading spinner */}
-            {uploadState === "uploading" && (
+            {canEdit && uploadState === "uploading" && (
               <div className="px-4 py-4 border-b border-slate-700/50 flex items-center gap-3 flex-shrink-0">
                 <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
                 <span className="text-sm text-slate-300">Subiendo imagen...</span>
@@ -463,7 +466,7 @@ export default function ImagenesMapaTool({
             )}
 
             {/* Positioning hint in panel */}
-            {uploadState === "positioning" && (
+            {canEdit && uploadState === "positioning" && (
               <div className="px-4 py-4 border-b border-slate-700/50 flex-shrink-0 space-y-2">
                 <p className="text-sm text-indigo-300 font-medium flex items-center gap-2">
                   <span className="animate-pulse text-indigo-400">●</span>
@@ -483,7 +486,7 @@ export default function ImagenesMapaTool({
 
             {/* Save form (after positioning) */}
             <AnimatePresence>
-              {showForm && (
+              {canEdit && showForm && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
@@ -688,6 +691,7 @@ export default function ImagenesMapaTool({
                           >
                             <PanelRight className="w-3.5 h-3.5" />
                           </button>
+                          {canEdit && (
                           <button
                             onClick={(e) => { e.stopPropagation(); openEditForm(item); }}
                             className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
@@ -695,6 +699,8 @@ export default function ImagenesMapaTool({
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
+                          )}
+                          {canEdit && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
                             className="p-1.5 rounded-lg bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white transition-colors"
@@ -702,6 +708,7 @@ export default function ImagenesMapaTool({
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                          )}
                         </div>
                       </div>
                     );

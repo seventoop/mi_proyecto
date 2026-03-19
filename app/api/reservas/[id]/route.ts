@@ -3,6 +3,11 @@ import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 import { requireAuth, requireRole, handleApiGuardError } from "@/lib/guards";
 
+// Helper: resolve project orgId from a fully-loaded reserva
+function getReservaOrgId(reserva: any): string | null {
+    return reserva?.unidad?.manzana?.etapa?.proyecto?.orgId ?? null;
+}
+
 // ─── GET /api/reservas/[id] — Single reservation detail ───
 export async function GET(
     req: NextRequest,
@@ -26,6 +31,7 @@ export async function GET(
                                                 nombre: true,
                                                 ubicacion: true,
                                                 creadoPorId: true,
+                                                orgId: true,
                                             },
                                         },
                                     },
@@ -57,10 +63,19 @@ export async function GET(
             return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
         }
 
-        // Authorization Check
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+
+        // Fail-secure org check for non-privileged users
+        if (!isAdmin) {
+            const reservaOrgId = getReservaOrgId(reserva);
+            if (!user.orgId || !reservaOrgId || reservaOrgId !== user.orgId) {
+                return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+            }
+        }
+
+        // Authorization Check: org members may read if they are vendor or project creator
         const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
         const isSeller = reserva.vendedorId === user.id;
-        const isAdmin = user.role === "ADMIN";
 
         if (!isAdmin && !isOwner && !isSeller) {
             return NextResponse.json({ error: "No autorizado para ver esta reserva" }, { status: 403 });
@@ -95,7 +110,16 @@ export async function PUT(
             return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
         }
 
-        const isAdmin = user.role === "ADMIN";
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+
+        // Fail-secure org check for non-privileged users
+        if (!isAdmin) {
+            const reservaOrgId = getReservaOrgId(reserva);
+            if (!user.orgId || !reservaOrgId || reservaOrgId !== user.orgId) {
+                return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+            }
+        }
+
         const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
         const isSeller = reserva.vendedorId === user.id;
 
