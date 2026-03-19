@@ -3,6 +3,8 @@ import InventarioView from "@/components/dashboard/inventario/inventario-view";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function InventarioPage({
     searchParams
@@ -42,7 +44,8 @@ export default async function InventarioPage({
     });
 
     return (
-        <div className="p-6 animate-fade-in">
+        <div className="p-6 space-y-6 animate-fade-in">
+            <ModuleHelp content={MODULE_HELP_CONTENT.developerInventario} />
             <InventarioView data={unidades || []} />
         </div>
     );

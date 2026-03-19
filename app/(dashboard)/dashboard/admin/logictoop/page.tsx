@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { LogicToopDashboardClient } from "./logictoop-client";
 import { getLogicToopDashboardData } from "@/lib/actions/logictoop";
 import { db } from "@/lib/db";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function LogicToopAdminPage() {
     const result = await getLogicToopDashboardData();
@@ -38,6 +40,8 @@ export default async function LogicToopAdminPage() {
                     </a>
                 </div>
             </div>
+
+            <ModuleHelp content={MODULE_HELP_CONTENT.adminLogicToop} />
 
             <Suspense fallback={<div className="glass-card p-8 animate-pulse text-center uppercase font-black italic">Iniciando Motor...</div>}>
                 <LogicToopDashboardClient 

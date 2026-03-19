@@ -439,5 +439,138 @@ export const MODULE_HELP_CONTENT: Record<string, ModuleHelpContent> = {
         ],
         firstStep: "Revisá el detalle de tus propiedades y verificá el estado de cada una.",
         moduleKey: "clientePropiedades"
+    },
+    comercialAdmin: {
+        title: "Dashboard Comercial (Admin)",
+        description: "Vista global de la performance comercial de toda la plataforma.",
+        whatIs: "Es el centro analítico para administradores. Permite monitorear el flujo de leads, el estado de las reservas y la composición del inventario a nivel global.",
+        howItWorks: [
+            "El sistema consolida datos de todos los proyectos activos",
+            "Calcula métricas de conversión de leads a reservas",
+            "Muestra un timeline de captación de los últimos 30 días",
+            "Permite ver el ranking de proyectos con mejor performance comercial"
+        ],
+        whatFor: [
+            "Tener una visión macro de la salud comercial de la plataforma",
+            "Identificar proyectos con alta tracción o necesidades de soporte",
+            "Monitorear la velocidad de ventas y disponibilidad de stock",
+            "Tomar decisiones estratégicas basadas en datos reales"
+        ],
+        firstStep: "Explorá las métricas globales y usá el selector de período para ver la tendencia reciente.",
+        moduleKey: "comercialAdmin"
+    },
+    comercialDeveloper: {
+        title: "Dashboard Comercial",
+        description: "Análisis de performance de tus proyectos asignados.",
+        whatIs: "Es tu tablero de control comercial. Muestra exclusivamente los datos de los proyectos donde tenés participación activa o que fueron creados por vos.",
+        howItWorks: [
+            "Filtra automáticamente leads y reservas por tus proyectos",
+            "Muestra la composición de tu inventario (Disponible/Reservado/Vendido)",
+            "Trackea tu timeline de captación de leads propio",
+            "Calcula tu tasa de conversión específica"
+        ],
+        whatFor: [
+            "Seguir el progreso de tus ventas y reservas en tiempo real",
+            "Entender la efectividad de tus canales de captación (leads)",
+            "Gestionar tu stock de unidades de forma eficiente",
+            "Preparar reportes de avance para inversores o socios"
+        ],
+        firstStep: "Revisá el estado de tus leads y reservas recientes para priorizar tus acciones.",
+        moduleKey: "comercialDeveloper"
+    },
+    adminCrmLeads: {
+        title: "Leads Globales",
+        description: "Bandeja de entrada centralizada de leads externos.",
+        whatIs: "Es el punto de entrada de todos los contactos captados por canales externos (Facebook, TikTok, Web) que aún no han sido asignados a una organización específica.",
+        howItWorks: [
+            "El sistema recibe el lead automáticamente desde el canal de origen",
+            "El contacto aparece en esta lista como 'Pendiente'",
+            "Podés revisar su perfil y origen",
+            "Asignás el lead a la organización comercializadora correspondiente"
+        ],
+        whatFor: [
+            "Evitar que los leads queden sin atención",
+            "Centralizar la recepción de campañas de marketing masivas",
+            "Distribuir carga de trabajo entre distintas desarrolladoras",
+            "Mantener trazabilidad del origen de cada contacto"
+        ],
+        firstStep: "Seleccioná un lead y hacé click en 'Asignar Orga' para derivarlo.",
+        moduleKey: "adminCrmLeads"
+    },
+    adminProyectos: {
+        title: "Gestión de Proyectos",
+        description: "Monitoreo y administración global de todos los desarrollos.",
+        whatIs: "Es la vista consolidada de todos los proyectos creados en la plataforma, permitiendo al admin supervisar su estado técnico y comercial.",
+        howItWorks: [
+            "Visualizás el listado completo de desarrollos",
+            "Ves el estado de unidades (Disponibles, Reservadas, Vendidas) de cada uno",
+            "Accedés al detalle para editar parámetros o configuraciones",
+            "Controlás la visibilidad y el estado vital de cada proyecto"
+        ],
+        whatFor: [
+            "Supervisar el volumen de inventario en la plataforma",
+            "Identificar proyectos inactivos o con problemas",
+            "Editar información técnica sensible",
+            "Tener un acceso rápido a cualquier desarrollo registrado"
+        ],
+        firstStep: "Usá el buscador o los filtros para localizar un proyecto específico.",
+        moduleKey: "adminProyectos"
+    },
+    developerMain: {
+        title: "Panel de Control",
+        description: "Resumen operativo y financiero de tu actividad.",
+        whatIs: "Es tu centro de mando. Aquí tenés una visión 360° de tus métricas comerciales, estado de KYC, alertas de uso y actividad reciente de tus proyectos.",
+        howItWorks: [
+            "Los indicadores (KPIs) se actualizan en tiempo real",
+            "El panel financiero muestra ingresos y flujos proyectados",
+            "La línea de tiempo muestra cambios recientes en tus unidades",
+            "Los accesos rápidos te llevan a los módulos operativos"
+        ],
+        whatFor: [
+            "Entender la salud de tu negocio de un vistazo",
+            "Detectar urgencias o hitos completados",
+            "Monitorear tu nivel de riesgo y cumplimiento (KYC)",
+            "Navegar rápidamente hacia tus leads o proyectos"
+        ],
+        firstStep: "Revisá las métricas de este mes y el estado de tus próximas tareas.",
+        moduleKey: "developerMain"
+    },
+    developerInventario: {
+        title: "Inventario de Unidades",
+        description: "Gestión detallada de stock de tus proyectos.",
+        whatIs: "Es el catálogo técnico de todas las unidades (lotes, departamentos, cocheras) de los proyectos donde tenés participación.",
+        howItWorks: [
+            "Filtrás por proyecto o estado (Disponible, Reservado, etc.)",
+            "Ves el detalle técnico y precio de lista de cada unidad",
+            "Accedés al historial de cambios de cada lote",
+            "Sincronizás la disponibilidad con el equipo comercial"
+        ],
+        whatFor: [
+            "Tener control total sobre el stock real",
+            "Evitar errores de disponibilidad en ventas",
+            "Consultar especificaciones técnicas rápidas",
+            "Auditar el movimiento de estados de una unidad"
+        ],
+        firstStep: "Filtrá por un proyecto para ver su mapa de disponibilidad.",
+        moduleKey: "developerInventario"
+    },
+    adminLogicToop: {
+        title: "LogicToop Center",
+        description: "Configuración avanzada y optimización lógica del sistema.",
+        whatIs: "Es el cerebro de automatización de SevenToop. Permite configurar integraciones, orquestar flujos de datos y monitorear la salud lógica de la plataforma.",
+        howItWorks: [
+            "Configurás conectores con servicios externos",
+            "Definis reglas de orquestación y transformación de datos",
+            "Monitoreás la analítica de performance del sistema",
+            "Gestionás plantillas y componentes lógicos reutilizables"
+        ],
+        whatFor: [
+            "Extender las capacidades de la plataforma",
+            "Optimizar procesos repetitivos",
+            "Asegurar la integridad de las integraciones",
+            "Escalar la lógica de negocio sin tocar el core del sistema"
+        ],
+        firstStep: "Explorá el Orchestrator para ver el estado de los flujos activos.",
+        moduleKey: "adminLogicToop"
     }
 };
