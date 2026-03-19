@@ -17,12 +17,38 @@ export async function GET(req: NextRequest) {
 
         const where: any = {};
 
-        // Authorization: Admin/Superadmin sees all, others see their own or their project's
+        // Authorization: Admin/Superadmin sees all.
+        // Non-admin: own reservas (vendedorId) always visible.
+        // Projects with global metric access → all reservas. Own-only → covered by vendedorId.
+        // Legacy (creadoPorId, no ProyectoUsuario row) → treated as full-access OWNER.
         if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
-            where.OR = [
-                { vendedorId: user.id },
-                { unidad: { manzana: { etapa: { proyecto: { creadoPorId: user.id } } } } }
-            ];
+            const relaciones = await prisma.proyectoUsuario.findMany({
+                where: { userId: user.id, estadoRelacion: "ACTIVA" },
+                select: { proyectoId: true, permisoVerMetricasGlobales: true },
+            });
+            const globalIds = relaciones
+                .filter(r => r.permisoVerMetricasGlobales)
+                .map(r => r.proyectoId);
+
+            const legacyProjects = await prisma.proyecto.findMany({
+                where: {
+                    creadoPorId: user.id,
+                    deletedAt: null,
+                    NOT: { usuariosRelaciones: { some: { userId: user.id } } },
+                },
+                select: { id: true },
+            });
+            const legacyIds = legacyProjects.map(p => p.id);
+
+            const allGlobalIds = [...globalIds, ...legacyIds].filter((id, i, arr) => arr.indexOf(id) === i);
+
+            const orClauses: any[] = [{ vendedorId: user.id }];
+            if (allGlobalIds.length > 0) {
+                orClauses.push({
+                    unidad: { manzana: { etapa: { proyectoId: { in: allGlobalIds } } } }
+                });
+            }
+            where.OR = orClauses;
         }
 
         if (estado) where.estado = estado;

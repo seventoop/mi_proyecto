@@ -28,7 +28,7 @@ const unidadUpdateSchema = unidadCreateSchema.partial();
 
 export async function getAllUnidades(params: any = {}) {
     try {
-        const { page = 1, pageSize = 20, proyectoId, estado, responsableId, creadoPorId } = params;
+        const { page = 1, pageSize = 20, proyectoId, proyectoIds, estado, responsableId, creadoPorId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: any = {};
@@ -42,7 +42,17 @@ export async function getAllUnidades(params: any = {}) {
             };
         }
 
-        if (creadoPorId) {
+        // Relation-based multi-project filter (takes precedence over legacy creadoPorId)
+        if (proyectoIds && proyectoIds.length > 0) {
+            where.manzana = {
+                ...where.manzana,
+                etapa: {
+                    ...where.manzana?.etapa,
+                    proyectoId: { in: proyectoIds }
+                }
+            };
+        } else if (creadoPorId) {
+            // Legacy fallback: kept for backward compatibility
             where.manzana = {
                 ...where.manzana,
                 etapa: {

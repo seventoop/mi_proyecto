@@ -51,13 +51,30 @@ export default async function DeveloperDashboard() {
     const orgId = (session?.user as any).orgId;
     const planRes = await getOrgPlanWithUsage(orgId);
 
-    // Real activity feed from unit history
-    const recentHistorial = await prisma.historialUnidad.findMany({
+    // Collect all project IDs the user has access to (any active relation + legacy creator).
+    // Used for activity feed scoping — any relation member sees activity, not just global-metrics.
+    const userRelaciones = await prisma.proyectoUsuario.findMany({
+        where: { userId, estadoRelacion: "ACTIVA" },
+        select: { proyectoId: true },
+    });
+    const legacyActivityProjects = await prisma.proyecto.findMany({
         where: {
-            unidad: {
-                manzana: { etapa: { proyecto: { creadoPorId: userId } } }
-            }
+            creadoPorId: userId,
+            deletedAt: null,
+            NOT: { usuariosRelaciones: { some: { userId } } },
         },
+        select: { id: true },
+    });
+    const allActivityProjectIds = [
+        ...userRelaciones.map(r => r.proyectoId),
+        ...legacyActivityProjects.map(p => p.id),
+    ].filter((id, i, arr) => arr.indexOf(id) === i);
+
+    // Real activity feed from unit history — relation-based + legacy fallback
+    const recentHistorial = await prisma.historialUnidad.findMany({
+        where: allActivityProjectIds.length > 0
+            ? { unidad: { manzana: { etapa: { proyectoId: { in: allActivityProjectIds } } } } }
+            : { id: "___NONE___" }, // no projects → no activity
         orderBy: { createdAt: "desc" },
         take: 8,
         include: {

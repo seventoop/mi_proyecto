@@ -17,23 +17,42 @@ export default async function LeadsPage() {
     const userRole = session.user.role;
     const orgId = session.user.orgId;
 
-    // Fetch Leads - filtered for organization if present
-    const where: {
-        orgId?: string;
-        OR?: any[];
-    } = userRole === "ADMIN" ? {} : {
-        OR: [
-            { asignadoAId: userId },
-            { proyecto: { creadoPorId: userId } }
-        ]
-    };
-
-    if (orgId) {
-        where.orgId = orgId;
-    }
-
     if (!orgId) {
         return <EmptyOrgState moduleName="Leads" />;
+    }
+
+    // Build leads visibility filter.
+    // Non-admin: own assigned leads always visible; projects with global leads access → all leads.
+    // Legacy (creadoPorId, no ProyectoUsuario row) → treated as full-access OWNER.
+    const where: { orgId?: string; OR?: any[] } = {};
+    if (orgId) where.orgId = orgId;
+
+    if (userRole !== "ADMIN") {
+        const relaciones = await prisma.proyectoUsuario.findMany({
+            where: { userId, estadoRelacion: "ACTIVA" },
+            select: { proyectoId: true, permisoVerLeadsGlobales: true },
+        });
+        const globalLeadIds = relaciones
+            .filter(r => r.permisoVerLeadsGlobales)
+            .map(r => r.proyectoId);
+
+        const legacyProjects = await prisma.proyecto.findMany({
+            where: {
+                creadoPorId: userId,
+                deletedAt: null,
+                NOT: { usuariosRelaciones: { some: { userId } } },
+            },
+            select: { id: true },
+        });
+        const legacyIds = legacyProjects.map(p => p.id);
+
+        const allGlobalLeadIds = [...globalLeadIds, ...legacyIds].filter((id, i, arr) => arr.indexOf(id) === i);
+
+        const orClauses: any[] = [{ asignadoAId: userId }];
+        if (allGlobalLeadIds.length > 0) {
+            orClauses.push({ proyectoId: { in: allGlobalLeadIds } });
+        }
+        where.OR = orClauses;
     }
 
     const LEADS_LIMIT = 100;
@@ -53,8 +72,13 @@ export default async function LeadsPage() {
     ]);
     const hasMoreLeads = totalLeadsCount > LEADS_LIMIT;
 
-    // Fetch Projects for Filter/Create - filtered for developers
-    const projectsWhere = userRole === "ADMIN" ? {} : { creadoPorId: userId };
+    // Fetch Projects for filter/create dropdown — relation-based + legacy fallback
+    const projectsWhere = userRole === "ADMIN" ? {} : {
+        OR: [
+            { creadoPorId: userId },
+            { usuariosRelaciones: { some: { userId, estadoRelacion: "ACTIVA" as const } } },
+        ],
+    };
     const projects = await prisma.proyecto.findMany({
         where: projectsWhere,
         select: { id: true, nombre: true },

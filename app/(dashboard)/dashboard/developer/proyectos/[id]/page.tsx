@@ -58,12 +58,11 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role || "INVITADO";
 
-    // Fetch real project data
+    // Fetch real project data — auth check happens below after load
     const proyecto = await prisma.proyecto.findUnique({
         where: {
             id: params.id,
-            creadoPorId: session?.user?.id // Security: Ensure project belongs to developer
-        } as any,
+        },
         include: {
             etapas: {
                 include: {
@@ -86,6 +85,23 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     if (!proyecto) {
         return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
+    }
+
+    // Relation-based auth: admin bypass, active relation, or legacy creadoPorId match.
+    // Fail-secure: return "not found" to avoid leaking project existence.
+    const userId = session?.user?.id;
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPERADMIN";
+    if (!isAdmin) {
+        const isLegacyCreator = (proyecto as any).creadoPorId === userId;
+        const hasRelation = userId
+            ? await prisma.proyectoUsuario.findFirst({
+                where: { proyectoId: params.id, userId, estadoRelacion: "ACTIVA" },
+                select: { proyectoId: true },
+            })
+            : null;
+        if (!isLegacyCreator && !hasRelation) {
+            return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
+        }
     }
 
     // Process stats

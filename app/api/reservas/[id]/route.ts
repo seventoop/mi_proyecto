@@ -128,6 +128,15 @@ export async function PUT(
                         montoSena: data.montoSena || reserva.montoSena,
                     },
                 });
+                await prisma.auditLog.create({
+                    data: {
+                        userId: user.id,
+                        action: "RESERVA_PAGO_REGISTRADO",
+                        entity: "Reserva",
+                        entityId: params.id,
+                        details: JSON.stringify({ actor: user.role, montoSena: data.montoSena ?? reserva.montoSena }),
+                    },
+                });
                 break;
             }
 
@@ -142,6 +151,15 @@ export async function PUT(
                     where: { id: params.id },
                     data: {
                         fechaVencimiento: new Date(data.nuevaFechaVencimiento),
+                    },
+                });
+                await prisma.auditLog.create({
+                    data: {
+                        userId: user.id,
+                        action: "RESERVA_EXTENDIDA",
+                        entity: "Reserva",
+                        entityId: params.id,
+                        details: JSON.stringify({ actor: user.role, nuevaFechaVencimiento: data.nuevaFechaVencimiento }),
                     },
                 });
                 break;
@@ -213,6 +231,22 @@ export async function PUT(
                             estadoAnterior: "RESERVADO",
                             estadoNuevo: "VENDIDO",
                             motivo: `Reserva convertida a venta por Admin`,
+                        },
+                    });
+
+                    // Explicit audit trail for admin bypass — who, when, what changed
+                    await tx.auditLog.create({
+                        data: {
+                            userId: user.id,
+                            action: "ADMIN_RESERVA_CONVERTIDA_VENTA",
+                            entity: "Reserva",
+                            entityId: params.id,
+                            details: JSON.stringify({
+                                adminId: user.id,
+                                unidadId: reserva.unidadId,
+                                estadoAnterior: "ACTIVA",
+                                estadoNuevo: "CONVERTIDA",
+                            }),
                         },
                     });
 
