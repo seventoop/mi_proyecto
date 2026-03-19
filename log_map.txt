@@ -1,0 +1,2531 @@
+﻿commit 5a421db7aad941989f5f24ce9744db136b53ec64
+Author: Juan Ignacio Ascenzi Marquez <ascenzimarquezjuanignacio@gmail.com>
+Date:   Mon Mar 16 23:09:58 2026 -0300
+
+    merge: daniel/landing-audit-copia-integracion como base + m├│dulo proyectos de work
+    
+    Base: daniel/landing-audit-copia-integracion (landing, KYC, CRM, LogicToop, etc.)
+    M├│dulo proyectos: restaurado ├¡ntegramente desde work/copia-main-de-dani
+    
+    Fixes aplicados para compatibilidad:
+    - prisma.proyectoArchivo ÔåÆ prisma.proyecto_archivos (naming daniel)
+    - crypto.randomUUID() en create de proyecto_archivos (id sin @default)
+    - Null guard en getPusherClient() en masterplan-viewer.tsx
+    - Null guard en getPusherServer() en lib/actions/unidades.ts
+    - getProyectosDestacados() agregado a lib/actions/proyectos.ts (requerido por landing de daniel)
+    
+    Build: exitoso, 0 errores TypeScript
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+diff --git a/components/masterplan/masterplan-map.tsx b/components/masterplan/masterplan-map.tsx
+index f405218..fc55bec 100644
+--- a/components/masterplan/masterplan-map.tsx
++++ b/components/masterplan/masterplan-map.tsx
+@@ -1,11 +1,11 @@
+ "use client";
+ 
+-import { useEffect, useRef, useState, useCallback } from "react";
++import { useEffect, useRef, useState, useCallback, useMemo } from "react";
++import dynamic from "next/dynamic";
+ import { motion, AnimatePresence } from "framer-motion";
+ import {
+-    Map as MapIcon, Layers as LayersIcon, Filter, ZoomIn, ZoomOut, Maximize,
+-    Eye, EyeOff, Crosshair, X, ChevronRight, Image as ImageIcon, Globe,
+-    Search, MapPin, Check,
++    Map as MapIcon, Layers as LayersIcon, Filter, ZoomIn, ZoomOut,
++    Crosshair, X, Search, MapPin, Check, Save, Camera,
+ } from "lucide-react";
+ import { cn } from "@/lib/utils";
+ import {
+@@ -18,23 +18,37 @@ import MasterplanFilters from "./masterplan-filters";
+ import MasterplanComparator from "./masterplan-comparator";
+ import OverlayEditor, { OverlayConfig } from "./overlay-editor";
+ import Tour360Viewer from "./tour360-viewer";
+-import InfraestructuraTool from "./infraestructura-tool";
+-import ImagenesMapaTool from "./imagenes-mapa-tool";
++import { getProjectBlueprintData } from "@/lib/actions/unidades";
++
++const InfraestructuraTool = dynamic(() => import("./infraestructura-tool"), { ssr: false });
++const ImagenesMapaTool = dynamic(() => import("./imagenes-mapa-tool"), { ssr: false });
++
+ // ÔöÇÔöÇÔöÇ Status colors ÔöÇÔöÇÔöÇ
+ const STATUS_COLORS: Record<string, string> = {
+     DISPONIBLE: "#10b981",
+-    BLOQUEADO: "#f59e0b",
+-    RESERVADO: "#f97316",
+-    VENDIDO: "#ef4444",
++    BLOQUEADO: "#94a3b8",
++    RESERVADA: "#f59e0b",
++    VENDIDA: "#ef4444",
++    SUSPENDIDO: "#64748b",
+ };
+ 
+ const STATUS_LABELS: Record<string, string> = {
+     DISPONIBLE: "Disponible",
+     BLOQUEADO: "Bloqueado",
+-    RESERVADO: "Reservado",
+-    VENDIDO: "Vendido",
++    RESERVADA: "Reservada",
++    VENDIDA: "Vendida",
++    SUSPENDIDO: "Suspendido",
+ };
+ 
++export interface Tour360Marker {
++    tourId: string;
++    nombre: string;
++    unidadId: string;
++    thumbnail?: string;
++    sceneCount?: number;
++    defaultSceneUrl?: string;
++}
++
+ interface MasterplanMapProps {
+     proyectoId: string;
+     modo: "admin" | "public";
+@@ -43,6 +57,7 @@ interface MasterplanMapProps {
+     centerLat?: number;
+     centerLng?: number;
+     mapZoom?: number;
++    tours360?: Tour360Marker[];
+ }
+ 
+ export default function MasterplanMap({
+@@ -53,6 +68,7 @@ export default function MasterplanMap({
+     centerLat = -34.6037,
+     centerLng = -58.3816,
+     mapZoom = 15,
++    tours360 = [],
+ }: MasterplanMapProps) {
+     const {
+         units, setUnits,
+@@ -64,23 +80,22 @@ export default function MasterplanMap({
+     } = useMasterplanStore();
+ 
+     const filteredUnits = useFilteredUnits();
+-    const filteredIds = new Set(filteredUnits.map((u) => u.id));
++    const filteredIds = useMemo(() => new Set(filteredUnits.map((u) => u.id)), [filteredUnits]);
+ 
++    const [blueprintLoaded, setBlueprintLoaded] = useState(false);
+     const mapRef = useRef<HTMLDivElement>(null);
+     const leafletMapRef = useRef<any>(null);
+     const polygonsRef = useRef<Map<string, any>>(new Map());
++    const prevUnitsRef = useRef<MasterplanUnit[]>([]);
++    const resizeObserverRef = useRef<ResizeObserver | null>(null);
+     const [isMapReady, setIsMapReady] = useState(false);
+-    const [showOverlay, setShowOverlay] = useState(true);
+     const [mapView, setMapView] = useState<"satellite" | "street">("satellite");
+     const [tooltip, setTooltip] = useState<{ x: number; y: number; unit: MasterplanUnit } | null>(null);
+ 
+-    // Overlay editor state
++    // Overlay editor state (bounds only ÔÇö no image overlay)
+     const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
+     const [isEditingOverlay, setIsEditingOverlay] = useState(false);
+     const [isLoadingOverlay, setIsLoadingOverlay] = useState(false);
+-    const overlayLayerRef = useRef<any>(null);
+-    const svgBlobUrlRef = useRef<string | null>(null);
+-    const [isLoadingPlan, setIsLoadingPlan] = useState(false);
+ 
+     // Tour 360 state
+     const [activeTour, setActiveTour] = useState<{ url: string; title: string } | null>(null);
+@@ -95,6 +110,20 @@ export default function MasterplanMap({
+     const [locationSaved, setLocationSaved] = useState(false);
+     const locationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ 
++    // Save plan position state
++    const [isSavingPlan, setIsSavingPlan] = useState(false);
++    const [planSaved, setPlanSaved] = useState(false);
++
++    // Tour 360┬░ preview card state
++    const [tourPreview, setTourPreview] = useState<{
++        tour: Tour360Marker;
++        screenX: number;
++        screenY: number;
++    } | null>(null);
++
++    // Camera marker layers ref
++    const cameraMarkersRef = useRef<Map<string, any>>(new Map());
++
+     // Reset selection state when entering Paso 4 (prevent bleedover from Paso 3)
+     useEffect(() => {
+         setSelectedUnitId(null);
+@@ -102,12 +131,24 @@ export default function MasterplanMap({
+         // eslint-disable-next-line react-hooks/exhaustive-deps
+     }, []);
+ 
+-    // Initialize units from prop only ÔÇö no demo data
++    // Fetch blueprint data (units with SVG paths) ÔÇö same source as Paso 3
+     useEffect(() => {
+-        if (initialUnits && initialUnits.length > 0) {
+-            setUnits(initialUnits);
+-        }
+-    }, [initialUnits, setUnits]);
++        const fetchBlueprint = async () => {
++            // Fast-path: if caller already provided units, use them
++            if (initialUnits && initialUnits.length > 0) {
++                setUnits(initialUnits);
++                setBlueprintLoaded(true);
++                return;
++            }
++            const res = await getProjectBlueprintData(proyectoId);
++            if (res.success && res.data) {
++                setUnits(res.data as any);
++            }
++            setBlueprintLoaded(true);
++        };
++        fetchBlueprint();
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++    }, [proyectoId, setUnits]);
+ 
+     // Load saved overlay config from API
+     useEffect(() => {
+@@ -118,7 +159,10 @@ export default function MasterplanMap({
+                 if (res.ok) {
+                     const data = await res.json();
+                     if (data.config) {
+-                        setOverlayConfig(data.config);
++                        // Blob URLs expire between sessions ÔÇö strip them (bounds are kept for polygon geo-transform)
++                        const cfg = data.config;
++                        const imageUrl = cfg.imageUrl && !cfg.imageUrl.startsWith("blob:") ? cfg.imageUrl : null;
++                        setOverlayConfig({ ...cfg, imageUrl });
+                     }
+                 }
+             } catch (err) {
+@@ -130,6 +174,10 @@ export default function MasterplanMap({
+         loadOverlay();
+     }, [proyectoId]);
+ 
++    // Note: the overlay IMAGE is not auto-loaded on mount.
++    // overlayConfig.bounds is used for polygon geo-transformation only.
++    // The overlay image is only shown when admin explicitly loads it via "Cargar Plano".
++
+     // Initialize Leaflet map
+     useEffect(() => {
+         if (!mapRef.current) return;
+@@ -197,9 +245,29 @@ export default function MasterplanMap({
+                 }).addTo(map);
+ 
+                 leafletMapRef.current = map;
+-                // Invalidate size after layout stabilizes (needed in flex containers)
+-                setTimeout(() => map.invalidateSize(), 50);
+                 setIsMapReady(true);
++
++                // Toggle label-marker visibility on zoom ÔÇö labels only readable when zoomed in
++                const MIN_LABEL_ZOOM = 17;
++                map.on("zoomend", () => {
++                    const z = map.getZoom();
++                    polygonsRef.current.forEach((layer, key) => {
++                        if (key.startsWith("label-")) {
++                            layer.setOpacity(z >= MIN_LABEL_ZOOM ? 1 : 0);
++                        }
++                    });
++                });
++
++                // Invalidate size via ResizeObserver ÔÇö fires whenever the container actually resizes
++                if (mapRef.current) {
++                    const ro = new ResizeObserver(() => {
++                        leafletMapRef.current?.invalidateSize();
++                    });
++                    ro.observe(mapRef.current);
++                    resizeObserverRef.current = ro;
++                }
++                // Also fire once immediately after layout settles
++                setTimeout(() => map.invalidateSize(), 150);
+             } catch (error) {
+                 console.warn("Map initialization error:", error);
+             }
+@@ -209,10 +277,8 @@ export default function MasterplanMap({
+ 
+         return () => {
+             isCanceled = true;
+-            if (svgBlobUrlRef.current) {
+-                URL.revokeObjectURL(svgBlobUrlRef.current);
+-                svgBlobUrlRef.current = null;
+-            }
++            resizeObserverRef.current?.disconnect();
++            resizeObserverRef.current = null;
+             if (leafletMapRef.current) {
+                 leafletMapRef.current.remove();
+                 leafletMapRef.current = null;
+@@ -221,53 +287,65 @@ export default function MasterplanMap({
+         };
+     }, [centerLat, centerLng, mapZoom]);
+ 
+-    // Render saved overlay image on map (read-only mode)
+-    useEffect(() => {
+-        if (!isMapReady || !leafletMapRef.current || isEditingOverlay) return;
++    // No image overlay is ever rendered ÔÇö the polygon layer is the sole visual representation.
+ 
+-        const renderOverlay = async () => {
+-            const L = (await import("leaflet")).default;
+-            const map = leafletMapRef.current!;
+-
+-            // Remove old overlay
+-            if (overlayLayerRef.current) {
+-                map.removeLayer(overlayLayerRef.current);
+-                overlayLayerRef.current = null;
++    // ÔöÇÔöÇÔöÇ SVG viewBox computed from unit paths (needed for SVGÔåÆGeo transform) ÔöÇÔöÇ
++    const svgViewBox = useMemo(() => {
++        if (units.length === 0) return null;
++        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
++        for (const u of units) {
++            let path = u.path;
++            if (!path && (u as any).coordenadasMasterplan) {
++                try { const c = JSON.parse((u as any).coordenadasMasterplan); path = c.path; } catch {}
+             }
+-
+-            if (overlayConfig && overlayConfig.imageUrl && overlayConfig.bounds && showOverlay) {
+-                const overlay = L.imageOverlay(
+-                    overlayConfig.imageUrl,
+-                    overlayConfig.bounds!,
+-                    {
+-                        opacity: overlayConfig.opacity ?? 0.6,
+-                        interactive: false,
+-                    }
+-                );
+-                overlay.addTo(map);
+-
+-                // Apply rotation (simple transform for MVP)
+-                if (overlayConfig.rotation) {
+-                    const el = overlay.getElement();
+-                    if (el) {
+-                        el.style.transformOrigin = "center center";
+-                        // Note: Leaflet transforms for positioning, appending rotation might conflict
+-                        // without specialized handling/plugin. 
+-                        // For MVP Phase 1 we rely on bounds.
+-                    }
++            if (!path) continue;
++            const nums = path.match(/-?[\d.]+(?:e[+-]?\d+)?/gi);
++            if (!nums) continue;
++            for (let i = 0; i + 1 < nums.length; i += 2) {
++                const x = parseFloat(nums[i]), y = parseFloat(nums[i + 1]);
++                if (!isNaN(x) && !isNaN(y)) {
++                    if (x < minX) minX = x; if (x > maxX) maxX = x;
++                    if (y < minY) minY = y; if (y > maxY) maxY = y;
+                 }
+-
+-                overlayLayerRef.current = overlay;
+             }
+-        };
+-
+-        renderOverlay();
+-    }, [isMapReady, overlayConfig, showOverlay, isEditingOverlay]);
++        }
++        if (minX === Infinity) return null;
++        return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
++    }, [units]);
+ 
+     // Draw lot polygons on map
+     useEffect(() => {
+         if (!isMapReady || !leafletMapRef.current || units.length === 0) return;
+ 
++        // Fast path: if only unit estados changed (no structural/coord changes), patch styles directly.
++        // This avoids the full removeLayer/addLayer cycle that causes visible flicker.
++        const prev = prevUnitsRef.current;
++        const onlyEstadoChanged =
++            prev.length === units.length &&
++            polygonsRef.current.size > 0 &&
++            units.every((u, i) => prev[i]?.id === u.id);
++
++        if (onlyEstadoChanged) {
++            let anyEstadoChanged = false;
++            units.forEach((unit) => {
++                const prevUnit = prev.find((p) => p.id === unit.id);
++                if (!prevUnit || prevUnit.estado === unit.estado) return;
++                anyEstadoChanged = true;
++                const polygon = polygonsRef.current.get(unit.id);
++                if (!polygon) return;
++                const color = STATUS_COLORS[unit.estado] || "#94a3b8";
++                const isSelected = selectedUnitId === unit.id;
++                polygon.setStyle({
++                    color: isSelected ? "#ffffff" : color,
++                    fillColor: color,
++                });
++            });
++            prevUnitsRef.current = units;
++            if (anyEstadoChanged) return; // styles patched ÔÇö skip full redraw
++        }
++
++        prevUnitsRef.current = units;
++
+         const drawPolygons = async () => {
+             const L = (await import("leaflet")).default;
+             const map = leafletMapRef.current!;
+@@ -277,15 +355,54 @@ export default function MasterplanMap({
+             polygonsRef.current.clear();
+ 
+             units.forEach((unit) => {
+-                let coords: [number, number][];
+-                try {
+-                    // Try geoJSON first (from Blueprint Engine), then fallback to path (demo/SVG path)
+-                    const source = (unit.geoJSON || unit.path) as string;
+-                    coords = JSON.parse(source);
+-                } catch {
+-                    return; // Skip units without valid geo coordinates
++                let coords: [number, number][] | null = null;
++
++                // Option 1: native geoJSON (explicit lat/lng array stored in DB)
++                if (unit.geoJSON) {
++                    try { coords = JSON.parse(unit.geoJSON); } catch {}
+                 }
+ 
++                // Option 2: SVG path ÔåÆ geo via overlay bounds + computed viewBox
++                if (!coords && svgViewBox && overlayConfig?.bounds) {
++                    let svgPath = unit.path;
++                    if (!svgPath && (unit as any).coordenadasMasterplan) {
++                        try {
++                            const c = JSON.parse((unit as any).coordenadasMasterplan);
++                            svgPath = c.path;
++                        } catch {}
++                    }
++                    if (svgPath) {
++                        const nums = svgPath.match(/-?[\d.]+(?:e[+-]?\d+)?/g);
++                        if (nums && nums.length >= 4) {
++                            const [[swLat, swLng], [neLat, neLng]] = overlayConfig.bounds;
++                            const cLat = (swLat + neLat) / 2, cLng = (swLng + neLng) / 2;
++                            const rotation = overlayConfig.rotation ?? 0;
++                            const rotRad = (rotation * Math.PI) / 180;
++                            const pts: [number, number][] = [];
++                            for (let i = 0; i + 1 < nums.length; i += 2) {
++                                const sx = parseFloat(nums[i]), sy = parseFloat(nums[i + 1]);
++                                if (isNaN(sx) || isNaN(sy)) continue;
++                                const nx = svgViewBox.w > 0 ? (sx - svgViewBox.x) / svgViewBox.w : 0;
++                                const ny = svgViewBox.h > 0 ? (sy - svgViewBox.y) / svgViewBox.h : 0;
++                                const rawLat = neLat - ny * (neLat - swLat);
++                                const rawLng = swLng + nx * (neLng - swLng);
++                                if (rotation !== 0) {
++                                    const dLat = rawLat - cLat, dLng = rawLng - cLng;
++                                    pts.push([
++                                        cLat + dLat * Math.cos(rotRad) - dLng * Math.sin(rotRad),
++                                        cLng + dLat * Math.sin(rotRad) + dLng * Math.cos(rotRad),
++                                    ]);
++                                } else {
++                                    pts.push([rawLat, rawLng]);
++                                }
++                            }
++                            if (pts.length >= 3) coords = pts;
++                        }
++                    }
++                }
++
++                if (!coords || coords.length < 3) return;
++
+                 const isFiltered = filteredIds.has(unit.id);
+                 const color = STATUS_COLORS[unit.estado] || "#94a3b8";
+                 const isSelected = selectedUnitId === unit.id;
+@@ -303,11 +420,11 @@ export default function MasterplanMap({
+                     `<div style="font-family: Inter, sans-serif; padding: 2px 0;">
+                         <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">Lote ${unit.numero}</div>
+                         <div style="font-size: 11px; color: #94a3b8;">
+-                            ${unit.superficie ? `${unit.superficie} m┬▓` : ""} 
++                            ${unit.superficie ? `${unit.superficie} m┬▓` : ""}
+                             ${unit.precio ? `ÔÇó $${unit.precio.toLocaleString()}` : ""}
+                         </div>
+                         <div style="margin-top: 4px; font-size: 10px; font-weight: 600; color: ${color}; text-transform: uppercase;">
+-                            ${STATUS_LABELS[unit.estado]}
++                            ${STATUS_LABELS[unit.estado] ?? unit.estado}
+                         </div>
+                     </div>`,
+                     { sticky: true, direction: "top", className: "lot-tooltip" }
+@@ -327,67 +444,177 @@ export default function MasterplanMap({
+                 polygon.addTo(map);
+                 polygonsRef.current.set(unit.id, polygon);
+ 
+-                // Add label
++                // Add label ÔÇö centered exactly on the polygon
+                 if (isFiltered) {
+-                    const center = polygon.getBounds().getCenter();
+-                    const label = L.marker(center, {
++                    // Prefer internalId (clean number), then numeric-only extraction
++                    let labelText = unit.numero;
++                    if ((unit as any).coordenadasMasterplan) {
++                        try {
++                            const c = JSON.parse((unit as any).coordenadasMasterplan);
++                            if (c.internalId != null) labelText = String(c.internalId);
++                        } catch {}
++                    }
++                    if (!/^\d+$/.test(labelText)) {
++                        const numMatch = labelText.match(/\d+/);
++                        if (numMatch) labelText = numMatch[0];
++                    }
++
++                    // Bbox center: consistent visual position across irregular polygons
++                    const cLats = coords.map(c => c[0]), cLngs = coords.map(c => c[1]);
++                    const centroid: [number, number] = [
++                        (Math.min(...cLats) + Math.max(...cLats)) / 2,
++                        (Math.min(...cLngs) + Math.max(...cLngs)) / 2,
++                    ];
++                    const label = L.marker(centroid, {
+                         icon: L.divIcon({
+-                            className: "lot-label",
+-                            html: `<span style="
+-                                font-size: 10px; 
+-                                font-weight: 600; 
+-                                color: white; 
+-                                text-shadow: 0 1px 3px rgba(0,0,0,0.8);
++                            className: "",
++                            // iconSize [0,0] + iconAnchor [0,0]: marker point is the origin
++                            // translate(-50%,-50%) perfectly centers the text regardless of its width
++                            html: `<div style="
++                                transform: translate(-50%, -50%);
++                                font-size: 10px;
++                                font-weight: 700;
++                                color: white;
++                                text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+                                 pointer-events: none;
+-                            ">${unit.numero.split("-")[1] || unit.numero}</span>`,
+-                            iconSize: [24, 14],
+-                            iconAnchor: [12, 7],
++                                white-space: nowrap;
++                                text-align: center;
++                                line-height: 1;
++                            ">${labelText}</div>`,
++                            iconSize: [0, 0],
++                            iconAnchor: [0, 0],
+                         }),
+                         interactive: false,
+                     });
+                     label.addTo(map);
++                    // Hide label at low zoom ÔÇö only show when individual lots are readable
++                    label.setOpacity(map.getZoom() >= 17 ? 1 : 0);
+                     polygonsRef.current.set(`label-${unit.id}`, label);
+                 }
+             });
+         };
+ 
+         drawPolygons();
+-    }, [isMapReady, units, filteredIds, selectedUnitId]);
++    // overlayConfig y svgViewBox son parte del c├ílculo de coordenadas
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++    }, [isMapReady, units, filteredIds, selectedUnitId, overlayConfig, svgViewBox, tours360]);
+ 
+-    // Toggle overlay visibility
+-    const handleToggleOverlay = useCallback(() => {
+-        setShowOverlay((prev) => !prev);
+-    }, []);
++    // ÔöÇÔöÇÔöÇ Camera markers for Tour 360┬░ ÔÇö drawn separately after polygons ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
++    useEffect(() => {
++        if (!isMapReady || !leafletMapRef.current || tours360.length === 0) return;
+ 
+-    // Load masterplan SVG from paso 3 as overlay image
+-    const handleLoadPlanOverlay = useCallback(async () => {
+-        if (!leafletMapRef.current) return;
+-        setIsLoadingPlan(true);
+-        try {
+-            const res = await fetch(`/api/proyectos/${proyectoId}/blueprint`);
+-            if (res.ok) {
+-                const data = await res.json();
+-                if (data.masterplanSVG) {
+-                    if (svgBlobUrlRef.current) URL.revokeObjectURL(svgBlobUrlRef.current);
+-                    const blob = new Blob([data.masterplanSVG], { type: "image/svg+xml;charset=utf-8" });
+-                    const url = URL.createObjectURL(blob);
+-                    svgBlobUrlRef.current = url;
+-                    // Preserve existing bounds/rotation/opacity when reloading
+-                    setOverlayConfig(prev => ({
+-                        imageUrl: url,
+-                        bounds: prev?.bounds ?? null,
+-                        rotation: prev?.rotation ?? 0,
+-                        opacity: prev?.opacity ?? 0.75,
+-                    }));
+-                    setIsEditingOverlay(true);
++        let canceled = false;
++        const addMarkers = async () => {
++            // Small delay to let drawPolygons complete
++            await new Promise((r) => setTimeout(r, 100));
++            if (canceled || !leafletMapRef.current) return;
++
++            const L = (await import("leaflet")).default;
++            const map = leafletMapRef.current;
++
++            cameraMarkersRef.current.forEach((m) => { try { map.removeLayer(m); } catch {} });
++            cameraMarkersRef.current.clear();
++
++            for (const tour of tours360) {
++                const polygon = polygonsRef.current.get(tour.unidadId);
++                if (!polygon) continue;
++                let centroid: [number, number];
++                try {
++                    const bounds = polygon.getBounds();
++                    centroid = [
++                        (bounds.getSouth() + bounds.getNorth()) / 2,
++                        (bounds.getWest() + bounds.getEast()) / 2,
++                    ];
++                } catch { continue; }
++
++                const marker = L.marker(centroid as any, {
++                    icon: L.divIcon({
++                        className: "",
++                        html: `<div style="width:26px;height:26px;background:rgba(139,92,246,0.9);border:2px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.5);cursor:pointer;transform:translate(-50%,-50%)">­ƒôÀ</div>`,
++                        iconSize: [0, 0],
++                        iconAnchor: [0, 0],
++                    }),
++                    zIndexOffset: 500,
++                });
++
++                const captured = { ...tour, centroid };
++                marker.on("click", (e: any) => {
++                    e.originalEvent?.stopPropagation();
++                    const cp = map.latLngToContainerPoint(captured.centroid as any);
++                    setTourPreview({ tour: captured, screenX: cp.x, screenY: cp.y });
++                });
++
++                if (!canceled) {
++                    marker.addTo(map);
++                    cameraMarkersRef.current.set(tour.tourId, marker);
+                 }
+             }
+-        } catch (e) {
+-            console.error("Error cargando blueprint como overlay:", e);
+-        } finally {
+-            setIsLoadingPlan(false);
+-        }
+-    }, [proyectoId]);
++        };
++
++        addMarkers();
++        return () => {
++            canceled = true;
++            cameraMarkersRef.current.forEach((m) => { try { leafletMapRef.current?.removeLayer(m); } catch {} });
++            cameraMarkersRef.current.clear();
++        };
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++    }, [isMapReady, tours360, units, overlayConfig, svgViewBox]);
++
++    // Real-time preview: update existing Leaflet polygon positions without full redraw
++    const updatePolygonPositionsLive = useCallback((
++        newBounds: [[number, number], [number, number]],
++        rotation = 0,
++    ) => {
++        if (!svgViewBox) return;
++        const [[swLat, swLng], [neLat, neLng]] = newBounds;
++        const cLat = (swLat + neLat) / 2, cLng = (swLng + neLng) / 2;
++        const rotRad = (rotation * Math.PI) / 180;
++
++        units.forEach(unit => {
++            const polygon = polygonsRef.current.get(unit.id);
++            if (!polygon) return;
++
++            let svgPath: string | undefined = unit.path;
++            if (!svgPath && (unit as any).coordenadasMasterplan) {
++                try { const c = JSON.parse((unit as any).coordenadasMasterplan); svgPath = c.path; } catch {}
++            }
++            if (!svgPath) return;
++
++            const nums = svgPath.match(/-?[\d.]+(?:e[+-]?\d+)?/g);
++            if (!nums || nums.length < 4) return;
++
++            const pts: [number, number][] = [];
++            for (let i = 0; i + 1 < nums.length; i += 2) {
++                const sx = parseFloat(nums[i]), sy = parseFloat(nums[i + 1]);
++                if (isNaN(sx) || isNaN(sy)) continue;
++                const nx = svgViewBox.w > 0 ? (sx - svgViewBox.x) / svgViewBox.w : 0;
++                const ny = svgViewBox.h > 0 ? (sy - svgViewBox.y) / svgViewBox.h : 0;
++                const rawLat = neLat - ny * (neLat - swLat);
++                const rawLng = swLng + nx * (neLng - swLng);
++                if (rotation !== 0) {
++                    const dLat = rawLat - cLat, dLng = rawLng - cLng;
++                    pts.push([
++                        cLat + dLat * Math.cos(rotRad) - dLng * Math.sin(rotRad),
++                        cLng + dLat * Math.sin(rotRad) + dLng * Math.cos(rotRad),
++                    ]);
++                } else {
++                    pts.push([rawLat, rawLng]);
++                }
++            }
++            if (pts.length >= 3) {
++                polygon.setLatLngs(pts);
++                // Bbox center for label (consistent across irregular polygons)
++                const label = polygonsRef.current.get(`label-${unit.id}`);
++                if (label) {
++                    const lLats = pts.map(c => c[0]), lLngs = pts.map(c => c[1]);
++                    label.setLatLng([
++                        (Math.min(...lLats) + Math.max(...lLats)) / 2,
++                        (Math.min(...lLngs) + Math.max(...lLngs)) / 2,
++                    ]);
++                }
++            }
++        });
++    }, [units, svgViewBox]);
+ 
+     // ÔöÇÔöÇÔöÇ Location search (Nominatim) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+     const searchLocation = useCallback((query: string) => {
+@@ -452,10 +679,38 @@ export default function MasterplanMap({
+     const handleZoomOut = () => leafletMapRef.current?.zoomOut();
+     const handleResetView = () => leafletMapRef.current?.setView([centerLat, centerLng], mapZoom);
+ 
++    // Save current overlay config (bounds + rotation) from the toolbar
++    const handleSavePlan = useCallback(async () => {
++        if (!overlayConfig?.bounds) return;
++        setIsSavingPlan(true);
++        try {
++            const res = await fetch(`/api/proyectos/${proyectoId}/overlay`, {
++                method: "POST",
++                headers: { "Content-Type": "application/json" },
++                body: JSON.stringify({
++                    imageUrl: overlayConfig.imageUrl,
++                    bounds: overlayConfig.bounds,
++                    rotation: overlayConfig.rotation ?? 0,
++                    mapCenter: leafletMapRef.current ? {
++                        lat: leafletMapRef.current.getCenter().lat,
++                        lng: leafletMapRef.current.getCenter().lng,
++                        zoom: leafletMapRef.current.getZoom(),
++                    } : undefined,
++                }),
++            });
++            if (res.ok) {
++                setPlanSaved(true);
++                setTimeout(() => setPlanSaved(false), 3000);
++            }
++        } catch { /* silent */ } finally {
++            setIsSavingPlan(false);
++        }
++    }, [proyectoId, overlayConfig]);
++
+     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
+ 
+     return (
+-        <div className="flex flex-col w-full h-full min-h-[400px] bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-b-2xl overflow-hidden">
++        <div className="relative flex flex-col w-full h-full min-h-[400px] bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-b-2xl overflow-hidden">
+             {/* Leaflet CSS */}
+             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+ 
+@@ -558,67 +813,79 @@ export default function MasterplanMap({
+                         {/* Separator */}
+                         {!showLocationPanel && <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />}
+ 
+-                        {/* SECTION 2: Plan overlay controls */}
+-                        <div className="flex items-center gap-1.5">
+-                            {/* "Cargar Plano" ÔÇö always visible in admin mode */}
++                        {/* SECTION 2: Polygon positioning */}
++                        <button
++                            onClick={() => setIsEditingOverlay(true)}
++                            disabled={!isMapReady}
++                            className={cn(
++                                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50",
++                                isEditingOverlay
++                                    ? "bg-indigo-500 text-white border-transparent"
++                                    : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
++                            )}
++                        >
++                            <LayersIcon className="w-3.5 h-3.5" />
++                            Ajustar Plano
++                        </button>
++
++                        {/* Separator */}
++                        <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />
++
++                        {/* SECTION 3: Map controls ÔÇö in toolbar so they don't overlap the side panel */}
++                        <button onClick={handleZoomIn} title="Acercar" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition-colors flex-shrink-0">
++                            <ZoomIn className="w-3.5 h-3.5" />
++                        </button>
++                        <button onClick={handleZoomOut} title="Alejar" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition-colors flex-shrink-0">
++                            <ZoomOut className="w-3.5 h-3.5" />
++                        </button>
++                        <button onClick={handleResetView} title="Centrar vista" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition-colors flex-shrink-0">
++                            <Crosshair className="w-3.5 h-3.5" />
++                        </button>
++
++                        {/* Separator */}
++                        {overlayConfig?.bounds && <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />}
++
++                        {/* SECTION 4: Save plan position */}
++                        {overlayConfig?.bounds && (
+                             <button
+-                                onClick={handleLoadPlanOverlay}
+-                                disabled={isLoadingPlan || isLoadingOverlay || !isMapReady}
+-                                className={cn(
+-                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap disabled:opacity-50",
+-                                    overlayConfig
+-                                        ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
+-                                        : "bg-indigo-600 hover:bg-indigo-700 text-white border-transparent shadow-md"
+-                                )}
++                                onClick={handleSavePlan}
++                                disabled={isSavingPlan}
++                                title="Guardar posici├│n del plano"
++                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 bg-orange-500 hover:bg-orange-600 text-white border-transparent"
+                             >
+-                                {isLoadingPlan ? (
+-                                    <><div className="w-3 h-3 border-2 border-current/40 border-t-current rounded-full animate-spin" />Cargando...</>
++                                {isSavingPlan ? (
++                                    <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
++                                ) : planSaved ? (
++                                    <><Check className="w-3 h-3" />Guardado</>
+                                 ) : (
+-                                    <><ImageIcon className="w-3.5 h-3.5" />{overlayConfig ? "Recargar Plano" : "Cargar Plano del Proyecto"}</>
++                                    <><Save className="w-3 h-3" />Guardar</>
+                                 )}
+                             </button>
++                        )}
+ 
+-                            {/* Only shown when overlay exists */}
+-                            {overlayConfig && (
+-                                <>
+-                                    <button
+-                                        onClick={handleToggleOverlay}
+-                                        className={cn(
+-                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+-                                            showOverlay
+-                                                ? "bg-brand-500 text-white border-transparent"
+-                                                : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+-                                        )}
+-                                    >
+-                                        {showOverlay ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+-                                        Plano
+-                                    </button>
+-                                    <button
+-                                        onClick={() => setIsEditingOverlay(true)}
+-                                        className={cn(
+-                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+-                                            isEditingOverlay
+-                                                ? "bg-indigo-500 text-white border-transparent"
+-                                                : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
+-                                        )}
+-                                    >
+-                                        <LayersIcon className="w-3.5 h-3.5" />
+-                                        Ajustar Plano
+-                                    </button>
+-                                </>
+-                            )}
+-                        </div>
++                        {/* Separator */}
++                        <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />
+ 
+-                        {/* SECTION 3: Custom Tools */}
+-                        <div className="flex items-center gap-1.5 ml-auto pl-2 border-l border-slate-700/60">
+-                            <InfraestructuraTool proyectoId={proyectoId} map={leafletMapRef.current} />
++                        {/* SECTION 5: Infraestructura tool ÔÇö renders its own button + panel */}
++                        {isMapReady && leafletMapRef.current && (
++                            <InfraestructuraTool
++                                proyectoId={proyectoId}
++                                map={leafletMapRef.current}
++                            />
++                        )}
++
++                        <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />
++
++                        {/* SECTION 6: Imagenes del mapa tool */}
++                        {isMapReady && leafletMapRef.current && (
+                             <ImagenesMapaTool
+                                 proyectoId={proyectoId}
+                                 map={leafletMapRef.current}
+-                                overlayBounds={overlayConfig?.bounds}
+-                                overlayRotation={overlayConfig?.rotation}
++                                overlayBounds={overlayConfig?.bounds ?? null}
++                                overlayRotation={overlayConfig?.rotation ?? 0}
++                                svgViewBox={svgViewBox}
+                             />
+-                        </div>
++                        )}
+                     </div>
+                 </div>
+             )}
+@@ -679,21 +946,33 @@ export default function MasterplanMap({
+                     </div>
+                 </div>
+ 
+-                {/* Zoom controls ÔÇö top-right, inside map area (no overlap with ResizableContainer fullscreen btn) */}
+-                <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-1">
+-                    <button onClick={handleZoomIn} className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+-                        <ZoomIn className="w-4 h-4" />
+-                    </button>
+-                    <button onClick={handleZoomOut} className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+-                        <ZoomOut className="w-4 h-4" />
+-                    </button>
+-                    <button onClick={handleResetView} className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm" title="Centrar vista">
+-                        <Crosshair className="w-4 h-4" />
+-                    </button>
+-                </div>
++                {/* Zoom controls ÔÇö public mode only; admin uses toolbar */}
++                {modo !== "admin" && (
++                    <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-1">
++                        <button onClick={handleZoomIn} title="Acercar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
++                            <ZoomIn className="w-4 h-4" />
++                        </button>
++                        <button onClick={handleZoomOut} title="Alejar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
++                            <ZoomOut className="w-4 h-4" />
++                        </button>
++                        <button onClick={handleResetView} title="Centrar vista" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
++                            <Crosshair className="w-4 h-4" />
++                        </button>
++                    </div>
++                )}
++
++                {/* Hint: no overlay bounds configured yet ÔÇö lotes can't be positioned */}
++                {blueprintLoaded && units.length > 0 && !overlayConfig?.bounds && modo === "admin" && (
++                    <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-[999] pointer-events-none">
++                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/90 backdrop-blur-sm text-white text-xs font-medium border border-slate-700/60 shadow-xl whitespace-nowrap">
++                            <MapPin className="w-3.5 h-3.5 text-brand-400 shrink-0" />
++                            Carg├í y posicion├í el plano para ver los lotes sobre el mapa
++                        </div>
++                    </div>
++                )}
+ 
+-                {/* Legend */}
+-                <div className="absolute bottom-4 right-4 z-[1000] bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg px-3 py-2">
++                {/* Legend ÔÇö bottom-left so the side panel (right) never covers it */}
++                <div className="absolute bottom-4 left-4 z-[1000] bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg px-3 py-2">
+                     <div className="flex items-center gap-3">
+                         {Object.entries(STATUS_COLORS).map(([key, color]) => (
+                             <div key={key} className="flex items-center gap-1.5">
+@@ -769,6 +1048,7 @@ export default function MasterplanMap({
+                             proyectoId={proyectoId}
+                             map={leafletMapRef.current}
+                             existingConfig={overlayConfig}
++                            onBoundsChange={(bounds, rot) => updatePolygonPositionsLive(bounds, rot)}
+                             onSave={(config) => {
+                                 setOverlayConfig(config);
+                                 setIsEditingOverlay(false);
+@@ -795,6 +1075,69 @@ export default function MasterplanMap({
+                         />
+                     )}
+                 </AnimatePresence>
++
++                {/* Tour 360┬░ Preview Card */}
++                <AnimatePresence>
++                    {tourPreview && (
++                        <motion.div
++                            key="tour-preview"
++                            initial={{ opacity: 0, scale: 0.9 }}
++                            animate={{ opacity: 1, scale: 1 }}
++                            exit={{ opacity: 0, scale: 0.9 }}
++                            transition={{ duration: 0.15 }}
++                            className="absolute z-[1200] w-56"
++                            style={{
++                                left: Math.min(Math.max(8, tourPreview.screenX - 112), (mapRef.current?.clientWidth ?? 400) - 232),
++                                top: Math.max(8, tourPreview.screenY - 220),
++                            }}
++                        >
++                            <div className="bg-slate-900/95 backdrop-blur-sm border border-violet-500/40 rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
++                                {tourPreview.tour.thumbnail && (
++                                    <div className="h-28 overflow-hidden">
++                                        <img
++                                            src={tourPreview.tour.thumbnail}
++                                            alt={tourPreview.tour.nombre}
++                                            className="w-full h-full object-cover"
++                                        />
++                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-900/80" />
++                                    </div>
++                                )}
++                                {!tourPreview.tour.thumbnail && (
++                                    <div className="h-16 bg-violet-500/10 flex items-center justify-center">
++                                        <Camera className="w-8 h-8 text-violet-400/50" />
++                                    </div>
++                                )}
++                                <div className="p-3">
++                                    <p className="text-xs font-bold text-white mb-0.5">{tourPreview.tour.nombre}</p>
++                                    {tourPreview.tour.sceneCount != null && (
++                                        <p className="text-[10px] text-slate-400 mb-2.5">
++                                            {tourPreview.tour.sceneCount} escena{tourPreview.tour.sceneCount !== 1 ? "s" : ""}
++                                        </p>
++                                    )}
++                                    <div className="flex gap-1.5">
++                                        {tourPreview.tour.defaultSceneUrl && (
++                                            <button
++                                                onClick={() => {
++                                                    setActiveTour({ url: tourPreview.tour.defaultSceneUrl!, title: tourPreview.tour.nombre });
++                                                    setTourPreview(null);
++                                                }}
++                                                className="flex-1 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-bold rounded-xl transition-colors"
++                                            >
++                                                Ver en 360┬░
++                                            </button>
++                                        )}
++                                        <button
++                                            onClick={() => setTourPreview(null)}
++                                            className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-xl transition-colors"
++                                        >
++                                            <X className="w-3.5 h-3.5" />
++                                        </button>
++                                    </div>
++                                </div>
++                            </div>
++                        </motion.div>
++                    )}
++                </AnimatePresence>
+             </div>
+ 
+             {/* Custom styles */}
+@@ -826,6 +1169,9 @@ export default function MasterplanMap({
+                 .leaflet-container {
+                     font-family: Inter, system-ui, sans-serif;
+                 }
++                .infra-layer {
++                    cursor: pointer;
++                }
+             `}</style>
+         </div>
+     );
+
+commit eea4cff275be7ba337d3353d3b18122c7ee7c074
+Author: heynidus-creator <heynidus@gmail.com>
+Date:   Mon Mar 16 10:27:47 2026 -0300
+
+    feat(proyectos): integrar infraestructura, imagenes mapa y bypass KYC para admin
+
+diff --git a/components/masterplan/masterplan-map.tsx b/components/masterplan/masterplan-map.tsx
+index b16c643..f405218 100644
+--- a/components/masterplan/masterplan-map.tsx
++++ b/components/masterplan/masterplan-map.tsx
+@@ -18,7 +18,8 @@ import MasterplanFilters from "./masterplan-filters";
+ import MasterplanComparator from "./masterplan-comparator";
+ import OverlayEditor, { OverlayConfig } from "./overlay-editor";
+ import Tour360Viewer from "./tour360-viewer";
+-
++import InfraestructuraTool from "./infraestructura-tool";
++import ImagenesMapaTool from "./imagenes-mapa-tool";
+ // ÔöÇÔöÇÔöÇ Status colors ÔöÇÔöÇÔöÇ
+ const STATUS_COLORS: Record<string, string> = {
+     DISPONIBLE: "#10b981",
+@@ -607,6 +608,17 @@ export default function MasterplanMap({
+                                 </>
+                             )}
+                         </div>
++
++                        {/* SECTION 3: Custom Tools */}
++                        <div className="flex items-center gap-1.5 ml-auto pl-2 border-l border-slate-700/60">
++                            <InfraestructuraTool proyectoId={proyectoId} map={leafletMapRef.current} />
++                            <ImagenesMapaTool
++                                proyectoId={proyectoId}
++                                map={leafletMapRef.current}
++                                overlayBounds={overlayConfig?.bounds}
++                                overlayRotation={overlayConfig?.rotation}
++                            />
++                        </div>
+                     </div>
+                 </div>
+             )}
+
+commit dfc5f8f09769c7898edde2ba25a312ee64e16112
+Author: heynidus-creator <heynidus@gmail.com>
+Date:   Sun Mar 15 21:42:33 2026 -0300
+
+    Integracion: reemplazo completo del modulo Proyecto con rama de Juani
+
+diff --git a/components/masterplan/masterplan-map.tsx b/components/masterplan/masterplan-map.tsx
+index 369074c..b16c643 100644
+--- a/components/masterplan/masterplan-map.tsx
++++ b/components/masterplan/masterplan-map.tsx
+@@ -1,472 +1,820 @@
+ "use client";
+ 
+ import { useEffect, useRef, useState, useCallback } from "react";
+-import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
++import { motion, AnimatePresence } from "framer-motion";
+ import {
+-    Filter, ZoomIn, ZoomOut, Crosshair,
+-    Layers as LayersIcon, Map as MapIcon,
+-    Globe, Share2, Save
++    Map as MapIcon, Layers as LayersIcon, Filter, ZoomIn, ZoomOut, Maximize,
++    Eye, EyeOff, Crosshair, X, ChevronRight, Image as ImageIcon, Globe,
++    Search, MapPin, Check,
+ } from "lucide-react";
+ import { cn } from "@/lib/utils";
+ import {
+     useMasterplanStore,
+     useFilteredUnits,
+-    MasterplanUnit
++    MasterplanUnit,
+ } from "@/lib/masterplan-store";
+-import { motion, AnimatePresence } from "framer-motion";
+ import MasterplanSidePanel from "./masterplan-side-panel";
+ import MasterplanFilters from "./masterplan-filters";
+-import PolygonEditorModal from "./PolygonEditorModal";
+-import { Button } from "@/components/ui/button";
+-import { toast } from "sonner";
+-import { updateProjectMapConfig, updateProyectoOverlayBounds } from "@/lib/actions/masterplan-actions";
+-
+-if (typeof window !== "undefined") {
+-    (window as any).updateProjectMapConfig = updateProjectMapConfig;
+-}
+-
+-const ESTADO_COLORS: Record<string, { fill: string; stroke: string }> = {
+-    DISPONIBLE: { fill: "#22c55e", stroke: "#16a34a" },
+-    RESERVADO: { fill: "#f97316", stroke: "#ea580c" },
+-    VENDIDO: { fill: "#ef4444", stroke: "#dc2626" },
+-    BLOQUEADO: { fill: "#94a3b8", stroke: "#64748b" },
++import MasterplanComparator from "./masterplan-comparator";
++import OverlayEditor, { OverlayConfig } from "./overlay-editor";
++import Tour360Viewer from "./tour360-viewer";
++
++// ÔöÇÔöÇÔöÇ Status colors ÔöÇÔöÇÔöÇ
++const STATUS_COLORS: Record<string, string> = {
++    DISPONIBLE: "#10b981",
++    BLOQUEADO: "#f59e0b",
++    RESERVADO: "#f97316",
++    VENDIDO: "#ef4444",
+ };
+ 
+-type CornerKey = "nw" | "ne" | "se" | "sw";
+-interface OverlayBounds {
+-    nw: { lat: number; lng: number };
+-    ne: { lat: number; lng: number };
+-    se: { lat: number; lng: number };
+-    sw: { lat: number; lng: number };
+-}
++const STATUS_LABELS: Record<string, string> = {
++    DISPONIBLE: "Disponible",
++    BLOQUEADO: "Bloqueado",
++    RESERVADO: "Reservado",
++    VENDIDO: "Vendido",
++};
+ 
+ interface MasterplanMapProps {
+     proyectoId: string;
+-    modo: "admin" | "public" | "inversor";
++    modo: "admin" | "public";
++    initialUnits?: MasterplanUnit[];
++    overlayImageUrl?: string;
+     centerLat?: number;
+     centerLng?: number;
+-    initialUnits?: MasterplanUnit[];
+-    initialOverlayBounds?: OverlayBounds | null;
++    mapZoom?: number;
+ }
+ 
+ export default function MasterplanMap({
+     proyectoId,
+     modo,
+-    centerLat = -31.4532,
+-    centerLng = -64.4823,
+     initialUnits = [],
+-    initialOverlayBounds = null,
++    overlayImageUrl,
++    centerLat = -34.6037,
++    centerLng = -58.3816,
++    mapZoom = 15,
+ }: MasterplanMapProps) {
+-    const mapRef = useRef<HTMLDivElement>(null);
+-    const [map, setMap] = useState<google.maps.Map | null>(null);
+-    const [isLoaded, setIsLoaded] = useState(false);
+-    const [mapType, setMapType] = useState<"satellite" | "roadmap">("satellite");
+-    const [isEditorOpen, setIsEditorOpen] = useState(false);
+-    const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+-
+-    // Overlay 4-corner handles
+-    const [showOverlay, setShowOverlay] = useState(false);
+-    const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(initialOverlayBounds);
+-    const handleMarkersRef = useRef<Map<CornerKey, google.maps.Marker>>(new Map());
+-    const overlayRectRef = useRef<google.maps.Polygon | null>(null);
+-
+     const {
+         units, setUnits,
+         selectedUnitId, setSelectedUnitId,
++        hoveredUnitId, setHoveredUnitId,
++        comparisonIds, toggleComparison, clearComparison,
++        showComparator, setShowComparator,
+         showFilters, setShowFilters,
+     } = useMasterplanStore();
+ 
+     const filteredUnits = useFilteredUnits();
+-    const polygonsRef = useRef<Map<string, google.maps.Polygon>>(new Map());
++    const filteredIds = new Set(filteredUnits.map((u) => u.id));
+ 
+-    // Initialize units
++    const mapRef = useRef<HTMLDivElement>(null);
++    const leafletMapRef = useRef<any>(null);
++    const polygonsRef = useRef<Map<string, any>>(new Map());
++    const [isMapReady, setIsMapReady] = useState(false);
++    const [showOverlay, setShowOverlay] = useState(true);
++    const [mapView, setMapView] = useState<"satellite" | "street">("satellite");
++    const [tooltip, setTooltip] = useState<{ x: number; y: number; unit: MasterplanUnit } | null>(null);
++
++    // Overlay editor state
++    const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
++    const [isEditingOverlay, setIsEditingOverlay] = useState(false);
++    const [isLoadingOverlay, setIsLoadingOverlay] = useState(false);
++    const overlayLayerRef = useRef<any>(null);
++    const svgBlobUrlRef = useRef<string | null>(null);
++    const [isLoadingPlan, setIsLoadingPlan] = useState(false);
++
++    // Tour 360 state
++    const [activeTour, setActiveTour] = useState<{ url: string; title: string } | null>(null);
++
++    // Location search state
++    const [showLocationPanel, setShowLocationPanel] = useState(false);
++    const [locationQuery, setLocationQuery] = useState("");
++    const [locationResults, setLocationResults] = useState<{ display_name: string; lat: string; lon: string }[]>([]);
++    const [manualLat, setManualLat] = useState<string>("");
++    const [manualLng, setManualLng] = useState<string>("");
++    const [isSavingLocation, setIsSavingLocation] = useState(false);
++    const [locationSaved, setLocationSaved] = useState(false);
++    const locationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
++
++    // Reset selection state when entering Paso 4 (prevent bleedover from Paso 3)
+     useEffect(() => {
+-        if (initialUnits.length > 0) {
++        setSelectedUnitId(null);
++        setHoveredUnitId(null);
++        // eslint-disable-next-line react-hooks/exhaustive-deps
++    }, []);
++
++    // Initialize units from prop only ÔÇö no demo data
++    useEffect(() => {
++        if (initialUnits && initialUnits.length > 0) {
+             setUnits(initialUnits);
+         }
+     }, [initialUnits, setUnits]);
+ 
+-    // Load Google Maps
++    // Load saved overlay config from API
+     useEffect(() => {
+-        const initMap = async () => {
++        const loadOverlay = async () => {
++            setIsLoadingOverlay(true);
+             try {
+-                setOptions({
+-                    key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+-                });
++                const res = await fetch(`/api/proyectos/${proyectoId}/overlay`);
++                if (res.ok) {
++                    const data = await res.json();
++                    if (data.config) {
++                        setOverlayConfig(data.config);
++                    }
++                }
++            } catch (err) {
++                console.error("Failed to load overlay config:", err);
++            } finally {
++                setIsLoadingOverlay(false);
++            }
++        };
++        loadOverlay();
++    }, [proyectoId]);
+ 
+-                const { Map } = await importLibrary("maps") as google.maps.MapsLibrary;
++    // Initialize Leaflet map
++    useEffect(() => {
++        if (!mapRef.current) return;
++
++        let isCanceled = false;
+ 
+-                if (!mapRef.current) return;
++        const initMap = async () => {
++            // Check if map is already initialized on this ref
++            if (leafletMapRef.current) return;
+ 
+-                const googleMap = new Map(mapRef.current, {
+-                    center: { lat: centerLat, lng: centerLng },
+-                    zoom: 16,
+-                    mapTypeId: "satellite",
+-                    tilt: 0,
+-                    disableDefaultUI: true,
++            // Also check if the DOM element already has a leaflet instance (defensive)
++            if ((mapRef.current as any)?._leaflet_id) {
++                return;
++            }
++
++            const L = (await import("leaflet")).default;
++
++            if (isCanceled) return;
++
++            // Fix Leaflet default icon issue
++            delete (L.Icon.Default.prototype as any)._getIconUrl;
++            L.Icon.Default.mergeOptions({
++                iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
++                iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
++                shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
++            });
++
++            // Double check before creating
++            if (!mapRef.current) return;
++
++            try {
++                const map = L.map(mapRef.current, {
++                    center: [centerLat, centerLng],
++                    zoom: mapZoom,
+                     zoomControl: false,
+-                    mapTypeControl: false,
+-                    streetViewControl: false,
+-                    fullscreenControl: false,
++                    attributionControl: false,
+                 });
+ 
+-                setMap(googleMap);
+-                setIsLoaded(true);
++                // Google satellite tile layer
++                const satellite = L.tileLayer(
++                    "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
++                    { maxZoom: 21, subdomains: ["mt0", "mt1", "mt2", "mt3"] }
++                );
++
++                const streets = L.tileLayer(
++                    "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
++                    { maxZoom: 21, subdomains: ["mt0", "mt1", "mt2", "mt3"] }
++                );
++
++                const hybrid = L.tileLayer(
++                    "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
++                    { maxZoom: 21, subdomains: ["mt0", "mt1", "mt2", "mt3"] }
++                );
++
++                satellite.addTo(map);
++
++                // Store references for layer switching
++                (map as any)._tileLayers = { satellite, streets, hybrid };
++                (map as any)._currentTile = satellite;
++
++                // Attribution
++                L.control.attribution({
++                    position: "bottomleft",
++                    prefix: "Seventoop | Leaflet"
++                }).addTo(map);
++
++                leafletMapRef.current = map;
++                // Invalidate size after layout stabilizes (needed in flex containers)
++                setTimeout(() => map.invalidateSize(), 50);
++                setIsMapReady(true);
+             } catch (error) {
+-                console.error("Error loading Google Maps:", error);
++                console.warn("Map initialization error:", error);
+             }
+         };
+ 
+         initMap();
+-    }, [centerLat, centerLng]);
+ 
+-    // Draw Polygons
+-    useEffect(() => {
+-        if (!map || !isLoaded) return;
+-
+-        // Clear previous
+-        polygonsRef.current.forEach(p => p.setMap(null));
+-        polygonsRef.current.clear();
+-
+-        filteredUnits.forEach(unit => {
+-            // Normalize polygon: handle string JSON, object, or legacy path
+-            let paths: any = unit.polygon;
+-            if (typeof paths === "string") {
+-                try { paths = JSON.parse(paths); } catch { paths = null; }
++        return () => {
++            isCanceled = true;
++            if (svgBlobUrlRef.current) {
++                URL.revokeObjectURL(svgBlobUrlRef.current);
++                svgBlobUrlRef.current = null;
+             }
+-            if (!paths && unit.path) {
+-                try { paths = JSON.parse(unit.path as string); } catch { paths = null; }
++            if (leafletMapRef.current) {
++                leafletMapRef.current.remove();
++                leafletMapRef.current = null;
++                setIsMapReady(false);
+             }
++        };
++    }, [centerLat, centerLng, mapZoom]);
+ 
+-            if (!paths || !Array.isArray(paths) || paths.length < 3) return;
+-
+-            const colors = ESTADO_COLORS[unit.estado] || ESTADO_COLORS.DISPONIBLE;
+-            const isSelected = selectedUnitId === unit.id;
++    // Render saved overlay image on map (read-only mode)
++    useEffect(() => {
++        if (!isMapReady || !leafletMapRef.current || isEditingOverlay) return;
+ 
+-            const polygon = new google.maps.Polygon({
+-                paths: paths,
+-                strokeColor: isSelected ? "#ffffff" : colors.stroke,
+-                strokeOpacity: 0.9,
+-                strokeWeight: isSelected ? 3 : 1.5,
+-                fillColor: colors.fill,
+-                fillOpacity: isSelected ? 0.7 : 0.4,
+-                map: map,
+-                zIndex: isSelected ? 10 : 1,
+-            });
++        const renderOverlay = async () => {
++            const L = (await import("leaflet")).default;
++            const map = leafletMapRef.current!;
+ 
+-            polygon.addListener("click", (e: google.maps.MapMouseEvent) => {
+-                setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id);
+-
+-                // InfoWindow
+-                if (infoWindowRef.current) infoWindowRef.current.close();
+-                const precio = unit.precio ? `$${unit.precio.toLocaleString()} ${unit.moneda || "USD"}` : "Consultar";
+-                const estadoLabel: Record<string, string> = { DISPONIBLE: "Disponible", RESERVADO: "Reservado", RESERVADA: "Reservado", VENDIDO: "Vendido", VENDIDA: "Vendido", BLOQUEADO: "Bloqueado" };
+-                const estadoColor: Record<string, string> = { DISPONIBLE: "#22c55e", RESERVADO: "#f59e0b", RESERVADA: "#f59e0b", VENDIDO: "#ef4444", VENDIDA: "#ef4444", BLOQUEADO: "#6b7280" };
+-                const iw = new google.maps.InfoWindow({
+-                    content: `<div style="font-family:sans-serif;min-width:160px;padding:4px">
+-                        <div style="font-weight:700;font-size:14px;margin-bottom:6px">Lote #${unit.numero}</div>
+-                        <span style="background:${estadoColor[unit.estado] || "#94a3b8"}22;color:${estadoColor[unit.estado] || "#94a3b8"};padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600">${estadoLabel[unit.estado] || unit.estado}</span>
+-                        ${unit.superficie ? `<div style="margin-top:6px;font-size:12px;color:#64748b">Superficie: <b>${unit.superficie} m┬▓</b></div>` : ""}
+-                        <div style="margin-top:4px;font-size:13px;color:#0f172a;font-weight:700">${precio}</div>
+-                    </div>`,
+-                    position: e.latLng ?? undefined,
+-                });
+-                iw.open(map);
+-                infoWindowRef.current = iw;
+-            });
++            // Remove old overlay
++            if (overlayLayerRef.current) {
++                map.removeLayer(overlayLayerRef.current);
++                overlayLayerRef.current = null;
++            }
+ 
+-            polygon.addListener("mouseover", () => {
+-                polygon.setOptions({ fillOpacity: 0.8 });
+-            });
++            if (overlayConfig && overlayConfig.imageUrl && overlayConfig.bounds && showOverlay) {
++                const overlay = L.imageOverlay(
++                    overlayConfig.imageUrl,
++                    overlayConfig.bounds!,
++                    {
++                        opacity: overlayConfig.opacity ?? 0.6,
++                        interactive: false,
++                    }
++                );
++                overlay.addTo(map);
++
++                // Apply rotation (simple transform for MVP)
++                if (overlayConfig.rotation) {
++                    const el = overlay.getElement();
++                    if (el) {
++                        el.style.transformOrigin = "center center";
++                        // Note: Leaflet transforms for positioning, appending rotation might conflict
++                        // without specialized handling/plugin. 
++                        // For MVP Phase 1 we rely on bounds.
++                    }
++                }
+ 
+-            polygon.addListener("mouseout", () => {
+-                polygon.setOptions({ fillOpacity: isSelected ? 0.7 : 0.4 });
+-            });
++                overlayLayerRef.current = overlay;
++            }
++        };
+ 
+-            polygonsRef.current.set(unit.id, polygon);
+-        });
+-    }, [map, isLoaded, filteredUnits, selectedUnitId, setSelectedUnitId]);
++        renderOverlay();
++    }, [isMapReady, overlayConfig, showOverlay, isEditingOverlay]);
+ 
+-    // Overlay handles effect
++    // Draw lot polygons on map
+     useEffect(() => {
+-        if (!map || !isLoaded || modo !== "admin") return;
++        if (!isMapReady || !leafletMapRef.current || units.length === 0) return;
++
++        const drawPolygons = async () => {
++            const L = (await import("leaflet")).default;
++            const map = leafletMapRef.current!;
++
++            // Clear old polygons
++            polygonsRef.current.forEach((poly) => map.removeLayer(poly));
++            polygonsRef.current.clear();
++
++            units.forEach((unit) => {
++                let coords: [number, number][];
++                try {
++                    // Try geoJSON first (from Blueprint Engine), then fallback to path (demo/SVG path)
++                    const source = (unit.geoJSON || unit.path) as string;
++                    coords = JSON.parse(source);
++                } catch {
++                    return; // Skip units without valid geo coordinates
++                }
+ 
+-        // Cleanup previous
+-        handleMarkersRef.current.forEach(m => m.setMap(null));
+-        handleMarkersRef.current.clear();
+-        overlayRectRef.current?.setMap(null);
+-        overlayRectRef.current = null;
++                const isFiltered = filteredIds.has(unit.id);
++                const color = STATUS_COLORS[unit.estado] || "#94a3b8";
++                const isSelected = selectedUnitId === unit.id;
+ 
+-        if (!showOverlay) return;
++                const polygon = L.polygon(coords, {
++                    color: isSelected ? "#ffffff" : color,
++                    fillColor: color,
++                    fillOpacity: isFiltered ? 0.5 : 0.1,
++                    weight: isSelected ? 3 : 1,
++                    className: "lot-polygon",
++                });
+ 
+-        const bounds: OverlayBounds = overlayBounds ?? {
+-            nw: { lat: centerLat + 0.001, lng: centerLng - 0.001 },
+-            ne: { lat: centerLat + 0.001, lng: centerLng + 0.001 },
+-            se: { lat: centerLat - 0.001, lng: centerLng + 0.001 },
+-            sw: { lat: centerLat - 0.001, lng: centerLng - 0.001 },
+-        };
++                // Tooltip
++                polygon.bindTooltip(
++                    `<div style="font-family: Inter, sans-serif; padding: 2px 0;">
++                        <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">Lote ${unit.numero}</div>
++                        <div style="font-size: 11px; color: #94a3b8;">
++                            ${unit.superficie ? `${unit.superficie} m┬▓` : ""} 
++                            ${unit.precio ? `ÔÇó $${unit.precio.toLocaleString()}` : ""}
++                        </div>
++                        <div style="margin-top: 4px; font-size: 10px; font-weight: 600; color: ${color}; text-transform: uppercase;">
++                            ${STATUS_LABELS[unit.estado]}
++                        </div>
++                    </div>`,
++                    { sticky: true, direction: "top", className: "lot-tooltip" }
++                );
+ 
+-        const currentBounds = { ...bounds };
+-
+-        const drawRect = () => {
+-            overlayRectRef.current?.setMap(null);
+-            overlayRectRef.current = new google.maps.Polygon({
+-                paths: [currentBounds.nw, currentBounds.ne, currentBounds.se, currentBounds.sw],
+-                strokeColor: "#f97316",
+-                strokeWeight: 2,
+-                fillColor: "#f97316",
+-                fillOpacity: 0.08,
+-                map,
+-                zIndex: 5,
+-            });
+-        };
++                // Click handler
++                polygon.on("click", () => {
++                    setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id);
++                });
+ 
+-        const corners: CornerKey[] = ["nw", "ne", "se", "sw"];
+-        const labels: Record<CornerKey, string> = { nw: "NO", ne: "NE", se: "SE", sw: "SO" };
+-
+-        corners.forEach(corner => {
+-            const marker = new google.maps.Marker({
+-                position: currentBounds[corner],
+-                map,
+-                draggable: true,
+-                zIndex: 10,
+-                label: { text: labels[corner], color: "#fff", fontSize: "10px", fontWeight: "bold" },
+-                icon: {
+-                    path: google.maps.SymbolPath.CIRCLE,
+-                    scale: 10,
+-                    fillColor: "#f97316",
+-                    fillOpacity: 1,
+-                    strokeColor: "#fff",
+-                    strokeWeight: 2,
+-                },
+-                title: `Arrastra para ajustar esquina ${labels[corner]}`,
+-            });
++                // Context menu for comparison
++                polygon.on("contextmenu", (e: any) => {
++                    e.originalEvent.preventDefault();
++                    toggleComparison(unit.id);
++                });
+ 
+-            marker.addListener("drag", (e: google.maps.MapMouseEvent) => {
+-                if (e.latLng) {
+-                    currentBounds[corner] = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+-                    drawRect();
++                polygon.addTo(map);
++                polygonsRef.current.set(unit.id, polygon);
++
++                // Add label
++                if (isFiltered) {
++                    const center = polygon.getBounds().getCenter();
++                    const label = L.marker(center, {
++                        icon: L.divIcon({
++                            className: "lot-label",
++                            html: `<span style="
++                                font-size: 10px; 
++                                font-weight: 600; 
++                                color: white; 
++                                text-shadow: 0 1px 3px rgba(0,0,0,0.8);
++                                pointer-events: none;
++                            ">${unit.numero.split("-")[1] || unit.numero}</span>`,
++                            iconSize: [24, 14],
++                            iconAnchor: [12, 7],
++                        }),
++                        interactive: false,
++                    });
++                    label.addTo(map);
++                    polygonsRef.current.set(`label-${unit.id}`, label);
+                 }
+             });
++        };
+ 
+-            marker.addListener("dragend", () => {
+-                setOverlayBounds({ ...currentBounds });
++        drawPolygons();
++    }, [isMapReady, units, filteredIds, selectedUnitId]);
++
++    // Toggle overlay visibility
++    const handleToggleOverlay = useCallback(() => {
++        setShowOverlay((prev) => !prev);
++    }, []);
++
++    // Load masterplan SVG from paso 3 as overlay image
++    const handleLoadPlanOverlay = useCallback(async () => {
++        if (!leafletMapRef.current) return;
++        setIsLoadingPlan(true);
++        try {
++            const res = await fetch(`/api/proyectos/${proyectoId}/blueprint`);
++            if (res.ok) {
++                const data = await res.json();
++                if (data.masterplanSVG) {
++                    if (svgBlobUrlRef.current) URL.revokeObjectURL(svgBlobUrlRef.current);
++                    const blob = new Blob([data.masterplanSVG], { type: "image/svg+xml;charset=utf-8" });
++                    const url = URL.createObjectURL(blob);
++                    svgBlobUrlRef.current = url;
++                    // Preserve existing bounds/rotation/opacity when reloading
++                    setOverlayConfig(prev => ({
++                        imageUrl: url,
++                        bounds: prev?.bounds ?? null,
++                        rotation: prev?.rotation ?? 0,
++                        opacity: prev?.opacity ?? 0.75,
++                    }));
++                    setIsEditingOverlay(true);
++                }
++            }
++        } catch (e) {
++            console.error("Error cargando blueprint como overlay:", e);
++        } finally {
++            setIsLoadingPlan(false);
++        }
++    }, [proyectoId]);
++
++    // ÔöÇÔöÇÔöÇ Location search (Nominatim) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
++    const searchLocation = useCallback((query: string) => {
++        if (!query.trim() || query.length < 3) { setLocationResults([]); return; }
++        if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
++        locationTimerRef.current = setTimeout(async () => {
++            try {
++                const res = await fetch(
++                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`,
++                    { headers: { "Accept-Language": "es,en" } }
++                );
++                if (res.ok) setLocationResults(await res.json());
++            } catch { /* silent */ }
++        }, 500);
++    }, []);
++
++    const flyToLocation = useCallback((lat: number, lng: number, zoom = 16) => {
++        if (!leafletMapRef.current) return;
++        leafletMapRef.current.flyTo([lat, lng], zoom, { animate: true, duration: 1.2 });
++        setManualLat(lat.toFixed(6));
++        setManualLng(lng.toFixed(6));
++        setLocationResults([]);
++        setLocationQuery("");
++    }, []);
++
++    const saveMapLocation = useCallback(async () => {
++        if (!leafletMapRef.current) return;
++        setIsSavingLocation(true);
++        try {
++            const center = leafletMapRef.current.getCenter();
++            const zoom = leafletMapRef.current.getZoom();
++            const res = await fetch(`/api/proyectos/${proyectoId}`, {
++                method: "PATCH",
++                headers: { "Content-Type": "application/json" },
++                body: JSON.stringify({ mapCenterLat: center.lat, mapCenterLng: center.lng, mapZoom: zoom }),
+             });
++            if (res.ok) {
++                setLocationSaved(true);
++                setTimeout(() => setLocationSaved(false), 3000);
++            }
++        } catch { /* silent */ } finally {
++            setIsSavingLocation(false);
++        }
++    }, [proyectoId]);
+ 
+-            handleMarkersRef.current.set(corner, marker);
+-        });
++    // Switch map view
++    const handleSwitchView = useCallback((view: "satellite" | "street") => {
++        const map = leafletMapRef.current;
++        if (!map) return;
++        const layers = (map as any)._tileLayers;
++        const current = (map as any)._currentTile;
++        if (current) map.removeLayer(current);
+ 
+-        drawRect();
++        const newLayer = view === "satellite" ? layers.satellite : layers.hybrid;
++        newLayer.addTo(map);
++        (map as any)._currentTile = newLayer;
++        setMapView(view);
++    }, []);
+ 
+-        return () => {
+-            handleMarkersRef.current.forEach(m => m.setMap(null));
+-            handleMarkersRef.current.clear();
+-            overlayRectRef.current?.setMap(null);
+-            overlayRectRef.current = null;
+-        };
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-    }, [map, isLoaded, showOverlay]);
++    // Zoom controls
++    const handleZoomIn = () => leafletMapRef.current?.zoomIn();
++    const handleZoomOut = () => leafletMapRef.current?.zoomOut();
++    const handleResetView = () => leafletMapRef.current?.setView([centerLat, centerLng], mapZoom);
++
++    const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
+ 
+-    const toggleMapType = () => {
+-        const newType = mapType === "satellite" ? "roadmap" : "satellite";
+-        map?.setMapTypeId(newType);
+-        setMapType(newType);
+-    };
++    return (
++        <div className="flex flex-col w-full h-full min-h-[400px] bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-b-2xl overflow-hidden">
++            {/* Leaflet CSS */}
++            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+ 
+-    const handleZoomIn = () => map?.setZoom((map.getZoom() || 16) + 1);
+-    const handleZoomOut = () => map?.setZoom((map.getZoom() || 16) - 1);
+-    const handleReset = () => map?.setCenter({ lat: centerLat, lng: centerLng });
++            {/* ÔöÇÔöÇ Admin toolbar (OUTSIDE the map, no overlap) ÔöÇÔöÇ */}
++            {modo === "admin" && (
++                <div className="flex-shrink-0 bg-slate-950/90 border-b border-slate-700/50 px-3 py-2 pr-12">
++                    <div className="flex items-center gap-2 flex-wrap min-h-[36px]">
++
++                        {/* SECTION 1: Ubicaci├│n */}
++                        <div className="relative flex items-center gap-1.5">
++                            {!showLocationPanel ? (
++                                <button
++                                    onClick={() => setShowLocationPanel(true)}
++                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all whitespace-nowrap"
++                                >
++                                    <MapPin className="w-3.5 h-3.5 text-brand-400" />
++                                    Ubicaci├│n del proyecto
++                                </button>
++                            ) : (
++                                <div className="flex items-center gap-1.5 flex-wrap">
++                                    {/* Search input with dropdown */}
++                                    <div className="relative">
++                                        <input
++                                            type="text"
++                                            placeholder="Buscar direcci├│n..."
++                                            value={locationQuery}
++                                            onChange={(e) => { setLocationQuery(e.target.value); searchLocation(e.target.value); }}
++                                            className="text-xs pl-7 pr-2 py-1.5 w-52 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-500 text-white placeholder-slate-500"
++                                        />
++                                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
++                                        {locationResults.length > 0 && (
++                                            <div className="absolute top-full left-0 mt-1 w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto z-[2000]">
++                                                {locationResults.map((r, i) => (
++                                                    <button
++                                                        key={i}
++                                                        onClick={() => flyToLocation(parseFloat(r.lat), parseFloat(r.lon))}
++                                                        className="w-full text-left text-[11px] px-3 py-2 hover:bg-brand-500/20 text-slate-300 border-b border-slate-800 last:border-0 transition-colors leading-tight"
++                                                    >
++                                                        {r.display_name}
++                                                    </button>
++                                                ))}
++                                            </div>
++                                        )}
++                                    </div>
++                                    {/* Lat input */}
++                                    <input
++                                        type="number"
++                                        placeholder="Lat"
++                                        value={manualLat}
++                                        onChange={(e) => setManualLat(e.target.value)}
++                                        step="0.000001"
++                                        className="text-xs px-2 py-1.5 w-28 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-500 text-white placeholder-slate-500"
++                                    />
++                                    {/* Lng input */}
++                                    <input
++                                        type="number"
++                                        placeholder="Lng"
++                                        value={manualLng}
++                                        onChange={(e) => setManualLng(e.target.value)}
++                                        step="0.000001"
++                                        className="text-xs px-2 py-1.5 w-28 bg-slate-800 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-500 text-white placeholder-slate-500"
++                                    />
++                                    {/* Go to coords */}
++                                    <button
++                                        onClick={() => {
++                                            const lat = parseFloat(manualLat);
++                                            const lng = parseFloat(manualLng);
++                                            if (!isNaN(lat) && !isNaN(lng)) flyToLocation(lat, lng);
++                                        }}
++                                        title="Ir a coordenadas"
++                                        className="p-1.5 bg-slate-700 hover:bg-brand-500 text-slate-300 hover:text-white rounded-lg transition-colors flex-shrink-0"
++                                    >
++                                        <Crosshair className="w-3.5 h-3.5" />
++                                    </button>
++                                    {/* Save location */}
++                                    <button
++                                        onClick={saveMapLocation}
++                                        disabled={isSavingLocation}
++                                        className="flex items-center gap-1 px-2.5 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap flex-shrink-0"
++                                    >
++                                        {isSavingLocation ? (
++                                            <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
++                                        ) : locationSaved ? (
++                                            <><Check className="w-3 h-3" />Guardado</>
++                                        ) : (
++                                            <><MapIcon className="w-3 h-3" />Guardar</>
++                                        )}
++                                    </button>
++                                    {/* Close */}
++                                    <button
++                                        onClick={() => { setShowLocationPanel(false); setLocationResults([]); setLocationQuery(""); }}
++                                        className="p-1.5 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors flex-shrink-0"
++                                    >
++                                        <X className="w-3.5 h-3.5" />
++                                    </button>
++                                </div>
++                            )}
++                        </div>
++
++                        {/* Separator */}
++                        {!showLocationPanel && <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />}
++
++                        {/* SECTION 2: Plan overlay controls */}
++                        <div className="flex items-center gap-1.5">
++                            {/* "Cargar Plano" ÔÇö always visible in admin mode */}
++                            <button
++                                onClick={handleLoadPlanOverlay}
++                                disabled={isLoadingPlan || isLoadingOverlay || !isMapReady}
++                                className={cn(
++                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap disabled:opacity-50",
++                                    overlayConfig
++                                        ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
++                                        : "bg-indigo-600 hover:bg-indigo-700 text-white border-transparent shadow-md"
++                                )}
++                            >
++                                {isLoadingPlan ? (
++                                    <><div className="w-3 h-3 border-2 border-current/40 border-t-current rounded-full animate-spin" />Cargando...</>
++                                ) : (
++                                    <><ImageIcon className="w-3.5 h-3.5" />{overlayConfig ? "Recargar Plano" : "Cargar Plano del Proyecto"}</>
++                                )}
++                            </button>
++
++                            {/* Only shown when overlay exists */}
++                            {overlayConfig && (
++                                <>
++                                    <button
++                                        onClick={handleToggleOverlay}
++                                        className={cn(
++                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
++                                            showOverlay
++                                                ? "bg-brand-500 text-white border-transparent"
++                                                : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
++                                        )}
++                                    >
++                                        {showOverlay ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
++                                        Plano
++                                    </button>
++                                    <button
++                                        onClick={() => setIsEditingOverlay(true)}
++                                        className={cn(
++                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
++                                            isEditingOverlay
++                                                ? "bg-indigo-500 text-white border-transparent"
++                                                : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
++                                        )}
++                                    >
++                                        <LayersIcon className="w-3.5 h-3.5" />
++                                        Ajustar Plano
++                                    </button>
++                                </>
++                            )}
++                        </div>
++                    </div>
++                </div>
++            )}
+ 
+-    const shareUrl = `https://www.google.com/maps/search/?api=1&query=${centerLat},${centerLng}`;
++            {/* ÔöÇÔöÇ Map area (flex-1 takes remaining height) ÔöÇÔöÇ */}
++            <div className="relative flex-1 min-h-0 overflow-hidden">
++                {/* Leaflet container */}
++                <div ref={mapRef} className="w-full h-full z-0" />
++
++                {/* Loading overlay */}
++                {!isMapReady && (
++                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/90">
++                        <div className="flex flex-col items-center gap-3">
++                            <div className="w-10 h-10 border-3 border-brand-500 border-t-transparent rounded-full animate-spin" />
++                            <span className="text-sm text-slate-300 font-medium">Cargando mapa interactivo...</span>
++                        </div>
++                    </div>
++                )}
+ 
+-    const selectedUnit = units.find(u => u.id === selectedUnitId);
++                {/* Map top-left floating controls */}
++                <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2">
++                    <button
++                        onClick={() => setShowFilters(!showFilters)}
++                        className={cn(
++                            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg backdrop-blur-sm transition-all",
++                            showFilters
++                                ? "bg-brand-500 text-white"
++                                : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700"
++                        )}
++                    >
++                        <Filter className="w-3.5 h-3.5" />Filtros
++                    </button>
+ 
+-    return (
+-        <div className="relative w-full h-[calc(100vh-330px)] min-h-[500px] bg-slate-900 overflow-hidden border-x border-b border-slate-200 dark:border-slate-800">
+-            {/* Map Canvas */}
+-            <div ref={mapRef} className="w-full h-full" />
+-
+-            {/* Controls Overlay */}
+-            <div className="absolute top-4 left-4 z-10 flex gap-2">
+-                <Button
+-                    variant={showFilters ? "default" : "secondary"}
+-                    size="sm"
+-                    className="gap-2 shadow-lg"
+-                    onClick={() => setShowFilters(!showFilters)}
+-                >
+-                    <Filter className="w-4 h-4" /> Filtros
+-                </Button>
+-
+-                <Button
+-                    variant="secondary"
+-                    size="sm"
+-                    className="gap-2 shadow-lg"
+-                    onClick={toggleMapType}
+-                >
+-                    {mapType === "satellite" ? <MapIcon className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+-                    {mapType === "satellite" ? "Mapa" : "Sat├®lite"}
+-                </Button>
+-
+-                {modo === "admin" && (
+-                    <>
+-                        <Button
+-                            variant="secondary"
+-                            size="sm"
+-                            className="gap-2 shadow-lg bg-brand-600 text-white hover:bg-brand-500"
+-                            onClick={() => setIsEditorOpen(true)}
++                    {/* Map view toggle */}
++                    <div className="flex rounded-xl overflow-hidden shadow-lg">
++                        <button
++                            onClick={() => handleSwitchView("satellite")}
++                            className={cn(
++                                "px-3 py-2 text-xs font-semibold backdrop-blur-sm transition-all",
++                                mapView === "satellite"
++                                    ? "bg-brand-500 text-white"
++                                    : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200"
++                            )}
+                         >
+-                            <LayersIcon className="w-4 h-4" /> Dibujar Pol├¡gonos
+-                        </Button>
+-                        <Button
+-                            variant={showOverlay ? "default" : "secondary"}
+-                            size="sm"
+-                            className="gap-2 shadow-lg"
+-                            onClick={() => setShowOverlay(v => !v)}
+-                            title="4 handles de esquina para definir ├írea de overlay"
++                            Sat├®lite
++                        </button>
++                        <button
++                            onClick={() => handleSwitchView("street")}
++                            className={cn(
++                                "px-3 py-2 text-xs font-semibold backdrop-blur-sm transition-all",
++                                mapView === "street"
++                                    ? "bg-brand-500 text-white"
++                                    : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200"
++                            )}
+                         >
+-                            <MapIcon className="w-4 h-4" /> {showOverlay ? "Ocultar Handles" : "Overlay Handles"}
+-                        </Button>
+-                        {showOverlay && overlayBounds && (
+-                            <Button
+-                                variant="secondary"
+-                                size="sm"
+-                                className="gap-2 shadow-lg bg-emerald-600 text-white hover:bg-emerald-500"
+-                                onClick={async () => {
+-                                    const res = await updateProyectoOverlayBounds(proyectoId, overlayBounds);
+-                                    if (res.success) toast.success("Bounds del overlay guardados");
+-                                    else toast.error("Error al guardar");
+-                                }}
+-                            >
+-                                <Save className="w-4 h-4" /> Guardar Overlay
+-                            </Button>
+-                        )}
+-                    </>
+-                )}
+-            </div>
++                            H├¡brido
++                        </button>
++                    </div>
++                </div>
+ 
+-            {/* Right Controls */}
+-            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+-                <div className="flex flex-col rounded-lg overflow-hidden shadow-lg border border-white/10">
+-                    <button onClick={handleZoomIn} className="w-10 h-10 bg-white/90 dark:bg-slate-800/90 flex items-center justify-center hover:bg-white transition-colors">
++                {/* Zoom controls ÔÇö top-right, inside map area (no overlap with ResizableContainer fullscreen btn) */}
++                <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-1">
++                    <button onClick={handleZoomIn} className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+                         <ZoomIn className="w-4 h-4" />
+                     </button>
+-                    <button onClick={handleZoomOut} className="w-10 h-10 bg-white/90 dark:bg-slate-800/90 flex items-center justify-center hover:bg-white transition-colors border-t border-slate-200 dark:border-slate-700">
++                    <button onClick={handleZoomOut} className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+                         <ZoomOut className="w-4 h-4" />
+                     </button>
++                    <button onClick={handleResetView} className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm" title="Centrar vista">
++                        <Crosshair className="w-4 h-4" />
++                    </button>
+                 </div>
+-                <button
+-                    onClick={handleReset}
+-                    className="w-10 h-10 bg-white/90 dark:bg-slate-800/90 rounded-lg shadow-lg flex items-center justify-center hover:bg-white transition-colors border border-white/10"
+-                >
+-                    <Crosshair className="w-4 h-4" />
+-                </button>
+-                <a
+-                    href={shareUrl}
+-                    target="_blank"
+-                    rel="noopener noreferrer"
+-                    className="w-10 h-10 bg-white/90 dark:bg-slate-800/90 rounded-lg shadow-lg flex items-center justify-center hover:bg-white transition-colors border border-white/10"
+-                    title="Ver en Google Maps"
+-                >
+-                    <Share2 className="w-4 h-4" />
+-                </a>
+-            </div>
+ 
+-            {/* Legend ÔÇö dynamic counts */}
+-            <div className="absolute bottom-4 left-4 z-10 bg-black/80 backdrop-blur-md p-3 rounded-xl border border-white/10 text-[10px] text-white space-y-1.5">
+-                {Object.entries(ESTADO_COLORS).map(([key, color]) => {
+-                    const count = units.filter(u => {
+-                        const norm = ["RESERVADO", "RESERVADA", "RESERVADA_PENDIENTE"].includes(u.estado) ? "RESERVADO" : ["VENDIDO", "VENDIDA"].includes(u.estado) ? "VENDIDO" : u.estado;
+-                        return norm === key;
+-                    }).length;
+-                    return (
+-                        <div key={key} className="flex items-center justify-between gap-3">
+-                            <div className="flex items-center gap-1.5">
+-                                <div className="w-3 h-3 rounded" style={{ backgroundColor: color.fill }} />
+-                                <span className="font-medium uppercase tracking-wider">{key}</span>
++                {/* Legend */}
++                <div className="absolute bottom-4 right-4 z-[1000] bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg px-3 py-2">
++                    <div className="flex items-center gap-3">
++                        {Object.entries(STATUS_COLORS).map(([key, color]) => (
++                            <div key={key} className="flex items-center gap-1.5">
++                                <div className="w-3 h-3 rounded" style={{ backgroundColor: color }} />
++                                <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">{STATUS_LABELS[key]}</span>
+                             </div>
+-                            <span className="font-bold text-white/70">{count}</span>
+-                        </div>
+-                    );
+-                })}
+-                <div className="pt-1 mt-1 border-t border-white/10 text-white/50">
+-                    {units.filter(u => u.estado === "DISPONIBLE").length} disponibles de {units.length}
++                        ))}
++                    </div>
+                 </div>
+-            </div>
+ 
+-            {/* Admin Config Panel */}
+-            {modo === "admin" && (
+-                <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2 bg-white/90 dark:bg-slate-900/90 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-[200px]">
+-                    <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">Configuraci├│n Inicial</h4>
+-                    <div className="space-y-2">
+-                        <div className="flex justify-between items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-lg">
+-                            <span className="text-[9px] text-slate-500">Zoom: {map?.getZoom()}</span>
+-                        </div>
+-                        <Button
+-                            variant="default"
+-                            size="sm"
+-                            className="w-full text-[10px] h-7 bg-brand-600 hover:bg-brand-500"
+-                            onClick={async () => {
+-                                const center = map?.getCenter();
+-                                const zoom = map?.getZoom();
+-                                if (center && zoom) {
+-                                    const res = await (window as any).updateProjectMapConfig(proyectoId, {
+-                                        lat: center.lat(),
+-                                        lng: center.lng(),
+-                                        zoom: zoom
+-                                    });
+-                                    if (res.success) toast.success("Configuraci├│n guardada");
+-                                    else toast.error("Error al guardar");
+-                                }
+-                            }}
++                {/* Comparison floating button */}
++                <AnimatePresence>
++                    {comparisonIds.length > 0 && (
++                        <motion.div
++                            initial={{ y: 20, opacity: 0 }}
++                            animate={{ y: 0, opacity: 1 }}
++                            exit={{ y: 20, opacity: 0 }}
++                            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000]"
+                         >
+-                            <Save className="w-3 h-3 mr-1" /> Guardar Vista Actual
+-                        </Button>
+-                    </div>
+-                </div>
+-            )}
++                            <div className="flex items-center gap-2 bg-brand-500 text-white rounded-xl shadow-xl px-4 py-2.5">
++                                <button onClick={() => setShowComparator(true)} className="text-sm font-semibold hover:underline">
++                                    Comparar {comparisonIds.length} unidad{comparisonIds.length > 1 ? "es" : ""}
++                                </button>
++                                <button onClick={clearComparison} className="p-0.5 hover:bg-white/20 rounded">
++                                    <X className="w-3.5 h-3.5" />
++                                </button>
++                            </div>
++                        </motion.div>
++                    )}
++                </AnimatePresence>
++
++                {/* Filters sidebar */}
++                <AnimatePresence>
++                    {showFilters && (
++                        <motion.div
++                            initial={{ x: -300, opacity: 0 }}
++                            animate={{ x: 0, opacity: 1 }}
++                            exit={{ x: -300, opacity: 0 }}
++                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
++                            className="absolute top-14 left-3 bottom-4 z-[1000] w-[260px]"
++                        >
++                            <MasterplanFilters onClose={() => setShowFilters(false)} />
++                        </motion.div>
++                    )}
++                </AnimatePresence>
++
++                {/* Side Panel */}
++                <AnimatePresence>
++                    {selectedUnit && (
++                        <MasterplanSidePanel
++                            unit={selectedUnit}
++                            modo={modo}
++                            onClose={() => setSelectedUnitId(null)}
++                        />
++                    )}
++                </AnimatePresence>
++
++                {/* Comparator Modal */}
++                <AnimatePresence>
++                    {showComparator && (
++                        <MasterplanComparator
++                            units={units.filter((u) => comparisonIds.includes(u.id))}
++                            onClose={() => setShowComparator(false)}
++                            onRemove={(id) => toggleComparison(id)}
++                        />
++                    )}
++                </AnimatePresence>
++
++                {/* Overlay Editor */}
++                <AnimatePresence>
++                    {isEditingOverlay && isMapReady && leafletMapRef.current && (
++                        <OverlayEditor
++                            proyectoId={proyectoId}
++                            map={leafletMapRef.current}
++                            existingConfig={overlayConfig}
++                            onSave={(config) => {
++                                setOverlayConfig(config);
++                                setIsEditingOverlay(false);
++                            }}
++                            onCancel={() => {
++                                if (!overlayConfig?.bounds) setOverlayConfig(null);
++                                setIsEditingOverlay(false);
++                            }}
++                            onDelete={() => {
++                                setOverlayConfig(null);
++                                setIsEditingOverlay(false);
++                            }}
++                        />
++                    )}
++                </AnimatePresence>
++
++                {/* Tour 360 Viewer Modal */}
++                <AnimatePresence>
++                    {activeTour && (
++                        <Tour360Viewer
++                            imageUrl={activeTour.url}
++                            title={activeTour.title}
++                            onClose={() => setActiveTour(null)}
++                        />
++                    )}
++                </AnimatePresence>
++            </div>
+ 
+-            {/* Modals & Panels */}
+-            <AnimatePresence>
+-                {showFilters && (
+-                    <motion.div
+-                        initial={{ x: -300, opacity: 0 }}
+-                        animate={{ x: 0, opacity: 1 }}
+-                        exit={{ x: -300, opacity: 0 }}
+-                        className="absolute top-16 left-4 z-20 w-80"
+-                    >
+-                        <MasterplanFilters onClose={() => setShowFilters(false)} />
+-                    </motion.div>
+-                )}
+-            </AnimatePresence>
+-
+-            <AnimatePresence>
+-                {selectedUnit && (
+-                    <MasterplanSidePanel
+-                        unit={selectedUnit}
+-                        modo={modo}
+-                        onClose={() => setSelectedUnitId(null)}
+-                    />
+-                )}
+-            </AnimatePresence>
+-
+-            {isEditorOpen && (
+-                <PolygonEditorModal
+-                    isOpen={isEditorOpen}
+-                    onClose={() => setIsEditorOpen(false)}
+-                    proyecto={{
+-                        id: proyectoId,
+-                        nombre: "Proyecto", // Would be better to pass real name
+-                        lat: centerLat,
+-                        lng: centerLng,
+-                        zoom: 16
+-                    }}
+-                    unidades={units as any}
+-                    onSave={() => {
+-                        // We could re-fetch or just close
+-                        toast.success("Mapa actualizado");
+-                    }}
+-                />
+-            )}
++            {/* Custom styles */}
++            <style jsx global>{`
++                .lot-tooltip {
++                    background: rgba(15, 23, 42, 0.95) !important;
++                    border: 1px solid rgba(100, 116, 139, 0.3) !important;
++                    border-radius: 12px !important;
++                    padding: 8px 12px !important;
++                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4) !important;
++                    color: white !important;
++                }
++                .lot-tooltip::before {
++                    border-top-color: rgba(15, 23, 42, 0.95) !important;
++                }
++                .lot-label {
++                    background: transparent !important;
++                    border: none !important;
++                    box-shadow: none !important;
++                }
++                .lot-polygon {
++                    transition: fill-opacity 0.2s, stroke-width 0.15s;
++                    cursor: pointer;
++                }
++                .lot-polygon:hover {
++                    fill-opacity: 0.7 !important;
++                    stroke-width: 2 !important;
++                }
++                .leaflet-container {
++                    font-family: Inter, system-ui, sans-serif;
++                }
++            `}</style>
+         </div>
+     );
+ }
+
+commit e6b779f8d670298410466f0ea635f93606a0d50b
+Author: heynidus-creator <heynidus@gmail.com>
+Date:   Sat Mar 7 23:09:43 2026 -0300
+
+    feat: STP-RESERVAS-HANDLES-V1 ÔÇö reservas wizard, tab, metrics + overlay handles
+    
+    - Schema: Reserva.leadId optional, add compradorNombre/Email/notas/compradorId
+    - Migration: 20260308013431_reserva_comprador_notas
+    - lib/actions/reservas.ts: add iniciarReserva, avanzarEstadoReserva, getReservasByProyecto, getUsuariosParaReserva; fix lead nullable guards
+    - ReservaWizard: connect to iniciarReserva action (real API call)
+    - ReservasTab: new component with KPIs, table, dropdown actions (avanzar estado), Pusher real-time subscription
+    - page.tsx: replace ReservasList with ReservasTab; real metrics (ROI realizado, velocidad, stock, reservas)
+    - masterplan-map.tsx: 4 draggable corner handles overlay with save; updateProyectoOverlayBounds action
+    - masterplan-actions.ts: fix "use client" ÔåÆ "use server"; add updateProyectoOverlayBounds
+    - api/reservas: fix lead?.nombre null safety
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+diff --git a/components/masterplan/masterplan-map.tsx b/components/masterplan/masterplan-map.tsx
+index a71b82d..369074c 100644
+--- a/components/masterplan/masterplan-map.tsx
++++ b/components/masterplan/masterplan-map.tsx
+@@ -19,7 +19,7 @@ import MasterplanFilters from "./masterplan-filters";
+ import PolygonEditorModal from "./PolygonEditorModal";
+ import { Button } from "@/components/ui/button";
+ import { toast } from "sonner";
+-import { updateProjectMapConfig } from "@/lib/actions/masterplan-actions";
++import { updateProjectMapConfig, updateProyectoOverlayBounds } from "@/lib/actions/masterplan-actions";
+ 
+ if (typeof window !== "undefined") {
+     (window as any).updateProjectMapConfig = updateProjectMapConfig;
+@@ -32,12 +32,21 @@ const ESTADO_COLORS: Record<string, { fill: string; stroke: string }> = {
+     BLOQUEADO: { fill: "#94a3b8", stroke: "#64748b" },
+ };
+ 
++type CornerKey = "nw" | "ne" | "se" | "sw";
++interface OverlayBounds {
++    nw: { lat: number; lng: number };
++    ne: { lat: number; lng: number };
++    se: { lat: number; lng: number };
++    sw: { lat: number; lng: number };
++}
++
+ interface MasterplanMapProps {
+     proyectoId: string;
+     modo: "admin" | "public" | "inversor";
+     centerLat?: number;
+     centerLng?: number;
+     initialUnits?: MasterplanUnit[];
++    initialOverlayBounds?: OverlayBounds | null;
+ }
+ 
+ export default function MasterplanMap({
+@@ -45,7 +54,8 @@ export default function MasterplanMap({
+     modo,
+     centerLat = -31.4532,
+     centerLng = -64.4823,
+-    initialUnits = []
++    initialUnits = [],
++    initialOverlayBounds = null,
+ }: MasterplanMapProps) {
+     const mapRef = useRef<HTMLDivElement>(null);
+     const [map, setMap] = useState<google.maps.Map | null>(null);
+@@ -54,6 +64,12 @@ export default function MasterplanMap({
+     const [isEditorOpen, setIsEditorOpen] = useState(false);
+     const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+ 
++    // Overlay 4-corner handles
++    const [showOverlay, setShowOverlay] = useState(false);
++    const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(initialOverlayBounds);
++    const handleMarkersRef = useRef<Map<CornerKey, google.maps.Marker>>(new Map());
++    const overlayRectRef = useRef<google.maps.Polygon | null>(null);
++
+     const {
+         units, setUnits,
+         selectedUnitId, setSelectedUnitId,
+@@ -171,6 +187,86 @@ export default function MasterplanMap({
+         });
+     }, [map, isLoaded, filteredUnits, selectedUnitId, setSelectedUnitId]);
+ 
++    // Overlay handles effect
++    useEffect(() => {
++        if (!map || !isLoaded || modo !== "admin") return;
++
++        // Cleanup previous
++        handleMarkersRef.current.forEach(m => m.setMap(null));
++        handleMarkersRef.current.clear();
++        overlayRectRef.current?.setMap(null);
++        overlayRectRef.current = null;
++
++        if (!showOverlay) return;
++
++        const bounds: OverlayBounds = overlayBounds ?? {
++            nw: { lat: centerLat + 0.001, lng: centerLng - 0.001 },
++            ne: { lat: centerLat + 0.001, lng: centerLng + 0.001 },
++            se: { lat: centerLat - 0.001, lng: centerLng + 0.001 },
++            sw: { lat: centerLat - 0.001, lng: centerLng - 0.001 },
++        };
++
++        const currentBounds = { ...bounds };
++
++        const drawRect = () => {
++            overlayRectRef.current?.setMap(null);
++            overlayRectRef.current = new google.maps.Polygon({
++                paths: [currentBounds.nw, currentBounds.ne, currentBounds.se, currentBounds.sw],
++                strokeColor: "#f97316",
++                strokeWeight: 2,
++                fillColor: "#f97316",
++                fillOpacity: 0.08,
++                map,
++                zIndex: 5,
++            });
++        };
++
++        const corners: CornerKey[] = ["nw", "ne", "se", "sw"];
++        const labels: Record<CornerKey, string> = { nw: "NO", ne: "NE", se: "SE", sw: "SO" };
++
++        corners.forEach(corner => {
++            const marker = new google.maps.Marker({
++                position: currentBounds[corner],
++                map,
++                draggable: true,
++                zIndex: 10,
++                label: { text: labels[corner], color: "#fff", fontSize: "10px", fontWeight: "bold" },
++                icon: {
++                    path: google.maps.SymbolPath.CIRCLE,
++                    scale: 10,
++                    fillColor: "#f97316",
++                    fillOpacity: 1,
++                    strokeColor: "#fff",
++                    strokeWeight: 2,
++                },
++                title: `Arrastra para ajustar esquina ${labels[corner]}`,
++            });
++
++            marker.addListener("drag", (e: google.maps.MapMouseEvent) => {
++                if (e.latLng) {
++                    currentBounds[corner] = { lat: e.latLng.lat(), lng: e.latLng.lng() };
++                    drawRect();
++                }
++            });
++
++            marker.addListener("dragend", () => {
++                setOverlayBounds({ ...currentBounds });
++            });
++
++            handleMarkersRef.current.set(corner, marker);
++        });
++
++        drawRect();
++
++        return () => {
++            handleMarkersRef.current.forEach(m => m.setMap(null));
++            handleMarkersRef.current.clear();
++            overlayRectRef.current?.setMap(null);
++            overlayRectRef.current = null;
++        };
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++    }, [map, isLoaded, showOverlay]);
++
+     const toggleMapType = () => {
+         const newType = mapType === "satellite" ? "roadmap" : "satellite";
+         map?.setMapTypeId(newType);
+@@ -212,14 +308,39 @@ export default function MasterplanMap({
+                 </Button>
+ 
+                 {modo === "admin" && (
+-                    <Button
+-                        variant="secondary"
+-                        size="sm"
+-                        className="gap-2 shadow-lg bg-brand-600 text-white hover:bg-brand-500"
+-                        onClick={() => setIsEditorOpen(true)}
+-                    >
+-                        <LayersIcon className="w-4 h-4" /> Dibujar Pol├¡gonos
+-                    </Button>
++                    <>
++                        <Button
++                            variant="secondary"
++                            size="sm"
++                            className="gap-2 shadow-lg bg-brand-600 text-white hover:bg-brand-500"
++                            onClick={() => setIsEditorOpen(true)}
++                        >
++                            <LayersIcon className="w-4 h-4" /> Dibujar Pol├¡gonos
++                        </Button>
++                        <Button
++                            variant={showOverlay ? "default" : "secondary"}
++                            size="sm"
++                            className="gap-2 shadow-lg"
++                            onClick={() => setShowOverlay(v => !v)}
++                            title="4 handles de esquina para definir ├írea de overlay"
++                        >
++                            <MapIcon className="w-4 h-4" /> {showOverlay ? "Ocultar Handles" : "Overlay Handles"}
++                        </Button>
++                        {showOverlay && overlayBounds && (
++                            <Button
++                                variant="secondary"
++                                size="sm"
++                                className="gap-2 shadow-lg bg-emerald-600 text-white hover:bg-emerald-500"
++                                onClick={async () => {
++                                    const res = await updateProyectoOverlayBounds(proyectoId, overlayBounds);
++                                    if (res.success) toast.success("Bounds del overlay guardados");
++                                    else toast.error("Error al guardar");
++                                }}
++                            >
++                                <Save className="w-4 h-4" /> Guardar Overlay
++                            </Button>
++                        )}
++                    </>
+                 )}
+             </div>
+ 
+
+commit 4ad801652b70ca020af2581b87715ab137688a3e
+Author: heynidus-creator <heynidus@gmail.com>
+Date:   Sat Mar 7 19:51:22 2026 -0300
+
+    feat: blueprint 2D/3D + canva tools + masterplan handles + tour360 + vista publica + reservas STP-MAP-TOUR-CANVA-V2
+    
+    - BlueprintEngine 2D: SVG interactivo con pan/zoom, edici├│n de v├®rtices por handle, undo/redo, snap a grilla, guardar pol├¡gonos
+    - BlueprintEngine 3D: three.js con ExtrudeGeometry, OrbitControls, raycaster, iluminaci├│n
+    - LoteDetailModal: ficha unificada de lote con acciones por estado
+    - PlanosTab: wrapper cliente con toggle 2D/3D y modal de lote
+    - MasterplanMap: fix parse polygon (string/object/legacy), InfoWindow en click con precio y estado, leyenda din├ímica con conteos
+    - Tour360Viewer: iframe + CanvaToolsOverlay (texto/flecha/├¡cono) + HotspotPin + guardado de anchors
+    - CanvaToolsOverlay: editor de anotaciones sobre el tour con drag, escala, opacidad, color
+    - PagosTab: tab pagos ahora renderiza con KPIs y tabla de historial (corrige bug de tab vac├¡o)
+    - ReservaWizard: wizard 3 pasos para iniciar reserva desde plano
+    - Vista p├║blica /proyectos/[slug]: agrega inventario de lotes disponibles + tour360 embebido
+    - Schema: agrega Unidad.bloqueadoHasta, Tour360.anchors, Proyecto.tour360Url + migraci├│n aplicada
+    - Seed: Geodevia restaurada con 24 lotes reales en Manzana A + B, pol├¡gonos geo-referenciados
+    - lib/actions/blueprint.ts: updateUnidadPolygon con validaciones
+    - lib/actions/tour360.ts: saveTour360Anchors + updateProyectoTour360Url
+    - tsc: 0 errores con --skipLibCheck
+    - Build: exitoso
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+diff --git a/components/masterplan/masterplan-map.tsx b/components/masterplan/masterplan-map.tsx
+index 9fc5e22..a71b82d 100644
+--- a/components/masterplan/masterplan-map.tsx
++++ b/components/masterplan/masterplan-map.tsx
+@@ -52,6 +52,7 @@ export default function MasterplanMap({
+     const [isLoaded, setIsLoaded] = useState(false);
+     const [mapType, setMapType] = useState<"satellite" | "roadmap">("satellite");
+     const [isEditorOpen, setIsEditorOpen] = useState(false);
++    const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+ 
+     const {
+         units, setUnits,
+@@ -112,10 +113,13 @@ export default function MasterplanMap({
+         polygonsRef.current.clear();
+ 
+         filteredUnits.forEach(unit => {
+-            // Check for polygon data in 'polygon' (new) or 'path' (old/demo)
+-            let paths = unit.polygon as any;
++            // Normalize polygon: handle string JSON, object, or legacy path
++            let paths: any = unit.polygon;
++            if (typeof paths === "string") {
++                try { paths = JSON.parse(paths); } catch { paths = null; }
++            }
+             if (!paths && unit.path) {
+-                try { paths = JSON.parse(unit.path); } catch { paths = null; }
++                try { paths = JSON.parse(unit.path as string); } catch { paths = null; }
+             }
+ 
+             if (!paths || !Array.isArray(paths) || paths.length < 3) return;
+@@ -134,8 +138,25 @@ export default function MasterplanMap({
+                 zIndex: isSelected ? 10 : 1,
+             });
+ 
+-            polygon.addListener("click", () => {
++            polygon.addListener("click", (e: google.maps.MapMouseEvent) => {
+                 setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id);
++
++                // InfoWindow
++                if (infoWindowRef.current) infoWindowRef.current.close();
++                const precio = unit.precio ? `$${unit.precio.toLocaleString()} ${unit.moneda || "USD"}` : "Consultar";
++                const estadoLabel: Record<string, string> = { DISPONIBLE: "Disponible", RESERVADO: "Reservado", RESERVADA: "Reservado", VENDIDO: "Vendido", VENDIDA: "Vendido", BLOQUEADO: "Bloqueado" };
++                const estadoColor: Record<string, string> = { DISPONIBLE: "#22c55e", RESERVADO: "#f59e0b", RESERVADA: "#f59e0b", VENDIDO: "#ef4444", VENDIDA: "#ef4444", BLOQUEADO: "#6b7280" };
++                const iw = new google.maps.InfoWindow({
++                    content: `<div style="font-family:sans-serif;min-width:160px;padding:4px">
++                        <div style="font-weight:700;font-size:14px;margin-bottom:6px">Lote #${unit.numero}</div>
++                        <span style="background:${estadoColor[unit.estado] || "#94a3b8"}22;color:${estadoColor[unit.estado] || "#94a3b8"};padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600">${estadoLabel[unit.estado] || unit.estado}</span>
++                        ${unit.superficie ? `<div style="margin-top:6px;font-size:12px;color:#64748b">Superficie: <b>${unit.superficie} m┬▓</b></div>` : ""}
++                        <div style="margin-top:4px;font-size:13px;color:#0f172a;font-weight:700">${precio}</div>
++                    </div>`,
++                    position: e.latLng ?? undefined,
++                });
++                iw.open(map);
++                infoWindowRef.current = iw;
+             });
+ 
+             polygon.addListener("mouseover", () => {
+@@ -229,14 +250,26 @@ export default function MasterplanMap({
+                 </a>
+             </div>
+ 
+-            {/* Legend */}
+-            <div className="absolute bottom-4 left-4 z-10 bg-black/80 backdrop-blur-md p-3 rounded-xl border border-white/10 text-[10px] text-white flex gap-4">
+-                {Object.entries(ESTADO_COLORS).map(([key, color]) => (
+-                    <div key={key} className="flex items-center gap-1.5">
+-                        <div className="w-3 h-3 rounded" style={{ backgroundColor: color.fill }} />
+-                        <span className="font-medium uppercase tracking-wider">{key}</span>
+-                    </div>
+-                ))}
++            {/* Legend ÔÇö dynamic counts */}
++            <div className="absolute bottom-4 left-4 z-10 bg-black/80 backdrop-blur-md p-3 rounded-xl border border-white/10 text-[10px] text-white space-y-1.5">
++                {Object.entries(ESTADO_COLORS).map(([key, color]) => {
++                    const count = units.filter(u => {
++                        const norm = ["RESERVADO", "RESERVADA", "RESERVADA_PENDIENTE"].includes(u.estado) ? "RESERVADO" : ["VENDIDO", "VENDIDA"].includes(u.estado) ? "VENDIDO" : u.estado;
++                        return norm === key;
++                    }).length;
++                    return (
++                        <div key={key} className="flex items-center justify-between gap-3">
++                            <div className="flex items-center gap-1.5">
++                                <div className="w-3 h-3 rounded" style={{ backgroundColor: color.fill }} />
++                                <span className="font-medium uppercase tracking-wider">{key}</span>
++                            </div>
++                            <span className="font-bold text-white/70">{count}</span>
++                        </div>
++                    );
++                })}
++                <div className="pt-1 mt-1 border-t border-white/10 text-white/50">
++                    {units.filter(u => u.estado === "DISPONIBLE").length} disponibles de {units.length}
++                </div>
+             </div>
+ 
+             {/* Admin Config Panel */}

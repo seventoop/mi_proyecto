@@ -124,6 +124,9 @@ export default function MasterplanMap({
     // Camera marker layers ref
     const cameraMarkersRef = useRef<Map<string, any>>(new Map());
 
+    const svgBlobUrlRef = useRef<string | null>(null);
+    const [isLoadingPlan, setIsLoadingPlan] = useState(false);
+
     // Reset selection state when entering Paso 4 (prevent bleedover from Paso 3)
     useEffect(() => {
         setSelectedUnitId(null);
@@ -277,6 +280,10 @@ export default function MasterplanMap({
 
         return () => {
             isCanceled = true;
+            if (svgBlobUrlRef.current) {
+                URL.revokeObjectURL(svgBlobUrlRef.current);
+                svgBlobUrlRef.current = null;
+            }
             resizeObserverRef.current?.disconnect();
             resizeObserverRef.current = null;
             if (leafletMapRef.current) {
@@ -707,6 +714,49 @@ export default function MasterplanMap({
         }
     }, [proyectoId, overlayConfig]);
 
+    // Load masterplan SVG from paso 3 as overlay image
+    const handleLoadPlanOverlay = useCallback(async () => {
+        if (!leafletMapRef.current) return;
+        
+        // If we already have the blob loaded, just open the editor
+        if (overlayConfig?.imageUrl && overlayConfig.imageUrl.startsWith("blob:")) {
+            setIsEditingOverlay(true);
+            return;
+        }
+
+        setIsLoadingPlan(true);
+        try {
+            const res = await fetch(`/api/proyectos/${proyectoId}/blueprint`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.masterplanSVG) {
+                    if (svgBlobUrlRef.current) URL.revokeObjectURL(svgBlobUrlRef.current);
+                    const blob = new Blob([data.masterplanSVG], { type: "image/svg+xml;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    svgBlobUrlRef.current = url;
+                    // Preserve existing bounds/rotation/opacity when reloading
+                    setOverlayConfig(prev => ({
+                        imageUrl: url,
+                        bounds: prev?.bounds ?? null,
+                        rotation: prev?.rotation ?? 0,
+                        opacity: prev?.opacity ?? 0.75,
+                    }));
+                    setIsEditingOverlay(true);
+                } else {
+                    // No SVG, but open anyway
+                    setIsEditingOverlay(true);
+                }
+            } else {
+                setIsEditingOverlay(true);
+            }
+        } catch (e) {
+            console.error("Error cargando blueprint como overlay:", e);
+            setIsEditingOverlay(true);
+        } finally {
+            setIsLoadingPlan(false);
+        }
+    }, [proyectoId, overlayConfig?.imageUrl]);
+
     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
 
     return (
@@ -815,8 +865,8 @@ export default function MasterplanMap({
 
                         {/* SECTION 2: Polygon positioning */}
                         <button
-                            onClick={() => setIsEditingOverlay(true)}
-                            disabled={!isMapReady}
+                            onClick={handleLoadPlanOverlay}
+                            disabled={!isMapReady || isLoadingPlan || isLoadingOverlay}
                             className={cn(
                                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50",
                                 isEditingOverlay
@@ -824,7 +874,11 @@ export default function MasterplanMap({
                                     : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
                             )}
                         >
-                            <LayersIcon className="w-3.5 h-3.5" />
+                            {isLoadingPlan ? (
+                                <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <LayersIcon className="w-3.5 h-3.5" />
+                            )}
                             Ajustar Plano
                         </button>
 

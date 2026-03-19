@@ -23,7 +23,6 @@ interface OverlayEditorProps {
     onDelete: () => void;
 }
 
-// Rotate the 4 AABB corners around their center by `rot` degrees
 function computeRotatedCorners(bounds: [LatLngTuple, LatLngTuple], rot: number): LatLngTuple[] {
     const [[swLat, swLng], [neLat, neLng]] = bounds;
     const cLat = (swLat + neLat) / 2;
@@ -40,6 +39,15 @@ function computeRotatedCorners(bounds: [LatLngTuple, LatLngTuple], rot: number):
     });
 }
 
+function unrotatePoint(dragPt: LatLngTuple, center: LatLngTuple, rot: number): LatLngTuple {
+    const rad = (-rot * Math.PI) / 180;
+    const dLat = dragPt[0] - center[0], dLng = dragPt[1] - center[1];
+    return [
+        center[0] + dLat * Math.cos(rad) - dLng * Math.sin(rad),
+        center[1] + dLat * Math.sin(rad) + dLng * Math.cos(rad),
+    ];
+}
+
 export default function OverlayEditor({
     proyectoId, map, existingConfig, onBoundsChange, onSave, onCancel, onDelete,
 }: OverlayEditorProps) {
@@ -49,27 +57,42 @@ export default function OverlayEditor({
     const [isSaving, setIsSaving] = useState(false);
 
     const overlayRef = useRef<any>(null);   // L.Polygon — visual reference frame
+    const imageOverlayRef = useRef<any>(null); // L.ImageOverlay inside editor
     const anchorsRef = useRef<any[]>([]);   // All drag handles
+    const boundsRef = useRef<[LatLngTuple, LatLngTuple]>([[0,0], [0,0]]);
 
     // Keep ref in sync with state so Leaflet event handlers always read the latest value
     useEffect(() => { rotationRef.current = rotation; }, [rotation]);
+
+    // Apply rotation safely to leafet image
+    const updateImageTransform = () => {
+        if (!imageOverlayRef.current) return;
+        const img = imageOverlayRef.current.getElement();
+        if (img) {
+            img.style.transformOrigin = "center center";
+            img.style.transform = img.style.transform.replace(/ rotate\([^)]*\)/g, "");
+            img.style.transform += ` rotate(${rotationRef.current}deg)`;
+        }
+    };
+
+    useEffect(() => {
+        if (!map) return;
+        map.on("zoom", updateImageTransform);
+        map.on("move", updateImageTransform);
+        return () => {
+            map.off("zoom", updateImageTransform);
+            map.off("move", updateImageTransform);
+        };
+    }, [map]);
 
     useEffect(() => {
         if (!map) return;
 
         // ── Helpers ──────────────────────────────────────────────────────────────
 
-        const getBoundsFromAnchors = (): [LatLngTuple, LatLngTuple] | null => {
-            const swM = anchorsRef.current.find(m => (m as any)._hid === "sw");
-            const neM = anchorsRef.current.find(m => (m as any)._hid === "ne");
-            if (!swM || !neM) return null;
-            const sw = swM.getLatLng(), ne = neM.getLatLng();
-            return [[sw.lat, sw.lng], [ne.lat, ne.lng]];
-        };
-
         /** Redraws polygon + repositions all derived handles from current SW/NE state. */
         const syncAll = (skipCenter = false) => {
-            const b = getBoundsFromAnchors();
+            const b = boundsRef.current;
             if (!b || !overlayRef.current) return;
             const [[swLat, swLng], [neLat, neLng]] = b;
             const cLat = (swLat + neLat) / 2, cLng = (swLng + neLng) / 2;
@@ -77,33 +100,39 @@ export default function OverlayEditor({
             // Redraw rotated polygon border
             overlayRef.current.setLatLngs(computeRotatedCorners(b, rotationRef.current));
 
-            // Sync all derived handles (unrotated positions for edge/corner handles)
+            // Sync all derived handles to their actual rotated positions!
+            const [rSW, rSE, rNE, rNW] = computeRotatedCorners(b, rotationRef.current);
+            const rS: LatLngTuple = [(rSW[0]+rSE[0])/2, (rSW[1]+rSE[1])/2];
+            const rN: LatLngTuple = [(rNW[0]+rNE[0])/2, (rNW[1]+rNE[1])/2];
+            const rE: LatLngTuple = [(rSE[0]+rNE[0])/2, (rSE[1]+rNE[1])/2];
+            const rW: LatLngTuple = [(rSW[0]+rNW[0])/2, (rSW[1]+rNW[1])/2];
+
             const set = (id: string, pos: LatLngTuple) => {
                 const m = anchorsRef.current.find(m => (m as any)._hid === id);
                 if (m) m.setLatLng(pos);
             };
-            set("se", [swLat, neLng]);
-            set("nw", [neLat, swLng]);
-            set("n",  [neLat, cLng]);
-            set("s",  [swLat, cLng]);
-            set("e",  [cLat,  neLng]);
-            set("w",  [cLat,  swLng]);
+            set("sw", rSW); set("se", rSE); set("ne", rNE); set("nw", rNW);
+            set("s", rS); set("n", rN); set("e", rE); set("w", rW);
             if (!skipCenter) set("center", [cLat, cLng]);
 
-            // Rotation handle: positioned above the N edge center, then rotated
+            // Rotation handle: positioned above the rotated N edge center
             const rotM = anchorsRef.current.find(m => (m as any)._hid === "rotation");
             if (rotM) {
                 const offset = (neLat - swLat) * 0.22;
                 const rad = (rotationRef.current * Math.PI) / 180;
-                const dLat = neLat + offset - cLat; // above N edge
-                // rotate around center
+                const dLat = neLat + offset - cLat; 
                 rotM.setLatLng([
                     cLat + dLat * Math.cos(rad),
                     cLng + dLat * Math.sin(rad),
                 ]);
             }
 
-            onBoundsChange?.([[swLat, swLng], [neLat, neLng]], rotationRef.current);
+            if (imageOverlayRef.current) {
+                imageOverlayRef.current.setBounds(b);
+                updateImageTransform();
+            }
+
+            onBoundsChange?.(b, rotationRef.current);
         };
 
         // ── Init ─────────────────────────────────────────────────────────────────
@@ -118,16 +147,25 @@ export default function OverlayEditor({
                 const c = map.getCenter();
                 bounds = [[c.lat - 0.002, c.lng - 0.003], [c.lat + 0.002, c.lng + 0.003]];
             }
+            boundsRef.current = bounds;
 
             if (overlayRef.current) map.removeLayer(overlayRef.current);
+            if (imageOverlayRef.current) map.removeLayer(imageOverlayRef.current);
+
+            if (existingConfig?.imageUrl) {
+                imageOverlayRef.current = L.imageOverlay(existingConfig.imageUrl, bounds, {
+                    opacity, interactive: false
+                }).addTo(map);
+            }
 
             // L.polygon so it can be rotated visually (L.rectangle can't)
             overlayRef.current = (L.polygon as any)(
-                computeRotatedCorners(bounds, rotationRef.current),
+                computeRotatedCorners(boundsRef.current, rotationRef.current),
                 { color: "#f97316", weight: 2, fillColor: "#f97316", fillOpacity: 0.07, dashArray: "8 5" }
             ).addTo(map);
+            updateImageTransform();
 
-            createHandles(bounds, L);
+            createHandles(boundsRef.current, L);
         };
 
         // ── Handle creation ───────────────────────────────────────────────────────
@@ -136,6 +174,12 @@ export default function OverlayEditor({
             anchorsRef.current.forEach(a => map.removeLayer(a));
             anchorsRef.current = [];
 
+            const [rSW, rSE, rNE, rNW] = computeRotatedCorners(bounds, rotationRef.current);
+            const rS: LatLngTuple = [(rSW[0]+rSE[0])/2, (rSW[1]+rSE[1])/2];
+            const rN: LatLngTuple = [(rNW[0]+rNE[0])/2, (rNW[1]+rNE[1])/2];
+            const rE: LatLngTuple = [(rSE[0]+rNE[0])/2, (rSE[1]+rNE[1])/2];
+            const rW: LatLngTuple = [(rSW[0]+rNW[0])/2, (rSW[1]+rNW[1])/2];
+            
             const [[swLat, swLng], [neLat, neLng]] = bounds;
             const cLat = (swLat + neLat) / 2, cLng = (swLng + neLng) / 2;
 
@@ -148,16 +192,16 @@ export default function OverlayEditor({
             ];
 
             const defs: { id: string; pos: LatLngTuple; type: "corner" | "edge" | "center" | "rotation" }[] = [
-                // Corners (resize with aspect-ratio lock)
-                { id: "sw", pos: [swLat, swLng], type: "corner" },
-                { id: "se", pos: [swLat, neLng], type: "corner" },
-                { id: "ne", pos: [neLat, neLng], type: "corner" },
-                { id: "nw", pos: [neLat, swLng], type: "corner" },
-                // Edges (resize one axis only)
-                { id: "n",  pos: [neLat, cLng],  type: "edge" },
-                { id: "s",  pos: [swLat, cLng],  type: "edge" },
-                { id: "e",  pos: [cLat,  neLng], type: "edge" },
-                { id: "w",  pos: [cLat,  swLng], type: "edge" },
+                // Corners
+                { id: "sw", pos: rSW, type: "corner" },
+                { id: "se", pos: rSE, type: "corner" },
+                { id: "ne", pos: rNE, type: "corner" },
+                { id: "nw", pos: rNW, type: "corner" },
+                // Edges
+                { id: "n",  pos: rN,  type: "edge" },
+                { id: "s",  pos: rS,  type: "edge" },
+                { id: "e",  pos: rE,  type: "edge" },
+                { id: "w",  pos: rW,  type: "edge" },
                 // Special
                 { id: "center",   pos: [cLat, cLng], type: "center" },
                 { id: "rotation", pos: rotPos,        type: "rotation" },
@@ -201,6 +245,12 @@ export default function OverlayEditor({
                         if (!prv) return;
                         const dLat = cur.lat - prv.lat, dLng = cur.lng - prv.lng;
                         (marker as any)._prev = cur;
+                        const b = boundsRef.current;
+                        boundsRef.current = [
+                            [b[0][0] + dLat, b[0][1] + dLng],
+                            [b[1][0] + dLat, b[1][1] + dLng]
+                        ];
+                        // Physically shift all anchors visually immediately to prevent jitter
                         anchorsRef.current.forEach(m => {
                             if ((m as any)._hid !== "center") {
                                 const ll = m.getLatLng();
@@ -213,7 +263,7 @@ export default function OverlayEditor({
 
                 } else if (type === "rotation") {
                     marker.on("dragstart", () => {
-                        const b2 = getBoundsFromAnchors(); if (!b2) return;
+                        const b2 = boundsRef.current;
                         const [[s, w], [n, e]] = b2;
                         const cPt = map.latLngToContainerPoint([(s + n) / 2, (w + e) / 2]);
                         const hPt = map.latLngToContainerPoint(marker.getLatLng());
@@ -221,7 +271,7 @@ export default function OverlayEditor({
                         (marker as any)._ir = rotationRef.current;
                     });
                     marker.on("drag", () => {
-                        const b2 = getBoundsFromAnchors(); if (!b2) return;
+                        const b2 = boundsRef.current;
                         const [[s, w], [n, e]] = b2;
                         const cPt = map.latLngToContainerPoint([(s + n) / 2, (w + e) / 2]);
                         const hPt = map.latLngToContainerPoint(marker.getLatLng());
@@ -229,84 +279,67 @@ export default function OverlayEditor({
                         const newRot = (((marker as any)._ir ?? 0) + (ca - ((marker as any)._ia ?? 0)) + 360) % 360;
                         rotationRef.current = newRot;
                         setRotation(newRot);
-                        overlayRef.current?.setLatLngs(computeRotatedCorners(b2, newRot));
-                        onBoundsChange?.([[s, w], [n, e]], newRot);
+                        // Using boundsRef so it spins in place!
+                        syncAll();
                     });
                     marker.on("dragend", () => syncAll());
 
                 } else if (type === "corner") {
-                    // Capture aspect-ratio and fixed corner at dragstart
                     marker.on("dragstart", () => {
-                        const b2 = getBoundsFromAnchors(); if (!b2) return;
-                        const [[swL, swG], [neL, neG]] = b2;
-                        const swPt = map.latLngToContainerPoint([swL, swG]);
-                        const nePt = map.latLngToContainerPoint([neL, neG]);
-                        const pxW = Math.abs(nePt.x - swPt.x);
-                        const pxH = Math.abs(nePt.y - swPt.y);
-                        (marker as any)._ar = pxW > 0 ? pxH / pxW : 1; // pxH/pxW ratio
-                        // Fixed corner = opposite of this handle
-                        (marker as any)._fixed =
-                            id === "sw" ? { lat: neL, lng: neG } :
-                            id === "ne" ? { lat: swL, lng: swG } :
-                            id === "se" ? { lat: neL, lng: swG } : // NW
-                                          { lat: swL, lng: neG };  // id === "nw" → SE
+                        const b2 = boundsRef.current;
+                        (marker as any)._ar = (b2[1][0] - b2[0][0]) / (b2[1][1] - b2[0][1]); // lat span / lng span
+                        
+                        // Pick the diagonally opposite rotated corner
+                        const [rSW, rSE, rNE, rNW] = computeRotatedCorners(b2, rotationRef.current);
+                        (marker as any)._fixedRot = 
+                            id === "sw" ? rNE : id === "nw" ? rSE :
+                            id === "ne" ? rSW : rNW;
                     });
                     marker.on("drag", () => {
-                        const fixed = (marker as any)._fixed;
-                        const ar: number = (marker as any)._ar ?? 1;
-                        if (!fixed) { syncAll(); return; }
+                        const fixedRot = (marker as any)._fixedRot;
+                        if (!fixedRot) return;
+                        
+                        const curLL = marker.getLatLng();
+                        const cNew: LatLngTuple = [(fixedRot[0] + curLL.lat)/2, (fixedRot[1] + curLL.lng)/2];
+                        const ud = unrotatePoint([curLL.lat, curLL.lng], cNew, rotationRef.current);
+                        const uf = unrotatePoint(fixedRot, cNew, rotationRef.current);
 
-                        // Constrain drag to aspect ratio in pixel space
-                        const fixedPt = map.latLngToContainerPoint([fixed.lat, fixed.lng]);
-                        const dragPt  = map.latLngToContainerPoint(marker.getLatLng());
-                        let dx = dragPt.x - fixedPt.x;
-                        let dy = dragPt.y - fixedPt.y;
-
-                        if (Math.abs(dx) * ar > Math.abs(dy)) {
-                            dy = (Math.sign(dy) || (id === "ne" || id === "nw" ? -1 : 1)) * Math.abs(dx) * ar;
-                        } else {
-                            dx = (Math.sign(dx) || (id === "sw" || id === "nw" ? -1 : 1)) * Math.abs(dy) / ar;
-                        }
-
-                        const constrained = map.containerPointToLatLng(
-                            L.point(fixedPt.x + dx, fixedPt.y + dy)
-                        );
-                        marker.setLatLng(constrained); // snap to aspect-ratio
-
-                        // Update SW/NE primary markers based on which corner moved
-                        const swM = anchorsRef.current.find(m => (m as any)._hid === "sw");
-                        const neM = anchorsRef.current.find(m => (m as any)._hid === "ne");
-                        if (!swM || !neM) { syncAll(); return; }
-
-                        if (id === "sw") {
-                            swM.setLatLng(constrained);
-                            neM.setLatLng(fixed);
-                        } else if (id === "ne") {
-                            neM.setLatLng(constrained);
-                            swM.setLatLng(fixed);
-                        } else if (id === "se") {
-                            // SE moves: NW is fixed → SW.lat = SE.lat, NE.lng = SE.lng
-                            swM.setLatLng([constrained.lat, fixed.lng]);
-                            neM.setLatLng([fixed.lat, constrained.lng]);
-                        } else { // nw
-                            // NW moves: SE is fixed → NE.lat = NW.lat, SW.lng = NW.lng
-                            neM.setLatLng([constrained.lat, fixed.lng]);
-                            swM.setLatLng([fixed.lat, constrained.lng]);
-                        }
+                        // Enforce aspect ratio in unrotated space (optional but requested)
+                        let dLat = ud[0] - uf[0], dLng = ud[1] - uf[1];
+                        const ar = (marker as any)._ar;
+                        if (Math.abs(dLng) * ar > Math.abs(dLat)) dLat = Math.sign(dLat) * Math.abs(dLng) * ar;
+                        else dLng = Math.sign(dLng) * Math.abs(dLat) / ar;
+                        
+                        const minLat = Math.min(uf[0] + dLat, uf[0]), maxLat = Math.max(uf[0] + dLat, uf[0]);
+                        const minLng = Math.min(uf[1] + dLng, uf[1]), maxLng = Math.max(uf[1] + dLng, uf[1]);
+                        boundsRef.current = [[minLat, minLng], [maxLat, maxLng]];
                         syncAll();
                     });
                     marker.on("dragend", () => syncAll());
 
                 } else { // type === "edge"
+                    marker.on("dragstart", () => {
+                        const b2 = boundsRef.current;
+                        const [rSW, rSE, rNE, rNW] = computeRotatedCorners(b2, rotationRef.current);
+                        // Fix the complete opposite edge natively
+                        (marker as any)._fixedEdge = 
+                            id === "n" ? [rSW, rSE] : id === "s" ? [rNW, rNE] :
+                            id === "e" ? [rSW, rNW] : [rSE, rNE];
+                    });
                     marker.on("drag", () => {
-                        const ll = marker.getLatLng();
-                        const swM = anchorsRef.current.find(m => (m as any)._hid === "sw");
-                        const neM = anchorsRef.current.find(m => (m as any)._hid === "ne");
-                        if (!swM || !neM) return;
-                        if (id === "n") neM.setLatLng([ll.lat, neM.getLatLng().lng]);
-                        if (id === "s") swM.setLatLng([ll.lat, swM.getLatLng().lng]);
-                        if (id === "e") neM.setLatLng([neM.getLatLng().lat, ll.lng]);
-                        if (id === "w") swM.setLatLng([swM.getLatLng().lat, ll.lng]);
+                        const fe = (marker as any)._fixedEdge;
+                        if (!fe) return;
+
+                        const curLL = marker.getLatLng();
+                        const fm: LatLngTuple = [(fe[0][0] + fe[1][0])/2, (fe[0][1] + fe[1][1])/2];
+                        const cNew: LatLngTuple = [(fm[0] + curLL.lat)/2, (fm[1] + curLL.lng)/2];
+                        
+                        const ud = unrotatePoint([curLL.lat, curLL.lng], cNew, rotationRef.current);
+                        const uf0 = unrotatePoint(fe[0], cNew, rotationRef.current);
+                        const uf1 = unrotatePoint(fe[1], cNew, rotationRef.current);
+
+                        const lats = [ud[0], uf0[0], uf1[0]], lngs = [ud[1], uf0[1], uf1[1]];
+                        boundsRef.current = [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]];
                         syncAll();
                     });
                     marker.on("dragend", () => syncAll());
@@ -319,6 +352,7 @@ export default function OverlayEditor({
         initOverlay();
         return () => {
             if (overlayRef.current) map.removeLayer(overlayRef.current);
+            if (imageOverlayRef.current) map.removeLayer(imageOverlayRef.current);
             anchorsRef.current.forEach(a => map.removeLayer(a));
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -330,15 +364,7 @@ export default function OverlayEditor({
         if (!overlayRef.current) return;
         setIsSaving(true);
 
-        const swM = anchorsRef.current.find(m => (m as any)._hid === "sw");
-        const neM = anchorsRef.current.find(m => (m as any)._hid === "ne");
-        let bounds: [LatLngTuple, LatLngTuple];
-        if (swM && neM) {
-            bounds = [[swM.getLatLng().lat, swM.getLatLng().lng], [neM.getLatLng().lat, neM.getLatLng().lng]];
-        } else {
-            const bo = overlayRef.current.getBounds();
-            bounds = [[bo.getSouthWest().lat, bo.getSouthWest().lng], [bo.getNorthEast().lat, bo.getNorthEast().lng]];
-        }
+        const bounds = boundsRef.current;
 
         const savedImageUrl = existingConfig?.imageUrl && !existingConfig.imageUrl.startsWith("blob:")
             ? existingConfig.imageUrl : null;
