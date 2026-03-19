@@ -9,10 +9,13 @@ import {
 import { cn, formatCurrency } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import InventarioServer from "@/components/dashboard/proyectos/inventario-server";
+import ProjectPaymentsTab from "@/components/dashboard/proyectos/project-payments-tab";
+import { getProjectAccess } from "@/lib/project-access";
+import { getProyectoEstadoLogs } from "@/lib/actions/validation-actions";
+import DeveloperStatusIndicators, { StatusBadge } from "@/components/dashboard/proyectos/developer-status-indicators";
+import ProjectValidationHistory from "@/components/dashboard/proyectos/project-validation-history";
 
 const ProjectDocsTab = dynamic(() => import("@/components/dashboard/proyectos/project-docs-tab"), { ssr: false });
-const ProjectPaymentsTab = dynamic(() => import("@/components/dashboard/proyectos/project-payments-tab"), { ssr: false });
-
 const MasterplanMap = dynamic(
     () => import("@/components/masterplan/masterplan-map"),
     {
@@ -56,53 +59,53 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const activeTab = searchParams.tab || "info";
 
     const session = await getServerSession(authOptions);
-    const userRole = (session?.user as any)?.role || "INVITADO";
+    if (!session?.user) return <div className="p-20 text-center">No autorizado</div>;
 
-    // Fetch real project data — auth check happens below after load
+    // Use centralized access helper
+    let context;
+    try {
+        context = await getProjectAccess(session.user as any, params.id);
+    } catch (e) {
+        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
+    }
+
+    const { proyecto: snapshot, relacion } = context;
+
+    // Fetch full project data for UI (etapas, pagos, etc)
     const proyecto = await prisma.proyecto.findUnique({
-        where: {
-            id: params.id,
-        },
+        where: { id: params.id },
         include: {
             etapas: {
-                include: {
-                    manzanas: {
-                        include: {
-                            unidades: true
-                        }
-                    }
-                },
+                include: { manzanas: { include: { unidades: true } } },
                 orderBy: { orden: "asc" }
             },
             pagos: true,
             documentacion: true,
             tours: true,
-            _count: {
-                select: { leads: true }
-            }
+            _count: { select: { leads: true } }
         }
-    });
+    }) as any;
 
     if (!proyecto) {
         return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
     }
 
-    // Relation-based auth: admin bypass, active relation, or legacy creadoPorId match.
-    // Fail-secure: return "not found" to avoid leaking project existence.
-    const userId = session?.user?.id;
-    const isAdmin = userRole === "ADMIN" || userRole === "SUPERADMIN";
-    if (!isAdmin) {
-        const isLegacyCreator = (proyecto as any).creadoPorId === userId;
-        const hasRelation = userId
-            ? await prisma.proyectoUsuario.findFirst({
-                where: { proyectoId: params.id, userId, estadoRelacion: "ACTIVA" },
-                select: { proyectoId: true },
-            })
-            : null;
-        if (!isLegacyCreator && !hasRelation) {
-            return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
-        }
-    }
+    // Admin/Owner-only: fetch full history
+    const isOwner = relacion?.tipoRelacion === "OWNER" || context.isLegacy;
+    const isProjectAdmin = context.user.role === "ADMIN" || context.user.role === "SUPERADMIN";
+    const canSeeHistory = isOwner || isProjectAdmin;
+    const userRole = context.user.role;
+
+    const validationLogsRes = canSeeHistory 
+        ? await getProyectoEstadoLogs(params.id) 
+        : { success: false, data: [] };
+    const validationLogs = (validationLogsRes.success ? validationLogsRes.data : []) as any[];
+
+    // Latest log for reasons (Only if blocked)
+    const latestLog = (proyecto.estadoValidacion === "OBSERVADO" || proyecto.estadoValidacion === "RECHAZADO" || proyecto.estadoValidacion === "SUSPENDIDO")
+        ? (validationLogs[0] || null)
+        : null;
+
 
     // Process stats
     let total = 0;
@@ -113,9 +116,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     let valorVendido = 0;
     let valorReservado = 0;
 
-    proyecto.etapas.forEach(etapa => {
-        etapa.manzanas.forEach(manzana => {
-            manzana.unidades.forEach(u => {
+    proyecto.etapas.forEach((etapa: any) => {
+        etapa.manzanas.forEach((manzana: any) => {
+            manzana.unidades.forEach((u: any) => {
                 total++;
                 if (u.estado === "DISPONIBLE") disponibles++;
                 if (u.estado === "RESERVADA") reservadas++;
@@ -144,6 +147,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     return (
         <div className="space-y-6 animate-fade-in">
+            {/* Contextual Status Banners */}
+            <DeveloperStatusIndicators context={context} latestLog={latestLog} />
+
             {/* Header */}
             <div>
                 <Link href="/dashboard/proyectos" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4">
@@ -161,7 +167,11 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                 <span className="text-sm text-slate-400 flex items-center gap-1">
                                     <MapPin className="w-3.5 h-3.5" />{proyecto.ubicacion || "Ubicación no definida"}
                                 </span>
-                                <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20")}>
+                                
+                                <StatusBadge context={context} />
+                                
+                                <span className="opacity-20">|</span>
+                                <span className="text-xs font-semibold text-slate-500">
                                     {proyecto.estado}
                                 </span>
                             </div>
@@ -218,6 +228,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             {proyecto.descripcion || "Sin descripción disponible."}
                         </p>
                         {/* More info sections... */}
+                        
+                        {canSeeHistory && validationLogs.length > 0 && (
+                            <div className="mt-8 pt-8 border-t border-white/5">
+                                <ProjectValidationHistory logs={validationLogs} />
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -232,14 +248,14 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                 {activeTab === "etapas" && (
                     <div className="space-y-4">
-                        {proyecto.etapas.map(etapa => (
+                        {proyecto.etapas.map((etapa: any) => (
                             <div key={etapa.id} className="glass-card p-4">
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="font-bold text-slate-800 dark:text-white">{etapa.nombre}</h3>
                                     <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase font-black">Orden: {etapa.orden}</span>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {etapa.manzanas.map(manzana => (
+                                    {etapa.manzanas.map((manzana: any) => (
                                         <div key={manzana.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center">
                                             <span className="text-sm font-medium">{manzana.nombre}</span>
                                             <span className="text-xs text-slate-400">{manzana.unidades.length} unidades</span>

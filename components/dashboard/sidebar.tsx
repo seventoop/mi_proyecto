@@ -58,6 +58,8 @@ const adminNavItems = [
     { label: "Proyectos", href: "/dashboard/admin/proyectos", icon: Building2 },
     { label: "Usuarios", href: "/dashboard/admin/usuarios", icon: UserCheck },
     { label: "KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck },
+    { label: "Mandatos", href: "/dashboard/admin/mandatos", icon: BookmarkCheck },
+    { label: "Validaciones", href: "/dashboard/admin/validaciones", icon: Workflow },
     { label: "Planes", href: "/dashboard/admin/planes", icon: CreditCard },
     { section: "Engagement" },
     { label: "CRM / Leads", href: "/dashboard/admin/crm/leads", icon: Users },

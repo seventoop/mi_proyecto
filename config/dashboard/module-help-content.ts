@@ -270,5 +270,41 @@ export const MODULE_HELP_CONTENT: Record<string, ModuleHelpContent> = {
         ],
         firstStep: "Verificá que la 'Salud de Servicios' esté toda en verde (OK).",
         moduleKey: "adminConfiguracion"
+    },
+    adminMandatos: {
+        title: "Mandatos Pendientes",
+        description: "Cola de autorización de comercializadores sobre proyectos.",
+        whatIs: "Cuando un desarrollador propone un comercializador (exclusivo o no exclusivo) para un proyecto, ese mandato queda pendiente de aprobación. Desde acá el equipo de SevenToop valida la documentación y autoriza o rechaza el mandato.",
+        howItWorks: [
+            "El owner del proyecto crea una relación COMERCIALIZADOR_* con estado PENDIENTE",
+            "El mandato aparece en esta cola con el documento adjunto y los datos del comercializador",
+            "Un admin revisa el documento y aprueba o rechaza con motivo opcional",
+            "El comercializador recibe notificación del resultado"
+        ],
+        whatFor: [
+            "Validar que el comercializador tiene autorización real sobre el proyecto",
+            "Controlar exclusividades en vigencia",
+            "Mantener trazabilidad de quién autorizó cada mandato"
+        ],
+        firstStep: "Revisá los mandatos en estado PENDIENTE y verificá el documento adjunto antes de aprobar.",
+        moduleKey: "adminMandatos"
+    },
+    adminValidaciones: {
+        title: "Validación de Proyectos",
+        description: "Cola de revisión de proyectos antes de su aprobación comercial.",
+        whatIs: "Cuando un desarrollador envía su proyecto a revisión, entra en esta cola. Desde acá el equipo de SevenToop aprueba, observa o rechaza proyectos antes de que puedan operar en la plataforma.",
+        howItWorks: [
+            "El owner del proyecto lo envía desde BORRADOR a PENDIENTE_VALIDACION",
+            "El admin lo pone EN_REVISION para indicar que está siendo evaluado",
+            "Si todo está correcto, se aprueba y el proyecto queda habilitado para operar",
+            "Si hay observaciones, se detallan y el owner puede corregir y reenviar"
+        ],
+        whatFor: [
+            "Controlar qué proyectos pueden captar leads, reservas y publicarse",
+            "Garantizar documentación legal y técnica en orden antes de operar",
+            "Mantener trazabilidad de qué admin aprobó cada proyecto y cuándo"
+        ],
+        firstStep: "Revisá los proyectos en PENDIENTE_VALIDACION y poné en EN_REVISION los que vas a auditar.",
+        moduleKey: "adminValidaciones"
     }
 };

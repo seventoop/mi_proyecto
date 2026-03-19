@@ -11,6 +11,7 @@ import dynamic from "next/dynamic";
 import InventarioServer from "@/components/dashboard/proyectos/inventario-server";
 import ReservasList from "@/components/dashboard/reservas/reservas-list";
 import { getReservasProyecto } from "@/lib/actions/reservas";
+import ProjectStatusBanner from "@/components/dashboard/proyectos/project-status-banner";
 
 const ProjectDocsTab = dynamic(() => import("@/components/dashboard/proyectos/project-docs-tab"), { ssr: false });
 const EtapasManager = dynamic(() => import("@/components/dashboard/proyectos/etapas-manager"), { ssr: false });
@@ -170,6 +171,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     return (
         <div className="space-y-6 animate-fade-in">
+            {/* Contextual Status Banner */}
+            <ProjectStatusBanner 
+                proyectoId={proyecto.id} 
+                proyectoNombre={proyecto.nombre} 
+                estadoValidacion={proyecto.estadoValidacion} 
+            />
+
             {/* Header */}
             <div>
                 <Link href="/dashboard/admin/proyectos" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4">
@@ -187,7 +195,16 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                 <span className="text-sm text-slate-400 flex items-center gap-1">
                                     <MapPin className="w-3.5 h-3.5" />{proyecto.ubicacion || "Ubicación no definida"}
                                 </span>
-                                <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20")}>
+                                <span className={cn(
+                                    "text-[10px] font-bold px-2 py-0.5 rounded-lg border uppercase tracking-widest",
+                                    proyecto.estadoValidacion === "APROBADO" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                    proyecto.estadoValidacion === "RECHAZADO" ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                                    "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                )}>
+                                    {proyecto.estadoValidacion?.replace("_", " ")}
+                                </span>
+                                <span className="opacity-20">|</span>
+                                <span className="text-xs font-semibold text-slate-500">
                                     {proyecto.estado}
                                 </span>
                             </div>
