@@ -26,5 +26,6 @@ declare module "next-auth/jwt" {
         orgId: string | null;
         kycStatus: string;
         demoEndsAt: string | null;
+        lastDbSync?: number; // unix timestamp (seconds) of last DB refetch
     }
 }

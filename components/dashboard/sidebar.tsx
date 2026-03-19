@@ -137,11 +137,9 @@ export default function Sidebar() {
         navItems = [];
     }
 
-    const [isMounted, setIsMounted] = useState(false);
     const [planData, setPlanData] = useState<any>(null);
 
     useEffect(() => {
-        setIsMounted(true);
         if (session?.user && (userRole === "VENDEDOR" || userRole === "DESARROLLADOR")) {
             const orgId = (session.user as any).orgId;
             if (orgId) {
@@ -151,10 +149,6 @@ export default function Sidebar() {
             }
         }
     }, [session, userRole]);
-
-    if (!isMounted) {
-        return null;
-    }
 
     return (
         <>

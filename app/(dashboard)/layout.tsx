@@ -1,6 +1,3 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 import Sidebar from "@/components/dashboard/sidebar";
 import Header from "@/components/dashboard/header";
 import DashboardContainer from "@/components/dashboard/dashboard-container";

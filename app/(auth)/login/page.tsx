@@ -103,7 +103,6 @@ function LoginForm() {
                     default:
                         router.push("/dashboard");
                 }
-                router.refresh();
             }
         } catch {
             setError("Error al iniciar sesión. Intenta nuevamente.");

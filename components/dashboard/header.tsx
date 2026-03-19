@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Search, Moon, Sun, ChevronRight } from "lucide-react";
 import { useTheme } from "next-themes";
 import { getInitials } from "@/lib/utils";
@@ -12,12 +11,7 @@ import Link from "next/link";
 export default function Header() {
     const { theme, setTheme } = useTheme();
     const { data: session } = useSession();
-    const [mounted, setMounted] = useState(false);
     const pathname = usePathname();
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
     const toggleTheme = () => {
         setTheme(theme === "dark" ? "light" : "dark");
@@ -66,28 +60,26 @@ export default function Header() {
             <div className="flex items-center justify-between h-full px-4 sm:px-6 lg:px-8">
                 {/* Left Side: Breadcrumbs Navigation */}
                 <div className="flex items-center flex-1 ml-10 lg:ml-0">
-                    {mounted && (
-                        <nav className="hidden sm:flex items-center gap-1.5 text-[13px] font-medium">
-                            <span className="text-slate-900 dark:text-zinc-100 font-bold tracking-tight">SevenToop</span>
-                            {breadcrumbs.length > 0 && (
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-white/30 shrink-0" />
-                            )}
-                            {breadcrumbs.map((crumb, idx) => {
-                                const isLast = idx === breadcrumbs.length - 1;
-                                return (
-                                    <div key={crumb.href} className="flex items-center gap-1.5">
-                                        <Link 
-                                            href={crumb.href}
-                                            className={`transition-colors truncate max-w-[140px] lg:max-w-[200px] ${isLast ? "text-slate-900 dark:text-zinc-100 font-semibold" : "text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white"}`}
-                                        >
-                                            {crumb.label}
-                                        </Link>
-                                        {!isLast && <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-white/30 shrink-0" />}
-                                    </div>
-                                );
-                            })}
-                        </nav>
-                    )}
+                    <nav className="hidden sm:flex items-center gap-1.5 text-[13px] font-medium">
+                        <span className="text-slate-900 dark:text-zinc-100 font-bold tracking-tight">SevenToop</span>
+                        {breadcrumbs.length > 0 && (
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-white/30 shrink-0" />
+                        )}
+                        {breadcrumbs.map((crumb, idx) => {
+                            const isLast = idx === breadcrumbs.length - 1;
+                            return (
+                                <div key={crumb.href} className="flex items-center gap-1.5">
+                                    <Link
+                                        href={crumb.href}
+                                        className={`transition-colors truncate max-w-[140px] lg:max-w-[200px] ${isLast ? "text-slate-900 dark:text-zinc-100 font-semibold" : "text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white"}`}
+                                    >
+                                        {crumb.label}
+                                    </Link>
+                                    {!isLast && <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-white/30 shrink-0" />}
+                                </div>
+                            );
+                        })}
+                    </nav>
                 </div>
 
                 {/* Right Side: Search & Actions */}
@@ -107,7 +99,7 @@ export default function Header() {
                         className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
                         aria-label="Toggle theme"
                     >
-                        {mounted && theme === "dark" ? (
+                        {theme === "dark" ? (
                             <Sun className="w-4 h-4" />
                         ) : (
                             <Moon className="w-4 h-4" />
