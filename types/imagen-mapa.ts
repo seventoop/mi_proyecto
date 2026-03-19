@@ -15,6 +15,7 @@ export interface ImagenMapaItem {
   latOffset: number | null;
   lngOffset: number | null;
   planRotation: number | null;
+  planScale: number | null;
   createdAt: string;
   updatedAt: string;
   // populated if included

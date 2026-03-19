@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { X, Loader2, Layers, ChevronUp, ChevronDown, Check, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pencil } from "lucide-react";
+import { X, Loader2, Layers, Check, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pencil, Eye, Move } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ImagenMapaItem, IMAGEN_TIPO_CONFIG } from "@/types/imagen-mapa";
@@ -13,7 +13,7 @@ interface ImagenViewerProps {
   imagen: ImagenMapaItem;
   onClose: () => void;
   // Called after a successful calibration save — lets the parent refresh its items list
-  onCalibrationSaved?: (updates: Pick<ImagenMapaItem, "altitudM" | "imageHeading" | "latOffset" | "lngOffset" | "planRotation">) => void;
+  onCalibrationSaved?: (updates: Pick<ImagenMapaItem, "altitudM" | "imageHeading" | "latOffset" | "lngOffset" | "planRotation" | "planScale">) => void;
   // Optional overlay data — only used for tipo="360"
   units?: MasterplanUnit[];
   overlayBounds?: [[number, number], [number, number]] | null;
@@ -75,6 +75,7 @@ export default function ImagenViewer({
   const [latOffset,     setLatOffset]     = useState<number>(imagen.latOffset ?? 0);
   const [lngOffset,     setLngOffset]     = useState<number>(imagen.lngOffset ?? 0);
   const [planRotation,  setPlanRotation]  = useState<number>(imagen.planRotation ?? 0);
+  const [planScale,     setPlanScale]     = useState<number>(imagen.planScale ?? 1);
   const [isSavingCalib, setIsSavingCalib] = useState(false);
   const [calibSaved,    setCalibSaved]    = useState(false);
 
@@ -225,19 +226,19 @@ export default function ImagenViewer({
       const res = await fetch(`/api/imagenes-mapa/${imagen.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset, planRotation }),
+        body: JSON.stringify({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset, planRotation, planScale }),
       });
       if (!res.ok) throw new Error("Error al guardar");
       setCalibSaved(true);
       setTimeout(() => setCalibSaved(false), 2000);
       // Notify parent so it can refresh its items list (fixes stale data on reopen)
-      onCalibrationSaved?.({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset, planRotation });
+      onCalibrationSaved?.({ altitudM: overlayAlt, imageHeading: overlayHdg, latOffset, lngOffset, planRotation, planScale });
     } catch {
       toast.error("No se pudo guardar la calibración");
     } finally {
       setIsSavingCalib(false);
     }
-  }, [imagen.id, overlayAlt, overlayHdg, latOffset, lngOffset, planRotation, onCalibrationSaved]);
+  }, [imagen.id, overlayAlt, overlayHdg, latOffset, lngOffset, planRotation, planScale, onCalibrationSaved]);
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -295,15 +296,17 @@ export default function ImagenViewer({
                 latOffset={latOffset}
                 lngOffset={lngOffset}
                 planRotation={planRotation}
+                planScale={planScale}
                 isEditing={isEditing}
                 onEnterEdit={() => setIsEditing(true)}
                 onExitEdit={() => setIsEditing(false)}
-                onParamsChange={({ latOffset: lo, lngOffset: lng, camAlt, imageHeading, planRotation: pr }) => {
+                onParamsChange={({ latOffset: lo, lngOffset: lng, camAlt, imageHeading, planRotation: pr, planScale: ps }) => {
                   setLatOffset(lo);
                   setLngOffset(lng);
                   setOverlayAlt(camAlt);
                   setOverlayHdg(imageHeading);
                   setPlanRotation(pr);
+                  setPlanScale(ps);
                 }}
               />
             )}
@@ -322,6 +325,8 @@ export default function ImagenViewer({
                 onLngOffsetChange={setLngOffset}
                 planRotation={planRotation}
                 onPlanRotChange={setPlanRotation}
+                planScale={planScale}
+                onPlanScaleChange={setPlanScale}
                 onSave={saveCalibration}
                 isSaving={isSavingCalib}
                 saved={calibSaved}
@@ -369,6 +374,8 @@ interface OverlayControlsProps {
   onLngOffsetChange: (v: number) => void;
   planRotation: number;
   onPlanRotChange: (v: number) => void;
+  planScale: number;
+  onPlanScaleChange: (v: number) => void;
   onSave: () => void;
   isSaving: boolean;
   saved: boolean;
@@ -384,6 +391,7 @@ function OverlayControls({
   latOffset, lngOffset,
   onLatOffsetChange, onLngOffsetChange,
   planRotation, onPlanRotChange,
+  planScale, onPlanScaleChange,
   onSave, isSaving, saved,
   isEditing, onEnterEdit, onExitEdit,
 }: OverlayControlsProps) {
@@ -479,10 +487,16 @@ function OverlayControls({
               </h4>
               
               <div className="space-y-3 bg-white/5 p-3 rounded-xl border border-white/5">
-                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between relative -top-1">
-                  Tamaño / Escala
-                  <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded ml-2">arrastrar esquinas</span>
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                  Escala del plano
+                  <span className="text-indigo-400 font-bold">{planScale.toFixed(2)}×</span>
                 </label>
+                <input
+                  type="range" min={0.1} max={3} step={0.01}
+                  value={planScale}
+                  onChange={(e) => onPlanScaleChange(Number(e.target.value))}
+                  className="w-full accent-indigo-500"
+                />
                 <label className="text-xs font-semibold text-slate-300 flex items-center justify-between mt-1 pt-2 border-t border-white/10">
                   Mover plano (Offset)
                 </label>
