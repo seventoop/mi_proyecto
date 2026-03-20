@@ -211,7 +211,7 @@ function StepEditor({ step, onChange, onClose }: { step: any, onChange: (s: any)
                             <option value="CREATE_TASK">Crear Tarea</option>
                             <option value="NOTIFY_INTERNAL">Notificar Interno</option>
                             <option value="SEND_WHATSAPP_TEMPLATE">WhatsApp Template</option>
-                            <option value="SEND_EMAIL_TEMPLATE">Email Template</option>
+                            <option value="SEND_EMAIL_TEMPLATE">Plantilla de Email</option>
                             <option value="MOVE_LEAD_STAGE">Cambiar Etapa Pipeline</option>
                             <option value="ADD_AUDIT_LOG">Log de Auditoría</option>
                         </select>

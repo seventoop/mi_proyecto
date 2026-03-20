@@ -97,7 +97,7 @@ export default function Header() {
                     <button
                         onClick={toggleTheme}
                         className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
-                        aria-label="Toggle theme"
+                        aria-label="Cambiar tema"
                     >
                         {theme === "dark" ? (
                             <Sun className="w-4 h-4" />
