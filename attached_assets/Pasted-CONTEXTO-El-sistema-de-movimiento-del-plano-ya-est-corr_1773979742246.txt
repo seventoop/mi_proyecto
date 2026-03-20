@@ -1,0 +1,97 @@
+CONTEXTO
+
+El sistema de movimiento del plano ya está correcto con el mouse (drag).
+NO tocar esa parte.
+
+Antes de ese cambio:
+
+* las flechas del panel (offset / mover plano) funcionaban correctamente
+
+Después del cambio:
+
+* las flechas ahora están mal mapeadas
+* el mouse quedó perfecto
+
+==================================================
+OBJETIVO
+========
+
+Mantener el comportamiento correcto del mouse
+y hacer que las flechas se comporten exactamente igual.
+
+==================================================
+PROBLEMA ACTUAL
+===============
+
+Las flechas están invertidas/cruzadas:
+
+* flecha arriba → mueve hacia la izquierda
+* flecha abajo → hacia la derecha
+* flecha derecha → hacia arriba
+* flecha izquierda → hacia abajo
+
+==================================================
+CLAVE
+=====
+
+El sistema correcto YA es el del mouse.
+
+NO modificar el mouse.
+NO romper el drag.
+
+Las flechas deben:
+
+* usar exactamente la misma lógica de movimiento
+* no tener su propia conversión separada
+
+==================================================
+INSTRUCCIONES
+=============
+
+1. Identificar cómo el drag calcula el movimiento final del plano
+2. Reutilizar esa misma lógica para las flechas
+3. Eliminar cualquier transformación distinta en las flechas
+4. NO usar cálculos independientes de north/east distintos al drag
+
+IMPORTANTE:
+si antes funcionaban, probablemente tenían otra conversión.
+NO volver atrás sin entender por qué.
+
+==================================================
+VALIDACIÓN OBLIGATORIA
+======================
+
+Antes de cerrar:
+
+* flecha arriba → plano sube
+* flecha abajo → plano baja
+* flecha izquierda → plano izquierda
+* flecha derecha → plano derecha
+
+Debe ser IDENTICO al comportamiento del mouse.
+
+==================================================
+NO ROMPER
+=========
+
+* drag con mouse
+* rotación
+* escala
+* orientación
+* altitud
+* guardado
+
+==================================================
+ENTREGA
+=======
+
+1. causa exacta de por qué se rompieron las flechas
+2. cómo se alinearon con el drag
+3. cambios realizados
+4. archivos modificados
+5. prueba manual
+6. commit hash
+
+IMPORTANTE
+
+no cerrar hasta que mouse y flechas se comporten exactamente igual
