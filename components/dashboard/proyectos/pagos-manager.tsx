@@ -118,7 +118,7 @@ export default function PagosManager({ proyectoId, pagos, cuentas, saldoDisponib
                                     <div key={c.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 relative group">
                                         <p className="font-bold text-sm text-slate-800 dark:text-white">{c.banco}</p>
                                         <p className="text-xs text-slate-500 break-all">{c.cbu}</p>
-                                        <p className="text-[10px] text-slate-400 mt-1 uppercase">{c.tipo} • {c.tiular}</p>
+                                        <p className="text-xs text-slate-400 mt-1 uppercase">{c.tipo} • {c.tiular}</p>
                                         <button onClick={() => handleDeleteAccount(c.id)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-100 text-rose-500 rounded transition-all">
                                             <Trash2 className="w-3 h-3" />
                                         </button>

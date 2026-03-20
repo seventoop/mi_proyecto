@@ -51,13 +51,13 @@ export default function LeadsTable({
             <Table>
                 <TableHeader className="bg-slate-50 dark:bg-white/[0.01]">
                     <TableRow className="border-slate-100 dark:border-white/[0.06] hover:bg-transparent">
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Nombre</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Contacto</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Proyecto</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Estado</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4 text-center">Score AI</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Asignado</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Fecha</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Nombre</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Contacto</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Proyecto</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Estado</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4 text-center">Score AI</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Asignado</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Fecha</TableHead>
                         <TableHead className="w-[50px] py-4"></TableHead>
                     </TableRow>
                 </TableHeader>
@@ -80,12 +80,12 @@ export default function LeadsTable({
                                 <TableCell className="py-4">
                                     <div className="space-y-1">
                                         {lead.email && (
-                                            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight">
+                                            <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight">
                                                 <Mail className="w-3 h-3 text-slate-400 dark:text-white/20" /> {lead.email}
                                             </div>
                                         )}
                                         {lead.telefono && (
-                                            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight">
+                                            <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight">
                                                 <Phone className="w-3 h-3 text-slate-400 dark:text-white/20" /> {lead.telefono}
                                             </div>
                                         )}
@@ -95,17 +95,17 @@ export default function LeadsTable({
                                     {lead.proyecto?.nombre || "General"}
                                 </TableCell>
                                 <TableCell className="py-4">
-                                    <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border shadow-sm", STATUS_COLORS[lead.estado] || "bg-slate-500/10 text-slate-400 border-slate-500/20")}>
+                                    <span className={cn("text-xs font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border shadow-sm", STATUS_COLORS[lead.estado] || "bg-slate-500/10 text-slate-400 border-slate-500/20")}>
                                         {lead.estado}
                                     </span>
                                 </TableCell>
                                 <TableCell className="text-center py-4">
                                     {hasAiScoring ? (
-                                        <div className={cn("inline-flex px-1.5 py-0.5 rounded text-[10px] font-black border", scoreColor)}>
+                                        <div className={cn("inline-flex px-1.5 py-0.5 rounded text-xs font-black border", scoreColor)}>
                                             {score}
                                         </div>
                                     ) : (
-                                        <div className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-black border border-slate-200 dark:border-white/10 text-slate-300 dark:text-white/10">
+                                        <div className="inline-flex px-1.5 py-0.5 rounded text-xs font-black border border-slate-200 dark:border-white/10 text-slate-300 dark:text-white/10">
                                             —
                                         </div>
                                     )}
@@ -115,15 +115,15 @@ export default function LeadsTable({
                                         <div className="flex items-center gap-2.5">
                                             <Avatar className="w-6 h-6 border border-slate-100 dark:border-white/10 shadow-sm">
                                                 <AvatarImage src={lead.asignadoA.avatar} />
-                                                <AvatarFallback className="text-[9px] font-black bg-brand-500/10 text-brand-500">{lead.asignadoA.nombre.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                <AvatarFallback className="text-xs font-black bg-brand-500/10 text-brand-500">{lead.asignadoA.nombre.substring(0, 2).toUpperCase()}</AvatarFallback>
                                             </Avatar>
-                                            <span className="text-[11px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight">{lead.asignadoA.nombre}</span>
+                                            <span className="text-sm font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight">{lead.asignadoA.nombre}</span>
                                         </div>
                                     ) : (
-                                        <span className="text-[10px] font-bold text-slate-400 dark:text-white/10 uppercase tracking-widest italic">Sin asignar</span>
+                                        <span className="text-xs font-bold text-slate-400 dark:text-white/10 uppercase tracking-widest italic">Sin asignar</span>
                                     )}
                                 </TableCell>
-                                <TableCell className="text-[11px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight py-4">
+                                <TableCell className="text-sm font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight py-4">
                                     {format(new Date(lead.createdAt), "dd MMM, yyyy", { locale: es })}
                                 </TableCell>
                                 <TableCell className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -135,9 +135,9 @@ export default function LeadsTable({
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="bg-white dark:bg-[#0A0A0C] border-slate-200 dark:border-white/[0.06] shadow-xl">
-                                                <DropdownMenuItem onClick={() => openLead(lead)} className="text-[11px] font-bold uppercase tracking-widest py-2 dark:hover:bg-white/[0.04] cursor-pointer">Ver Detalles</DropdownMenuItem>
-                                                <DropdownMenuItem className="text-[11px] font-bold uppercase tracking-widest py-2 dark:hover:bg-white/[0.04] cursor-pointer">Editar</DropdownMenuItem>
-                                                <DropdownMenuItem className="text-[11px] font-bold uppercase tracking-widest py-2 text-rose-500 dark:hover:bg-white/[0.04] cursor-pointer">Eliminar</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => openLead(lead)} className="text-sm font-bold uppercase tracking-widest py-2 dark:hover:bg-white/[0.04] cursor-pointer">Ver Detalles</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-sm font-bold uppercase tracking-widest py-2 dark:hover:bg-white/[0.04] cursor-pointer">Editar</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-sm font-bold uppercase tracking-widest py-2 text-rose-500 dark:hover:bg-white/[0.04] cursor-pointer">Eliminar</DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>

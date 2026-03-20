@@ -134,7 +134,7 @@ export default function AIDescriptionModal({
                                 )}
                             </div>
 
-                            <p className="text-[10px] text-center text-slate-400">
+                            <p className="text-xs text-center text-slate-400">
                                 Tip: Puedes editar el texto una vez aplicado al formulario principal.
                             </p>
                         </div>

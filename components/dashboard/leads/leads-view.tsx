@@ -50,7 +50,7 @@ export default function LeadsView({
                         <button
                             onClick={() => setViewMode("BOARD")}
                             className={cn(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all duration-300",
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-black uppercase tracking-wider transition-all duration-300",
                                 viewMode === "BOARD" 
                                     ? "bg-white dark:bg-white/[0.08] shadow-sm text-brand-500 dark:text-zinc-100" 
                                     : "text-slate-400 hover:text-slate-600 dark:hover:text-white/60"
@@ -62,7 +62,7 @@ export default function LeadsView({
                         <button
                             onClick={() => setViewMode("LIST")}
                             className={cn(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all duration-300",
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-black uppercase tracking-wider transition-all duration-300",
                                 viewMode === "LIST" 
                                     ? "bg-white dark:bg-white/[0.08] shadow-sm text-brand-500 dark:text-zinc-100" 
                                     : "text-slate-400 hover:text-slate-600 dark:hover:text-white/60"

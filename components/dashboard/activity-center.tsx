@@ -73,11 +73,11 @@ export default function ActivityCenter({ userRole, activities }: ActivityCenterP
                     </div>
                     <div>
                         <h2 className="text-[13px] font-bold text-slate-900 dark:text-zinc-100">Actividad Reciente</h2>
-                        <p className="text-[10px] text-slate-400 dark:text-white/40 font-medium uppercase tracking-widest">Panel desarrollador</p>
+                        <p className="text-xs text-slate-400 dark:text-white/40 font-medium uppercase tracking-widest">Panel desarrollador</p>
                     </div>
                 </div>
                 {latestActivities.length > 0 && (
-                    <span className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">
+                    <span className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">
                         {latestActivities.length} eventos
                     </span>
                 )}
@@ -105,7 +105,7 @@ export default function ActivityCenter({ userRole, activities }: ActivityCenterP
                                             <p className="text-[13px] font-semibold text-slate-900 dark:text-zinc-100 truncate">
                                                 {activity.title}
                                             </p>
-                                            <span className="text-[10px] font-medium text-slate-400 dark:text-white/30 whitespace-nowrap shrink-0">
+                                            <span className="text-xs font-medium text-slate-400 dark:text-white/30 whitespace-nowrap shrink-0">
                                                 {formatDistanceToNow(activity.date, { addSuffix: true, locale: es })}
                                             </span>
                                         </div>
@@ -125,7 +125,7 @@ export default function ActivityCenter({ userRole, activities }: ActivityCenterP
                             <Activity className="w-5 h-5 text-slate-400 dark:text-white/30" />
                         </div>
                         <p className="text-[13px] font-semibold text-slate-500 dark:text-white/40">Sin actividad reciente</p>
-                        <p className="text-[11px] text-slate-400 dark:text-white/25 font-medium mt-1 max-w-[200px] mx-auto">
+                        <p className="text-sm text-slate-400 dark:text-white/25 font-medium mt-1 max-w-[200px] mx-auto">
                             Los cambios de estado y eventos aparecerán aquí.
                         </p>
                     </div>

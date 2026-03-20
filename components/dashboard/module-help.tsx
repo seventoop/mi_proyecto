@@ -71,7 +71,7 @@ export function ModuleHelp({ content }: { content: ModuleHelpContent | undefined
                         <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
                             <button
                                 onClick={handleDismiss}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-rose-500/10 text-[11px] font-bold text-slate-400 dark:text-white/30 hover:text-rose-600 dark:hover:text-rose-400 transition-colors uppercase tracking-widest"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-rose-500/10 text-sm font-bold text-slate-400 dark:text-white/30 hover:text-rose-600 dark:hover:text-rose-400 transition-colors uppercase tracking-widest"
                             >
                                 <EyeOff className="w-3.5 h-3.5" />
                                 No mostrar más
@@ -88,7 +88,7 @@ export function ModuleHelp({ content }: { content: ModuleHelpContent | undefined
                             {/* Left Column */}
                             <div className="space-y-7">
                                 <div>
-                                    <h3 className="flex items-center gap-2 text-[11px] font-black text-slate-900 dark:text-white mb-3 uppercase tracking-widest">
+                                    <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white mb-3 uppercase tracking-widest">
                                         <Lightbulb className="w-4 h-4 text-amber-500" />
                                         Qué es
                                     </h3>
@@ -97,14 +97,14 @@ export function ModuleHelp({ content }: { content: ModuleHelpContent | undefined
                                     </p>
                                 </div>
                                 <div>
-                                    <h3 className="flex items-center gap-2 text-[11px] font-black text-slate-900 dark:text-white mb-4 uppercase tracking-widest">
+                                    <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white mb-4 uppercase tracking-widest">
                                         <PlayCircle className="w-4 h-4 text-blue-500" />
                                         Cómo funciona
                                     </h3>
                                     <ul className="space-y-3">
                                         {howItWorks.map((step, idx) => (
                                             <li key={idx} className="flex items-start gap-3 text-[13px] font-medium text-slate-600 dark:text-white/60">
-                                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/5 text-[10px] font-black text-slate-700 dark:text-white/70 shrink-0 mt-0.5">
+                                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/5 text-xs font-black text-slate-700 dark:text-white/70 shrink-0 mt-0.5">
                                                     {idx + 1}
                                                 </span>
                                                 <span className="leading-relaxed">{step}</span>
@@ -117,7 +117,7 @@ export function ModuleHelp({ content }: { content: ModuleHelpContent | undefined
                             {/* Right Column */}
                             <div className="space-y-7 md:pt-0">
                                 <div>
-                                    <h3 className="flex items-center gap-2 text-[11px] font-black text-slate-900 dark:text-white mb-4 uppercase tracking-widest">
+                                    <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white mb-4 uppercase tracking-widest">
                                         <Target className="w-4 h-4 text-emerald-500" />
                                         Para qué sirve
                                     </h3>
@@ -131,7 +131,7 @@ export function ModuleHelp({ content }: { content: ModuleHelpContent | undefined
                                     </ul>
                                 </div>
                                 <div className="p-4 sm:p-5 rounded-xl bg-gradient-to-br from-brand-500/10 to-brand-500/5 border border-brand-500/20">
-                                    <h3 className="text-[10px] font-black text-brand-600 dark:text-brand-400 mb-2 uppercase tracking-widest">
+                                    <h3 className="text-xs font-black text-brand-600 dark:text-brand-400 mb-2 uppercase tracking-widest">
                                         Primer paso recomendado
                                     </h3>
                                     <p className="text-[13px] text-brand-800 dark:text-brand-200/90 font-semibold leading-relaxed">

@@ -17,7 +17,7 @@ export function PeriodSelector({ period, onChangePeriod }: PeriodSelectorProps) 
                     key={p}
                     onClick={() => onChangePeriod(p)}
                     className={cn(
-                        "px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all",
+                        "px-3 py-1.5 rounded-lg text-sm font-bold uppercase tracking-widest transition-all",
                         period === p
                             ? "bg-brand-500 text-white shadow-sm shadow-brand-500/30"
                             : "text-slate-500 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70 hover:bg-white dark:hover:bg-white/[0.04] shadow-sm dark:shadow-none"

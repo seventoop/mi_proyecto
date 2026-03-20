@@ -117,11 +117,11 @@ export default function Header() {
                             <span className="text-[13px] font-semibold text-slate-900 dark:text-zinc-100 leading-none mb-1">
                                 {userName}
                             </span>
-                            <span className="text-[9px] font-black text-brand-600 dark:text-brand-400 uppercase tracking-widest leading-none">
+                            <span className="text-xs font-black text-brand-600 dark:text-brand-400 uppercase tracking-widest leading-none">
                                 {userRole}
                             </span>
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-orange to-brand-orangeDark flex items-center justify-center text-white text-[11px] font-black shadow-sm ring-2 ring-white dark:ring-white/10">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-orange to-brand-orangeDark flex items-center justify-center text-white text-sm font-black shadow-sm ring-2 ring-white dark:ring-white/10">
                             {getInitials(userName)}
                         </div>
                     </div>

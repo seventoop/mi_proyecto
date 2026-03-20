@@ -54,12 +54,12 @@ export default function ReservasTable({ reservas }: { reservas: any[] }) {
             <Table>
                 <TableHeader className="bg-slate-50 dark:bg-white/[0.01]">
                     <TableRow className="border-slate-100 dark:border-white/[0.06] hover:bg-transparent">
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Unidad / Proyecto</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Cliente (Lead)</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Vencimiento</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Seña</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Estado</TableHead>
-                        <TableHead className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4 text-right">Acciones</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Unidad / Proyecto</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Cliente (Lead)</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Vencimiento</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Seña</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Estado</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4 text-right">Acciones</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -68,23 +68,23 @@ export default function ReservasTable({ reservas }: { reservas: any[] }) {
                             <TableCell className="py-4">
                                 <div className="flex flex-col gap-1">
                                     <span className="text-[13px] font-black text-slate-900 dark:text-zinc-100 group-hover:text-brand-500 transition-colors uppercase tracking-tight">{reserva.unidad}</span>
-                                    <span className="text-[9px] font-bold text-slate-500 dark:text-white/30 uppercase tracking-tighter">{reserva.proyecto}</span>
+                                    <span className="text-xs font-bold text-slate-500 dark:text-white/30 uppercase tracking-tighter">{reserva.proyecto}</span>
                                 </div>
                             </TableCell>
                             <TableCell className="py-4">
                                 <div className="flex flex-col gap-1">
-                                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">{reserva.lead}</span>
-                                    <span className="text-[10px] font-bold text-slate-500 dark:text-white/30 uppercase tracking-widest">{reserva.leadEmail}</span>
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">{reserva.lead}</span>
+                                    <span className="text-xs font-bold text-slate-500 dark:text-white/30 uppercase tracking-widest">{reserva.leadEmail}</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-tight py-4">
+                            <TableCell className="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-tight py-4">
                                 {format(new Date(reserva.fechaVencimiento), "dd MMM yyyy", { locale: es })}
                             </TableCell>
-                            <TableCell className="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300 py-4">
+                            <TableCell className="font-mono text-sm font-bold text-slate-600 dark:text-slate-300 py-4">
                                 {reserva.montoSena ? `$${reserva.montoSena.toLocaleString()}` : "-"}
                             </TableCell>
                             <TableCell className="py-4">
-                                <Badge variant="outline" className={`border-0 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter shadow-sm ${STATUS_CONFIG[reserva.estado]?.color || "bg-slate-500/10 text-slate-400"}`}>
+                                <Badge variant="outline" className={`border-0 px-2 py-0.5 rounded-md text-xs font-black uppercase tracking-tighter shadow-sm ${STATUS_CONFIG[reserva.estado]?.color || "bg-slate-500/10 text-slate-400"}`}>
                                     {STATUS_CONFIG[reserva.estado]?.label || reserva.estado}
                                 </Badge>
                             </TableCell>

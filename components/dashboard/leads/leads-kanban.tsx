@@ -122,9 +122,9 @@ function Column({ col, items, hasAiScoring, onLeadClick }: { col: any, items: an
                         className={cn("w-1.5 h-1.5 rounded-full", !bgColor && col.color)}
                         style={bgColor ? { backgroundColor: bgColor } : {}}
                     />
-                    <span className="text-[11px] font-black text-slate-900 dark:text-zinc-100 uppercase tracking-widest">{col.nombre || col.title}</span>
+                    <span className="text-sm font-black text-slate-900 dark:text-zinc-100 uppercase tracking-widest">{col.nombre || col.title}</span>
                 </div>
-                <Badge variant="secondary" className="bg-slate-100 dark:bg-white/[0.04] text-slate-500 dark:text-white/30 text-[10px] font-black border-none px-2 py-0">
+                <Badge variant="secondary" className="bg-slate-100 dark:bg-white/[0.04] text-slate-500 dark:text-white/30 text-xs font-black border-none px-2 py-0">
                     {items.length}
                 </Badge>
             </div>
@@ -157,9 +157,9 @@ function DraggableLeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiSc
 }
 
 function ScoreBadge({ score }: { score: number }) {
-    if (score > 70) return <span className="px-1.5 py-0.5 rounded text-[10px] font-black border border-rose-500/20 text-rose-500 bg-rose-500/10">HOT</span>;
-    if (score > 40) return <span className="px-1.5 py-0.5 rounded text-[10px] font-black border border-amber-500/20 text-amber-500 bg-amber-500/10">WARM</span>;
-    return <span className="px-1.5 py-0.5 rounded text-[10px] font-black border border-blue-500/20 text-blue-500 bg-blue-500/10">COLD</span>;
+    if (score > 70) return <span className="px-1.5 py-0.5 rounded text-xs font-black border border-rose-500/20 text-rose-500 bg-rose-500/10">HOT</span>;
+    if (score > 40) return <span className="px-1.5 py-0.5 rounded text-xs font-black border border-amber-500/20 text-amber-500 bg-amber-500/10">WARM</span>;
+    return <span className="px-1.5 py-0.5 rounded text-xs font-black border border-blue-500/20 text-blue-500 bg-blue-500/10">COLD</span>;
 }
 
 function LeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiScoring?: boolean, onClick?: () => void }) {
@@ -186,7 +186,7 @@ function LeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiScoring?: b
                         {getOriginIcon(lead.canalOrigen)}
                         <h4 className="text-[13px] font-black text-slate-900 dark:text-zinc-100 group-hover:text-brand-500 transition-colors uppercase tracking-tight truncate max-w-[160px]">{lead.nombre}</h4>
                     </div>
-                    <p className="text-[9px] font-bold text-slate-500 dark:text-white/20 uppercase tracking-tighter">
+                    <p className="text-xs font-bold text-slate-500 dark:text-white/20 uppercase tracking-tighter">
                         {lead.proyecto?.nombre || "General"}
                     </p>
                 </div>
@@ -194,7 +194,7 @@ function LeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiScoring?: b
                 {hasAiScoring && score > 0 ? (
                     <ScoreBadge score={score} />
                 ) : (
-                    <div className="px-1.5 py-0.5 rounded text-[10px] font-black border border-slate-200 dark:border-white/10 text-slate-300 dark:text-white/10">
+                    <div className="px-1.5 py-0.5 rounded text-xs font-black border border-slate-200 dark:border-white/10 text-slate-300 dark:text-white/10">
                         —
                     </div>
                 )}
@@ -202,13 +202,13 @@ function LeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiScoring?: b
 
             <div className="space-y-1.5 my-4">
                 {lead.email && (
-                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-tight">
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-400 dark:text-white/20 uppercase tracking-tight">
                         <Mail className="w-3 h-3 text-slate-400 dark:text-white/10" />
                         <span className="truncate">{lead.email}</span>
                     </div>
                 )}
                 {lead.telefono && (
-                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-tight">
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-400 dark:text-white/20 uppercase tracking-tight">
                         <Phone className="w-3 h-3 text-slate-400 dark:text-white/10" />
                         <span>{lead.telefono}</span>
                     </div>
@@ -216,7 +216,7 @@ function LeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiScoring?: b
             </div>
 
             <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-white/[0.04]">
-                <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-white/20 font-black uppercase tracking-widest">
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-white/20 font-black uppercase tracking-widest">
                     <Calendar className="w-3 h-3" />
                     <span>{formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true, locale: es })}</span>
                 </div>

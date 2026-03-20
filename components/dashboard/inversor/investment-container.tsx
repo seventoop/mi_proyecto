@@ -52,7 +52,7 @@ export default function InvestmentContainer({ oportunidades, kycStatus }: Invest
                                 {kycStatus === "VERIFICADO" ? `Invertir en ${op.nombre}` : "KYC Requerido"}
                             </button>
                             {kycStatus !== "VERIFICADO" && (
-                                <p className="text-[10px] text-amber-600 dark:text-amber-500 font-bold mt-2 text-center uppercase tracking-widest animate-pulse">
+                                <p className="text-xs text-amber-600 dark:text-amber-500 font-bold mt-2 text-center uppercase tracking-widest animate-pulse">
                                     Verifica tu cuenta para habilitar inversiones
                                 </p>
                             )}

@@ -74,7 +74,7 @@ export default function UnitPricingInfo({ form, errors, updateForm, updateFinanc
                                     <p className="text-sm font-bold text-brand-orange">
                                         {formatCurrency((parseFloat(form.precio) * parseFloat(form.financiacion.anticipo)) / 100)}
                                     </p>
-                                    <p className="text-[10px] text-slate-400">Anticipo</p>
+                                    <p className="text-xs text-slate-400">Anticipo</p>
                                 </div>
                                 <div className="text-center p-2 rounded-lg bg-white dark:bg-slate-800">
                                     <p className="text-sm font-bold text-brand-yellow">
@@ -83,13 +83,13 @@ export default function UnitPricingInfo({ form, errors, updateForm, updateFinanc
                                             parseInt(form.financiacion.cuotas)
                                         )}
                                     </p>
-                                    <p className="text-[10px] text-slate-400">Cuota mensual</p>
+                                    <p className="text-xs text-slate-400">Cuota mensual</p>
                                 </div>
                                 <div className="text-center p-2 rounded-lg bg-white dark:bg-slate-800">
                                     <p className="text-sm font-bold text-slate-600 dark:text-white">
                                         {form.financiacion.cuotas}
                                     </p>
-                                    <p className="text-[10px] text-slate-400">Meses</p>
+                                    <p className="text-xs text-slate-400">Meses</p>
                                 </div>
                             </div>
                         </div>

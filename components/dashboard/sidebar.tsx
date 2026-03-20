@@ -201,7 +201,7 @@ export default function Sidebar() {
                     {sidebarOpen && planData && (
                         <div className="w-full animate-in fade-in duration-500 flex flex-col gap-3">
                             <div className="flex items-center justify-between px-1">
-                                <span className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">Plan Activo</span>
+                                <span className="text-xs font-semibold text-white/40 uppercase tracking-widest">Plan Activo</span>
                                 <PlanBadge plan={planData.planName} />
                             </div>
                             <div className="space-y-2.5 bg-[#161618]/50 p-3 rounded-xl border border-white/[0.04] shadow-inner">
@@ -220,7 +220,7 @@ export default function Sidebar() {
                                 <div className="pt-2 mt-2 border-t border-white/[0.04]">
                                     <Link
                                         href="/dashboard/developer/planes"
-                                        className="group/upgrade flex items-center justify-center gap-2 py-1.5 w-full bg-white/[0.03] hover:bg-white/[0.08] text-white/70 hover:text-white rounded-md text-[10px] font-semibold uppercase tracking-wider transition-all"
+                                        className="group/upgrade flex items-center justify-center gap-2 py-1.5 w-full bg-white/[0.03] hover:bg-white/[0.08] text-white/70 hover:text-white rounded-md text-xs font-semibold uppercase tracking-wider transition-all"
                                     >
                                         <ArrowUpCircle className="w-3.5 h-3.5 text-brand-400 group-hover/upgrade:text-brand-300" />
                                         Upgrade
@@ -237,7 +237,7 @@ export default function Sidebar() {
                         if (item.section) {
                             if (!sidebarOpen) return <div key={idx} className="h-4 my-2" />;
                             return (
-                                <div key={idx} className="px-3 pt-6 pb-2 text-[10px] font-bold text-white/30 uppercase tracking-widest flex items-center">
+                                <div key={idx} className="px-3 pt-6 pb-2 text-xs font-bold text-white/30 uppercase tracking-widest flex items-center">
                                     {item.section}
                                 </div>
                             );

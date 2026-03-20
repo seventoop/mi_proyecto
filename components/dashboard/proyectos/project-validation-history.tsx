@@ -57,7 +57,7 @@ export default function ProjectValidationHistory({
                     </div>
                     <div>
                         <h3 className="text-sm font-bold text-white">Historial de Validación</h3>
-                        <p className="text-[10px] text-slate-500 font-medium">Cronología de transiciones y aprobaciones</p>
+                        <p className="text-xs text-slate-500 font-medium">Cronología de transiciones y aprobaciones</p>
                     </div>
                 </div>
                 {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
@@ -83,7 +83,7 @@ export default function ProjectValidationHistory({
                                     <div className="flex items-center justify-between gap-4">
                                         <div className="flex items-center gap-2">
                                             <span className={cn(
-                                                "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest border",
+                                                "text-xs font-bold px-2 py-0.5 rounded uppercase tracking-widest border",
                                                 log.estadoNuevo === "APROBADO" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
                                                 log.estadoNuevo === "RECHAZADO" || log.estadoNuevo === "SUSPENDIDO" ? "bg-rose-500/10 text-rose-500 border-rose-500/20" :
                                                 log.estadoNuevo === "OBSERVADO" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
@@ -92,10 +92,10 @@ export default function ProjectValidationHistory({
                                                 {ESTADO_LABELS[log.estadoNuevo] || log.estadoNuevo.replace("_", " ")}
                                             </span>
                                             {idx === 0 && (
-                                                <span className="text-[9px] font-black text-brand-500 uppercase tracking-tighter">Estado Actual</span>
+                                                <span className="text-xs font-black text-brand-500 uppercase tracking-tighter">Estado Actual</span>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium whitespace-nowrap">
                                             <Calendar className="w-3 h-3" />
                                             {format(new Date(log.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
                                         </div>
@@ -112,7 +112,7 @@ export default function ProjectValidationHistory({
                                         </div>
                                     )}
 
-                                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                    <div className="flex items-center gap-2 text-xs text-slate-500">
                                         <User className="w-3 h-3" />
                                         <span className="font-bold text-slate-400">{log.realizadoPor?.nombre || "Sistema"}</span>
                                         <span className="opacity-30">•</span>

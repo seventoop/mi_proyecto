@@ -232,7 +232,7 @@ export default function ReservaModal({ isOpen, onClose, unidad, onSuccess }: Res
                                 value={fechaVencimiento}
                                 onChange={e => setFechaVencimiento(e.target.value)}
                             />
-                            <p className="text-[10px] text-muted-foreground">La reserva expirará automáticamente después de esta fecha.</p>
+                            <p className="text-xs text-muted-foreground">La reserva expirará automáticamente después de esta fecha.</p>
                         </div>
                     </div>
                 )}

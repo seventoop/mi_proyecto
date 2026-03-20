@@ -344,10 +344,10 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                                         <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                                             Hacé clic para subir una imagen
                                         </p>
-                                        <p className="text-[11px] mt-1 text-slate-400">
+                                        <p className="text-sm mt-1 text-slate-400">
                                             JPG, PNG, WEBP, GIF · Máximo 20 MB
                                         </p>
-                                        <p className="text-[10px] mt-0.5 text-slate-500">
+                                        <p className="text-xs mt-0.5 text-slate-500">
                                             Se mostrará en los listados públicos
                                         </p>
                                     </div>
@@ -388,7 +388,7 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                             <button
                                 type="button"
                                 onClick={() => setShowUrlInput(v => !v)}
-                                className="mt-2 text-[11px] text-slate-400 hover:text-brand-500 transition-colors font-medium"
+                                className="mt-2 text-sm text-slate-400 hover:text-brand-500 transition-colors font-medium"
                             >
                                 {showUrlInput ? "▲ Ocultar" : "▼ O pegá una URL de imagen externa"}
                             </button>
@@ -551,7 +551,7 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                                         rows={6}
                                         className={cn(inputClass, "font-sans")}
                                     />
-                                    <p className="text-[10px] text-slate-500 mt-1">Esta información será usada por el agente para responder consultas de leads.</p>
+                                    <p className="text-xs text-slate-500 mt-1">Esta información será usada por el agente para responder consultas de leads.</p>
                                 </div>
                                 <div>
                                     <label className={labelClass}>System Prompt (Instrucciones)</label>

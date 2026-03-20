@@ -34,7 +34,7 @@ export function MetricCard({ title, value, subtitle, icon: Icon, trend, color = 
                 </div>
                 {trend !== undefined && (
                     <div className={cn(
-                        "flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg",
+                        "flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg",
                         trend > 0  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
                         trend < 0  ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400" :
                                      "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40"
@@ -54,7 +54,7 @@ export function MetricCard({ title, value, subtitle, icon: Icon, trend, color = 
                 ) : (
                     <p className={cn("text-3xl font-black tracking-tight", colors.value)}>{value}</p>
                 )}
-                <p className="text-[11px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest mt-1">{title}</p>
+                <p className="text-sm font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest mt-1">{title}</p>
                 {subtitle && (
                     <p className="text-xs text-slate-400 dark:text-white/30 mt-1 font-medium">{subtitle}</p>
                 )}

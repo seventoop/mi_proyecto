@@ -40,7 +40,7 @@ function CharCount({ value, max }: { value: string; max: number }) {
     const near = len > max * 0.85;
     return (
         <span className={cn(
-            "text-[10px] tabular-nums",
+            "text-xs tabular-nums",
             over ? "text-rose-500 font-bold" : near ? "text-amber-500" : "text-slate-400"
         )}>
             {len}/{max}
@@ -163,13 +163,13 @@ function AIPanel({
                         <div className="px-4 py-3 bg-violet-50 dark:bg-violet-900/20 border-b border-violet-100 dark:border-violet-800/30 space-y-1">
                             {result.campaignHook && (
                                 <div>
-                                    <span className="text-[10px] font-black text-violet-500 uppercase tracking-wider">Concepto</span>
+                                    <span className="text-xs font-black text-violet-500 uppercase tracking-wider">Concepto</span>
                                     <p className="text-xs text-slate-700 dark:text-slate-200 mt-0.5">{result.campaignHook}</p>
                                 </div>
                             )}
                             {result.tone && (
                                 <div>
-                                    <span className="text-[10px] font-black text-violet-400 uppercase tracking-wider">Tono</span>
+                                    <span className="text-xs font-black text-violet-400 uppercase tracking-wider">Tono</span>
                                     <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">{result.tone}</span>
                                 </div>
                             )}
@@ -199,7 +199,7 @@ function AIPanel({
                     {/* Visual suggestion */}
                     {result.visualSuggestion && (
                         <div className="px-4 py-3 border-t border-violet-100 dark:border-violet-800/30">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Sugerencia visual</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Sugerencia visual</p>
                             <p className="text-xs text-slate-600 dark:text-slate-300 italic">{result.visualSuggestion}</p>
                         </div>
                     )}
@@ -209,7 +209,7 @@ function AIPanel({
                         <Accordion title="Guión de video" open={openSection === "script"} onToggle={() => toggle("script")}>
                             <div className="px-4 pb-3 space-y-3">
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Guión completo (30-35s)</p>
+                                    <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Guión completo (30-35s)</p>
                                     <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{result.videoScript}</p>
                                 </div>
                             </div>
@@ -222,12 +222,12 @@ function AIPanel({
                                 {result.scenePlan.map((scene) => (
                                     <div key={scene.scene} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[11px] font-black text-violet-500 uppercase">Escena {scene.scene}</span>
-                                            <span className="text-[11px] text-slate-400 font-mono">{scene.duration}</span>
+                                            <span className="text-sm font-black text-violet-500 uppercase">Escena {scene.scene}</span>
+                                            <span className="text-sm text-slate-400 font-mono">{scene.duration}</span>
                                         </div>
                                         <p className="text-xs text-slate-600 dark:text-slate-300 mb-1">{scene.description}</p>
                                         {scene.overlay && (
-                                            <p className="text-[11px] italic text-violet-500 dark:text-violet-400">"{scene.overlay}"</p>
+                                            <p className="text-sm italic text-violet-500 dark:text-violet-400">"{scene.overlay}"</p>
                                         )}
                                     </div>
                                 ))}
@@ -247,7 +247,7 @@ function AIPanel({
                                         {item}
                                     </div>
                                 ))}
-                                <p className="text-[10px] text-slate-400 mt-1">Textos de pantalla para el video. Hacé clic en cada uno para seleccionarlo y copiarlo.</p>
+                                <p className="text-xs text-slate-400 mt-1">Textos de pantalla para el video. Hacé clic en cada uno para seleccionarlo y copiarlo.</p>
                             </div>
                         </Accordion>
                     )}
@@ -349,7 +349,7 @@ function BannerPreview({ form }: { form: any }) {
             {/* Content overlay */}
             <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
                 {form.tagline && (
-                    <span className="inline-block mb-2 px-2 py-0.5 bg-brand-orange text-white text-[10px] font-black uppercase tracking-widest rounded">
+                    <span className="inline-block mb-2 px-2 py-0.5 bg-brand-orange text-white text-xs font-black uppercase tracking-widest rounded">
                         {form.tagline}
                     </span>
                 )}
@@ -371,7 +371,7 @@ function BannerPreview({ form }: { form: any }) {
             </div>
 
             {/* Duration badge */}
-            <div className="absolute top-3 right-3 px-2 py-1 rounded bg-black/50 text-white/70 text-[10px] font-mono backdrop-blur-sm">
+            <div className="absolute top-3 right-3 px-2 py-1 rounded bg-black/50 text-white/70 text-xs font-mono backdrop-blur-sm">
                 {isVideo ? "30-35s" : "20-25s"}
             </div>
         </div>
@@ -399,9 +399,9 @@ function LimitedInput({
                 placeholder={placeholder}
                 className={cn(inputClass, (err || over) && "border-rose-400")}
             />
-            {hint && !err && !over && <p className="text-[11px] text-slate-400 mt-1">{hint}</p>}
-            {over && <p className="text-[11px] text-rose-400 mt-1">Muy largo — reducí a {max} caracteres máximo.</p>}
-            {err && !over && <p className="text-[11px] text-rose-400 mt-1">{err}</p>}
+            {hint && !err && !over && <p className="text-sm text-slate-400 mt-1">{hint}</p>}
+            {over && <p className="text-sm text-rose-400 mt-1">Muy largo — reducí a {max} caracteres máximo.</p>}
+            {err && !over && <p className="text-sm text-rose-400 mt-1">{err}</p>}
         </div>
     );
 }
@@ -608,7 +608,7 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                         </h2>
                         {banner?.estado && (
                             <span className={cn(
-                                "text-[11px] font-bold uppercase tracking-wider",
+                                "text-sm font-bold uppercase tracking-wider",
                                 banner.estado === BANNER_ESTADOS.PUBLISHED ? "text-emerald-500" :
                                     banner.estado === BANNER_ESTADOS.PENDING_APPROVAL ? "text-amber-500" :
                                         banner.estado === BANNER_ESTADOS.REJECTED ? "text-rose-500" :
@@ -751,11 +751,11 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                                     </button>
                                 </div>
                                 {form.context === "PROJECT_LANDING" ? (
-                                    <p className="text-[11px] text-amber-500 mt-1.5">
+                                    <p className="text-sm text-amber-500 mt-1.5">
                                         El banner de proyecto solo admite imagen.
                                     </p>
                                 ) : form.tipo === "VIDEO" && (
-                                    <p className="text-[11px] text-slate-400 mt-1.5">
+                                    <p className="text-sm text-slate-400 mt-1.5">
                                         Usá el tab IA para generar el guión, escenas y overlays del video.
                                     </p>
                                 )}
@@ -904,18 +904,18 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                                                             </div>
                                                         )}
                                                         {img.esPrincipal && (
-                                                            <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 text-white text-[9px] font-bold rounded uppercase tracking-wider">
+                                                            <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 text-white text-xs font-bold rounded uppercase tracking-wider">
                                                                 Principal
                                                             </span>
                                                         )}
-                                                        <span className="absolute top-1 right-1 px-1.5 py-0.5 bg-black/50 text-white/80 text-[9px] rounded uppercase tracking-wider">
+                                                        <span className="absolute top-1 right-1 px-1.5 py-0.5 bg-black/50 text-white/80 text-xs rounded uppercase tracking-wider">
                                                             {img.categoria}
                                                         </span>
                                                     </button>
                                                 ))}
                                             </div>
                                             {form.mediaUrl && galeriaImages.some(i => i.url === form.mediaUrl) && (
-                                                <p className="text-[11px] text-brand-500 mt-1.5 flex items-center gap-1">
+                                                <p className="text-sm text-brand-500 mt-1.5 flex items-center gap-1">
                                                     <CheckCircle className="w-3 h-3" /> Imagen seleccionada de la galería
                                                 </p>
                                             )}
@@ -994,21 +994,21 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                                     <option value="ORG_LANDING">Landing de la organización</option>
                                     <option value="PROJECT_LANDING">Landing de un proyecto específico</option>
                                 </select>
-                                <p className="text-[11px] text-slate-400 mt-1">
+                                <p className="text-sm text-slate-400 mt-1">
                                     Se pueden publicar hasta {MAX_PUBLISHED_PER_CONTEXT} banners por contexto de forma simultánea.
                                     Al publicar un cuarto, el más antiguo se pausa automáticamente.
                                 </p>
                                 {form.context === "SEVENTOOP_GLOBAL" && (
                                     <div className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                                         <Globe className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                                        <p className="text-[11px] text-blue-700 dark:text-blue-300">
+                                        <p className="text-sm text-blue-700 dark:text-blue-300">
                                             Los banners globales aparecen en la landing principal de SevenToop y en todas las landings de organizaciones.
                                         </p>
                                     </div>
                                 )}
                                 {form.context === "PROJECT_LANDING" && (
                                     <div className="mt-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                                        <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                                        <p className="text-sm text-amber-700 dark:text-amber-300">
                                             Solo imagen — 1 banner activo por proyecto. Al publicar uno nuevo, el anterior se pausa automáticamente.
                                         </p>
                                     </div>
@@ -1073,7 +1073,7 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                                     onChange={(e) => set("prioridad", e.target.value)}
                                     className={inputClass}
                                 />
-                                <p className="text-[11px] text-slate-400 mt-1">
+                                <p className="text-sm text-slate-400 mt-1">
                                     0 = normal · 10 = destacado · 100 = urgente
                                 </p>
                             </div>
@@ -1083,16 +1083,16 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                                 <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Flujo de publicación</p>
                                 <ol className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
                                     <li className="flex items-center gap-2">
-                                        <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-black shrink-0">1</span>
+                                        <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-black shrink-0">1</span>
                                         Guardás el banner como borrador
                                     </li>
                                     <li className="flex items-center gap-2">
-                                        <span className="w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-800 flex items-center justify-center text-[10px] font-black shrink-0">2</span>
+                                        <span className="w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-800 flex items-center justify-center text-xs font-black shrink-0">2</span>
                                         {isAdmin ? "Enviás directo a publicación" : "Enviás a revisión → queda en PENDING_APPROVAL"}
                                     </li>
                                     {!isAdmin && (
                                         <li className="flex items-center gap-2">
-                                            <span className="w-5 h-5 rounded-full bg-emerald-200 dark:bg-emerald-800 flex items-center justify-center text-[10px] font-black shrink-0">3</span>
+                                            <span className="w-5 h-5 rounded-full bg-emerald-200 dark:bg-emerald-800 flex items-center justify-center text-xs font-black shrink-0">3</span>
                                             Admin aprueba → se publica en la landing
                                         </li>
                                     )}

@@ -150,7 +150,7 @@ export function StatusBadge({ context }: { context: ProjectAccessContext }) {
                     relacion.estadoRelacion === "ACTIVA" ? "success" :
                     relacion.estadoRelacion === "PENDIENTE" ? "warning" : "error"
                 } />
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 opacity-50">
+                <span className="text-xs font-black uppercase tracking-widest text-slate-500 opacity-50">
                     Mandato {relacion.tipoRelacion === "COMERCIALIZADOR_EXCLUSIVO" ? "Exclusivo" : "No Exclusivo"}
                 </span>
             </div>
@@ -171,7 +171,7 @@ function Badge({ label, variant }: { label: string, variant: "success" | "warnin
 
     return (
         <span className={cn(
-            "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border shrink-0",
+            "px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-widest border shrink-0",
             styles[variant]
         )}>
             {label.replace("_", " ")}

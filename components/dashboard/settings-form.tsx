@@ -140,7 +140,7 @@ export default function SettingsForm({ initialConfig = {} }: SettingsFormProps) 
                                 placeholder="+54 9 11 1234-5678"
                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white outline-none focus:border-brand-orange transition-all font-mono"
                             />
-                            <p className="text-[10px] text-slate-500 mt-1">Este número se usará para contactar a tus leads.</p>
+                            <p className="text-xs text-slate-500 mt-1">Este número se usará para contactar a tus leads.</p>
                         </div>
                     </div>
 

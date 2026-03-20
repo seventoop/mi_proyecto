@@ -67,7 +67,7 @@ export default function SellerDashboardView({ user, stats, sellerData, activitie
                     <Link key={stat.label} href={stat.href} className="block group">
                         <div className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 transition-all duration-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]">
                             <div className="flex items-start justify-between mb-2">
-                                <p className="text-[10px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">{stat.label}</p>
+                                <p className="text-xs font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">{stat.label}</p>
                                 <div className={`p-1.5 rounded-lg bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.08] ${stat.color}`}>
                                     <stat.icon className="w-3.5 h-3.5" />
                                 </div>
@@ -93,7 +93,7 @@ export default function SellerDashboardView({ user, stats, sellerData, activitie
                                 </CardTitle>
                                 <p className="text-[12px] font-medium text-slate-500 dark:text-white/40">Leads asignados sin contacto inicial</p>
                             </div>
-                            <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[10px] font-bold">
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-xs font-bold">
                                 {urgentLeads.length} PENDIENTES
                             </Badge>
                         </CardHeader>
@@ -109,12 +109,12 @@ export default function SellerDashboardView({ user, stats, sellerData, activitie
                                                 <div>
                                                     <p className="text-[13px] font-bold text-slate-900 dark:text-zinc-100">{lead.nombre}</p>
                                                     <div className="flex items-center gap-2 mt-0.5">
-                                                        <span className="text-[11px] text-slate-500 dark:text-white/40 flex items-center gap-1">
+                                                        <span className="text-sm text-slate-500 dark:text-white/40 flex items-center gap-1">
                                                             <Calendar className="w-3 h-3" />
                                                             Recibido hace {Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60))}h
                                                         </span>
                                                         {lead.aiQualificationScore && (
-                                                            <Badge className="bg-emerald-500/10 text-emerald-500 border-0 h-4 text-[9px] font-black">
+                                                            <Badge className="bg-emerald-500/10 text-emerald-500 border-0 h-4 text-xs font-black">
                                                                 AI: {lead.aiQualificationScore}
                                                             </Badge>
                                                         )}
@@ -143,7 +143,7 @@ export default function SellerDashboardView({ user, stats, sellerData, activitie
                                         <CheckCircle className="w-6 h-6" />
                                     </div>
                                     <p className="text-[13px] font-bold text-slate-900 dark:text-zinc-100 italic">¡Todo al día!</p>
-                                    <p className="text-[11px] text-slate-500 dark:text-white/40">No tienes leads sin contacto inicial.</p>
+                                    <p className="text-sm text-slate-500 dark:text-white/40">No tienes leads sin contacto inicial.</p>
                                 </div>
                             )}
                         </CardContent>
@@ -160,7 +160,7 @@ export default function SellerDashboardView({ user, stats, sellerData, activitie
                                     {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
                                 </p>
                             </div>
-                            <Button variant="ghost" size="sm" className="text-[11px] font-bold text-brand-500 hover:bg-brand-500/5">
+                            <Button variant="ghost" size="sm" className="text-sm font-bold text-brand-500 hover:bg-brand-500/5">
                                 Ver Calendario
                             </Button>
                         </CardHeader>
@@ -172,9 +172,9 @@ export default function SellerDashboardView({ user, stats, sellerData, activitie
                                             <div className="w-2 h-2 rounded-full bg-brand-500 mt-2" />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-[13px] font-bold text-slate-900 dark:text-zinc-100">{task.titulo}</p>
-                                                <p className="text-[11px] text-slate-500 dark:text-white/40 line-clamp-1">{task.descripcion || "Sin descripción"}</p>
+                                                <p className="text-sm text-slate-500 dark:text-white/40 line-clamp-1">{task.descripcion || "Sin descripción"}</p>
                                             </div>
-                                            <Badge variant="outline" className="bg-slate-50 dark:bg-white/[0.04] text-[10px] uppercase font-black tracking-widest">
+                                            <Badge variant="outline" className="bg-slate-50 dark:bg-white/[0.04] text-xs uppercase font-black tracking-widest">
                                                 {format(new Date(task.fechaVencimiento), "HH:mm")}
                                             </Badge>
                                         </div>
@@ -209,11 +209,11 @@ export default function SellerDashboardView({ user, stats, sellerData, activitie
                                         <div key={opp.id} className="p-3 rounded-lg bg-white dark:bg-zinc-900/50 border border-brand-500/20 shadow-sm">
                                             <div className="flex justify-between items-start mb-2">
                                                 <p className="text-[13px] font-black text-slate-900 dark:text-zinc-100">{opp.lead.nombre}</p>
-                                                <p className="text-[11px] font-bold text-brand-500">{opp.etapa}</p>
+                                                <p className="text-sm font-bold text-brand-500">{opp.etapa}</p>
                                             </div>
-                                            <p className="text-[11px] text-slate-500 dark:text-white/40 mb-3">{opp.proyecto.nombre}</p>
+                                            <p className="text-sm text-slate-500 dark:text-white/40 mb-3">{opp.proyecto.nombre}</p>
                                             <Link href={`/dashboard/developer/crm-pipeline`}>
-                                                <Button className="w-full h-8 bg-brand-500 hover:bg-brand-600 text-white text-[10px] font-black uppercase tracking-widest">
+                                                <Button className="w-full h-8 bg-brand-500 hover:bg-brand-600 text-white text-xs font-black uppercase tracking-widest">
                                                     Ir al Pipeline
                                                     <ArrowUpRight className="w-3 h-3 ml-2" />
                                                 </Button>
@@ -231,7 +231,7 @@ export default function SellerDashboardView({ user, stats, sellerData, activitie
 
                     {/* Actividad Reciente */}
                     <div className="space-y-3">
-                        <h3 className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest px-1">
+                        <h3 className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest px-1">
                             Actividad de Proyectos
                         </h3>
                         <div className="space-y-2">
@@ -244,13 +244,13 @@ export default function SellerDashboardView({ user, stats, sellerData, activitie
                                     }`} />
                                     <div className="flex-1 min-w-0">
                                         <p className="text-[12px] font-bold text-slate-900 dark:text-zinc-100 line-clamp-1">{activity.title}</p>
-                                        <p className="text-[10px] text-slate-500 dark:text-white/40">{format(new Date(activity.date), "HH:mm")} • {(activity.description || "").split(":")[0]}</p>
+                                        <p className="text-xs text-slate-500 dark:text-white/40">{format(new Date(activity.date), "HH:mm")} • {(activity.description || "").split(":")[0]}</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
                         <Link href="/dashboard/developer/inventario" className="block text-center mt-4">
-                            <span className="text-[11px] font-bold text-slate-400 hover:text-brand-500 transition-colors cursor-pointer">
+                            <span className="text-sm font-bold text-slate-400 hover:text-brand-500 transition-colors cursor-pointer">
                                 Ver Inventario Completo
                             </span>
                         </Link>

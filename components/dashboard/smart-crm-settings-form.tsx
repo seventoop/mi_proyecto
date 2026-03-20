@@ -57,7 +57,7 @@ export default function SmartCrmSettingsForm({ initialConfig }: SmartCrmSettings
                             placeholder="sk-..."
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-brand-orange/50 transition-all font-mono text-sm text-brand-surface"
                         />
-                        <p className="text-[10px] text-slate-500 italic">Esta clave se usa para generar sugerencias del Copilot y analizar leads.</p>
+                        <p className="text-xs text-slate-500 italic">Esta clave se usa para generar sugerencias del Copilot y analizar leads.</p>
                     </div>
 
                     <div className="space-y-2">
@@ -69,7 +69,7 @@ export default function SmartCrmSettingsForm({ initialConfig }: SmartCrmSettings
                             placeholder="ID de instancia o API Key de Evolution/Twilio"
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-brand-orange/50 transition-all text-sm text-brand-surface"
                         />
-                        <p className="text-[10px] text-slate-500 italic">Requerido solo para el Modo Pilot (Automatización total). Actualmente en Beta.</p>
+                        <p className="text-xs text-slate-500 italic">Requerido solo para el Modo Pilot (Automatización total). Actualmente en Beta.</p>
                     </div>
                 </div>
 

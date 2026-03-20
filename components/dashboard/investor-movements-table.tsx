@@ -52,7 +52,7 @@ export default function InvestorMovementsTable({ movimientos }: MovementsTablePr
                                                 <p className="text-sm font-bold text-slate-900 dark:text-white">
                                                     {format(mov.fecha, "dd MMM, yyyy", { locale: es })}
                                                 </p>
-                                                <p className="text-[10px] text-slate-500 font-medium">
+                                                <p className="text-xs text-slate-500 font-medium">
                                                     {format(mov.fecha, "HH:mm 'hs'")}
                                                 </p>
                                             </div>
@@ -85,7 +85,7 @@ export default function InvestorMovementsTable({ movimientos }: MovementsTablePr
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className={cn(
-                                            "flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-black w-fit uppercase tracking-tighter",
+                                            "flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-black w-fit uppercase tracking-tighter",
                                             mov.estado === "ESCROW" || mov.estado === "APROBADO" || mov.estado === "RELEASED"
                                                 ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
                                                 : mov.estado === "PENDIENTE" || mov.estado === "PENDING"

@@ -231,7 +231,7 @@ export default function InventarioClient({ proyectoId }: InventarioClientProps) 
                     </button>
                 )}
 
-                <span className="ml-auto text-[10px] text-slate-400">
+                <span className="ml-auto text-xs text-slate-400">
                     {filtered.length} de {units.length} lotes
                 </span>
             </div>
@@ -242,7 +242,7 @@ export default function InventarioClient({ proyectoId }: InventarioClientProps) 
                     <thead>
                         <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                             {["Lote", "Tipo", "Etapa", "Manzana", "Superficie", "Precio", "Estado", "Etiquetas"].map(h => (
-                                <th key={h} className="px-4 py-2.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                                <th key={h} className="px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                                     {h}
                                 </th>
                             ))}
@@ -299,7 +299,7 @@ export default function InventarioClient({ proyectoId }: InventarioClientProps) 
                                             >
                                                 {unit.precio
                                                     ? `$${unit.precio.toLocaleString()}`
-                                                    : <span className="text-slate-400 font-normal italic text-[10px]">— editar —</span>}
+                                                    : <span className="text-slate-400 font-normal italic text-xs">— editar —</span>}
                                             </button>
                                         )}
                                     </td>
@@ -311,7 +311,7 @@ export default function InventarioClient({ proyectoId }: InventarioClientProps) 
                                             onChange={e => handleEstadoChange(unit, e.target.value)}
                                             disabled={savingEstado === unit.id}
                                             className={cn(
-                                                "text-[10px] font-bold uppercase rounded-lg px-2 py-1 border-2 cursor-pointer disabled:opacity-60 focus:outline-none transition-all"
+                                                "text-xs font-bold uppercase rounded-lg px-2 py-1 border-2 cursor-pointer disabled:opacity-60 focus:outline-none transition-all"
                                             )}
                                             style={{
                                                 borderColor: STATUS_COLORS[unit.estado] || "#94a3b8",
@@ -333,7 +333,7 @@ export default function InventarioClient({ proyectoId }: InventarioClientProps) 
                                             {tags.map(tag => (
                                                 <span
                                                     key={tag}
-                                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 text-[10px] font-medium"
+                                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 text-xs font-medium"
                                                 >
                                                     {tag}
                                                     <button
@@ -356,12 +356,12 @@ export default function InventarioClient({ proyectoId }: InventarioClientProps) 
                                                     }}
                                                     autoFocus
                                                     placeholder="etiqueta..."
-                                                    className="w-20 text-[10px] px-1.5 py-0.5 rounded border border-brand-500 bg-white dark:bg-slate-800 text-slate-700 dark:text-white focus:outline-none"
+                                                    className="w-20 text-xs px-1.5 py-0.5 rounded border border-brand-500 bg-white dark:bg-slate-800 text-slate-700 dark:text-white focus:outline-none"
                                                 />
                                             ) : (
                                                 <button
                                                     onClick={() => setEditingTag({ id: unit.id, value: "" })}
-                                                    className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 hover:text-brand-500 hover:border-brand-500 text-[10px] transition-colors opacity-0 group-hover:opacity-100"
+                                                    className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 hover:text-brand-500 hover:border-brand-500 text-xs transition-colors opacity-0 group-hover:opacity-100"
                                                     title="Agregar etiqueta"
                                                 >
                                                     <Tag className="w-2.5 h-2.5" />+

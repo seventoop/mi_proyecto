@@ -261,7 +261,7 @@ export default function BannerForm({ banner, onClose }: BannerFormProps) {
                             <label className={labelClass}>Prioridad (Orden)</label>
                             <input type="number" value={form.prioridad} onChange={(e) => updateForm("prioridad", e.target.value)}
                                 placeholder="0" className={inputClass} />
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Mayor número = Aparece primero</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Mayor número = Aparece primero</p>
                         </div>
                     </div>
 

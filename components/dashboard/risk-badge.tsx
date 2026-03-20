@@ -36,7 +36,7 @@ export const RiskBadge = React.memo(({ level, showIcon = true, className }: Risk
 
     return (
         <div className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider animate-fade-in",
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-black uppercase tracking-wider animate-fade-in",
             current.color,
             className
         )}>

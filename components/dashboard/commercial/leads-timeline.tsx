@@ -28,7 +28,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
         <div className="bg-white dark:bg-[#09090b] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 shadow-xl">
-            <p className="text-[10px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest mb-1">{label}</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest mb-1">{label}</p>
             <p className="text-lg font-black text-brand-600 dark:text-brand-400">{payload[0].value} leads</p>
         </div>
     );

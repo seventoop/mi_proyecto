@@ -30,12 +30,12 @@ export function ProjectsRankingTable({ rows }: Props) {
             <table className="w-full text-sm">
                 <thead>
                     <tr className="border-b border-slate-200 dark:border-white/[0.06]">
-                        <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">#</th>
-                        <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">Proyecto</th>
-                        <th className="text-right text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">Leads</th>
-                        <th className="text-right text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">Reservas</th>
-                        <th className="text-right text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">Disponibles</th>
-                        <th className="text-right text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3">Vendidas</th>
+                        <th className="text-left text-xs font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">#</th>
+                        <th className="text-left text-xs font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">Proyecto</th>
+                        <th className="text-right text-xs font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">Leads</th>
+                        <th className="text-right text-xs font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">Reservas</th>
+                        <th className="text-right text-xs font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3 pr-4">Disponibles</th>
+                        <th className="text-right text-xs font-black uppercase tracking-widest text-slate-500 dark:text-white/30 pb-3">Vendidas</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-white/[0.04]">
@@ -48,7 +48,7 @@ export function ProjectsRankingTable({ rows }: Props) {
                             <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                                 <td className="py-3 pr-4">
                                     <span className={cn(
-                                        "inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black",
+                                        "inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-black",
                                         idx === 0 ? "bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400" :
                                         idx === 1 ? "bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/60" :
                                         idx === 2 ? "bg-amber-500/10 text-amber-600 dark:text-amber-500/80" :
@@ -83,7 +83,7 @@ export function ProjectsRankingTable({ rows }: Props) {
                                     <div className="flex items-center justify-end gap-2">
                                         <span className="font-bold text-slate-900 dark:text-white/80">{row.unidadesVendidas}</span>
                                         {pctVendidas > 0 && (
-                                            <span className="text-[10px] font-bold text-slate-400 dark:text-white/30">({pctVendidas}%)</span>
+                                            <span className="text-xs font-bold text-slate-400 dark:text-white/30">({pctVendidas}%)</span>
                                         )}
                                     </div>
                                 </td>

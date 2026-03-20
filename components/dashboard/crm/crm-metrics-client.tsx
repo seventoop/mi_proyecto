@@ -66,34 +66,34 @@ export default function CrmMetricsClient({ metrics }: { metrics: any }) {
                 <Card className="p-6 bg-white dark:bg-[#0A0A0C] border-slate-200 dark:border-white/[0.06] shadow-sm hover:shadow-md dark:shadow-none dark:hover:bg-white/[0.02] hover:border-brand-500/30 dark:hover:border-white/[0.12] transition-all rounded-2xl">
                     <div className="flex items-center gap-3 text-brand-500 mb-3">
                         <Users className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40">Total Leads</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-white/40">Total Leads</span>
                     </div>
                     <p className="text-4xl font-black text-slate-900 dark:text-white">{metrics.totalLeads}</p>
-                    <p className="text-[10px] text-slate-500 dark:text-white/30 tracking-widest uppercase mt-4 font-bold">{metrics.leadsThisMonth ?? 0} captados este mes</p>
+                    <p className="text-xs text-slate-500 dark:text-white/30 tracking-widest uppercase mt-4 font-bold">{metrics.leadsThisMonth ?? 0} captados este mes</p>
                 </Card>
                 <Card className="p-6 bg-white dark:bg-[#0A0A0C] border-slate-200 dark:border-white/[0.06] shadow-sm hover:shadow-md dark:shadow-none dark:hover:bg-white/[0.02] hover:border-brand-500/30 dark:hover:border-white/[0.12] transition-all rounded-2xl">
                     <div className="flex items-center gap-3 text-brand-500 mb-3">
                         <Zap className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40">Tasa de Conv.</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-white/40">Tasa de Conv.</span>
                     </div>
                     <p className="text-4xl font-black text-slate-900 dark:text-white">{metrics.conversionRate ?? 0}%</p>
-                    <p className="text-[10px] text-slate-500 dark:text-white/30 tracking-widest uppercase mt-4 font-bold">Leads → Oportunidades</p>
+                    <p className="text-xs text-slate-500 dark:text-white/30 tracking-widest uppercase mt-4 font-bold">Leads → Oportunidades</p>
                 </Card>
                 <Card className="p-6 bg-white dark:bg-[#0A0A0C] border-slate-200 dark:border-white/[0.06] shadow-sm hover:shadow-md dark:shadow-none dark:hover:bg-white/[0.02] hover:border-brand-500/30 dark:hover:border-white/[0.12] transition-all rounded-2xl">
                     <div className="flex items-center gap-3 text-brand-500 mb-3">
                         <Target className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40">Con Score AI</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-white/40">Con Score AI</span>
                     </div>
                     <p className="text-4xl font-black text-slate-900 dark:text-white">{metrics.leadsWithScore ?? 0}</p>
-                    <p className="text-[10px] text-slate-500 dark:text-white/30 tracking-widest uppercase mt-4 font-bold">Puntuación activa</p>
+                    <p className="text-xs text-slate-500 dark:text-white/30 tracking-widest uppercase mt-4 font-bold">Puntuación activa</p>
                 </Card>
                 <Card className="p-6 bg-white dark:bg-[#0A0A0C] border-slate-200 dark:border-white/[0.06] shadow-sm hover:shadow-md dark:shadow-none dark:hover:bg-white/[0.02] hover:border-brand-500/30 dark:hover:border-white/[0.12] transition-all rounded-2xl">
                     <div className="flex items-center gap-3 text-brand-500 mb-3">
                         <Calendar className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40">Captados (30d)</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-white/40">Captados (30d)</span>
                     </div>
                     <p className="text-4xl font-black text-slate-900 dark:text-white">{metrics.leadsThisMonth ?? metrics.leadsLast30Days?.length ?? 0}</p>
-                    <p className="text-[10px] text-brand-500/80 tracking-widest uppercase mt-4 font-bold">
+                    <p className="text-xs text-brand-500/80 tracking-widest uppercase mt-4 font-bold">
                         {metrics.topStage ? `Etapa top: ${metrics.topStage}` : "Actividad detectada"}
                     </p>
                 </Card>
@@ -102,7 +102,7 @@ export default function CrmMetricsClient({ metrics }: { metrics: any }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Stage Distribution */}
                 <Card className="p-6 bg-white dark:bg-[#0A0A0C] border-slate-200 dark:border-white/[0.06] shadow-sm dark:shadow-none transition-all rounded-2xl">
-                    <h3 className="text-[11px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-8 flex items-center gap-2">
+                    <h3 className="text-sm font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-8 flex items-center gap-2">
                         <Zap className="w-4 h-4 text-brand-500" /> Distribución por Etapa
                     </h3>
                     <div className="h-[300px] w-full">
@@ -124,7 +124,7 @@ export default function CrmMetricsClient({ metrics }: { metrics: any }) {
 
                 {/* Channel Distribution */}
                 <Card className="p-6 bg-white dark:bg-[#0A0A0C] border-slate-200 dark:border-white/[0.06] shadow-sm dark:shadow-none transition-all rounded-2xl">
-                    <h3 className="text-[11px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-8 flex items-center gap-2">
+                    <h3 className="text-sm font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-8 flex items-center gap-2">
                         <PieChartIcon className="w-4 h-4 text-brand-500" /> Origen de Captación
                     </h3>
                     <div className="h-[300px] w-full">
