@@ -554,6 +554,25 @@ export const MODULE_HELP_CONTENT: Record<string, ModuleHelpContent> = {
         firstStep: "Filtrá por un proyecto para ver su mapa de disponibilidad.",
         moduleKey: "developerInventario"
     },
+    pipelineConfig: {
+        title: "Configuración de Etapas",
+        description: "Personalizá las etapas del proceso comercial de tus leads.",
+        whatIs: "Es el panel donde definís las etapas por las que pasan tus leads antes de convertirse en clientes. Cada etapa representa un momento clave en tu proceso de ventas (ej. Nuevo, Contactado, Calificado, Cerrado).",
+        howItWorks: [
+            "Ves la lista de etapas actuales ordenadas por prioridad",
+            "Podés crear nuevas etapas con nombre y color propio",
+            "Arrastrás o reordenás para ajustar el flujo comercial",
+            "Los cambios se reflejan inmediatamente en el tablero de leads"
+        ],
+        whatFor: [
+            "Adaptar el proceso de ventas a tu metodología",
+            "Dar claridad sobre en qué punto está cada lead",
+            "Mejorar la tasa de conversión con etapas bien definidas",
+            "Tener un pipeline ordenado y fácil de usar"
+        ],
+        firstStep: "Revisá las etapas actuales y ajustá el nombre o color de las que no representen bien tu proceso.",
+        moduleKey: "pipelineConfig"
+    },
     adminLogicToop: {
         title: "LogicToop Center",
         description: "Configuración avanzada y optimización lógica del sistema.",
