@@ -2,20 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  triggerOrchestratorAnalysis, 
-  generateDraftAction, 
+import {
+  triggerOrchestratorAnalysis,
+  generateDraftAction,
   updateRecommendationStatusAction,
   parseIntentAction,
   generateDraftFromIntentAction
 } from "@/lib/actions/orchestrator";
-import { 
-  BrainCircuit, 
-  CheckCircle2, 
-  AlertCircle, 
-  ArrowRight, 
-  Zap, 
-  ShieldCheck, 
+import {
+  BrainCircuit,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  Zap,
+  ShieldCheck,
   Activity,
   ChevronRight,
   Sparkles,
@@ -27,6 +27,7 @@ import {
   Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Props {
   initialData: any;
@@ -39,7 +40,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
   const [activeTab, setActiveTab] = useState<"overview" | "recommendations" | "generator" | "health" | "intent" | "optimizations">(initialTab);
   const [isPending, startTransition] = useTransition();
   const [selectedRecId, setSelectedRecId] = useState<string | null>(null);
-  
+
   // Intent State
   const [rawIntent, setRawIntent] = useState("");
   const [proposal, setProposal] = useState<any>(null);
@@ -55,7 +56,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
     startTransition(async () => {
       const res = await triggerOrchestratorAnalysis(activeOrgId);
       if (res.success) {
-        alert(`Analysis complete! Found ${res.count} new recommendations.`);
+        toast.success(`Análisis completo. Se encontraron ${res.count} nuevas recomendaciones.`);
         router.refresh();
       }
     });
@@ -76,7 +77,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
     startTransition(async () => {
         const res = await generateDraftFromIntentAction(proposal);
         if (res.success) {
-            alert("Draft created successfully!");
+            toast.success("¡Borrador creado con éxito!");
             router.push(`/dashboard/admin/logictoop/builder/${res.flowId}`);
         }
     });
@@ -86,7 +87,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
     startTransition(async () => {
       const res = await generateDraftAction(recId);
       if (res.success) {
-        alert("Draft created! You can now edit it in the Canvas.");
+        toast.success("¡Borrador creado! Podés editarlo en el Constructor.");
         router.push(`/dashboard/admin/logictoop/builder/${res.flowId}`);
       }
     });
@@ -101,8 +102,8 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
         <div className="glass-card p-4 space-y-4">
           <div className="space-y-1">
             <label className="text-xs font-black uppercase tracking-widest text-slate-400">Organización</label>
-            <select 
-              value={activeOrgId || ""} 
+            <select
+              value={activeOrgId || ""}
               onChange={(e) => router.push(`/dashboard/admin/logictoop/orchestrator?orgId=${e.target.value}`)}
               className="w-full bg-slate-900/50 border border-slate-700/50 rounded-lg p-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
@@ -112,32 +113,32 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
             </select>
           </div>
 
-          <button 
+          <button
             onClick={handleAnalyze}
             disabled={isPending || !activeOrgId}
             className="w-full bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-black py-3 rounded-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02]"
           >
             <Zap className="w-4 h-4 fill-current" />
-            ANALYZE CRM NOW
+            ANALIZAR CRM
           </button>
         </div>
 
         <nav className="flex flex-col gap-1">
           {[
-            { id: "overview", label: "Overview", icon: BrainCircuit },
-            { id: "recommendations", label: "Recommendations", icon: CheckCircle2 },
-            { id: "intent", label: "Intent-to-Workflow", icon: Wand2 },
-            { id: "optimizations", label: "Optimizations", icon: Zap },
-            { id: "generator", label: "Generator", icon: Sparkles },
-            { id: "health", label: "System Health", icon: Activity }
+            { id: "overview", label: "Resumen", icon: BrainCircuit },
+            { id: "recommendations", label: "Recomendaciones", icon: CheckCircle2 },
+            { id: "intent", label: "Diseño de Flujos", icon: Wand2 },
+            { id: "optimizations", label: "Optimizaciones", icon: Zap },
+            { id: "generator", label: "Generador", icon: Sparkles },
+            { id: "health", label: "Salud del Sistema", icon: Activity }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg font-black uppercase text-xs tracking-tighter transition-all italic",
-                activeTab === tab.id 
-                  ? "bg-brand-500/10 text-brand-500 border border-brand-500/20" 
+                activeTab === tab.id
+                  ? "bg-brand-500/10 text-brand-500 border border-brand-500/20"
                   : "text-slate-500 hover:bg-white/5"
               )}
             >
@@ -153,15 +154,15 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
         {activeTab === "overview" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <StatCard title="Active Signals" value={recommendations.length} sub="Pending review" icon={Zap} color="text-yellow-500" />
-              <StatCard title="Drafts Created" value={recommendations.filter((r:any) => r.status === "APPLIED").length} sub="Ready for review" icon={Plus} color="text-brand-500" />
-              <StatCard title="Automation Health" value="84%" sub="System wide" icon={Activity} color="text-green-500" />
+              <StatCard title="Señales Activas" value={recommendations.length} sub="Pendiente de revisión" icon={Zap} color="text-yellow-500" />
+              <StatCard title="Borradores Creados" value={recommendations.filter((r:any) => r.status === "APPLIED").length} sub="Listos para revisión" icon={Plus} color="text-brand-500" />
+              <StatCard title="Salud de Automatización" value="84%" sub="Nivel sistema" icon={Activity} color="text-green-500" />
             </div>
 
             <div className="glass-card p-6">
               <h2 className="text-xl font-black italic uppercase tracking-tighter mb-4 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-brand-500" />
-                Priority Findings
+                Hallazgos Prioritarios
               </h2>
               <div className="space-y-3">
                 {recommendations.slice(0, 3).map((rec: any) => (
@@ -172,14 +173,14 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                       </div>
                       <div>
                         <h3 className="font-black italic uppercase text-sm">{rec.title}</h3>
-                        <p className="text-xs text-slate-400 font-bold">{rec.type} • Confidence: {(rec.confidence * 100).toFixed(0)}%</p>
+                        <p className="text-xs text-slate-400 font-bold">{rec.type} • Confianza: {(rec.confidence * 100).toFixed(0)}%</p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => { setSelectedRecId(rec.id); setActiveTab("recommendations"); }}
                       className="opacity-0 group-hover:opacity-100 transition-all text-xs font-black text-brand-500 flex items-center gap-1 uppercase italic"
                     >
-                      View <ArrowRight className="w-3 h-3" />
+                      Ver <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
@@ -191,7 +192,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
         {activeTab === "recommendations" && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="md:col-span-2 space-y-3">
-              <h2 className="text-lg font-black uppercase italic tracking-tighter text-slate-400 mb-2 px-1">Active Queue</h2>
+              <h2 className="text-lg font-black uppercase italic tracking-tighter text-slate-400 mb-2 px-1">Cola Activa</h2>
               {recommendations.map((rec: any) => (
                 <button
                   key={rec.id}
@@ -204,7 +205,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                   )}
                 >
                   <div className="flex justify-between items-start mb-1">
-                    <span className={cn("text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-widest", 
+                    <span className={cn("text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
                       rec.status === "NEW" ? "bg-brand-500 text-white" : "bg-slate-700 text-slate-300"
                     )}>
                       {rec.status}
@@ -232,38 +233,38 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                       {selectedRecommendation.title}
                     </h2>
                     <p className="text-slate-400 font-bold text-sm uppercase">
-                      Recommendation Details • <span className="text-brand-500">{selectedRecommendation.type}</span>
+                      Detalles • <span className="text-brand-500">{selectedRecommendation.type}</span>
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <InfoBox label="Problem" content={selectedRecommendation.problemDetected} />
-                    <InfoBox label="Solution" content={selectedRecommendation.proposedSolution} />
-                    <InfoBox label="Severity" content={selectedRecommendation.severity} />
-                    <InfoBox label="Impact" content={selectedRecommendation.expectedImpact} />
+                    <InfoBox label="Problema" content={selectedRecommendation.problemDetected} />
+                    <InfoBox label="Solución" content={selectedRecommendation.proposedSolution} />
+                    <InfoBox label="Severidad" content={selectedRecommendation.severity} />
+                    <InfoBox label="Impacto" content={selectedRecommendation.expectedImpact} />
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 border-b border-slate-700/50 pb-2">Technical Rationale (Explainability)</h4>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 border-b border-slate-700/50 pb-2">Razonamiento Técnico</h4>
                     <pre className="text-xs bg-slate-950 p-4 rounded-lg font-mono text-slate-300 overflow-auto border border-slate-800 shadow-inner max-h-40">
                       {JSON.stringify(selectedRecommendation.explanation, null, 2)}
                     </pre>
                   </div>
 
                   <div className="flex gap-4">
-                    <button 
+                    <button
                       onClick={() => handleGenerateDraft(selectedRecommendation.id)}
                       className="flex-1 bg-brand-600 hover:bg-brand-500 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-500/20"
                     >
                       <Sparkles className="w-5 h-5" />
-                      GENERATE DRAFT FLOW
+                      GENERAR BORRADOR
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-center p-12 glass-card opacity-50 border-dashed">
                   <BrainCircuit className="w-16 h-16 text-slate-700 mb-4" />
-                  <p className="font-black uppercase italic text-slate-500">Select a recommendation to view deep analysis</p>
+                  <p className="font-black uppercase italic text-slate-500">Seleccioná una recomendación para ver el análisis</p>
                 </div>
               )}
             </div>
@@ -272,7 +273,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
 
         {activeTab === "health" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
-            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-brand-500">System Optimization Center</h2>
+            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-brand-500">Centro de Optimización</h2>
             <div className="grid grid-cols-1 gap-4">
               {optimizations.map((opt: any, idx: number) => (
                 <div key={idx} className="glass-card p-6 border-l-4 border-l-brand-600 group">
@@ -287,18 +288,18 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                       <p className="text-slate-400 text-sm font-bold mt-2 max-w-2xl">{opt.reason}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-black text-slate-500 uppercase">Automation ID</p>
+                      <p className="text-xs font-black text-slate-500 uppercase">ID Automatización</p>
                       <p className="text-xs font-mono text-slate-400">{opt.flowId}</p>
                     </div>
                   </div>
-                  
+
                   <div className="mt-6 grid grid-cols-2 gap-8 border-t border-slate-700/30 pt-4">
                     <div>
-                      <span className="text-xs font-black text-slate-500 uppercase block mb-1">Current State</span>
+                      <span className="text-xs font-black text-slate-500 uppercase block mb-1">Estado Actual</span>
                       <p className="text-xs font-bold text-slate-300">{opt.currentValue}</p>
                     </div>
                     <div>
-                      <span className="text-xs font-black text-brand-500 uppercase block mb-1">AI Recommendation</span>
+                      <span className="text-xs font-black text-brand-500 uppercase block mb-1">Recomendación IA</span>
                       <p className="text-xs font-bold text-white flex items-center gap-2">
                         <Zap className="w-3 h-3 fill-brand-500 text-brand-500" />
                         {opt.suggestedValue}
@@ -311,8 +312,8 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
               {optimizations.length === 0 && (
                 <div className="glass-card p-12 text-center">
                   <ShieldCheck className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-black italic uppercase italic">Systems Optimal</h3>
-                  <p className="text-slate-500 font-bold text-sm">No critical performance deviations detected in active automations.</p>
+                  <h3 className="text-xl font-black italic uppercase italic">Sistema Óptimo</h3>
+                  <p className="text-slate-500 font-bold text-sm">No se detectaron desviaciones críticas de rendimiento en automatizaciones activas.</p>
                 </div>
               )}
             </div>
@@ -325,27 +326,27 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
               <div className="space-y-2">
                 <h2 className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-2">
                   <Wand2 className="w-6 h-6 text-brand-500" />
-                  What do you want to automate?
+                  ¿Qué querés automatizar?
                 </h2>
-                <p className="text-slate-400 font-bold text-sm uppercase">Describe your goal in natural language</p>
+                <p className="text-slate-400 font-bold text-sm uppercase">Describí tu objetivo en lenguaje natural</p>
               </div>
 
               <div className="space-y-4">
-                <textarea 
+                <textarea
                   value={rawIntent}
                   onChange={(e) => setRawIntent(e.target.value)}
-                  placeholder="e.g. Follow up stale leads after 24 hours with an AI Agent..."
+                  placeholder="Ej: Hacer seguimiento de leads inactivos después de 24 horas con un agente IA..."
                   className="w-full h-32 bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-slate-700"
                 />
-                
+
                 <div className="flex flex-wrap gap-2">
                    {[
-                    "Improve Meta lead conversion with auto-reply",
-                    "Notify VIP investors when a new project is published",
-                    "Follow up stale leads after 24 hours",
-                    "Remind clients 3 days before payment due date"
+                    "Mejorar conversión de leads de Meta con respuesta automática",
+                    "Notificar a inversores VIP cuando se publica un nuevo proyecto",
+                    "Hacer seguimiento de leads inactivos después de 24 horas",
+                    "Recordar a clientes 3 días antes del vencimiento de pago"
                    ].map(hint => (
-                     <button 
+                     <button
                         key={hint}
                         onClick={() => setRawIntent(hint)}
                         className="text-xs font-black uppercase tracking-tight bg-slate-800 text-slate-400 px-3 py-1.5 rounded-full hover:bg-slate-700 transition-all border border-transparent hover:border-slate-600"
@@ -355,7 +356,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                    ))}
                 </div>
 
-                <button 
+                <button
                   onClick={handleParseIntent}
                   disabled={isParsing || !rawIntent || !activeOrgId}
                   className="w-full bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all transform hover:scale-[1.01] shadow-xl shadow-brand-500/10"
@@ -363,12 +364,12 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                   {isParsing ? (
                     <div className="flex items-center gap-2">
                         <Activity className="w-4 h-4 animate-spin" />
-                        PARSING INTENT...
+                        ANALIZANDO...
                     </div>
                   ) : (
                     <>
                       <BrainCircuit className="w-5 h-5" />
-                      ANALYZE & PROPOSE WORKFLOW
+                      ANALIZAR Y PROPONER FLUJO
                     </>
                   )}
                 </button>
@@ -385,35 +386,35 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                             proposal.confidence > 0.8 ? "bg-green-500/20 text-green-500" : "bg-yellow-500/20 text-yellow-500"
                         )}>
                             <ShieldCheck className="w-3 h-3" />
-                            {(proposal.confidence * 100).toFixed(0)}% Confidence
+                            {(proposal.confidence * 100).toFixed(0)}% Confianza
                         </div>
                     </div>
 
                     <div className="space-y-4">
                       <div>
-                        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-1">Business Goal</h3>
+                        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-1">Objetivo de Negocio</h3>
                         <p className="text-xl font-black italic uppercase italic text-brand-500">{proposal.businessGoal}</p>
                       </div>
 
                       <div className="flex gap-8 border-y border-slate-700/30 py-4">
                         <div>
-                          <span className="text-xs font-black text-slate-500 uppercase block mb-1">Trigger</span>
+                          <span className="text-xs font-black text-slate-500 uppercase block mb-1">Disparador</span>
                           <div className="flex items-center gap-2 text-white font-black italic text-sm">
                             <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                             {proposal.inferredTrigger}
                           </div>
                         </div>
                         <div>
-                          <span className="text-xs font-black text-slate-500 uppercase block mb-1">Target Entity</span>
+                          <span className="text-xs font-black text-slate-500 uppercase block mb-1">Entidad Objetivo</span>
                           <div className="flex items-center gap-2 text-white font-black italic text-sm">
                             <Layers className="w-4 h-4 text-brand-500" />
-                            {proposal.targetEntity || 'System'}
+                            {proposal.targetEntity || 'Sistema'}
                           </div>
                         </div>
                       </div>
 
                       <div className="space-y-4">
-                        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Proposed Action Sequence</h3>
+                        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Secuencia de Acciones</h3>
                         <div className="space-y-3">
                             {proposal.inferredActions?.map((action: any, idx: number) => (
                                 <div key={idx} className="flex items-center gap-4 group">
@@ -445,21 +446,21 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
 
                 <div className="md:col-span-1 space-y-4">
                     <div className="glass-card p-6 bg-brand-500/5 border-brand-500/20">
-                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-700/50 pb-2">AI Rationale</h3>
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-700/50 pb-2">Razonamiento IA</h3>
                         <p className="text-xs font-bold text-slate-300 leading-relaxed italic">
                            "{proposal.explanation}"
                         </p>
                         <div className="mt-6">
-                            <button 
+                            <button
                                 onClick={handleGenerateDraftFromIntent}
                                 disabled={isPending}
                                 className="w-full bg-slate-50 hover:bg-white text-slate-950 font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-xl shadow-white/5 active:scale-95"
                             >
                                 <Sparkles className="w-5 h-5" />
-                                GENERATE DRAFT
+                                GENERAR BORRADOR
                             </button>
                             <p className="text-xs text-center text-slate-500 font-bold uppercase mt-3 tracking-tighter">
-                                Always generated as DRAFT & INACTIVE for safety.
+                                Siempre se genera como BORRADOR e INACTIVO por seguridad.
                             </p>
                         </div>
                     </div>
@@ -473,16 +474,16 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-black italic uppercase tracking-tighter text-brand-500">Auto-Optimizationsuggestions</h2>
-                    <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Inspected {recommendations.filter((r: any) => r.sourceFlowId).length} flows for performance improvements</p>
+                    <h2 className="text-2xl font-black italic uppercase tracking-tighter text-brand-500">Sugerencias de Auto-Optimización</h2>
+                    <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Se inspeccionaron {recommendations.filter((r: any) => r.sourceFlowId).length} flujos en busca de mejoras</p>
                 </div>
-                <button 
+                <button
                   onClick={handleAnalyze}
                   disabled={isPending || !activeOrgId}
                   className="bg-slate-800 hover:bg-slate-700 text-white font-black px-6 py-2 rounded-xl flex items-center gap-2 transition-all border border-slate-700 text-xs"
                 >
                   <Activity className={cn("w-4 h-4", isPending && "animate-spin")} />
-                  RERUN ANALYSIS
+                  VOLVER A ANALIZAR
                 </button>
             </div>
 
@@ -502,13 +503,13 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                                 <div>
                                     <h3 className="font-black uppercase italic text-lg tracking-tight">{opt.title}</h3>
                                     <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Target Flow:</span>
+                                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Flujo Objetivo:</span>
                                         <span className="text-xs font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">{opt.sourceFlowId}</span>
                                     </div>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Confidence Score</div>
+                                <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Puntaje de Confianza</div>
                                 <div className="text-xl font-black italic text-brand-500">{(opt.confidence * 100).toFixed(0)}%</div>
                             </div>
                         </div>
@@ -516,18 +517,18 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-4">
                                 <div className="space-y-1">
-                                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Issue Detected</span>
+                                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Problema Detectado</span>
                                     <p className="text-sm font-bold text-slate-300 leading-relaxed italic">"{opt.description}"</p>
                                 </div>
                                 <div className="p-4 bg-slate-900/40 rounded-xl border border-slate-800">
-                                    <span className="text-xs font-black text-slate-500 uppercase block mb-2">Metrics Analysis</span>
+                                    <span className="text-xs font-black text-slate-500 uppercase block mb-2">Análisis de Métricas</span>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <span className="text-xs font-bold text-slate-600 uppercase block">Recent Failures</span>
+                                            <span className="text-xs font-bold text-slate-600 uppercase block">Fallas Recientes</span>
                                             <span className="text-xs font-black text-white">{opt.signals?.failuresCount || '> 3'}</span>
                                         </div>
                                         <div>
-                                            <span className="text-xs font-bold text-slate-600 uppercase block">Response Time</span>
+                                            <span className="text-xs font-bold text-slate-600 uppercase block">Tiempo de Respuesta</span>
                                             <span className="text-xs font-black text-white">{opt.signals?.responseTime || 'N/A'}</span>
                                         </div>
                                     </div>
@@ -538,18 +539,18 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                                 <div className="bg-brand-500/5 border border-brand-500/20 rounded-xl p-4">
                                     <h4 className="text-xs font-black text-brand-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                                         <ArrowRight className="w-3 h-3" />
-                                        Proposed Optimization
+                                        Optimización Propuesta
                                     </h4>
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-xs font-bold text-slate-400 uppercase">Modification</span>
+                                            <span className="text-xs font-bold text-slate-400 uppercase">Modificación</span>
                                             <span className="text-xs font-black text-white bg-brand-600 px-2 py-0.5 rounded uppercase">{opt.type.replace('_OPTIMIZATION', '')}</span>
                                         </div>
                                         <p className="text-xs font-bold text-slate-300">
                                             {opt.proposedSolution}
                                         </p>
                                         <div className="pt-2 mt-2 border-t border-brand-500/10">
-                                            <span className="text-xs font-bold text-slate-500 uppercase block mb-2">Expected Outcome</span>
+                                            <span className="text-xs font-bold text-slate-500 uppercase block mb-2">Resultado Esperado</span>
                                             <p className="text-xs font-black text-green-500 uppercase italic">
                                                 {opt.expectedImpact}
                                             </p>
@@ -561,15 +562,15 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
 
                         <div className="p-4 bg-slate-900/40 border-t border-white/5 flex justify-end gap-3">
                             <button className="text-xs font-black uppercase text-slate-500 hover:text-white px-4 py-2 transition-all">
-                                DISMISS
+                                DESCARTAR
                             </button>
-                            <button 
+                            <button
                                 onClick={() => handleGenerateDraft(opt.id)}
                                 disabled={isPending}
                                 className="bg-white text-slate-950 text-xs font-black uppercase px-6 py-2 rounded-lg hover:bg-slate-200 transition-all flex items-center gap-2"
                             >
                                 <Sparkles className="w-3 h-3" />
-                                GENERATE OPTIMIZED DRAFT
+                                GENERAR BORRADOR OPTIMIZADO
                             </button>
                         </div>
                     </div>
@@ -578,8 +579,8 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                 {recommendations.filter((r: any) => r.sourceFlowId).length === 0 && (
                     <div className="glass-card p-12 text-center">
                         <ShieldCheck className="w-12 h-12 text-green-500 mx-auto mb-4 opacity-20" />
-                        <h3 className="text-xl font-black italic uppercase italic text-slate-400">No Optimized Drafts Needed</h3>
-                        <p className="text-slate-600 font-bold text-sm">Active flows are performing within expected reliability parameters.</p>
+                        <h3 className="text-xl font-black italic uppercase italic text-slate-400">No se necesitan borradores optimizados</h3>
+                        <p className="text-slate-600 font-bold text-sm">Los flujos activos operan dentro de los parámetros de confiabilidad esperados.</p>
                     </div>
                 )}
             </div>
@@ -591,16 +592,16 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
            <div className="glass-card p-12 text-center space-y-6">
               <Sparkles className="w-16 h-16 text-brand-500 mx-auto animate-pulse" />
               <div className="max-w-md mx-auto space-y-2">
-                <h3 className="text-2xl font-black italic uppercase">Workflow Blueprinting</h3>
+                <h3 className="text-2xl font-black italic uppercase">Diseño de Flujos</h3>
                 <p className="text-slate-400 font-bold text-sm uppercase">
-                  Select a recommendation to preview the proposed graph structure before drafting.
+                  Seleccioná una recomendación para previsualizar el grafo propuesto antes de crear el borrador.
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setActiveTab("recommendations")}
                 className="bg-white/5 hover:bg-white/10 text-slate-300 font-black px-8 py-3 rounded-xl uppercase italic text-xs border border-white/10 transition-all"
               >
-                Browse Active Proposals
+                Ver Propuestas Activas
               </button>
            </div>
         )}
