@@ -1,0 +1,156 @@
+CONTEXTO
+
+Estamos en una iteración final de pulido visual sobre SevenToop.
+El funcionamiento general quedó bien. El layout mejoró. Ahora quiero ajustes finos de UI/UX, sin refactor masivo.
+
+IMPORTANTE
+- cambios mínimos y controlados
+- no tocar backend
+- no romper lógica actual
+- trabajar en la branch actual
+- devolver branch + commit reales
+- si algo no se implementa, decirlo explícitamente
+
+==================================================
+BLOQUE 1 — HEADER DEL PROYECTO / PASOS
+==================================================
+
+ESTADO ACTUAL
+El layout superior quedó mejor, pero quiero estos ajustes:
+
+1. Sacar el badge/etiqueta:
+- EN_VENTA
+
+2. El texto:
+- “Subí fotos o panorámicas 360° y posicionalas en el mapa. Usá el botón Imágenes en la barra del mapa.”
+quiero moverlo arriba, a la derecha de:
+- “Valle de Punilla, Córdoba, Argentina”
+
+O sea:
+- título del proyecto
+- ubicación
+- a la derecha de esa línea, ese texto de ayuda
+- más integrado en el header
+- no como bloque separado abajo
+
+3. El indicador:
+- “5/7 pasos”
+hoy está demasiado suelto / chico / aislado.
+Quiero una solución mejor.
+
+Opciones válidas:
+- bajarlo e integrarlo con la barra horizontal de pasos
+- meterlo dentro de una cajita más visible
+- ocupar mejor el ancho disponible
+- centrarlo dentro de ese bloque
+
+4. Quiero que el bloque de pasos/progreso sea más llamativo:
+- más color
+- mejor presencia visual
+- si suma, efectos suaves o animación
+- puede inspirarse en la idea de proceso / excavación / avance / trabajo del topo
+- no algo infantil ni exagerado, pero sí con más identidad visual
+
+OBJETIVO
+- que el header superior quede más claro
+- más útil
+- más lindo
+- más integrado
+
+==================================================
+BLOQUE 2 — NAVBAR / MENÚ PRINCIPAL DEL SITIO
+==================================================
+
+Quiero mejorar el navbar principal del sitio.
+
+1. ESTADO ACTIVO DE LOS BOTONES
+Si estoy en una ruta, el botón correspondiente tiene que verse activo claramente.
+
+Ejemplos:
+- si la URL es /dashboard/proyectos → “Proyectos” debe verse resaltado en naranja con estilo activo
+- si estoy en CRM / pipelines / leads o la ruta correspondiente → ese botón debe quedar activo
+- lo mismo con las demás secciones
+
+No quiero que el menú sea solo decorativo:
+quiero estado activo claro por pathname actual.
+
+2. MENÚ COLAPSABLE / HAMBURGUESA
+Quiero que el menú principal pueda esconderse / desplegarse con un botón hamburguesa típico.
+
+Objetivo:
+- mejorar orden visual
+- permitir compactar la navegación
+- dejar la interfaz más limpia si hace falta
+
+==================================================
+BLOQUE 3 — DROPDOWN DEL USUARIO
+==================================================
+
+ESTADO ACTUAL
+Cuando el usuario inicia sesión, aparece:
+- nombre de usuario
+- flechita
+- dropdown con:
+  - Mi panel
+  - Cerrar sesión
+
+Problema:
+- el fondo del dropdown se ve transparente / flojo
+- no respeta bien la paleta
+
+QUIERO
+- fondo sólido
+- respetando la paleta de colores del sitio
+- “Mi panel” visible y prolijo
+- “Cerrar sesión” en rojo
+- hover coherente
+- que se vea bien tanto en dark mode como light mode si aplica
+
+==================================================
+BLOQUE 4 — LOGO EN EL NAVBAR
+==================================================
+
+El logo de SevenToop está mal centrado verticalmente.
+
+Problema:
+- la parte superior del logo (casco) queda demasiado pegada al techo del navbar
+- la parte inferior (texto/logo) queda muy lejos del borde inferior
+- no se siente centrado
+
+QUIERO
+- centrar verticalmente el logo dentro del navbar
+- que haya distancia equilibrada arriba y abajo
+- que respire mejor dentro de la barra
+
+==================================================
+CRITERIOS DE ÉXITO
+==================================================
+
+1. desaparece el badge EN_VENTA
+2. el texto de ayuda de Tour360 sube y queda integrado al lado de la ubicación
+3. el bloque de pasos/progreso se ve mejor, más claro y más llamativo
+4. el navbar marca correctamente la sección activa según la URL
+5. existe opción de ocultar/desplegar menú con hamburguesa
+6. el dropdown del usuario deja de verse transparente y respeta la paleta
+7. el logo queda bien centrado verticalmente
+
+==================================================
+ENTREGA OBLIGATORIA
+==================================================
+
+Responder con:
+1. análisis técnico corto
+2. riesgo
+3. impacto
+4. decisión tomada
+5. cambios realizados
+6. archivos modificados
+7. resumen por archivo
+8. prueba manual paso a paso
+9. branch
+10. commit hash
+11. qué quedó pendiente, si algo no se implementó
+
+IMPORTANTE
+- no presentar como hecho algo que no se cambió realmente
+- priorizar estos ajustes visuales finales sin romper lo ya logrado
