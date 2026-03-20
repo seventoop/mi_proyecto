@@ -222,9 +222,13 @@ export default function Sidebar() {
                 {/* Navigation */}
                 <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
                     {navItems.map((item) => {
+                        // Root dashboard items (≤2 segments: /dashboard/admin, /dashboard/developer, etc.)
+                        // must only match exactly — otherwise they'd stay active on every sub-route.
+                        const segmentCount = item.href.split("/").filter(Boolean).length;
+                        const isRootItem = segmentCount <= 2;
                         const isActive =
                             pathname === item.href ||
-                            (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+                            (!isRootItem && pathname?.startsWith(item.href + "/"));
                         return (
                             <Link
                                 key={item.href}
