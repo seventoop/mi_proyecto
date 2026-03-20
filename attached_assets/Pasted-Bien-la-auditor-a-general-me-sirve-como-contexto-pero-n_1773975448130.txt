@@ -1,0 +1,53 @@
+Bien, la auditoría general me sirve como contexto, pero no era el objetivo principal de este paso.
+
+Necesito que vuelvas al problema puntual de la captura y lo resuelvas primero.
+
+ERROR A INVESTIGAR
+El Tour360 intenta cargar esta imagen y falla:
+https://cb37229e-fc15-4f9e-804d-490db4ef5a87-00-z2dtt1bifb0i.sisko.replit.dev/uploads/360/922b98b2-8ab9-4f86-829f-b8a93b39f741-capinota1.jpg
+
+El mensaje visible es:
+“The file ... could not be accessed.”
+
+OBJETIVO DE ESTE PASO
+Quiero que hagas una verificación concreta y corta sobre este error, no otra auditoría general.
+
+ORDEN DE TRABAJO
+1. Verificá si el archivo existe realmente en el filesystem del proyecto.
+2. Verificá en qué carpeta se guardan los uploads 360 actualmente.
+3. Verificá si esa carpeta está siendo servida públicamente por la app.
+4. Verificá si la URL guardada para esa imagen coincide con la ruta real.
+5. Verificá si el problema es:
+   - archivo inexistente
+   - ruta mal construida
+   - problema de exposición pública de /uploads
+   - storage local efímero / archivo perdido
+   - problema de migración de datos
+6. Si la solución es chica, segura y directa, aplicala.
+7. Si la solución no es chica, no improvises: dejame diagnóstico exacto y mínima propuesta.
+
+IMPORTANTE
+- priorizar solución real al error visible
+- no refactor masivo
+- no tocar cosas no relacionadas
+- no vender hipótesis como certezas
+- si modificás algo, trabajar en branch
+- devolver branch + commit hash
+- devolver prueba manual exacta
+
+FORMATO DE RESPUESTA OBLIGATORIO
+1. causa raíz confirmada
+2. evidencia encontrada
+3. decisión tomada
+4. cambios realizados o motivo por el que no se cambió nada
+5. archivos revisados
+6. archivos modificados
+7. prueba manual paso a paso
+8. branch
+9. commit hash
+10. qué quedó pendiente
+
+IMPORTANTE
+No quiero otra auditoría general ahora.
+Quiero cerrar primero el error concreto de acceso a la imagen 360.
+Cuando eso quede resuelto, después seguimos con el prompt del análisis y luego con el pulido del Tour360.
