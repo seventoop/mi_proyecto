@@ -31,14 +31,31 @@ export default async function DeveloperDashboard() {
         redirect("/login");
     }
 
-    // Fetch developer's user info for KYC and Risk level
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { kycStatus: true, nombre: true, riskLevel: true, demoEndsAt: true, demoUsed: true, developerVerified: true }
-    });
+    const orgId = (session?.user as any).orgId;
 
-    // Fetch Enriched Developer Dashboard Data
-    const dashboardRes = await getDeveloperDashboardData(userId);
+    // Round 1: all independent — user info, dashboard metrics, plan, and activity-scoping
+    // queries share no dependencies and run concurrently.
+    const [user, dashboardRes, planRes, userRelaciones, legacyActivityProjects] = await Promise.all([
+        prisma.user.findUnique({
+            where: { id: userId },
+            select: { kycStatus: true, nombre: true, riskLevel: true, demoEndsAt: true, demoUsed: true, developerVerified: true }
+        }),
+        getDeveloperDashboardData(userId),
+        getOrgPlanWithUsage(orgId),
+        prisma.proyectoUsuario.findMany({
+            where: { userId, estadoRelacion: "ACTIVA" },
+            select: { proyectoId: true },
+        }),
+        prisma.proyecto.findMany({
+            where: {
+                creadoPorId: userId,
+                deletedAt: null,
+                NOT: { usuariosRelaciones: { some: { userId } } },
+            },
+            select: { id: true },
+        }),
+    ]);
+
     const dashboardData = dashboardRes.success && dashboardRes.data ? dashboardRes.data : {
         global: {
             totalRecaudado: 0, montoEnEscrow: 0, soldPercentage: 0, flujoProyectado: 0,
@@ -50,7 +67,6 @@ export default async function DeveloperDashboard() {
     };
     const { global, projectStats, topProjects, nextMilestones } = dashboardData;
 
-    // Real stats grid
     const stats = [
         { label: "Leads este mes", value: global.leadsThisMonth, icon: TrendingUp, color: "text-emerald-500", href: "/dashboard/developer/leads" },
         { label: "Reservas activas", value: global.reservasActivas, icon: AlertCircle, color: "text-amber-500", href: "/dashboard/developer/reservas" },
@@ -58,22 +74,7 @@ export default async function DeveloperDashboard() {
         { label: "Ingreso mes", value: `$${global.revenueThisMonth.toLocaleString()}`, icon: DollarSign, color: "text-brand-500", href: "/dashboard/developer/reservas" },
     ];
 
-    const orgId = (session?.user as any).orgId;
-    const planRes = await getOrgPlanWithUsage(orgId);
-
-    // Activity feed scoping
-    const userRelaciones = await prisma.proyectoUsuario.findMany({
-        where: { userId, estadoRelacion: "ACTIVA" },
-        select: { proyectoId: true },
-    });
-    const legacyActivityProjects = await prisma.proyecto.findMany({
-        where: {
-            creadoPorId: userId,
-            deletedAt: null,
-            NOT: { usuariosRelaciones: { some: { userId } } },
-        },
-        select: { id: true },
-    });
+    // Round 2: historialUnidad needs allActivityProjectIds from round 1
     const allActivityProjectIds = [
         ...userRelaciones.map(r => r.proyectoId),
         ...legacyActivityProjects.map(p => p.id),

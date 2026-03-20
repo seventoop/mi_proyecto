@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -79,10 +79,9 @@ function LoginForm() {
                     localStorage.removeItem("rememberedEmail");
                 }
 
-                // Obtener sesión para verificar rol
-                const response = await fetch("/api/auth/session");
-                const session = await response.json();
-                const role = session?.user?.role;
+                // Obtener sesión para verificar rol (vía next-auth, evita raw fetch)
+                const session = await getSession();
+                const role = (session?.user as any)?.role;
 
                 // Redirección basada en rol
                 switch (role?.toUpperCase()) {

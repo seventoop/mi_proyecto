@@ -28,22 +28,25 @@ export default async function LeadsPage() {
     if (orgId) where.orgId = orgId;
 
     if (userRole !== "ADMIN") {
-        const relaciones = await prisma.proyectoUsuario.findMany({
-            where: { userId, estadoRelacion: "ACTIVA" },
-            select: { proyectoId: true, permisoVerLeadsGlobales: true },
-        });
+        // Both queries depend only on userId — run in parallel
+        const [relaciones, legacyProjects] = await Promise.all([
+            prisma.proyectoUsuario.findMany({
+                where: { userId, estadoRelacion: "ACTIVA" },
+                select: { proyectoId: true, permisoVerLeadsGlobales: true },
+            }),
+            prisma.proyecto.findMany({
+                where: {
+                    creadoPorId: userId,
+                    deletedAt: null,
+                    NOT: { usuariosRelaciones: { some: { userId } } },
+                },
+                select: { id: true },
+            }),
+        ]);
         const globalLeadIds = relaciones
             .filter(r => r.permisoVerLeadsGlobales)
             .map(r => r.proyectoId);
 
-        const legacyProjects = await prisma.proyecto.findMany({
-            where: {
-                creadoPorId: userId,
-                deletedAt: null,
-                NOT: { usuariosRelaciones: { some: { userId } } },
-            },
-            select: { id: true },
-        });
         const legacyIds = legacyProjects.map(p => p.id);
 
         const allGlobalLeadIds = [...globalLeadIds, ...legacyIds].filter((id, i, arr) => arr.indexOf(id) === i);
@@ -55,8 +58,17 @@ export default async function LeadsPage() {
         where.OR = orClauses;
     }
 
+    // projectsWhere depends only on session data — compute before the parallel fetch
+    const projectsWhere = userRole === "ADMIN" ? {} : {
+        OR: [
+            { creadoPorId: userId },
+            { usuariosRelaciones: { some: { userId, estadoRelacion: "ACTIVA" as const } } },
+        ],
+    };
+
     const LEADS_LIMIT = 100;
-    const [leads, totalLeadsCount, planRes, etapasRes] = await Promise.all([
+    // projects is independent of `where` — include in the same round
+    const [leads, totalLeadsCount, planRes, etapasRes, projects] = await Promise.all([
         prisma.lead.findMany({
             where,
             orderBy: { createdAt: "desc" },
@@ -68,22 +80,14 @@ export default async function LeadsPage() {
         }),
         prisma.lead.count({ where }),
         getOrgPlanWithUsage(orgId),
-        getPipelineEtapas(orgId)
+        getPipelineEtapas(orgId),
+        prisma.proyecto.findMany({
+            where: projectsWhere,
+            select: { id: true, nombre: true },
+            orderBy: { nombre: "asc" }
+        }),
     ]);
     const hasMoreLeads = totalLeadsCount > LEADS_LIMIT;
-
-    // Fetch Projects for filter/create dropdown — relation-based + legacy fallback
-    const projectsWhere = userRole === "ADMIN" ? {} : {
-        OR: [
-            { creadoPorId: userId },
-            { usuariosRelaciones: { some: { userId, estadoRelacion: "ACTIVA" as const } } },
-        ],
-    };
-    const projects = await prisma.proyecto.findMany({
-        where: projectsWhere,
-        select: { id: true, nombre: true },
-        orderBy: { nombre: "asc" }
-    });
 
     const planFeatures = planRes.success && planRes.data ? planRes.data.features : [];
     const usage = planRes.success && planRes.data
