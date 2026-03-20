@@ -172,19 +172,37 @@ export default function ImagenViewer({
     return () => el.removeEventListener("wheel", handleWheel as any, { capture: true } as any);
   }, [is360]);
 
+  // ─── Arrow step: same heading-aware conversion as the mouse drag ─────────
+  // screenDx / screenDy are unit screen-space vectors (+X = right, +Y = down).
+  // stepM is the desired displacement in meters.
+  // Reuses the exact same matrix as the drag's translate handler so arrows
+  // and mouse produce identical plan movement for equal screen displacements.
+  const arrowStepRef = useRef<(screenDx: number, screenDy: number, stepM: number) => void>(() => {});
+  arrowStepRef.current = (screenDx: number, screenDy: number, stepM: number) => {
+    const viewer = instanceRef.current;
+    if (!viewer) return;
+    const DEG = Math.PI / 180;
+    const viewYaw = (() => { try { return viewer.getYaw() as number; } catch { return 0; } })();
+    const effHdgRad = (overlayHdg + viewYaw) * DEG;
+    // Same rotation matrix used by the drag translate handler
+    const north_m = (screenDx * (-Math.sin(effHdgRad)) + screenDy * (-Math.cos(effHdgRad))) * stepM;
+    const east_m  = (screenDx * ( Math.cos(effHdgRad)) + screenDy * (-Math.sin(effHdgRad))) * stepM;
+    // Same sign convention: latOffset/lngOffset move camera, negate to move plan
+    setLatOffset((v) => v - north_m);
+    setLngOffset((v) => v - east_m);
+  };
+
   // ─── Keyboard arrow keys when editing ───
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (!isEditingRef.current || !hasOverlayDataRef.current) return;
       if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
       e.preventDefault();
-      const step = e.shiftKey ? 25 : 5;
-      // Negate: latOffset/lngOffset move the camera; camera must move opposite
-      // to plan direction so the plan visually follows the arrow key.
-      if (e.key === "ArrowUp")    setLatOffset((v) => v - step);
-      if (e.key === "ArrowDown")  setLatOffset((v) => v + step);
-      if (e.key === "ArrowLeft")  setLngOffset((v) => v + step);
-      if (e.key === "ArrowRight") setLngOffset((v) => v - step);
+      const stepM = e.shiftKey ? 25 : 5;
+      if (e.key === "ArrowUp")    arrowStepRef.current( 0, -1, stepM);
+      if (e.key === "ArrowDown")  arrowStepRef.current( 0, +1, stepM);
+      if (e.key === "ArrowLeft")  arrowStepRef.current(-1,  0, stepM);
+      if (e.key === "ArrowRight") arrowStepRef.current(+1,  0, stepM);
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -325,6 +343,7 @@ export default function ImagenViewer({
                 lngOffset={lngOffset}
                 onLatOffsetChange={setLatOffset}
                 onLngOffsetChange={setLngOffset}
+                onArrowStep={(dx, dy) => arrowStepRef.current(dx, dy, 5)}
                 planRotation={planRotation}
                 onPlanRotChange={setPlanRotation}
                 planScale={planScale}
@@ -374,6 +393,7 @@ interface OverlayControlsProps {
   lngOffset: number;
   onLatOffsetChange: (v: number) => void;
   onLngOffsetChange: (v: number) => void;
+  onArrowStep: (screenDx: number, screenDy: number) => void;
   planRotation: number;
   onPlanRotChange: (v: number) => void;
   planScale: number;
@@ -392,6 +412,7 @@ function OverlayControls({
   imageHeading, onHeadingChange,
   latOffset, lngOffset,
   onLatOffsetChange, onLngOffsetChange,
+  onArrowStep,
   planRotation, onPlanRotChange,
   planScale, onPlanScaleChange,
   onSave, isSaving, saved,
@@ -505,14 +526,14 @@ function OverlayControls({
                 {/* N/S + E/O */}
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <div className="flex flex-col items-center justify-center p-2 bg-black/40 rounded-lg">
-                    <button onClick={() => onLatOffsetChange(latOffset - MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowUp className="w-4 h-4" /></button>
+                    <button onClick={() => onArrowStep( 0, -1)} className="p-1 hover:text-indigo-400"><ArrowUp className="w-4 h-4" /></button>
                     <span className="text-[10px] text-slate-400 my-0.5">N/S {sign(Math.round(latOffset))}</span>
-                    <button onClick={() => onLatOffsetChange(latOffset + MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowDown className="w-4 h-4" /></button>
+                    <button onClick={() => onArrowStep( 0, +1)} className="p-1 hover:text-indigo-400"><ArrowDown className="w-4 h-4" /></button>
                   </div>
                   <div className="flex flex-col items-center justify-center p-2 bg-black/40 rounded-lg">
-                    <button onClick={() => onLngOffsetChange(lngOffset - MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowRight className="w-4 h-4" /></button>
+                    <button onClick={() => onArrowStep(+1,  0)} className="p-1 hover:text-indigo-400"><ArrowRight className="w-4 h-4" /></button>
                     <span className="text-[10px] text-slate-400 my-0.5">E/O {sign(Math.round(lngOffset))}</span>
-                    <button onClick={() => onLngOffsetChange(lngOffset + MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowLeft className="w-4 h-4" /></button>
+                    <button onClick={() => onArrowStep(-1,  0)} className="p-1 hover:text-indigo-400"><ArrowLeft className="w-4 h-4" /></button>
                   </div>
                 </div>
 
