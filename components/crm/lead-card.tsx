@@ -59,7 +59,7 @@ export default function LeadCard({ oportunidad }: LeadCardProps) {
                         <h4 className="font-black text-brand-surface text-sm truncate max-w-[140px] tracking-tight">
                             {lead.nombre}
                         </h4>
-                        <p className="text-[10px] font-black text-brand-orange truncate uppercase tracking-widest">
+                        <p className="text-xs font-black text-brand-orange truncate uppercase tracking-widest">
                             {oportunidad.valorEstimado
                                 ? formatCurrency(Number(oportunidad.valorEstimado))
                                 : "Sin valor"}
@@ -68,7 +68,7 @@ export default function LeadCard({ oportunidad }: LeadCardProps) {
                 </div>
                 {oportunidad.probabilidad > 0 && (
                     <span
-                        className={`text-[10px] font-black px-2 py-1 rounded-lg ${oportunidad.probabilidad > 70
+                        className={`text-xs font-black px-2 py-1 rounded-lg ${oportunidad.probabilidad > 70
                             ? "bg-brand-orange/10 text-brand-orange border border-brand-orange/20"
                             : oportunidad.probabilidad > 30
                                 ? "bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20"
@@ -96,10 +96,10 @@ export default function LeadCard({ oportunidad }: LeadCardProps) {
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-white/5 mt-3">
-                <span className="text-[10px] text-brand-muted uppercase font-black tracking-widest">
+                <span className="text-xs text-brand-muted uppercase font-black tracking-widest">
                     {lead.origen}
                 </span>
-                <span className="text-[10px] text-brand-muted flex items-center gap-1.5 font-bold">
+                <span className="text-xs text-brand-muted flex items-center gap-1.5 font-bold">
                     <Calendar className="w-3 h-3 text-brand-orange/50" />
                     {format(new Date(oportunidad.updatedAt), "d MMM", { locale: es })}
                 </span>

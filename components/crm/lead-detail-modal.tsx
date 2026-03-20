@@ -94,7 +94,7 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
                                 </div>
                                 <h3 className="font-black text-xl text-brand-surface">{lead.nombre}</h3>
                                 <p className="text-xs font-bold text-brand-muted mt-1 uppercase tracking-[0.2em]">{lead.origen}</p>
-                                <div className="mt-3 inline-flex px-3 py-1 rounded-lg bg-white/5 text-[10px] font-black uppercase tracking-widest text-brand-surface/70 border border-white/5">
+                                <div className="mt-3 inline-flex px-3 py-1 rounded-lg bg-white/5 text-xs font-black uppercase tracking-widest text-brand-surface/70 border border-white/5">
                                     {lead.estado}
                                 </div>
                             </div>
@@ -138,7 +138,7 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
                                 <p className="text-xs text-red-400 mb-4">{error}</p>
                             )}
 
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Historial</h4>
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Historial</h4>
                             {lead.mensajes.length > 0 ? (
                                 <div className="space-y-6 border-l-2 border-slate-800 ml-2 pl-6">
                                     {lead.mensajes.map((msg) => {
