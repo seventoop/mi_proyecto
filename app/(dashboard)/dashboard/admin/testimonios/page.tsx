@@ -65,7 +65,7 @@ export default function AdminTestimoniosPage() {
                         key={f}
                         onClick={() => setFilter(f)}
                         className={cn(
-                            "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                            "px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
                             filter === f
                                 ? "bg-white/[0.06] text-white"
                                 : "text-slate-500 hover:text-white"
@@ -100,7 +100,7 @@ export default function AdminTestimoniosPage() {
                                     </div>
                                     <div>
                                         <h3 className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">{t.autorNombre}</h3>
-                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{t.autorTipo}</p>
+                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{t.autorTipo}</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-0.5">
@@ -115,7 +115,7 @@ export default function AdminTestimoniosPage() {
                                 <MessageSquareQuote className="absolute -top-2 -left-2 w-6 h-6 text-brand-500/[0.08] -z-10" />
                                 <p className="text-slate-400 text-[12px] font-medium leading-relaxed italic z-10 relative">"{t.texto}"</p>
                                 {t.proyecto && (
-                                    <div className="mt-4 inline-block px-2.5 py-1 bg-white/[0.04] rounded-md text-[9px] font-black text-brand-500 uppercase tracking-widest">
+                                    <div className="mt-4 inline-block px-2.5 py-1 bg-white/[0.04] rounded-md text-xs font-black text-brand-500 uppercase tracking-widest">
                                         PROYECTO: {t.proyecto.nombre}
                                     </div>
                                 )}
@@ -124,7 +124,7 @@ export default function AdminTestimoniosPage() {
                             {/* Actions */}
                             <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
                                 <span className={cn(
-                                    "text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest",
+                                    "text-xs font-black px-2 py-0.5 rounded-md uppercase tracking-widest",
                                     t.estado === "APROBADO" ? "bg-emerald-500/10 text-emerald-500" :
                                         t.estado === "RECHAZADO" ? "bg-rose-500/10 text-rose-500" :
                                             "bg-amber-500/10 text-amber-500"

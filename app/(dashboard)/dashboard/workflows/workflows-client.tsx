@@ -199,8 +199,8 @@ function RunHistoryRow({ run }: { run: WorkflowRun & { pasos?: { id: string; nod
                         <div key={paso.id} className="px-4 py-2.5 flex items-center gap-3">
                             {estadoIcon[paso.estado] ?? <Clock className="w-3 h-3 text-slate-400" />}
                             <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{paso.nodoTipo}</span>
-                            <span className={cn("text-[10px] font-bold", estadoClass[paso.estado] ?? "text-slate-400")}>{paso.estado}</span>
-                            {paso.ms !== null && <span className="text-[10px] text-slate-400 ml-auto">{paso.ms}ms</span>}
+                            <span className={cn("text-xs font-bold", estadoClass[paso.estado] ?? "text-slate-400")}>{paso.estado}</span>
+                            {paso.ms !== null && <span className="text-xs text-slate-400 ml-auto">{paso.ms}ms</span>}
                         </div>
                     ))}
                 </div>
@@ -244,7 +244,7 @@ function WorkflowCard({ workflow, onToggle, onRun }: {
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-bold text-slate-900 dark:text-white truncate">{workflow.nombre}</h3>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${triggerColor[workflow.trigger] ?? "bg-slate-500/10 text-slate-400"}`}>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${triggerColor[workflow.trigger] ?? "bg-slate-500/10 text-slate-400"}`}>
                             {triggerLabel[workflow.trigger] ?? workflow.trigger}
                         </span>
                     </div>
@@ -252,11 +252,11 @@ function WorkflowCard({ workflow, onToggle, onRun }: {
                         <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{workflow.descripcion}</p>
                     )}
                     <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-[10px] text-slate-400"><GitBranch className="w-3 h-3 inline mr-0.5" />v{workflow.version}</span>
-                        <span className="text-[10px] text-slate-400">{workflow._count.nodos} nodos</span>
-                        <span className="text-[10px] text-slate-400">{workflow._count.runs} runs</span>
+                        <span className="text-xs text-slate-400"><GitBranch className="w-3 h-3 inline mr-0.5" />v{workflow.version}</span>
+                        <span className="text-xs text-slate-400">{workflow._count.nodos} nodos</span>
+                        <span className="text-xs text-slate-400">{workflow._count.runs} runs</span>
                         {lastRun && (
-                            <span className={cn("text-[10px] font-bold flex items-center gap-0.5", estadoClass[lastRun.estado] ?? "text-slate-400")}>
+                            <span className={cn("text-xs font-bold flex items-center gap-0.5", estadoClass[lastRun.estado] ?? "text-slate-400")}>
                                 {estadoIcon[lastRun.estado]}
                                 <RelativeTime date={lastRun.startedAt} />
                             </span>

@@ -171,14 +171,14 @@ export default async function DeveloperDashboard() {
                                 </span>
                                 <RiskBadge level={user?.riskLevel || "medium"} />
                                 {user?.developerVerified && (
-                                    <span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full text-[11px] font-bold border border-emerald-500/20">
+                                    <span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-bold border border-emerald-500/20">
                                         <CheckCircle className="w-3 h-3" /> Verificado
                                     </span>
                                 )}
                             </div>
                         </div>
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-white/[0.04] rounded-lg border border-slate-200 dark:border-white/[0.06] shadow-sm tracking-widest font-mono">
-                            <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">ID</span>
+                            <span className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">ID</span>
                             <span className="text-[12px] font-black text-slate-900 dark:text-white/80">{userId?.slice(0, 8) ?? "—"}</span>
                         </div>
                     </div>
@@ -188,7 +188,7 @@ export default async function DeveloperDashboard() {
                             <Link key={stat.label} href={stat.href} className="block group">
                                 <div className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05]">
                                     <div className="flex items-start justify-between mb-3">
-                                        <p className="text-[10px] font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">{stat.label}</p>
+                                        <p className="text-xs font-black text-slate-500 dark:text-white/40 uppercase tracking-widest">{stat.label}</p>
                                         <div className={`p-1.5 rounded-lg bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.08] ${stat.color}`}>
                                             <stat.icon className="w-3.5 h-3.5" />
                                         </div>
@@ -211,7 +211,7 @@ export default async function DeveloperDashboard() {
                             <ActivityCenter userRole="DESARROLLADOR" activities={activities} />
                         </div>
                         <div className="space-y-2">
-                            <p className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest px-1 mb-3">Acceso Rápido</p>
+                            <p className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest px-1 mb-3">Acceso Rápido</p>
                             <QuickLink href="/dashboard/developer/proyectos" icon={Building2} color="bg-brand-500" title="Mis Proyectos" sub="Gestión técnica y comercial" />
                             <QuickLink href="/dashboard/developer/leads" icon={TrendingUp} color="bg-emerald-500" title="Leads" sub="Monitor de contactos calificados" />
                             <QuickLink href="/dashboard/developer/reservas" icon={FileText} color="bg-amber-500" title="Reservas" sub="Control de unidades reservadas" />
@@ -232,7 +232,7 @@ function QuickLink({ href, icon: Icon, color, title, sub }: any) {
             </div>
             <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-bold text-slate-900 dark:text-zinc-100 leading-none mb-0.5">{title}</p>
-                <p className="text-[11px] text-slate-500 dark:text-white/40 font-medium">{sub}</p>
+                <p className="text-sm text-slate-500 dark:text-white/40 font-medium">{sub}</p>
             </div>
             <ChevronRight className="w-4 h-4 text-slate-300 dark:text-white/20 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
         </Link>

@@ -50,8 +50,8 @@ function ServiceHealth({ label, status }: { label: string; status: boolean }) {
             {status
                 ? <CheckCircle className="w-5 h-5 text-emerald-500" />
                 : <XCircle className="w-5 h-5 text-rose-500" />}
-            <span className="text-[11px] font-black tracking-widest uppercase text-slate-300">{label}</span>
-            <span className={`text-[10px] font-black uppercase ml-auto tracking-widest px-2.5 py-1 rounded-md ${status ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
+            <span className="text-sm font-black tracking-widest uppercase text-slate-300">{label}</span>
+            <span className={`text-xs font-black uppercase ml-auto tracking-widest px-2.5 py-1 rounded-md ${status ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
                 {status ? "OK" : "ERROR"}
             </span>
         </div>
@@ -99,7 +99,7 @@ export default function AdminConfiguracionPage() {
                     <ModuleHelp content={MODULE_HELP_CONTENT.adminConfiguracion} />
                 </div>
                 <button onClick={handleSave} disabled={isPending}
-                    className="mt-1 flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-[10px] uppercase font-black tracking-widest text-white transition-all shadow-lg shadow-brand-500/20 disabled:opacity-50">
+                    className="mt-1 flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-xs uppercase font-black tracking-widest text-white transition-all shadow-lg shadow-brand-500/20 disabled:opacity-50">
                     <Save className="w-4 h-4" /> Guardar Todo
                 </button>
             </div>
@@ -125,7 +125,7 @@ export default function AdminConfiguracionPage() {
                     <div className="space-y-5">
                         {section.keys.map(({ key, label, type, options, default: def }) => (
                             <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
-                                <label className="w-48 text-[10px] font-black uppercase tracking-widest text-slate-500 shrink-0">{label}</label>
+                                <label className="w-48 text-xs font-black uppercase tracking-widest text-slate-500 shrink-0">{label}</label>
                                 {type === "toggle" ? (
                                     <button
                                         onClick={() => updateKey(key, (config[key] || def) === "true" ? "false" : "true")}
@@ -134,13 +134,13 @@ export default function AdminConfiguracionPage() {
                                     </button>
                                 ) : type === "select" ? (
                                     <select value={config[key] || def} onChange={e => updateKey(key, e.target.value)}
-                                        className="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-[11px] font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50">
+                                        className="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-sm font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50">
                                         {options?.map(o => <option key={o} value={o}>{o}</option>)}
                                     </select>
                                 ) : (
                                     <input type={type === "password" ? "password" : "text"} value={config[key] || ""} onChange={e => updateKey(key, e.target.value)}
                                         placeholder={def}
-                                        className="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-[11px] font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50" />
+                                        className="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-sm font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50" />
                                 )}
                             </div>
                         ))}

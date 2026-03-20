@@ -100,7 +100,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
       <div className="lg:col-span-1 space-y-4">
         <div className="glass-card p-4 space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Organización</label>
+            <label className="text-xs font-black uppercase tracking-widest text-slate-400">Organización</label>
             <select 
               value={activeOrgId || ""} 
               onChange={(e) => router.push(`/dashboard/admin/logictoop/orchestrator?orgId=${e.target.value}`)}
@@ -204,12 +204,12 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                   )}
                 >
                   <div className="flex justify-between items-start mb-1">
-                    <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest", 
+                    <span className={cn("text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-widest", 
                       rec.status === "NEW" ? "bg-brand-500 text-white" : "bg-slate-700 text-slate-300"
                     )}>
                       {rec.status}
                     </span>
-                    <span className="text-[10px] font-bold text-slate-500">
+                    <span className="text-xs font-bold text-slate-500">
                       {new Date(rec.createdAt).toLocaleDateString()}
                     </span>
                   </div>
@@ -218,7 +218,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                     <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
                       <div className="bg-brand-500 h-full" style={{ width: `${rec.confidence * 100}%` }} />
                     </div>
-                    <span className="text-[10px] font-black text-brand-500">{(rec.confidence * 100).toFixed(0)}%</span>
+                    <span className="text-xs font-black text-brand-500">{(rec.confidence * 100).toFixed(0)}%</span>
                   </div>
                 </button>
               ))}
@@ -244,8 +244,8 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-700/50 pb-2">Technical Rationale (Explainability)</h4>
-                    <pre className="text-[10px] bg-slate-950 p-4 rounded-lg font-mono text-slate-300 overflow-auto border border-slate-800 shadow-inner max-h-40">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 border-b border-slate-700/50 pb-2">Technical Rationale (Explainability)</h4>
+                    <pre className="text-xs bg-slate-950 p-4 rounded-lg font-mono text-slate-300 overflow-auto border border-slate-800 shadow-inner max-h-40">
                       {JSON.stringify(selectedRecommendation.explanation, null, 2)}
                     </pre>
                   </div>
@@ -279,7 +279,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="bg-slate-800 text-brand-500 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest">
+                        <span className="bg-slate-800 text-brand-500 text-xs font-black px-2 py-0.5 rounded uppercase tracking-widest">
                           {opt.type}
                         </span>
                         <h3 className="font-black uppercase italic text-lg">{opt.flowName}</h3>
@@ -287,18 +287,18 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                       <p className="text-slate-400 text-sm font-bold mt-2 max-w-2xl">{opt.reason}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] font-black text-slate-500 uppercase">Automation ID</p>
-                      <p className="text-[10px] font-mono text-slate-400">{opt.flowId}</p>
+                      <p className="text-xs font-black text-slate-500 uppercase">Automation ID</p>
+                      <p className="text-xs font-mono text-slate-400">{opt.flowId}</p>
                     </div>
                   </div>
                   
                   <div className="mt-6 grid grid-cols-2 gap-8 border-t border-slate-700/30 pt-4">
                     <div>
-                      <span className="text-[9px] font-black text-slate-500 uppercase block mb-1">Current State</span>
+                      <span className="text-xs font-black text-slate-500 uppercase block mb-1">Current State</span>
                       <p className="text-xs font-bold text-slate-300">{opt.currentValue}</p>
                     </div>
                     <div>
-                      <span className="text-[9px] font-black text-brand-500 uppercase block mb-1">AI Recommendation</span>
+                      <span className="text-xs font-black text-brand-500 uppercase block mb-1">AI Recommendation</span>
                       <p className="text-xs font-bold text-white flex items-center gap-2">
                         <Zap className="w-3 h-3 fill-brand-500 text-brand-500" />
                         {opt.suggestedValue}
@@ -348,7 +348,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                      <button 
                         key={hint}
                         onClick={() => setRawIntent(hint)}
-                        className="text-[10px] font-black uppercase tracking-tight bg-slate-800 text-slate-400 px-3 py-1.5 rounded-full hover:bg-slate-700 transition-all border border-transparent hover:border-slate-600"
+                        className="text-xs font-black uppercase tracking-tight bg-slate-800 text-slate-400 px-3 py-1.5 rounded-full hover:bg-slate-700 transition-all border border-transparent hover:border-slate-600"
                      >
                        + {hint}
                      </button>
@@ -381,7 +381,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                   <div className="glass-card p-6 space-y-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4">
                         <div className={cn(
-                            "text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5",
+                            "text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5",
                             proposal.confidence > 0.8 ? "bg-green-500/20 text-green-500" : "bg-yellow-500/20 text-yellow-500"
                         )}>
                             <ShieldCheck className="w-3 h-3" />
@@ -397,14 +397,14 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
 
                       <div className="flex gap-8 border-y border-slate-700/30 py-4">
                         <div>
-                          <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">Trigger</span>
+                          <span className="text-xs font-black text-slate-500 uppercase block mb-1">Trigger</span>
                           <div className="flex items-center gap-2 text-white font-black italic text-sm">
                             <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                             {proposal.inferredTrigger}
                           </div>
                         </div>
                         <div>
-                          <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">Target Entity</span>
+                          <span className="text-xs font-black text-slate-500 uppercase block mb-1">Target Entity</span>
                           <div className="flex items-center gap-2 text-white font-black italic text-sm">
                             <Layers className="w-4 h-4 text-brand-500" />
                             {proposal.targetEntity || 'System'}
@@ -426,7 +426,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                                             <span className="font-black italic text-xs uppercase text-slate-200">{action.type}</span>
                                         </div>
                                         {action.config?.duration && (
-                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
+                                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase">
                                                 <Clock className="w-3 h-3" />
                                                 {action.config.duration}
                                             </div>
@@ -445,7 +445,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
 
                 <div className="md:col-span-1 space-y-4">
                     <div className="glass-card p-6 bg-brand-500/5 border-brand-500/20">
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-700/50 pb-2">AI Rationale</h3>
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-700/50 pb-2">AI Rationale</h3>
                         <p className="text-xs font-bold text-slate-300 leading-relaxed italic">
                            "{proposal.explanation}"
                         </p>
@@ -458,7 +458,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                                 <Sparkles className="w-5 h-5" />
                                 GENERATE DRAFT
                             </button>
-                            <p className="text-[9px] text-center text-slate-500 font-bold uppercase mt-3 tracking-tighter">
+                            <p className="text-xs text-center text-slate-500 font-bold uppercase mt-3 tracking-tighter">
                                 Always generated as DRAFT & INACTIVE for safety.
                             </p>
                         </div>
@@ -474,7 +474,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-black italic uppercase tracking-tighter text-brand-500">Auto-Optimizationsuggestions</h2>
-                    <p className="text-slate-500 font-bold text-[10px] uppercase tracking-widest mt-1">Inspected {recommendations.filter((r: any) => r.sourceFlowId).length} flows for performance improvements</p>
+                    <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Inspected {recommendations.filter((r: any) => r.sourceFlowId).length} flows for performance improvements</p>
                 </div>
                 <button 
                   onClick={handleAnalyze}
@@ -502,13 +502,13 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                                 <div>
                                     <h3 className="font-black uppercase italic text-lg tracking-tight">{opt.title}</h3>
                                     <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Target Flow:</span>
-                                        <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">{opt.sourceFlowId}</span>
+                                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Target Flow:</span>
+                                        <span className="text-xs font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">{opt.sourceFlowId}</span>
                                     </div>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Confidence Score</div>
+                                <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Confidence Score</div>
                                 <div className="text-xl font-black italic text-brand-500">{(opt.confidence * 100).toFixed(0)}%</div>
                             </div>
                         </div>
@@ -516,18 +516,18 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-4">
                                 <div className="space-y-1">
-                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Issue Detected</span>
+                                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Issue Detected</span>
                                     <p className="text-sm font-bold text-slate-300 leading-relaxed italic">"{opt.description}"</p>
                                 </div>
                                 <div className="p-4 bg-slate-900/40 rounded-xl border border-slate-800">
-                                    <span className="text-[9px] font-black text-slate-500 uppercase block mb-2">Metrics Analysis</span>
+                                    <span className="text-xs font-black text-slate-500 uppercase block mb-2">Metrics Analysis</span>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <span className="text-[9px] font-bold text-slate-600 uppercase block">Recent Failures</span>
+                                            <span className="text-xs font-bold text-slate-600 uppercase block">Recent Failures</span>
                                             <span className="text-xs font-black text-white">{opt.signals?.failuresCount || '> 3'}</span>
                                         </div>
                                         <div>
-                                            <span className="text-[9px] font-bold text-slate-600 uppercase block">Response Time</span>
+                                            <span className="text-xs font-bold text-slate-600 uppercase block">Response Time</span>
                                             <span className="text-xs font-black text-white">{opt.signals?.responseTime || 'N/A'}</span>
                                         </div>
                                     </div>
@@ -536,21 +536,21 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
 
                             <div className="space-y-4">
                                 <div className="bg-brand-500/5 border border-brand-500/20 rounded-xl p-4">
-                                    <h4 className="text-[10px] font-black text-brand-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <h4 className="text-xs font-black text-brand-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                                         <ArrowRight className="w-3 h-3" />
                                         Proposed Optimization
                                     </h4>
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Modification</span>
-                                            <span className="text-[10px] font-black text-white bg-brand-600 px-2 py-0.5 rounded uppercase">{opt.type.replace('_OPTIMIZATION', '')}</span>
+                                            <span className="text-xs font-bold text-slate-400 uppercase">Modification</span>
+                                            <span className="text-xs font-black text-white bg-brand-600 px-2 py-0.5 rounded uppercase">{opt.type.replace('_OPTIMIZATION', '')}</span>
                                         </div>
                                         <p className="text-xs font-bold text-slate-300">
                                             {opt.proposedSolution}
                                         </p>
                                         <div className="pt-2 mt-2 border-t border-brand-500/10">
-                                            <span className="text-[9px] font-bold text-slate-500 uppercase block mb-2">Expected Outcome</span>
-                                            <p className="text-[10px] font-black text-green-500 uppercase italic">
+                                            <span className="text-xs font-bold text-slate-500 uppercase block mb-2">Expected Outcome</span>
+                                            <p className="text-xs font-black text-green-500 uppercase italic">
                                                 {opt.expectedImpact}
                                             </p>
                                         </div>
@@ -560,13 +560,13 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                         </div>
 
                         <div className="p-4 bg-slate-900/40 border-t border-white/5 flex justify-end gap-3">
-                            <button className="text-[10px] font-black uppercase text-slate-500 hover:text-white px-4 py-2 transition-all">
+                            <button className="text-xs font-black uppercase text-slate-500 hover:text-white px-4 py-2 transition-all">
                                 DISMISS
                             </button>
                             <button 
                                 onClick={() => handleGenerateDraft(opt.id)}
                                 disabled={isPending}
-                                className="bg-white text-slate-950 text-[10px] font-black uppercase px-6 py-2 rounded-lg hover:bg-slate-200 transition-all flex items-center gap-2"
+                                className="bg-white text-slate-950 text-xs font-black uppercase px-6 py-2 rounded-lg hover:bg-slate-200 transition-all flex items-center gap-2"
                             >
                                 <Sparkles className="w-3 h-3" />
                                 GENERATE OPTIMIZED DRAFT
@@ -617,12 +617,12 @@ function StatCard({ title, value, sub, icon: Icon, color }: any) {
         </div>
       <div className="flex items-center gap-2">
         <Icon className={cn("w-4 h-4", color)} />
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
+        <span className="text-xs font-black uppercase tracking-widest text-slate-400">{title}</span>
       </div>
       <div className="flex items-baseline gap-2">
         <h3 className="text-3xl font-black tracking-tighter italic">{value}</h3>
       </div>
-      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">{sub}</p>
+      <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">{sub}</p>
     </div>
   );
 }
@@ -630,7 +630,7 @@ function StatCard({ title, value, sub, icon: Icon, color }: any) {
 function InfoBox({ label, content }: { label: string, content: string }) {
   return (
     <div className="bg-slate-900/40 p-3 rounded-lg border border-slate-700/30">
-        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-1">{label}</span>
+        <span className="text-xs font-black uppercase tracking-widest text-slate-500 block mb-1">{label}</span>
         <p className="text-xs font-bold text-slate-200 line-clamp-2">{content}</p>
     </div>
   );

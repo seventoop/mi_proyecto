@@ -280,7 +280,7 @@ export default function InventarioPage({ params }: { params: { id: string } }) {
                                 <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                                     <td className="px-5 py-3.5">
                                         <span className="text-sm font-bold text-slate-700 dark:text-white">{u.numero}</span>
-                                        {u.esEsquina && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-400">ESQ</span>}
+                                        {u.esEsquina && <span className="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-400">ESQ</span>}
                                     </td>
                                     <td className="px-5 py-3.5 text-sm text-slate-500 dark:text-slate-400">{u.tipo === "LOTE" ? "Lote" : "Depto"}</td>
                                     <td className="px-5 py-3.5 text-sm text-slate-500 dark:text-slate-400">{u.etapa}</td>

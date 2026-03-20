@@ -136,7 +136,7 @@ export default function AdminBannersPage() {
                 </div>
                 <button
                     onClick={() => { setEditingBanner(null); setShowEditor(true); }}
-                    className="mt-1 flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-[10px] uppercase font-black tracking-widest text-white transition-all shadow-lg shadow-brand-500/20"
+                    className="mt-1 flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-xs uppercase font-black tracking-widest text-white transition-all shadow-lg shadow-brand-500/20"
                 >
                     <Plus className="w-4 h-4" />
                     Nuevo Banner
@@ -150,7 +150,7 @@ export default function AdminBannersPage() {
                         key={f.id}
                         onClick={() => setFilter(f.id)}
                         className={cn(
-                            "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+                            "px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2",
                             filter === f.id
                                 ? "bg-white/[0.06] text-white"
                                 : "text-slate-500 hover:text-white"
@@ -158,7 +158,7 @@ export default function AdminBannersPage() {
                     >
                         {f.label}
                         {f.id === BANNER_ESTADOS.PENDING_APPROVAL && pendingCount > 0 && (
-                            <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded-md flex items-center justify-center">
+                            <span className="bg-rose-500 text-white text-xs px-1.5 py-0.5 rounded-md flex items-center justify-center">
                                 {pendingCount}
                             </span>
                         )}
@@ -200,19 +200,19 @@ export default function AdminBannersPage() {
                                 ) : (
                                     <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-white/[0.06]">
                                         <ImageIcon className="w-8 h-8" />
-                                        <p className="text-[10px] uppercase font-black tracking-widest">Sin Media</p>
+                                        <p className="text-xs uppercase font-black tracking-widest">Sin Media</p>
                                     </div>
                                 )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                 <div className="absolute bottom-3 left-4 right-4 text-white">
                                     <h3 className="font-black truncate text-[12px] uppercase tracking-tight">{banner.internalName || banner.titulo}</h3>
                                     {banner.headline && (
-                                        <p className="text-[10px] text-white/60 truncate uppercase tracking-widest">{banner.headline}</p>
+                                        <p className="text-xs text-white/60 truncate uppercase tracking-widest">{banner.headline}</p>
                                     )}
                                 </div>
                                 <div className="absolute top-3 right-3">
                                     <span className={cn(
-                                        "px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border-none",
+                                        "px-2 py-0.5 rounded-md text-xs font-black uppercase tracking-widest border-none",
                                         STATE_STYLE[banner.estado] || STATE_STYLE.DRAFT
                                     )}>
                                         {STATE_LABEL[banner.estado] || banner.estado}
@@ -220,7 +220,7 @@ export default function AdminBannersPage() {
                                 </div>
                                 {banner.context && (
                                     <div className="absolute top-3 left-3">
-                                        <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-white/[0.06] text-slate-300 uppercase tracking-widest backdrop-blur-sm border-none">
+                                        <span className="px-2 py-0.5 rounded-md text-xs font-black bg-white/[0.06] text-slate-300 uppercase tracking-widest backdrop-blur-sm border-none">
                                             {banner.context === "PROJECT_LANDING" ? "PROYECTO" : "ORG"}
                                         </span>
                                     </div>
@@ -329,7 +329,7 @@ export default function AdminBannersPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-white dark:bg-[#0A0A0C] rounded-2xl border border-white/[0.06] ring-1 ring-white/[0.04] p-6 w-full max-w-md shadow-2xl">
                         <h3 className="text-[14px] font-black uppercase tracking-tight text-slate-900 dark:text-white mb-2">Rechazar Banner</h3>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 font-bold">
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 font-bold">
                             Opcionalmente indicá el motivo (se notificará al creador).
                         </p>
                         <textarea
@@ -342,13 +342,13 @@ export default function AdminBannersPage() {
                         <div className="flex gap-3 justify-end mt-4">
                             <button
                                 onClick={() => setRejectingId(null)}
-                                className="px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.06] text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-white/[0.04] transition-colors"
+                                className="px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.06] text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-white/[0.04] transition-colors"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleRejectSubmit}
-                                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] uppercase font-black tracking-widest transition-colors shadow-lg shadow-rose-500/20"
+                                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs uppercase font-black tracking-widest transition-colors shadow-lg shadow-rose-500/20"
                             >
                                 Confirmar Rechazo
                             </button>

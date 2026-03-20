@@ -63,7 +63,7 @@ function StatusBadge({ status }: { status: string }) {
 
     return (
         <span className={cn(
-            "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border shrink-0",
+            "px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-widest border shrink-0",
             styles[status] || "bg-slate-500/10 text-slate-400 border-white/10"
         )}>
             {status.replace("_", " ")}
@@ -275,7 +275,7 @@ export default function AdminValidacionesPage() {
                                     <div className="grid md:grid-cols-3 gap-8">
                                         {/* Column 1: Context */}
                                         <div className="space-y-4">
-                                            <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                            <h5 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                                                 <History className="w-3 h-3" />
                                                 Contexto de envío
                                             </h5>
@@ -287,7 +287,7 @@ export default function AdminValidacionesPage() {
 
                                         {/* Column 2: History Timeline */}
                                         <div className="md:col-span-2 space-y-4">
-                                            <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                            <h5 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                                                 <Workflow className="w-3 h-3" />
                                                 Historial de estados
                                             </h5>
@@ -305,9 +305,9 @@ export default function AdminValidacionesPage() {
                                                             <div className="absolute left-[-5px] top-2.5 w-2 h-2 rounded-full bg-brand-500/40 border border-brand-500" />
                                                             <div className="flex flex-col gap-1">
                                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                                    <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-white font-bold">{log.estadoNuevo.replace("_", " ")}</span>
-                                                                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-tight">{formatDate(log.createdAt)}</span>
-                                                                    <span className="text-[9px] text-brand-500 font-black uppercase">por {log.realizadoPor?.nombre || "Sistema"}</span>
+                                                                    <span className="text-xs bg-white/5 px-2 py-0.5 rounded text-white font-bold">{log.estadoNuevo.replace("_", " ")}</span>
+                                                                    <span className="text-xs text-slate-500 font-bold uppercase tracking-tight">{formatDate(log.createdAt)}</span>
+                                                                    <span className="text-xs text-brand-500 font-black uppercase">por {log.realizadoPor?.nombre || "Sistema"}</span>
                                                                 </div>
                                                                 {log.motivo && (
                                                                     <div className="bg-white/[0.03] p-2.5 rounded-lg border border-white/[0.04]">
@@ -346,7 +346,7 @@ export default function AdminValidacionesPage() {
                     <div className="space-y-4 py-4">
                         {(modalType === "OBSERVADO" || modalType === "RECHAZADO") && (
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Motivo y recomendaciones</label>
+                                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Motivo y recomendaciones</label>
                                 <textarea
                                     value={nota}
                                     onChange={(e) => setNota(e.target.value)}
@@ -399,9 +399,9 @@ function DetailCard({ icon, label, value, sub }: { icon: React.ReactNode, label:
                 {icon}
             </div>
             <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-0.5">{label}</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-600 mb-0.5">{label}</p>
                 <p className="text-xs font-bold text-slate-200 truncate">{value}</p>
-                {sub && <p className="text-[10px] text-slate-500 truncate">{sub}</p>}
+                {sub && <p className="text-xs text-slate-500 truncate">{sub}</p>}
             </div>
         </div>
     );

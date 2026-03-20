@@ -73,13 +73,13 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
                                 const timeout = setTimeout(() => updateFilter({ search: val, page: 1 }), 500);
                                 return () => clearTimeout(timeout);
                             }}
-                            className="pl-9 pr-4 py-2 bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] hover:dark:border-white/[0.12] transition-colors rounded-xl text-[11px] font-black uppercase tracking-widest w-64 focus:ring-2 focus:ring-brand-500 outline-none placeholder:text-slate-500/50"
+                            className="pl-9 pr-4 py-2 bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] hover:dark:border-white/[0.12] transition-colors rounded-xl text-sm font-black uppercase tracking-widest w-64 focus:ring-2 focus:ring-brand-500 outline-none placeholder:text-slate-500/50"
                         />
                     </div>
                     <select
                         defaultValue={searchParams.get("role") || "ALL"}
                         onChange={(e) => updateFilter({ role: e.target.value, page: 1 })}
-                        className="px-3 py-2 bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] hover:dark:border-white/[0.12] transition-colors rounded-xl text-[11px] font-black uppercase tracking-widest outline-none"
+                        className="px-3 py-2 bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] hover:dark:border-white/[0.12] transition-colors rounded-xl text-sm font-black uppercase tracking-widest outline-none"
                     >
                         <option value="ALL">Todos los Roles</option>
                         <option value="USER">Usuarios</option>
@@ -89,7 +89,7 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
                     <select
                         defaultValue={searchParams.get("kyc") || "ALL"}
                         onChange={(e) => updateFilter({ kyc: e.target.value, page: 1 })}
-                        className="px-3 py-2 bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] hover:dark:border-white/[0.12] transition-colors rounded-xl text-[11px] font-black uppercase tracking-widest outline-none"
+                        className="px-3 py-2 bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] hover:dark:border-white/[0.12] transition-colors rounded-xl text-sm font-black uppercase tracking-widest outline-none"
                     >
                         <option value="ALL">Estado KYC</option>
                         <option value="PENDIENTE">Pendiente</option>
@@ -105,7 +105,7 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
             )}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-slate-50 dark:bg-white/[0.02] text-[10px] uppercase font-black tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-white/[0.06]">
+                        <thead className="bg-slate-50 dark:bg-white/[0.02] text-xs uppercase font-black tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-white/[0.06]">
                             <tr>
                                 <th className="px-6 py-3">Usuario</th>
                                 <th className="px-6 py-3">Rol</th>
@@ -117,7 +117,7 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
                         <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                             {users.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
                                         No se encontraron usuarios.
                                     </td>
                                 </tr>
@@ -131,13 +131,13 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
                                                 </div>
                                                 <div>
                                                     <div className="text-[12px] font-black uppercase tracking-tighter text-slate-900 dark:text-white">{user.nombre}</div>
-                                                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{user.email}</div>
+                                                    <div className="text-xs font-bold uppercase tracking-widest text-slate-500">{user.email}</div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={cn(
-                                                "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest",
+                                                "px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-widest",
                                                 user.rol === 'ADMIN' ? 'bg-purple-100 dark:bg-brand-500/10 text-purple-600 dark:text-brand-500' :
                                                     user.rol === 'VENDEDOR' ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' :
                                                         'bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400'
@@ -147,7 +147,7 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={cn(
-                                                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest",
+                                                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-widest",
                                                 user.kycStatus === 'VERIFICADO' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
                                                     user.kycStatus === 'RECHAZADO' ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400' :
                                                         'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
@@ -159,7 +159,7 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
                                                 {String(user.kycStatus).replace('_', ' ')}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-500 font-bold text-[10px] tracking-widest uppercase">
+                                        <td className="px-6 py-4 text-slate-500 font-bold text-xs tracking-widest uppercase">
                                             {new Date(user.createdAt).toLocaleDateString()}
                                         </td>
                                         <td className="px-6 py-4 text-right">
@@ -192,7 +192,7 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
                 </div>
 
                 <div className="p-4 border-t border-slate-200 dark:border-white/[0.06] flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
                         Página {metadata.page} de {metadata.totalPages} ({metadata.total} usuarios)
                     </p>
                     <div className="flex gap-2">

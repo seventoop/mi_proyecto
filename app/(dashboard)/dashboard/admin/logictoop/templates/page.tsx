@@ -76,7 +76,7 @@ export default async function TemplatesPage() {
                         <p className="text-brand-100 text-xs mt-2 relative z-10 leading-relaxed font-medium">
                             Nuestro equipo puede diseñar flujos avanzados para tu organización.
                         </p>
-                        <Button className="mt-4 w-full bg-white text-brand-950 hover:bg-brand-100 font-black italic uppercase text-[10px] py-1 h-8 tracking-widest relative z-10 border-none">
+                        <Button className="mt-4 w-full bg-white text-brand-950 hover:bg-brand-100 font-black italic uppercase text-xs py-1 h-8 tracking-widest relative z-10 border-none">
                             Contactar Soporte
                         </Button>
                     </div>

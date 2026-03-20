@@ -56,15 +56,15 @@ const automationBadge: Record<string, string> = {
 
 function ScoreBadge({ score }: { score: number | null | undefined }) {
     if (score === null || score === undefined) {
-        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400">SIN SCORE</span>;
+        return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400">SIN SCORE</span>;
     }
     if (score >= 80) {
-        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">HOT</span>;
+        return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">HOT</span>;
     }
     if (score >= 50) {
-        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500">WARM</span>;
+        return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500">WARM</span>;
     }
-    return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400">COLD</span>;
+    return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400">COLD</span>;
 }
 
 export default function LeadsTable({ leads }: LeadsTableProps) {
@@ -187,7 +187,7 @@ export default function LeadsTable({ leads }: LeadsTableProps) {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit flex items-center gap-1 ${automationBadge[lead.automationStatus] || ""}`}>
+                                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit flex items-center gap-1 ${automationBadge[lead.automationStatus] || ""}`}>
                                                     {lead.automationStatus === "PILOT" ? <Zap className="w-2.5 h-2.5" /> : lead.automationStatus === "COPILOT" ? <Sparkles className="w-2.5 h-2.5" /> : <ShieldAlert className="w-2.5 h-2.5" />}
                                                     {lead.automationStatus}
                                                 </span>
@@ -204,7 +204,7 @@ export default function LeadsTable({ leads }: LeadsTableProps) {
                                                                     style={{ width: `${lead.aiQualificationScore}%` }}
                                                                 />
                                                             </div>
-                                                            <span className="text-[10px] font-bold text-slate-500">{lead.aiQualificationScore}</span>
+                                                            <span className="text-xs font-bold text-slate-500">{lead.aiQualificationScore}</span>
                                                         </>
                                                     )}
                                                 </div>
@@ -272,7 +272,7 @@ export default function LeadsTable({ leads }: LeadsTableProps) {
                                                         </div>
 
                                                         <div className="mt-4 space-y-2">
-                                                            <p className="text-[10px] text-slate-500">
+                                                            <p className="text-xs text-slate-500">
                                                                 Tip: Puedes editar la sugerencia antes de enviarla o usarla como base para tu mensaje.
                                                             </p>
                                                         </div>

@@ -74,7 +74,7 @@ export default async function OportunidadesPage() {
             <ModuleHelp content={MODULE_HELP_CONTENT.crmPipeline} />
             <div className="flex items-center justify-between">
                 <div>
-                    <p className="text-slate-500 dark:text-zinc-400 font-bold uppercase tracking-widest text-[11px]">
+                    <p className="text-slate-500 dark:text-zinc-400 font-bold uppercase tracking-widest text-sm">
                         {totalOps === 0
                             ? "Convierte leads en oportunidades desde el módulo de Leads."
                             : `${totalOps} oportunidad${totalOps !== 1 ? "es" : ""} activa${totalOps !== 1 ? "s" : ""}`}
@@ -102,10 +102,10 @@ export default async function OportunidadesPage() {
                                 className={`flex-shrink-0 w-80 border-t-[3px] border-x border-b border-x-white/[0.04] border-b-white/[0.04] ${etapaConf.color} rounded-2xl bg-white/[0.01] shadow-sm dark:shadow-none`}
                             >
                                 <div className="p-4 flex items-center justify-between border-b border-white/[0.04] bg-white/50 dark:bg-zinc-950/50 rounded-t-2xl">
-                                    <h3 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-widest">
+                                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">
                                         {etapaConf.nombre}
                                     </h3>
-                                    <span className="text-[10px] font-black text-slate-500 dark:text-white/30 bg-slate-100 dark:bg-white/[0.04] px-2 py-0.5 rounded-md">
+                                    <span className="text-xs font-black text-slate-500 dark:text-white/30 bg-slate-100 dark:bg-white/[0.04] px-2 py-0.5 rounded-md">
                                         {items.length}
                                     </span>
                                 </div>

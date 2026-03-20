@@ -113,11 +113,11 @@ export default function NotificationsPage() {
                                     </h4>
                                     <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{notif.mensaje}</p>
                                     <div className="flex items-center gap-4 mt-2">
-                                        <span className="text-[10px] text-slate-400">
+                                        <span className="text-xs text-slate-400">
                                             {new Date(notif.createdAt).toLocaleDateString()} • {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                         {notif.linkAccion && (
-                                            <Link href={notif.linkAccion} className="text-[10px] font-bold text-brand-500 hover:underline">
+                                            <Link href={notif.linkAccion} className="text-xs font-bold text-brand-500 hover:underline">
                                                 Ver Detalle →
                                             </Link>
                                         )}

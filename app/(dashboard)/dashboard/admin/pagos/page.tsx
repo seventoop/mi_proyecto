@@ -60,7 +60,7 @@ export default function AdminPagosPage() {
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="mt-1 px-4 py-2.5 bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors rounded-xl text-[10px] font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                        className="mt-1 px-4 py-2.5 bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors rounded-xl text-xs font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
                     >
                         <option value="ALL">TODOS LOS ESTADOS</option>
                         <option value="PENDIENTE">PENDIENTE</option>
@@ -73,7 +73,7 @@ export default function AdminPagosPage() {
             <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-white/[0.02] border-b border-white/[0.06] text-[10px] uppercase text-slate-500 font-black tracking-widest">
+                        <thead className="bg-white/[0.02] border-b border-white/[0.06] text-xs uppercase text-slate-500 font-black tracking-widest">
                             <tr>
                                 <th className="px-6 py-4">Concepto</th>
                                 <th className="px-6 py-4">Usuario</th>
@@ -92,7 +92,7 @@ export default function AdminPagosPage() {
                                 ))
                             ) : pagos.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    <td colSpan={6} className="px-6 py-12 text-center text-xs font-black uppercase tracking-widest text-slate-500">
                                         No hay pagos registrados.
                                     </td>
                                 </tr>
@@ -101,21 +101,21 @@ export default function AdminPagosPage() {
                                     <tr key={pago.id} className="hover:bg-white/[0.02] transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="text-[12px] font-black uppercase tracking-tight text-slate-900 dark:text-white">{pago.concepto || "Sin concepto"}</div>
-                                            <div className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">
+                                            <div className="text-xs font-bold text-slate-500 tracking-widest uppercase">
                                                 {pago.proyecto?.nombre ? `PROYECTO: ${pago.proyecto.nombre}` :
                                                     pago.banner?.titulo ? `BANNER: ${pago.banner.titulo}` : "GENERAL"}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-[11px] font-black uppercase tracking-widest text-slate-900 dark:text-white">{pago.usuario.nombre}</div>
-                                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{pago.usuario.email}</div>
+                                            <div className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">{pago.usuario.nombre}</div>
+                                            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">{pago.usuario.email}</div>
                                         </td>
                                         <td className="px-6 py-4 text-[12px] font-black uppercase tracking-widest text-emerald-500">
                                             {pago.moneda} {pago.monto.toLocaleString()}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={cn(
-                                                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[9px] font-black tracking-widest uppercase",
+                                                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-black tracking-widest uppercase",
                                                 pago.estado === "APROBADO" ? "bg-emerald-500/10 text-emerald-500" :
                                                     pago.estado === "RECHAZADO" ? "bg-rose-500/10 text-rose-500" :
                                                         "bg-amber-500/10 text-amber-500"
@@ -126,7 +126,7 @@ export default function AdminPagosPage() {
                                                 {pago.estado}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                        <td className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-500">
                                             {new Date(pago.createdAt).toLocaleDateString()}
                                         </td>
                                         <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
@@ -167,7 +167,7 @@ export default function AdminPagosPage() {
 
                 {/* Pagination */}
                 <div className="p-4 border-t border-white/[0.06] flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                         PÁGINA {metadata.page} DE {metadata.totalPages}
                     </p>
                     <div className="flex gap-2">

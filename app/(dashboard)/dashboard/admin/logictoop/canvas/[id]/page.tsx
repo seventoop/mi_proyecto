@@ -75,7 +75,7 @@ export default async function LogicToopCanvasPage({ params }: CanvasPageProps) {
                 <h1 className="text-3xl font-black tracking-tighter uppercase italic">
                     Lienzo <span className="text-brand-500">Visual</span>
                 </h1>
-                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">
+                <p className="text-slate-500 font-bold uppercase text-xs tracking-widest mt-1">
                     Visualizando flujo para {flow.org.nombre}
                 </p>
             </div>

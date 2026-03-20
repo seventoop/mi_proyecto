@@ -196,7 +196,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     <MapPin className="w-3.5 h-3.5" />{proyecto.ubicacion || "Ubicación no definida"}
                                 </span>
                                 <span className={cn(
-                                    "text-[10px] font-bold px-2 py-0.5 rounded-lg border uppercase tracking-widest",
+                                    "text-xs font-bold px-2 py-0.5 rounded-lg border uppercase tracking-widest",
                                     proyecto.estadoValidacion === "APROBADO" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
                                     proyecto.estadoValidacion === "RECHAZADO" ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
                                     "bg-amber-500/10 text-amber-400 border-amber-500/20"

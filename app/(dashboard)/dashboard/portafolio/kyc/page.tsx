@@ -148,7 +148,7 @@ export default function PortafolioKycPage() {
                                 <div key={doc.id} className="space-y-1">
                                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                         {doc.label}
-                                        {doc.optional && <span className="text-[10px] text-slate-400">(Opcional)</span>}
+                                        {doc.optional && <span className="text-xs text-slate-400">(Opcional)</span>}
                                     </label>
                                     <FileUploader
                                         label={`Subir ${doc.label}`}

@@ -44,11 +44,11 @@ export default async function AdminRisksPage({
                     searchParams.level === "low" && "bg-white/[0.02] border-r-white/[0.12] border-y-white/[0.12]"
                 )}>
                     <div className="flex justify-between items-start mb-2">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Riesgo Bajo</p>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Riesgo Bajo</p>
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                     </div>
                     <p className="text-3xl font-black text-slate-900 dark:text-white">{stats.low}</p>
-                    <p className="text-[9px] text-slate-500 font-bold mt-1">Perfiles validados sin alertas</p>
+                    <p className="text-xs text-slate-500 font-bold mt-1">Perfiles validados sin alertas</p>
                 </Link>
 
                 <Link href="/dashboard/admin/riesgos?level=medium" className={cn(
@@ -56,11 +56,11 @@ export default async function AdminRisksPage({
                     searchParams.level === "medium" && "bg-white/[0.02] border-r-white/[0.12] border-y-white/[0.12]"
                 )}>
                     <div className="flex justify-between items-start mb-2">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Riesgo Medio</p>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Riesgo Medio</p>
                         <Info className="w-4 h-4 text-amber-500" />
                     </div>
                     <p className="text-3xl font-black text-slate-900 dark:text-white">{stats.medium}</p>
-                    <p className="text-[9px] text-slate-500 font-bold mt-1">Documentación incompleta / pendiente</p>
+                    <p className="text-xs text-slate-500 font-bold mt-1">Documentación incompleta / pendiente</p>
                 </Link>
 
                 <Link href="/dashboard/admin/riesgos?level=high" className={cn(
@@ -68,11 +68,11 @@ export default async function AdminRisksPage({
                     searchParams.level === "high" && "bg-white/[0.02] border-r-white/[0.12] border-y-white/[0.12]"
                 )}>
                     <div className="flex justify-between items-start mb-2">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Riesgo Alto</p>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Riesgo Alto</p>
                         <AlertTriangle className="w-4 h-4 text-rose-500" />
                     </div>
                     <p className="text-3xl font-black text-slate-900 dark:text-white">{stats.high}</p>
-                    <p className="text-[9px] text-rose-500 font-black mt-1">Inconsistencias críticas detectadas</p>
+                    <p className="text-xs text-rose-500 font-black mt-1">Inconsistencias críticas detectadas</p>
                 </Link>
             </div>
 
@@ -85,19 +85,19 @@ export default async function AdminRisksPage({
                             Listado de Perfiles Analizados
                         </h2>
                         {searchParams.level && (
-                            <Link href="/dashboard/admin/riesgos" className="text-[9px] font-black text-brand-500 uppercase hover:underline">
+                            <Link href="/dashboard/admin/riesgos" className="text-xs font-black text-brand-500 uppercase hover:underline">
                                 Limpiar filtro
                             </Link>
                         )}
                     </div>
-                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">
                         {users.length} usuarios encontrados
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-white/[0.02] border-b border-white/[0.06] text-[10px] uppercase text-slate-500 font-black tracking-widest">
+                        <thead className="bg-white/[0.02] border-b border-white/[0.06] text-xs uppercase text-slate-500 font-black tracking-widest">
                             <tr>
                                 <th className="px-6 py-4">Rol</th>
                                 <th className="px-6 py-4">Estado KYC</th>
@@ -113,17 +113,17 @@ export default async function AdminRisksPage({
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
                                             <span className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.nombre}</span>
-                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{user.email}</span>
+                                            <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">{user.email}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-[10px] font-black text-slate-500 border border-white/[0.06] px-2.5 py-1 rounded-md uppercase tracking-widest">
+                                        <span className="text-xs font-black text-slate-500 border border-white/[0.06] px-2.5 py-1 rounded-md uppercase tracking-widest">
                                             {user.rol}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={cn(
-                                            "text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-widest",
+                                            "text-xs font-black px-2.5 py-1 rounded-md uppercase tracking-widest",
                                             user.kycStatus === "VERIFICADO" ? "text-emerald-500 bg-emerald-500/10" : "text-amber-500 bg-amber-500/10"
                                         )}>
                                             {user.kycStatus}
@@ -133,12 +133,12 @@ export default async function AdminRisksPage({
                                         <RiskBadge level={user.riskLevel} />
                                     </td>
                                     <td className="px-6 py-4">
-                                        <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium max-w-xs truncate uppercase tracking-widest">
+                                        <p className="text-xs text-slate-600 dark:text-slate-400 font-medium max-w-xs truncate uppercase tracking-widest">
                                             {user.riskReason || "Sin reportes adicionales"}
                                         </p>
                                     </td>
                                     <td className="px-6 py-4 text-right whitespace-nowrap">
-                                        <p className="text-[10px] text-slate-900 dark:text-slate-500 font-black tracking-widest uppercase">
+                                        <p className="text-xs text-slate-900 dark:text-slate-500 font-black tracking-widest uppercase">
                                             {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: es })}
                                         </p>
                                     </td>

@@ -145,7 +145,7 @@ export default function NewProyectoDeveloperPage() {
                         </div>
                     </div>
 
-                    <div className="mt-8 flex items-center justify-center gap-8 text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                    <div className="mt-8 flex items-center justify-center gap-8 text-slate-400 font-bold uppercase tracking-widest text-xs">
                         <div className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
                             Acceso Inmediato
@@ -191,7 +191,7 @@ export default function NewProyectoDeveloperPage() {
                         <div className="sm:ml-auto">
                             <Link
                                 href="/dashboard/developer/mi-perfil/kyc"
-                                className="px-6 py-3 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-brand-500 font-black uppercase tracking-widest text-[10px] transition-all border border-brand-500/20 flex items-center gap-2"
+                                className="px-6 py-3 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-brand-500 font-black uppercase tracking-widest text-xs transition-all border border-brand-500/20 flex items-center gap-2"
                             >
                                 Formalizar KYC
                                 <ArrowRight className="w-3 h-3" />

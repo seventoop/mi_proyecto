@@ -63,10 +63,10 @@ export default function AdminLeadsInbox() {
                 <Table>
                     <TableHeader className="bg-white/[0.02] border-b border-white/[0.06]">
                         <TableRow className="border-none hover:bg-transparent">
-                            <TableHead className="text-[10px] uppercase text-slate-500 font-black tracking-widest h-11">Lead</TableHead>
-                            <TableHead className="text-[10px] uppercase text-slate-500 font-black tracking-widest h-11">Canal</TableHead>
-                            <TableHead className="text-[10px] uppercase text-slate-500 font-black tracking-widest h-11">Fecha</TableHead>
-                            <TableHead className="text-[10px] uppercase text-slate-500 font-black tracking-widest h-11 text-right">Acciones</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500 font-black tracking-widest h-11">Lead</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500 font-black tracking-widest h-11">Canal</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500 font-black tracking-widest h-11">Fecha</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500 font-black tracking-widest h-11 text-right">Acciones</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -77,7 +77,7 @@ export default function AdminLeadsInbox() {
                                 <TableCell className="py-4">
                                     <div className="flex flex-col">
                                         <span className="font-black text-[12px] text-slate-900 dark:text-white uppercase tracking-tight">{lead.nombre}</span>
-                                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                                        <div className="flex items-center gap-2 text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">
                                             <Mail className="w-3 h-3" /> {lead.email || "S/E"}
                                             <span className="text-white/[0.06]">•</span>
                                             <Phone className="w-3 h-3" /> {lead.telefono || "S/T"}
@@ -86,7 +86,7 @@ export default function AdminLeadsInbox() {
                                 </TableCell>
                                 <TableCell className="py-4">
                                     <span className={cn(
-                                        "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border border-white/[0.06]",
+                                        "px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-widest border border-white/[0.06]",
                                         lead.canalOrigen === "FACEBOOK" ? "text-blue-500 bg-blue-500/10" :
                                             lead.canalOrigen === "TIKTOK" ? "text-rose-500 bg-rose-500/10" :
                                                 "text-emerald-500 bg-emerald-500/10"
@@ -94,20 +94,20 @@ export default function AdminLeadsInbox() {
                                         {lead.canalOrigen}
                                     </span>
                                 </TableCell>
-                                <TableCell className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                <TableCell className="py-4 text-xs font-black uppercase tracking-widest text-slate-500">
                                     {new Date(lead.createdAt).toLocaleDateString()}
                                 </TableCell>
                                 <TableCell className="py-4 text-right">
                                     <Sheet>
                                         <SheetTrigger asChild>
-                                            <Button variant="ghost" size="sm" className="bg-brand-500/10 text-brand-500 hover:bg-brand-500 hover:text-white font-black uppercase tracking-widest text-[10px] transition-colors rounded-lg px-4">
+                                            <Button variant="ghost" size="sm" className="bg-brand-500/10 text-brand-500 hover:bg-brand-500 hover:text-white font-black uppercase tracking-widest text-xs transition-colors rounded-lg px-4">
                                                 Asignar Orga
                                             </Button>
                                         </SheetTrigger>
                                         <SheetContent className="bg-white dark:bg-[#0A0A0C] border-l-white/[0.06] sm:max-w-md w-full p-6">
                                             <SheetHeader className="text-left mb-6">
                                                 <SheetTitle className="text-[18px] font-black uppercase tracking-tighter text-slate-900 dark:text-white">Asignar <span className="text-brand-500">Organización</span></SheetTitle>
-                                                <SheetDescription className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">
+                                                <SheetDescription className="text-slate-500 font-bold uppercase text-xs tracking-widest mt-1">
                                                     Selecciona el destino para {lead.nombre}
                                                 </SheetDescription>
                                             </SheetHeader>
@@ -120,7 +120,7 @@ export default function AdminLeadsInbox() {
                                                     >
                                                         <div>
                                                             <p className="font-black text-[13px] text-slate-900 dark:text-white uppercase tracking-tight group-hover:text-brand-500 transition-colors">{org.nombre}</p>
-                                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{org._count.proyectos} Proyectos Activos</p>
+                                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">{org._count.proyectos} Proyectos Activos</p>
                                                         </div>
                                                         <div className="w-8 h-8 rounded-full bg-white/[0.04] group-hover:bg-brand-500/20 flex items-center justify-center transition-colors">
                                                             <UserPlus className="w-4 h-4 text-slate-400 group-hover:text-brand-500 transition-colors" />

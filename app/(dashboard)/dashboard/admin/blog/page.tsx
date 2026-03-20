@@ -74,7 +74,7 @@ export default function AdminBlogPage() {
                 <div className="flex-1">
                     <ModuleHelp content={MODULE_HELP_CONTENT.adminBlog} />
                 </div>
-                <button className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-[10px] uppercase font-black tracking-widest text-white transition-all shadow-lg shadow-brand-500/20">
+                <button className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-xs uppercase font-black tracking-widest text-white transition-all shadow-lg shadow-brand-500/20">
                     <Plus className="w-4 h-4" /> Nuevo Post
                 </button>
             </div>
@@ -85,7 +85,7 @@ export default function AdminBlogPage() {
                         key={f}
                         onClick={() => setFilter(f)}
                         className={cn(
-                            "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                            "px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
                             filter === f
                                 ? "bg-white/[0.06] text-white"
                                 : "text-slate-500 hover:text-white"
@@ -117,7 +117,7 @@ export default function AdminBlogPage() {
                             )}
                             <div className="absolute top-3 right-3">
                                 <Badge className={cn(
-                                    "text-[9px] font-black uppercase tracking-widest border-none px-2 py-0.5 rounded-md",
+                                    "text-xs font-black uppercase tracking-widest border-none px-2 py-0.5 rounded-md",
                                     post.status === "APROBADO" ? "bg-emerald-500/10 text-emerald-500" :
                                         post.status === "PENDIENTE" ? "bg-amber-500/10 text-amber-500" : "bg-slate-500/10 text-slate-400"
                                 )}>
@@ -129,7 +129,7 @@ export default function AdminBlogPage() {
                         <div className="p-5 flex-1 flex flex-col">
                             <div className="flex items-center gap-2 mb-3">
                                 <Tag className="w-3 h-3 text-brand-500" />
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">
                                     {post.tags?.[0] || "General"}
                                 </span>
                             </div>
@@ -147,7 +147,7 @@ export default function AdminBlogPage() {
                                     <div className="w-6 h-6 rounded-full bg-brand-500/10 flex items-center justify-center">
                                         <User className="w-3 h-3 text-brand-500" />
                                     </div>
-                                    <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">
+                                    <span className="text-xs font-black tracking-widest uppercase text-slate-400">
                                         {post.autor?.nombre}
                                     </span>
                                 </div>

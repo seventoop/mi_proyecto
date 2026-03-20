@@ -250,7 +250,7 @@ export default function KycWizardClient({ userId, initialStatus, initialDocs, in
                             <div key={doc.id} className="space-y-2">
                                 <label className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">
                                     {doc.label}
-                                    {doc.required && <span className="text-rose-500 text-[9px] bg-rose-50 dark:bg-rose-500/10 px-1 rounded">Requerido</span>}
+                                    {doc.required && <span className="text-rose-500 text-xs bg-rose-50 dark:bg-rose-500/10 px-1 rounded">Requerido</span>}
                                     {uploads[doc.id] && <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />}
                                 </label>
                                 <FileUploader
@@ -259,7 +259,7 @@ export default function KycWizardClient({ userId, initialStatus, initialDocs, in
                                     currentFileUrl={uploads[doc.id]}
                                     disabled={isLocked}
                                 />
-                                <p className="text-[11px] text-slate-500">{doc.description}</p>
+                                <p className="text-sm text-slate-500">{doc.description}</p>
                             </div>
                         ))}
                         <div className="flex justify-end pt-2">
@@ -470,7 +470,7 @@ export default function KycWizardClient({ userId, initialStatus, initialDocs, in
                                     currentFileUrl={(legalDocs as any)[key]}
                                     disabled={isLocked}
                                 />
-                                <p className="text-[11px] text-slate-500">{description}</p>
+                                <p className="text-sm text-slate-500">{description}</p>
                             </div>
                         ))}
 

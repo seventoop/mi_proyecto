@@ -158,7 +158,7 @@ export function LogicToopCanvas({ flow, initialNodes, initialEdges, nodeDefiniti
                     </Link>
                     <div>
                         <h2 className="text-sm font-black italic uppercase tracking-tighter leading-none">{flow.nombre}</h2>
-                        <span className="text-[9px] font-black uppercase text-brand-500 tracking-widest leading-none mt-1 block">{flow.triggerType}</span>
+                        <span className="text-xs font-black uppercase text-brand-500 tracking-widest leading-none mt-1 block">{flow.triggerType}</span>
                     </div>
                 </Panel>
 
@@ -189,7 +189,7 @@ export function LogicToopCanvas({ flow, initialNodes, initialEdges, nodeDefiniti
                                     <button 
                                         key={node.type}
                                         onClick={() => addNodeFromRegistry(node)}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-50 text-slate-700 rounded-lg transition-all font-bold text-[9px] uppercase border border-slate-100 shadow-sm ${
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-50 text-slate-700 rounded-lg transition-all font-bold text-xs uppercase border border-slate-100 shadow-sm ${
                                             node.category === 'AI' ? 'bg-brand-50/30' : 
                                             node.category === 'Integrations' ? 'bg-indigo-50/30' : 
                                             node.category === 'Triggers' ? 'bg-amber-50/30' : 
@@ -216,7 +216,7 @@ export function LogicToopCanvas({ flow, initialNodes, initialEdges, nodeDefiniti
 
                     <div className="space-y-6">
                         <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Nombre Identificador</label>
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-400 block mb-1">Nombre Identificador</label>
                             <input 
                                 type="text" 
                                 value={(selectedNode.data as any).label || ''}
@@ -230,7 +230,7 @@ export function LogicToopCanvas({ flow, initialNodes, initialEdges, nodeDefiniti
                         <div className="space-y-4">
                             {(nodeDefinitions.find(d => d.type === (selectedNode.data as any).type)?.configSchema || []).map((field: any) => (
                                 <div key={field.id} className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
+                                    <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
                                         {field.label}
                                         {field.required && <span className="text-rose-500">*</span>}
                                     </label>
@@ -267,7 +267,7 @@ export function LogicToopCanvas({ flow, initialNodes, initialEdges, nodeDefiniti
                                                 })}
                                                 className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
                                             />
-                                            <span className="text-[10px] text-slate-400 font-bold uppercase">{field.placeholder || 'Activar'}</span>
+                                            <span className="text-xs text-slate-400 font-bold uppercase">{field.placeholder || 'Activar'}</span>
                                         </div>
                                     ) : (
                                         <input 
@@ -288,7 +288,7 @@ export function LogicToopCanvas({ flow, initialNodes, initialEdges, nodeDefiniti
                             <span className="text-[8px] font-black text-slate-300 uppercase italic">Tipo: {(selectedNode.data as any).type}</span>
                             <button 
                                 onClick={deleteSelected}
-                                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors font-black uppercase text-[10px] italic border border-rose-100 shadow-sm"
+                                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors font-black uppercase text-xs italic border border-rose-100 shadow-sm"
                             >
                                 <Trash2 className="w-4 h-4" /> Eliminar Nodo
                             </button>

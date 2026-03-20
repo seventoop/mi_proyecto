@@ -39,7 +39,7 @@ export function TemplateCard({ template, orgId }: TemplateCardProps) {
         <Card className="hover:shadow-md transition-all border-slate-200">
             <CardHeader>
                 <div className="flex justify-between items-start mb-2">
-                    <Badge variant="secondary" className="bg-brand-50 text-brand-700 hover:bg-brand-100 border-none px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                    <Badge variant="secondary" className="bg-brand-50 text-brand-700 hover:bg-brand-100 border-none px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
                         {template.category}
                     </Badge>
                 </div>
@@ -49,7 +49,7 @@ export function TemplateCard({ template, orgId }: TemplateCardProps) {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex flex-wrap gap-2 text-[10px] text-slate-600">
+                <div className="flex flex-wrap gap-2 text-xs text-slate-600">
                     <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border border-slate-100">
                         <Rocket className="w-3 h-3 text-brand-500" />
                         <span>Trigger: {template.triggerType}</span>

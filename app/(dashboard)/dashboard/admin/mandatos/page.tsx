@@ -49,7 +49,7 @@ function TipoMandatoBadge({ tipo }: { tipo: string }) {
     const isExclusivo = tipo === "COMERCIALIZADOR_EXCLUSIVO" || tipo === "EXCLUSIVO";
     return (
         <span className={cn(
-            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border",
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-widest border",
             isExclusivo
                 ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                 : "bg-sky-500/10 text-sky-400 border-sky-500/20"
@@ -211,7 +211,7 @@ export default function AdminMandatosPage() {
                                             <CalendarDays className="w-3.5 h-3.5" />
                                             {formatDate(mandate.mandatoVigenciaDesde)} — {formatDate(mandate.mandatoVigenciaHasta)}
                                         </div>
-                                        <span className="text-[10px] text-slate-600">
+                                        <span className="text-xs text-slate-600">
                                             Enviado {formatDate(mandate.createdAt)}
                                         </span>
                                     </div>
@@ -280,7 +280,7 @@ export default function AdminMandatosPage() {
                                         </div>
                                         {mandate.notas && (
                                             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Notas del owner</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Notas del owner</p>
                                                 <p className="text-sm text-slate-300 leading-relaxed">{mandate.notas}</p>
                                             </div>
                                         )}
@@ -362,7 +362,7 @@ function DetailRow({
                 {icon}
             </div>
             <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-0.5">{label}</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-0.5">{label}</p>
                 <div className="text-sm text-slate-300">{children}</div>
             </div>
         </div>

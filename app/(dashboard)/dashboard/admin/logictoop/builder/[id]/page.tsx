@@ -29,7 +29,7 @@ export default async function LogicToopBuilderPage({ params }: BuilderPageProps)
                     <h1 className="text-3xl font-black tracking-tighter uppercase italic">
                         Builder: <span className="text-brand-500 underline decoration-2">{flow.nombre}</span>
                     </h1>
-                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">
+                    <p className="text-slate-500 font-bold uppercase text-xs tracking-widest mt-1">
                         Editando flujo para {flow.org.nombre}
                     </p>
                 </div>

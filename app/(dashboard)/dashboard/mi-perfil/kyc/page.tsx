@@ -121,7 +121,7 @@ export default function KYCPage() {
                                 <div>
                                     <h4 className="font-semibold text-slate-700 dark:text-slate-200">
                                         {doc.label}
-                                        {doc.optional && <span className="text-[10px] text-slate-400 ml-2 font-normal">(Opcional)</span>}
+                                        {doc.optional && <span className="text-xs text-slate-400 ml-2 font-normal">(Opcional)</span>}
                                     </h4>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">{doc.description}</p>
                                 </div>

@@ -92,7 +92,7 @@ export default async function AdminDashboard() {
                             </div>
                             <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
                         </div>
-                        <p className="text-[10px] text-slate-500 font-extrabold uppercase tracking-tight">{stat.label}</p>
+                        <p className="text-xs text-slate-500 font-extrabold uppercase tracking-tight">{stat.label}</p>
                     </div>
                 ))}
             </div>
@@ -110,11 +110,11 @@ export default async function AdminDashboard() {
                 <div className="lg:col-span-2 bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] rounded-2xl overflow-hidden p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white uppercase tracking-tighter">Registro de Auditoría</h2>
-                        <span className="text-[10px] font-black bg-brand-500/10 text-brand-500 px-2 py-1 rounded">ÚLTIMOS 20 EVENTOS</span>
+                        <span className="text-xs font-black bg-brand-500/10 text-brand-500 px-2 py-1 rounded">ÚLTIMOS 20 EVENTOS</span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
-                            <thead className="bg-slate-50 dark:bg-white/[0.02] text-[10px] uppercase font-black text-slate-500 dark:text-slate-400">
+                            <thead className="bg-slate-50 dark:bg-white/[0.02] text-xs uppercase font-black text-slate-500 dark:text-slate-400">
                                 <tr>
                                     <th className="px-3 py-3 border-b border-slate-100 dark:border-white/[0.06]">Usuario</th>
                                     <th className="px-3 py-3 border-b border-slate-100 dark:border-white/[0.06]">Acción</th>
@@ -124,19 +124,19 @@ export default async function AdminDashboard() {
                             </thead>
                             <tbody>
                                 {auditLogs.map((log: any) => (
-                                    <tr key={log.id} className="border-b border-slate-100 dark:border-white/[0.04] text-[11px] hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-colors">
+                                    <tr key={log.id} className="border-b border-slate-100 dark:border-white/[0.04] text-sm hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-colors">
                                         <td className="px-3 py-3 font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tight">{log.user?.nombre || "System"}</td>
                                         <td className="px-3 py-3">
-                                            <span className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-white/[0.06] text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                                            <span className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-white/[0.06] text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
                                                 {log.action}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-3 text-slate-500 font-bold uppercase tracking-widest text-[10px]">{log.entity}</td>
-                                        <td className="px-3 py-3 text-slate-500 font-bold uppercase tracking-widest text-[9px]">{new Date(log.createdAt).toLocaleString()}</td>
+                                        <td className="px-3 py-3 text-slate-500 font-bold uppercase tracking-widest text-xs">{log.entity}</td>
+                                        <td className="px-3 py-3 text-slate-500 font-bold uppercase tracking-widest text-xs">{new Date(log.createdAt).toLocaleString()}</td>
                                     </tr>
                                 ))}
                                 {auditLogs.length === 0 && (
-                                    <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">No hay registros recientes</td></tr>
+                                    <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400 font-bold uppercase text-xs tracking-widest">No hay registros recientes</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -187,7 +187,7 @@ function HealthBadge({ label, status, icon: Icon }: { label: string, status: str
     return (
         <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg">
             <Icon className={cn("w-3 h-3", isHealthy ? "text-emerald-500" : "text-rose-500")} />
-            <span className="text-[10px] font-black text-slate-400 uppercase">{label}</span>
+            <span className="text-xs font-black text-slate-400 uppercase">{label}</span>
             <div className={cn("w-1.5 h-1.5 rounded-full", isHealthy ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-rose-500")} />
         </div>
     );
@@ -211,7 +211,7 @@ function TerminalLink({ href, label, subText, icon: Icon, color }: { href: strin
             </div>
             <div className="text-left">
                 <h3 className="font-black text-[12px] uppercase tracking-tighter text-slate-900 dark:text-white transition-colors">{label}</h3>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{subText}</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{subText}</p>
             </div>
         </Link>
     );

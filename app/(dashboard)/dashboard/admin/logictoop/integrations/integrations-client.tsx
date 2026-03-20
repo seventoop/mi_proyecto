@@ -93,7 +93,7 @@ export function IntegrationsClient({ orgs }: IntegrationsClientProps) {
   return (
     <div className="space-y-6">
       <div className="glass-card p-6">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">
+        <label className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 block">
           Seleccionar Organización
         </label>
         <select
@@ -121,11 +121,11 @@ export function IntegrationsClient({ orgs }: IntegrationsClientProps) {
                 <h3 className="text-lg font-black italic uppercase tracking-tighter">Google Calendar</h3>
                 <div className="flex items-center gap-2 mt-1">
                    {config?.status === "ACTIVE" ? (
-                      <span className="flex items-center gap-1 text-[9px] font-black uppercase py-0.5 px-2 bg-green-100 text-green-600 rounded-full border border-green-200">
+                      <span className="flex items-center gap-1 text-xs font-black uppercase py-0.5 px-2 bg-green-100 text-green-600 rounded-full border border-green-200">
                         <CheckCircle2 size={10} /> Conectado
                       </span>
                    ) : (
-                      <span className="flex items-center gap-1 text-[9px] font-black uppercase py-0.5 px-2 bg-slate-100 text-slate-500 rounded-full border border-slate-200">
+                      <span className="flex items-center gap-1 text-xs font-black uppercase py-0.5 px-2 bg-slate-100 text-slate-500 rounded-full border border-slate-200">
                         <XCircle size={10} /> No Configurado
                       </span>
                    )}
@@ -150,7 +150,7 @@ export function IntegrationsClient({ orgs }: IntegrationsClientProps) {
 
             <div className="space-y-4 pt-2">
               <div>
-                <label className="text-[9px] font-black uppercase text-slate-400 mb-1.5 block tracking-widest">
+                <label className="text-xs font-black uppercase text-slate-400 mb-1.5 block tracking-widest">
                   Refresh Token {config?.hasRefreshToken && "(Ya configurado)"}
                 </label>
                 <input 
@@ -161,14 +161,14 @@ export function IntegrationsClient({ orgs }: IntegrationsClientProps) {
                   className="w-full bg-slate-50 border-2 border-slate-100 rounded-lg p-2.5 text-xs font-bold focus:border-brand-500 transition-all"
                 />
                 {!config?.hasRefreshToken && (
-                  <p className="text-[9px] text-slate-400 mt-1 font-bold italic">
+                  <p className="text-xs text-slate-400 mt-1 font-bold italic">
                     * Requerido para conectar la cuenta por primera vez.
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="text-[9px] font-black uppercase text-slate-400 mb-1.5 block tracking-widest">
+                <label className="text-xs font-black uppercase text-slate-400 mb-1.5 block tracking-widest">
                   Calendar ID (Default: primary)
                 </label>
                 <input 
@@ -206,9 +206,9 @@ export function IntegrationsClient({ orgs }: IntegrationsClientProps) {
           <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Shield size={12} className="text-slate-400" />
-              <span className="text-[9px] font-black uppercase text-slate-400 tracking-tighter">Tenant Scoped Isolation Active</span>
+              <span className="text-xs font-black uppercase text-slate-400 tracking-tighter">Tenant Scoped Isolation Active</span>
             </div>
-            <a href="#" className="text-[9px] font-black uppercase text-brand-500 hover:underline flex items-center gap-1">
+            <a href="#" className="text-xs font-black uppercase text-brand-500 hover:underline flex items-center gap-1">
               Guía de Configuración <ExternalLink size={10} />
             </a>
           </div>
@@ -220,7 +220,7 @@ export function IntegrationsClient({ orgs }: IntegrationsClientProps) {
             <Plus size={32} />
           </div>
           <h3 className="font-black uppercase italic text-slate-400 tracking-tighter">Más Integraciones</h3>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
             Drive, Sheets y WhatsApp (Próximamente)
           </p>
         </div>
