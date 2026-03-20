@@ -1,0 +1,154 @@
+CONTEXTO
+
+Estamos trabajando en el Tour360 de SevenToop.
+La imagen base ya funciona. Ahora estamos en modo edición del overlay del plano.
+
+IMPORTANTE:
+
+* cambios mínimos y controlados
+* NO refactor masivo
+* trabajar en branch
+* no tocar lógica no relacionada
+* no asumir cosas: si algo no está claro, preguntame antes
+
+==================================================
+PROBLEMAS ACTUALES (CRÍTICOS)
+=============================
+
+1. MOVIMIENTO DEL OVERLAY ESTÁ MAL
+
+Comportamiento actual:
+
+* mover mouse hacia arriba → el plano se mueve a la izquierda
+* mover hacia abajo → se mueve a la derecha
+* mover hacia la derecha → se mueve hacia arriba
+
+También con teclado:
+
+* flecha arriba mueve hacia la izquierda
+* flecha izquierda no mueve correctamente en eje horizontal
+
+Esto es incorrecto.
+
+OBJETIVO:
+
+* el movimiento debe ser 1:1 con la pantalla (screen space)
+* arrastrar hacia arriba = mover hacia arriba en pantalla
+* arrastrar hacia derecha = mover hacia derecha
+* sin depender de rotación del viewer ni heading
+
+IMPORTANTE:
+cuando estoy en modo edición, el plano debe sentirse “pegado al cursor”
+
+---
+
+2. BOUNDING / BORDE VIOLETA ROTO
+
+Problema:
+
+* hay un borde punteado violeta que no coincide con el plano
+* al rotar, se deforma y crece incorrectamente
+* parece estar basado en extremos en lugar del plano real
+
+OBJETIVO:
+
+* eliminar ese borde punteado actual
+* el contorno debe coincidir SIEMPRE con el plano real
+* debe mantenerse coherente aunque rote o escale
+* NO debe expandirse ni deformarse al rotar
+
+---
+
+3. CÍRCULO / PUNTO VIOLETA CENTRAL
+
+Problema:
+
+* aparece un punto/círculo violeta en el centro
+* no aporta valor
+* se mueve de forma confusa con el overlay
+
+OBJETIVO:
+
+* eliminar completamente este elemento visual
+
+---
+
+4. HANDLES Y FORMA DEL OVERLAY
+
+Problema:
+
+* el sistema parece usar una caja deformable
+* cuando rota, la referencia se rompe
+
+OBJETIVO:
+
+* mantener el overlay como un cuadrado coherente
+* los únicos puntos de control deben ser las esquinas
+* esos handles deben definir SIEMPRE el contorno
+* el borde visible debe seguir exactamente esos puntos
+
+---
+
+5. HITBOX INCORRECTA
+
+Problema:
+
+* se puede seleccionar el overlay clickeando fuera del plano real
+* hay una zona fantasma alrededor
+
+OBJETIVO:
+
+* la selección debe ocurrir SOLO dentro del plano visible
+* no usar bounding box inflado
+* no detectar clicks en zonas vacías
+
+==================================================
+NO ROMPER
+=========
+
+* rotación del plano
+* escala
+* calibración (zoom, perspectiva)
+* integración con el viewer 360
+
+==================================================
+ENTREGA OBLIGATORIA
+===================
+
+Responder con:
+
+1. análisis técnico de por qué ocurría el problema
+2. decisión de implementación
+3. cambios realizados
+4. archivos modificados
+5. resumen por archivo
+6. prueba manual paso a paso
+7. branch
+8. commit hash
+9. qué quedó pendiente
+
+IMPORTANTE
+
+* no presentar como hecho algo que no se cambió
+* si algo no es claro, preguntarme antes de implementar
+* priorizar comportamiento correcto antes que estética
+
+==================================================
+BLOQUE EXTRA — HOME
+
+Además, sin modificar nada todavía:
+
+* analizá la pantalla principal (home)
+* decime qué ves a nivel UI/UX
+* detectá problemas visuales, de jerarquía, o inconsistencias
+* no propongas cambios todavía, solo diagnóstico
+
+==================================================
+OBJETIVO FINAL
+
+Quiero que el overlay:
+
+* se mueva de forma intuitiva (como arrastrar una imagen en pantalla)
+* tenga una forma consistente
+* no tenga elementos visuales confusos
+* no tenga hitboxes incorrectas
