@@ -1,0 +1,177 @@
+CONTEXTO
+
+Se realizó una primera iteración de limpieza visual:
+- se redujo el sidebar
+- se eliminaron textos innecesarios
+- se aumentó la altura del mapa
+- se simplificaron instrucciones
+
+Eso mejoró bastante, pero todavía NO cumple el objetivo principal.
+
+Ahora necesito una segunda iteración enfocada en:
+
+👉 reorganización del header superior
+👉 mejor uso del espacio
+👉 llevar navegación de pasos arriba
+👉 centrar aún más el bloque principal (mapa / viewer)
+
+==================================================
+PROBLEMAS ACTUALES DETECTADOS
+==================================================
+
+1. BOTÓN “VOLVER A PROYECTOS”
+- está muy chico
+- está mal posicionado (pegado al título)
+- no tiene jerarquía visual
+- debería estar arriba a la izquierda, separado
+
+2. HEADER DEL PROYECTO
+- “Reserva Geodevia” está muy abajo
+- hay espacio desaprovechado arriba
+- no está bien alineado con el resto
+
+3. USO DEL ESPACIO SUPERIOR
+- hay una franja negra arriba que está subutilizada
+- se está desperdiciando espacio valioso
+
+4. CAJA “CONFIGURACIÓN”
+- el nombre es incorrecto → debería ser “Pasos”
+- es muy chica
+- no comunica bien el progreso
+- no tiene protagonismo
+
+5. NAVEGACIÓN DE PASOS
+- sigue estando en la izquierda
+- ocupa espacio innecesario
+- debería ir arriba, no lateral
+
+6. BADGE “EN_VENTA”
+- ensucia visualmente
+- no aporta valor → eliminar
+
+==================================================
+OBJETIVO DE ESTA ITERACIÓN
+==================================================
+
+Reorganizar completamente la parte superior para lograr:
+
+👉 mejor uso del espacio
+👉 navegación clara
+👉 menos desperdicio
+👉 mapa más centrado
+👉 jerarquía visual correcta
+
+==================================================
+NUEVA ESTRUCTURA DESEADA (CLAVE)
+==================================================
+
+Quiero que el layout superior quede así:
+
+[ VOLVER A PROYECTOS ]   [ TITULO + UBICACIÓN ]   [ PASOS + PROGRESO ]
+
+TODO en una misma línea horizontal.
+
+DETALLE:
+
+1. IZQUIERDA
+- botón “Volver a Proyectos”
+- más visible
+- mejor padding
+- separado del título
+
+2. CENTRO
+- “Reserva Geodevia”
+- debajo o al lado: “Valle de Punilla, Córdoba, Argentina”
+- sin badge “EN_VENTA”
+
+3. DERECHA
+- reemplazar “Configuración” por “Pasos”
+- integrar:
+  - número de paso actual (5)
+  - total (7)
+  - barra de progreso
+- hacerlo MUCHO más ancho (5x o 6x el tamaño actual)
+- que sea un bloque horizontal claro y legible
+
+OPCIONAL (mejor aún):
+👉 unificar pasos + progreso en un solo componente visual
+
+==================================================
+NAVEGACIÓN DE PASOS
+==================================================
+
+Eliminar la navegación lateral actual (sidebar izquierdo).
+
+Mover los pasos arriba.
+
+Opciones válidas:
+- tabs horizontales
+- stepper horizontal
+- lista compacta con estados
+
+IMPORTANTE:
+- mantener funcionalidad de navegación
+- mejorar visualización
+- no robar espacio al mapa
+
+==================================================
+MAPA / BLOQUE CENTRAL
+==================================================
+
+El mapa mejoró, pero todavía puede mejorar más.
+
+Necesito:
+
+- que quede aún más centrado
+- aprovechar el espacio que se libera arriba y a la izquierda
+- reducir padding innecesario
+- hacerlo más dominante visualmente
+
+Recordatorio:
+👉 este bloque es la herramienta principal del producto
+
+==================================================
+CONSISTENCIA
+==================================================
+
+Aplicar esto a:
+- Paso 2
+- Paso 3
+- Paso 4
+- Paso 5
+
+No quiero diferencias fuertes entre pasos.
+
+==================================================
+RESTRICCIONES
+==================================================
+
+- no refactor masivo
+- no tocar backend
+- no romper lógica existente
+- reutilizar componentes actuales si sirve
+- cambios de layout/UI
+
+==================================================
+CRITERIOS DE ÉXITO
+==================================================
+
+1. “Volver a Proyectos” bien posicionado y visible
+2. Header más compacto y mejor alineado
+3. Eliminación de espacios vacíos innecesarios
+4. Caja de pasos más grande, clara y útil
+5. Navegación de pasos arriba (no lateral)
+6. Mapa más centrado y dominante
+7. UI más limpia y profesional
+
+==================================================
+ENTREGA
+==================================================
+
+1. análisis técnico
+2. cambios realizados
+3. archivos modificados
+4. impacto
+5. antes vs después
+6. prueba manual
+7. branch + commit
