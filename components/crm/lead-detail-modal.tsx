@@ -3,7 +3,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, Mail, Phone, MessageSquare } from "lucide-react";
+import { Calendar, Mail, Phone, MessageSquare, Info } from "lucide-react";
 import { useState, useEffect, useTransition } from "react";
 import { addLeadNote } from "@/lib/actions/crm-actions";
 
@@ -15,6 +15,7 @@ interface LeadDetailModalProps {
 
 interface LeadMessage {
     id: string;
+    role: string;
     content: string;
     createdAt: string;
     user: { nombre: string } | null;
@@ -140,18 +141,27 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Historial</h4>
                             {lead.mensajes.length > 0 ? (
                                 <div className="space-y-6 border-l-2 border-slate-800 ml-2 pl-6">
-                                    {lead.mensajes.map((msg) => (
-                                        <div key={msg.id} className="relative">
-                                            <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-slate-600 ring-4 ring-slate-950" />
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-xs font-bold text-white">{msg.user?.nombre ?? "Sistema"}</span>
-                                                <span className="text-xs text-slate-500">{format(new Date(msg.createdAt), "dd MMM HH:mm", { locale: es })}</span>
+                                    {lead.mensajes.map((msg) => {
+                                        const isSystem = msg.role === "SYSTEM";
+                                        return (
+                                            <div key={msg.id} className="relative">
+                                                <div className={`absolute -left-[31px] top-1 w-3 h-3 rounded-full ring-4 ring-slate-950 ${isSystem ? "bg-slate-700" : "bg-slate-600"}`} />
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    {isSystem ? (
+                                                        <span className="flex items-center gap-1 text-xs font-bold text-slate-500">
+                                                            <Info className="w-3 h-3" /> Sistema
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-white">{msg.user?.nombre ?? "Sistema"}</span>
+                                                    )}
+                                                    <span className="text-xs text-slate-500">{format(new Date(msg.createdAt), "dd MMM HH:mm", { locale: es })}</span>
+                                                </div>
+                                                <p className={`text-sm p-3 rounded-lg border whitespace-pre-line ${isSystem ? "text-slate-400 bg-slate-900/30 border-white/[0.03] italic" : "text-slate-300 bg-slate-900/50 border-white/5"}`}>
+                                                    {msg.content}
+                                                </p>
                                             </div>
-                                            <p className="text-sm text-slate-300 bg-slate-900/50 p-3 rounded-lg border border-white/5">
-                                                {msg.content}
-                                            </p>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <p className="text-slate-500 text-sm italic">No hay actividad registrada.</p>

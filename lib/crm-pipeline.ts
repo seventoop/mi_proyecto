@@ -98,7 +98,39 @@ export async function executeLeadReception(input: LeadReceptionInput): Promise<L
             }
         });
 
-        // 3. Audit Log
+        // 3. SYSTEM LeadMessage — visible to sales in the timeline
+        {
+            const sourceLabels: Record<string, string> = {
+                MANUAL: "manual",
+                LANDING: "landing page",
+                CONTACTO: "formulario de contacto",
+                API_CRM: "API CRM",
+                WEBHOOK_META: "Meta (Facebook/Instagram)",
+                WEBHOOK_WHATSAPP: "WhatsApp",
+                WEBHOOK_TIKTOK: "TikTok",
+                PUBLIC_FORM: "formulario público",
+                BULK: "carga masiva",
+            };
+            const parts: string[] = [
+                `Lead recibido vía ${sourceLabels[input.sourceType] ?? input.sourceType}.`,
+            ];
+            if (input.origen && input.origen !== "WEB") parts.push(`Origen: ${input.origen}`);
+            if (input.canalOrigen && input.canalOrigen !== "WEB") parts.push(`Canal: ${input.canalOrigen}`);
+            if (input.mensaje) parts.push(`Mensaje: "${input.mensaje}"`);
+            if (input.campanaId) parts.push(`Campaña: ${input.campanaId}`);
+            if (input.adId) parts.push(`Anuncio: ${input.adId}`);
+            if (input.unidadInteres) parts.push(`Unidad de interés: ${input.unidadInteres}`);
+            // Include raw notas only for non-JSON strings (e.g. Meta/TikTok context strings)
+            const rawNotas = input.notas;
+            if (rawNotas && rawNotas !== "[]" && !rawNotas.startsWith("[")) {
+                parts.push(`Contexto: ${rawNotas}`);
+            }
+            await prisma.leadMessage.create({
+                data: { leadId: lead.id, role: "SYSTEM", content: parts.join("\n") },
+            });
+        }
+
+        // 4. Audit Log
         await (prisma.auditLog.create({
             data: {
                 userId: input.asignadoAId || "system",

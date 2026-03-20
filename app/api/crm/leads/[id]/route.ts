@@ -30,10 +30,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
                     select: { id: true, nombre: true, email: true }
                 },
                 mensajes: {
-                    where: { role: "note" },
+                    where: { role: { in: ["note", "SYSTEM"] } },
                     orderBy: { createdAt: "asc" },
                     select: {
                         id: true,
+                        role: true,
                         content: true,
                         createdAt: true,
                         user: { select: { nombre: true } }

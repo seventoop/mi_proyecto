@@ -2,11 +2,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { CommercialDashboardClient } from "@/components/dashboard/commercial/commercial-dashboard-client";
 import ModuleHelp from "@/components/dashboard/module-help";
 import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 import type { LeadsDayBucket } from "@/components/dashboard/commercial/leads-timeline";
 import type { ProjectRankingRow } from "@/components/dashboard/commercial/projects-ranking-table";
+
+type UnitStateRow    = { proyectoId: string; estado: string; count: number };
+type ReservaCountRow = { proyectoId: string; count: number };
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +34,7 @@ export default async function AdminComercialPage() {
         reservasActivas,
         reservasTotal,
         unidadesAgg,
-        proyectosRaw,
+        proyectos,
     ] = await Promise.all([
         // Total leads across platform
         prisma.lead.count(),
@@ -54,37 +58,45 @@ export default async function AdminComercialPage() {
             _count: { id: true },
         }),
 
-        // Projects with lead + reservation counts + unit stats
+        // Projects — minimal: no tree, no nested units/reservas
         prisma.proyecto.findMany({
             where: { deletedAt: null },
             select: {
                 id: true,
                 nombre: true,
-                _count: {
-                    select: { leads: true },
-                },
-                etapas: {
-                    select: {
-                        manzanas: {
-                            select: {
-                                unidades: { 
-                                    select: { 
-                                        estado: true,
-                                        reservas: {
-                                            where: { estado: "ACTIVA" },
-                                            select: { id: true }
-                                        }
-                                    } 
-                                },
-                            },
-                        },
-                    },
-                },
+                _count: { select: { leads: true } },
             },
             orderBy: { createdAt: "desc" },
             take: 20,
         }),
     ]);
+
+    // ── Round 2: per-project aggregates (depend on the 20 project IDs) ─────────
+    const projectIds = proyectos.map(p => p.id);
+    const [unitStateRows, reservaCountRows] = projectIds.length > 0
+        ? await Promise.all([
+            // Units by estado per project — replaces etapas→manzanas→unidades tree
+            prisma.$queryRaw<UnitStateRow[]>(Prisma.sql`
+                SELECT e."proyectoId", u.estado, COUNT(u.id)::int AS count
+                FROM "unidades" u
+                INNER JOIN "manzanas" m ON u."manzanaId" = m.id
+                INNER JOIN "etapas"   e ON m."etapaId"   = e.id
+                WHERE e."proyectoId" IN (${Prisma.join(projectIds)})
+                GROUP BY e."proyectoId", u.estado
+            `),
+            // Active reservas per project — replaces unidades→reservas(ACTIVA) sub-tree
+            prisma.$queryRaw<ReservaCountRow[]>(Prisma.sql`
+                SELECT e."proyectoId", COUNT(r.id)::int AS count
+                FROM "reservas" r
+                INNER JOIN "unidades" u ON r."unidadId" = u.id
+                INNER JOIN "manzanas" m ON u."manzanaId" = m.id
+                INNER JOIN "etapas"   e ON m."etapaId"   = e.id
+                WHERE r.estado = 'ACTIVA'
+                  AND e."proyectoId" IN (${Prisma.join(projectIds)})
+                GROUP BY e."proyectoId"
+            `),
+        ])
+        : [[] as UnitStateRow[], [] as ReservaCountRow[]];
 
     // ── Build leads timeline (bucket per day) ─────────────────────────────────
     const bucketMap: Record<string, number> = {};
@@ -103,23 +115,26 @@ export default async function AdminComercialPage() {
     const inv: Record<string, number> = { DISPONIBLE: 0, RESERVADA: 0, VENDIDA: 0 };
     for (const g of unidadesAgg) inv[g.estado] = (inv[g.estado] ?? 0) + g._count.id;
 
-    // ── Project rankings ──────────────────────────────────────────────────────
-    const rankings: ProjectRankingRow[] = proyectosRaw.map(p => {
-        let disp = 0, res = 0, vend = 0;
-        let activeReservasCount = 0;
-        for (const e of p.etapas)
-            for (const m of e.manzanas)
-                for (const u of m.unidades) {
-                    if (u.estado === "DISPONIBLE") disp++;
-                    else if (u.estado === "RESERVADA") res++;
-                    else if (u.estado === "VENDIDA") vend++;
-                    activeReservasCount += u.reservas.length;
-                }
+    // ── Project rankings — built from DB aggregates, no tree traversal ────────
+    const unitsByProject: Record<string, Record<string, number>> = {};
+    for (const row of unitStateRows) {
+        (unitsByProject[row.proyectoId] ??= {})[row.estado] = row.count;
+    }
+    const reservasByProject: Record<string, number> = {};
+    for (const row of reservaCountRows) {
+        reservasByProject[row.proyectoId] = row.count;
+    }
+
+    const rankings: ProjectRankingRow[] = proyectos.map(p => {
+        const us   = unitsByProject[p.id] ?? {};
+        const disp = us.DISPONIBLE ?? 0;
+        const res  = us.RESERVADA  ?? 0;
+        const vend = us.VENDIDA    ?? 0;
         return {
             id: p.id,
             nombre: p.nombre,
             leads: p._count.leads,
-            reservasActivas: activeReservasCount,
+            reservasActivas: reservasByProject[p.id] ?? 0,
             unidadesDisponibles: disp,
             unidadesVendidas: vend,
             unidadesTotal: disp + res + vend,
