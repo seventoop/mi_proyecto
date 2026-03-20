@@ -1,0 +1,108 @@
+CONTEXTO
+
+El sistema está casi correcto:
+
+* drag con mouse → perfecto
+* rotación, escala, etc → perfecto
+
+Las flechas del panel siguen mal.
+
+==================================================
+PROBLEMA ACTUAL
+===============
+
+Las flechas están rotadas 90°:
+
+* flecha arriba → mueve a la derecha
+* flecha abajo → mueve a la izquierda
+* flecha derecha → mueve hacia abajo
+* flecha izquierda → mueve hacia arriba
+
+IMPORTANTE:
+esto NO es inversión
+esto es ROTACIÓN del vector
+
+==================================================
+OBJETIVO
+========
+
+Las flechas deben comportarse EXACTAMENTE igual que el mouse:
+
+* arriba → plano sube
+* abajo → plano baja
+* izquierda → plano izquierda
+* derecha → plano derecha
+
+==================================================
+CLAVE CRÍTICA
+=============
+
+NO usar lógica propia de lat/lng para las flechas.
+
+Las flechas deben:
+
+1. generar un vector en pantalla:
+   arriba = (0, -1)
+   abajo = (0, +1)
+   izquierda = (-1, 0)
+   derecha = (+1, 0)
+
+2. pasar ese vector por EXACTAMENTE la misma función que usa el drag
+
+NO duplicar lógica
+NO recalcular con otra fórmula
+NO usar directamente latOffset/lngOffset sin transformación
+
+==================================================
+INSTRUCCIONES
+=============
+
+1. Encontrar la función que el drag usa para convertir:
+   (deltaX, deltaY) → movimiento del plano
+
+2. Reutilizar esa misma función para las flechas
+
+3. Eliminar cualquier conversión manual de lat/lng en flechas
+
+4. Verificar que no haya:
+
+   * ejes intercambiados
+   * signos incorrectos
+   * rotaciones adicionales
+
+==================================================
+VALIDACIÓN OBLIGATORIA
+======================
+
+Antes de cerrar:
+
+* flecha arriba → sube
+* flecha abajo → baja
+* flecha izquierda → izquierda
+* flecha derecha → derecha
+
+Y debe coincidir exactamente con el mouse.
+
+==================================================
+NO ROMPER
+=========
+
+* drag (ya funciona perfecto)
+* rotación
+* escala
+* guardado
+
+==================================================
+ENTREGA
+=======
+
+1. causa exacta de la rotación 90°
+2. cómo se unificó con el drag
+3. cambios realizados
+4. archivos modificados
+5. prueba manual
+6. commit hash
+
+IMPORTANTE
+
+no cerrar hasta que las flechas y el mouse se comporten idéntico
