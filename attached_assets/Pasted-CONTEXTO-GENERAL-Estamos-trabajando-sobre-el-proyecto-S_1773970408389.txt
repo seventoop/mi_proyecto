@@ -1,0 +1,195 @@
+CONTEXTO GENERAL
+
+Estamos trabajando sobre el proyecto SevenToop, alojado en este repositorio ya conectado en Replit.
+
+IMPORTANTE:
+- Recién estás recibiendo este proyecto.
+- Antes de modificar cualquier cosa, primero necesito una auditoría inicial.
+- NO quiero una auditoría excesivamente larga ni una exploración infinita porque llevo apuro.
+- Quiero un análisis suficientemente profundo como para detectar riesgos reales, pero resumido, práctico y accionable.
+- En esta primera etapa NO debés modificar código, NO refactorizar, NO cambiar archivos, NO instalar cosas innecesarias y NO tocar main.
+- Solo analizar, auditar y reportar.
+- Más adelante te voy a dar un segundo prompt para trabajar una parte puntual del sistema.
+
+OBJETIVO DE ESTA PRIMERA ETAPA
+
+Necesito que hagas una auditoría general del proyecto y me devuelvas una visión clara del estado actual, enfocándote en:
+
+1. Seguridad
+2. Optimización / performance
+3. Mantenibilidad
+4. Arquitectura general
+5. Riesgos técnicos
+6. Posible código muerto o archivos innecesarios
+7. Cosas que estén afectando la fluidez, limpieza o escalabilidad del sistema
+8. Posibles deudas técnicas que puedan complicar cambios futuros
+
+ALCANCE DE LA AUDITORÍA
+
+Quiero una auditoría general, no una revisión línea por línea de todo el repositorio.
+Priorizá:
+- estructura del proyecto
+- archivos y módulos más importantes
+- configuración general
+- dependencias
+- calidad de integración entre frontend / backend / servicios
+- lugares donde se vea fragilidad técnica
+- patrones repetidos o inconsistentes
+- señales de código obsoleto, duplicado o no utilizado
+- posibles problemas de tipos, warnings, efectos colaterales, acoplamiento o lógica difícil de sostener
+
+TAMBIÉN QUIERO QUE EVALUES
+
+SEGURIDAD
+- exposición de secretos, tokens o credenciales
+- uso inseguro de variables de entorno
+- validaciones débiles
+- riesgos de autenticación/autorización
+- endpoints sensibles
+- posibles problemas de permisos
+- posibles riesgos XSS, CSRF, inyección o manejo inseguro de inputs, si aplica
+- cualquier práctica que pueda traer problemas en producción
+
+OPTIMIZACIÓN / PERFORMANCE
+- componentes, módulos o flujos que parezcan pesados
+- renders innecesarios
+- efectos mal planteados
+- listeners/eventos no limpiados
+- cálculos repetidos
+- archivos muy grandes
+- dependencias innecesarias o demasiado costosas
+- código o estructura que pueda afectar la fluidez del sistema
+- posibles cuellos de botella obvios
+
+MANTENIBILIDAD / ARQUITECTURA
+- código muy acoplado
+- responsabilidades mezcladas
+- módulos difíciles de testear o extender
+- archivos demasiado largos
+- naming inconsistente
+- patrones mezclados
+- duplicación de lógica
+- deuda técnica visible
+- decisiones arquitectónicas que hoy estén frenando velocidad de desarrollo
+
+CÓDIGO MUERTO / BASURA TÉCNICA
+- archivos aparentemente no usados
+- funciones no usadas
+- imports no usados
+- ramas lógicas obsoletas
+- mocks viejos
+- flags o configuraciones heredadas
+- código comentado que ya no aporta
+- cualquier resto técnico que ensucie el proyecto o baje claridad
+
+FORMATO DE ENTREGA OBLIGATORIO
+
+Quiero que respondas de forma estructurada, clara y ejecutiva, usando este formato:
+
+1. RESUMEN EJECUTIVO
+- resumen general del estado del proyecto en pocas líneas
+- impresión general técnica
+- principales oportunidades
+- principales riesgos
+
+2. SCORE GENERAL DEL PROYECTO
+Asigná porcentajes razonados y justificados para:
+- Seguridad: XX%
+- Performance: XX%
+- Mantenibilidad: XX%
+- Escalabilidad: XX%
+- Limpieza técnica: XX%
+- Confianza para hacer cambios sin romper: XX%
+
+IMPORTANTE:
+- No inventes números vacíos.
+- Cada porcentaje debe estar justificado por hallazgos concretos.
+- Si hay incertidumbre, decilo explícitamente.
+
+3. FORTALEZAS DETECTADAS
+- listado de cosas bien resueltas
+- justificar por qué son fortalezas
+- explicar cómo ayudan al producto o al desarrollo
+
+4. DEBILIDADES DETECTADAS
+- listado de problemas o fragilidades
+- justificar por qué son debilidades reales
+- indicar impacto probable
+
+5. RIESGOS PRINCIPALES
+Separá por prioridad:
+- riesgo alto
+- riesgo medio
+- riesgo bajo
+
+Para cada riesgo indicá:
+- qué es
+- dónde está
+- por qué importa
+- qué podría romper o empeorar
+
+6. CÓDIGO MUERTO / ARCHIVOS SOSPECHOSOS / SOBRANTES
+- archivos o sectores que parezcan no estar aportando
+- imports, funciones o módulos posiblemente obsoletos
+- basura técnica visible
+- aclarar si es certeza o sospecha fundada
+
+7. CUELLOS DE BOTELLA Y PROBLEMAS DE FLUIDEZ
+- qué cosas pueden estar afectando experiencia de uso o performance
+- qué cosas pueden afectar velocidad de desarrollo
+- justificar técnicamente
+
+8. RECOMENDACIONES PRIORIZADAS
+Necesito una hoja de ruta corta, ordenada por impacto:
+- Quick wins
+- Mejoras medianas
+- Mejoras estructurales
+
+Para cada recomendación:
+- qué conviene hacer
+- por qué
+- impacto estimado
+- riesgo estimado
+- complejidad estimada
+
+9. TOP 5 CAMBIOS RECOMENDADOS
+- dame los 5 cambios más valiosos para hacer primero
+- ordenados por retorno técnico/producto
+- con explicación breve
+
+10. LISTA DE ARCHIVOS CLAVE REVISADOS
+- nombrá los archivos, carpetas o módulos más relevantes que tomaste en cuenta para formar criterio
+- no hace falta listar todo el repo
+- solo lo importante
+
+RESTRICCIONES IMPORTANTES
+
+- NO modifiques nada en esta etapa
+- NO hagas commits
+- NO cambies ramas
+- NO refactors
+- NO “arregles de paso”
+- NO presentes hipótesis como certezas
+- Si algo no lo pudiste confirmar, decilo claramente
+- Priorizá claridad, criterio y honestidad técnica
+
+IMPORTANTE SOBRE EL SIGUIENTE PASO
+
+Cuando termines esta auditoría, asumí que después te voy a dar un segundo prompt para trabajar una parte muy puntual del producto:
+la visualización de planos dentro de fotos 360 en proyectos inmobiliarios que ayudamos a vender.
+
+Todavía NO tenés que implementar eso en este paso.
+Solo dejá la auditoría lista para que después podamos entrar directo a esa parte con cambios chicos y controlados.
+
+OBJETIVO DE TU RESPUESTA
+
+Quiero salir de esta primera etapa entendiendo:
+- qué tan sano está el proyecto
+- dónde están los riesgos
+- qué cosas fuertes tiene
+- qué cosas están mal o flojas
+- qué conviene atacar primero
+- qué tan seguro es empezar a tocar la parte de Tour360 y overlays sin romper otras áreas
+
+POR FAVOR:
+hacé primero esta auditoría inicial, sin modificar nada, y devolvé el informe estructurado exactamente con el formato pedido.

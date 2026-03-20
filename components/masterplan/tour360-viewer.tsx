@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Layers, Edit } from "lucide-react";
+import { X, Layers, Edit, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Tour360Upscaler from "./tour360-upscaler";
 import Tour360Overlay, { OverlayConfig } from "./tour360-overlay";
@@ -57,7 +57,12 @@ export default function Tour360Viewer({ imageUrl, onClose, title, sceneId, initi
     const [isEditingOverlay, setIsEditingOverlay] = useState(false);
     const [upscaledUrl, setUpscaledUrl] = useState<string | null>(null);
     const [isSavingOverlay, setIsSavingOverlay] = useState(false);
+    const [imageError, setImageError] = useState(false);
     const activeUrl = upscaledUrl ?? imageUrl;
+
+    useEffect(() => {
+        setImageError(false);
+    }, [activeUrl]);
 
     useEffect(() => {
         let cancelled = false;
@@ -83,7 +88,7 @@ export default function Tour360Viewer({ imageUrl, onClose, title, sceneId, initi
             instanceRef.current = null;
             viewerRef.current.innerHTML = "";
 
-            instanceRef.current = window.pannellum.viewer(viewerRef.current, {
+            const viewer = window.pannellum.viewer(viewerRef.current, {
                 type: "equirectangular",
                 panorama: activeUrl,
                 autoLoad: true,
@@ -95,6 +100,12 @@ export default function Tour360Viewer({ imageUrl, onClose, title, sceneId, initi
                 hfov: view.hfov,
                 mouseZoom: false,
             });
+
+            viewer.on("error", () => {
+                if (!cancelled) setImageError(true);
+            });
+
+            instanceRef.current = viewer;
         }
 
         init();
@@ -161,6 +172,25 @@ export default function Tour360Viewer({ imageUrl, onClose, title, sceneId, initi
             </div>
 
             <div ref={viewerRef} className="w-full h-full" />
+
+            {imageError && (
+                <div className="absolute inset-0 z-[3010] flex flex-col items-center justify-center bg-black/90 gap-4">
+                    <ImageOff className="w-14 h-14 text-slate-400" />
+                    <div className="text-center">
+                        <p className="text-white font-semibold text-lg">Imagen no disponible</p>
+                        <p className="text-slate-400 text-sm mt-1 max-w-xs">
+                            El archivo de esta escena no se encontró en el servidor.
+                            Por favor, volvé a subir la imagen desde el panel de administración.
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="mt-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm border border-white/20 transition-all"
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            )}
 
             {/* Overlay Layer */}
             <Tour360Overlay
