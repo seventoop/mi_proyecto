@@ -179,10 +179,12 @@ export default function ImagenViewer({
       if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
       e.preventDefault();
       const step = e.shiftKey ? 25 : 5;
-      if (e.key === "ArrowUp")    setLatOffset((v) => v + step);
-      if (e.key === "ArrowDown")  setLatOffset((v) => v - step);
-      if (e.key === "ArrowLeft")  setLngOffset((v) => v - step);
-      if (e.key === "ArrowRight") setLngOffset((v) => v + step);
+      // Negate: latOffset/lngOffset move the camera; camera must move opposite
+      // to plan direction so the plan visually follows the arrow key.
+      if (e.key === "ArrowUp")    setLatOffset((v) => v - step);
+      if (e.key === "ArrowDown")  setLatOffset((v) => v + step);
+      if (e.key === "ArrowLeft")  setLngOffset((v) => v + step);
+      if (e.key === "ArrowRight") setLngOffset((v) => v - step);
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -503,14 +505,14 @@ function OverlayControls({
                 {/* N/S + E/O */}
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <div className="flex flex-col items-center justify-center p-2 bg-black/40 rounded-lg">
-                    <button onClick={() => onLatOffsetChange(latOffset + MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowUp className="w-4 h-4" /></button>
+                    <button onClick={() => onLatOffsetChange(latOffset - MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowUp className="w-4 h-4" /></button>
                     <span className="text-[10px] text-slate-400 my-0.5">N/S {sign(Math.round(latOffset))}</span>
-                    <button onClick={() => onLatOffsetChange(latOffset - MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowDown className="w-4 h-4" /></button>
+                    <button onClick={() => onLatOffsetChange(latOffset + MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowDown className="w-4 h-4" /></button>
                   </div>
                   <div className="flex flex-col items-center justify-center p-2 bg-black/40 rounded-lg">
-                    <button onClick={() => onLngOffsetChange(lngOffset + MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowRight className="w-4 h-4" /></button>
+                    <button onClick={() => onLngOffsetChange(lngOffset - MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowRight className="w-4 h-4" /></button>
                     <span className="text-[10px] text-slate-400 my-0.5">E/O {sign(Math.round(lngOffset))}</span>
-                    <button onClick={() => onLngOffsetChange(lngOffset - MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowLeft className="w-4 h-4" /></button>
+                    <button onClick={() => onLngOffsetChange(lngOffset + MOVE_STEP)} className="p-1 hover:text-indigo-400"><ArrowLeft className="w-4 h-4" /></button>
                   </div>
                 </div>
 
