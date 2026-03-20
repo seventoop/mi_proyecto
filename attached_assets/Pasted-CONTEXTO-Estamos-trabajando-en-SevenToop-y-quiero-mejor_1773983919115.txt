@@ -1,0 +1,427 @@
+CONTEXTO
+
+Estamos trabajando en SevenToop y quiero mejorar exclusivamente el layout, la visualización y la experiencia de uso del módulo de proyectos, especialmente en los pasos 2 / 3 / 4 / 5.
+
+Este módulo es, para mí, la herramienta más importante de todo el producto:
+
+el cliente carga su archivo
+
+se digitaliza
+
+lo puede ubicar donde quiere
+
+le agrega cosas
+
+lo ve desde distintos puntos
+
+y trabaja sobre mapa / plano / masterplan / viewer
+
+Eso es el corazón real del proyecto y quiero que pase a ser el centro absoluto de atención visual y funcional.
+
+IMPORTANTE:
+funcionalmente hoy muchas cosas ya andan bien.
+No quiero romper la lógica.
+Quiero mejorar:
+
+layout
+
+jerarquía visual
+
+claridad
+
+textos
+
+orden
+
+comodidad de uso
+
+optimización/performance
+
+==================================================
+OBJETIVO PRINCIPAL
+
+Quiero que el bloque central de trabajo sea el protagonista total de la página.
+
+Ese bloque central incluye, según el paso:
+
+mapa
+
+plano
+
+masterplan
+
+viewer
+
+overlays
+
+herramientas visuales del proyecto
+
+Cuando digo:
+
+más ancho
+
+más alto
+
+más centrado
+
+visible sin scroll
+
+menos espacio desperdiciado por header, navegación y wrappers
+
+me refiero específicamente a ese bloque central.
+
+Todo lo demás debe acomodarse alrededor de él.
+
+==================================================
+IDEA DE PRODUCTO
+
+Quiero que se entienda que esta herramienta es la parte más importante del sitio.
+
+No es un panel secundario.
+No es una card más.
+
+Es la herramienta central que usa el cliente para construir y editar su proyecto.
+
+Por eso quiero que:
+
+sea cómoda
+
+sea práctica
+
+se vea prolija
+
+tenga protagonismo
+
+se sienta moderna
+
+se sienta rápida
+
+==================================================
+BLOQUE 1 — HEADER SUPERIOR DEL PROYECTO
+
+Quiero revisar y mejorar el header superior actual del proyecto:
+
+link “Volver a Proyectos”
+
+título del proyecto
+
+ubicación
+
+badges
+
+caja de progreso/configuración
+
+PROBLEMAS ACTUALES
+
+“Volver a Proyectos” queda desalineado respecto al bloque principal del header.
+
+El header ocupa demasiado espacio y roba altura al contenido importante.
+
+Hay textos y badges que ensucian más de lo que ayudan.
+
+El render de algunos textos con tilde está roto o mal codificado.
+Ejemplo claro:
+
+“Córdoba”
+Pero también vi otros textos/lugares con problemas similares.
+
+CAMBIOS REQUERIDOS
+
+alinear bien “Volver a Proyectos” con el header
+
+compactar el header superior
+
+corregir encoding / render de tildes y caracteres especiales en todos los textos visibles del módulo
+
+si hay badges o textos innecesarios, eliminarlos
+
+si hay textos faltantes o microcopy que convenga mejorar, ajustarlos
+
+si hay algo que hoy sobra visualmente, sacarlo sin miedo
+
+Quiero que analices todos los textos ya existentes de esta zona y:
+
+si algo hay que sacarlo, sacarlo
+
+si algo hay que cambiarlo, cambiarlo
+
+si algo hay que agregarlo para que se entienda mejor, agregarlo
+
+==================================================
+BLOQUE 2 — CAJA DE PROGRESO / PASOS
+
+La caja actual de progreso/configuración debe rediseñarse para comunicar mejor.
+
+Quiero que:
+
+sea más clara
+
+más útil
+
+más ancha si hace falta
+
+sirva realmente para navegar los pasos
+
+muestre mejor cuáles están listos, cuáles no, y el avance general
+
+Debe permitir navegar mejor entre:
+
+Paso 1
+
+Paso 2
+
+Paso 3
+
+Paso 4
+
+Paso 5
+
+Paso 6
+
+Paso 7
+
+Idealmente:
+
+mostrar estado listo / pendiente
+
+porcentaje o estado mínimo
+
+abrir o desplegar los pasos
+
+reutilizar la lógica actual si sirve
+
+mejorar mucho la visualización
+
+==================================================
+BLOQUE 3 — NAVEGACIÓN LATERAL DE PASOS
+
+La navegación lateral actual ocupa demasiado y compite con el centro de la página.
+
+Quiero:
+
+compactarla
+
+reabsorberla arriba si conviene
+
+o integrarla mejor con la caja de progreso
+
+pero que deje de robarle ancho al bloque central
+
+No quiero perder la lógica de tabs.
+Sí quiero que visualmente deje de ser una gran columna dominante.
+
+==================================================
+BLOQUE 4 — BLOQUE CENTRAL PROTAGONISTA
+
+Este es el punto más importante de todo el pedido.
+
+Quiero que el bloque central:
+
+mapa
+
+plano
+
+masterplan
+
+viewer
+
+herramienta principal de edición/carga/ubicación/visualización
+
+sea el centro absoluto de la experiencia.
+
+CAMBIOS REQUERIDOS
+
+más grande
+
+más ancho
+
+más alto
+
+más centrado
+
+visible inmediatamente al entrar
+
+sin tanto scroll
+
+con menos espacio desperdiciado por header, navegación y wrappers
+
+con el resto de la UI orbitando alrededor
+
+Esto aplica especialmente a:
+
+Paso 2
+
+Paso 3
+
+Paso 4
+
+Paso 5
+
+Quiero consistencia entre esos pasos.
+
+==================================================
+BLOQUE 5 — LIMPIEZA VISUAL Y JERARQUÍA
+
+Hoy la UI de esta sección se siente desprolija.
+Funcionalmente está bastante bien, pero visualmente le falta mucho orden.
+
+Quiero que revises:
+
+textos
+
+jerarquías
+
+paddings
+
+márgenes
+
+cards
+
+wrappers
+
+sidebars
+
+bloques redundantes
+
+elementos que empujan hacia abajo el centro visual
+
+Si algo sobra, sacarlo.
+Si algo hay que simplificar, simplificarlo.
+Si algo hay que reordenar para que respire mejor, hacerlo.
+
+==================================================
+BLOQUE 6 — MICROINTERACCIONES Y EFECTOS
+
+Si ves que suma valor, podés mantener o mejorar:
+
+hover states
+
+transiciones al avanzar o volver entre pasos
+
+animaciones leves de entrada/salida
+
+efectos de carga
+
+microinteracciones útiles
+
+No quiero humo visual.
+Sí quiero que se sienta más moderno, más claro y más cuidado.
+
+==================================================
+BLOQUE 7 — PERFORMANCE / OPTIMIZACIÓN
+
+Esto es clave.
+
+Yo hoy siento la página lenta.
+Quiero que revises también la optimización del módulo.
+
+Necesito que analices:
+
+si hay renders innecesarios
+
+wrappers o componentes demasiado pesados
+
+exceso de contenido visible al mismo tiempo
+
+problemas de layout que obligan al navegador a trabajar de más
+
+oportunidades simples de mejora de performance sin refactor masivo
+
+Quiero mejoras reales y pragmáticas.
+No una reescritura completa.
+
+==================================================
+BLOQUE 8 — IDEA FUTURA (NO NECESARIAMENTE IMPLEMENTAR AHORA)
+
+Como idea futura de UX, me interesa pensar que el bloque central principal pueda comportarse casi como una ventana de trabajo:
+
+con una caja
+
+con esquinas para agrandar/achicar
+
+posibilidad de moverlo
+
+y que alrededor el layout se adapte según el paso
+
+No sé si esto conviene implementarlo ya.
+Probablemente no.
+Pero sí quiero que lo tengas en cuenta al mejorar la jerarquía visual actual, para que el sistema vaya en esa dirección y no en la contraria.
+
+Si esto no entra en este cambio, dejarlo explícitamente como idea futura/pending.
+
+==================================================
+ALCANCE
+
+Aplicar especialmente a:
+
+Paso 2
+
+Paso 3
+
+Paso 4
+
+Paso 5
+
+Priorizar desktop.
+Mantener responsive razonable.
+No tocar backend.
+No refactor masivo.
+No romper lógica funcional que hoy ya está bien.
+
+==================================================
+CRITERIOS DE ÉXITO
+
+El bloque central pasa a ser claramente el protagonista visual.
+
+Se ve más grande, más centrado y más cómodo de usar.
+
+Se reduce scroll innecesario.
+
+El header superior se ve más limpio y ocupa menos espacio.
+
+Los textos con tildes y caracteres especiales se renderizan correctamente.
+
+La navegación entre pasos se entiende mejor y roba menos espacio.
+
+La UI general del módulo se siente más prolija y más moderna.
+
+Si hay mejoras simples de performance, se aplican.
+
+No se rompe la funcionalidad existente.
+
+==================================================
+ENTREGA OBLIGATORIA
+
+Responder con:
+
+análisis técnico
+
+riesgo
+
+impacto
+
+decisión tomada
+
+cambios realizados
+
+archivos modificados
+
+resumen de cambios por archivo
+
+antes vs después
+
+prueba manual paso a paso
+
+branch
+
+commit hash
+
+qué quedó pendiente si algo no se implementó
+
+IMPORTANTE
+
+no presentar como hecho algo que no se cambió realmente
+
+si la parte de ventana redimensionable queda para después, decirlo explícitamente
+
+priorizar primero protagonismo del bloque central, limpieza visual, textos y performance
