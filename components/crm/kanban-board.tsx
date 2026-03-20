@@ -20,12 +20,12 @@ import { updateOportunidad } from "@/lib/actions/crm-actions";
 
 // Define columns based on Schema Enum
 const COLUMNS = [
-    { id: "NUEVO", title: "Nuevo" },
-    { id: "CONTACTADO", title: "Contactado" },
-    { id: "CALIFICADO", title: "Calificado" },
-    { id: "VISITA", title: "Visita" },
-    { id: "NEGOCIACION", title: "Negociación" },
-    { id: "RESERVA", title: "Reserva" },
+    { id: "NUEVO", label: "Nuevo" },
+    { id: "CONTACTADO", label: "Contactado" },
+    { id: "CALIFICADO", label: "Calificado" },
+    { id: "VISITA", label: "Visitas / Entrevistas" },
+    { id: "NEGOCIACION", label: "En Seguimiento" },
+    { id: "RESERVA", label: "Conversión" },
 ];
 
 interface KanbanBoardProps {
@@ -111,7 +111,7 @@ export default function KanbanBoard({ oportunidades: initialData }: KanbanBoardP
                         <Column
                             key={col.id}
                             id={col.id}
-                            title={col.title}
+                            title={col.label}
                             oportunidades={oportunidades.filter((op) => op.etapa === col.id)}
                             onCardClick={handleCardClick}
                         />

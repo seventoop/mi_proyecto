@@ -64,7 +64,7 @@ const adminNavItems = [
     { label: "Planes", href: "/dashboard/admin/planes", icon: CreditCard },
     { section: "Engagement" },
     { label: "CRM / Leads", href: "/dashboard/admin/crm/leads", icon: Users },
-    { label: "Pipeline CRM", href: "/dashboard/crm/pipeline", icon: Workflow },
+    { label: "CRM / Leads", href: "/dashboard/crm/pipeline", icon: Workflow },
     { label: "BI Métricas", href: "/dashboard/crm/metricas", icon: BarChart3 },
     { section: "CMS & Setup" },
     { label: "Banners", href: "/dashboard/admin/banners", icon: ImageIcon },

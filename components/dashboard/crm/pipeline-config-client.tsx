@@ -238,7 +238,7 @@ export default function PipelineConfigClient({ orgId, initialEtapas }: { orgId: 
                             <Input
                                 value={newNombre}
                                 onChange={(e) => setNewNombre(e.target.value)}
-                                placeholder="Ej: Negociación"
+                                placeholder="Ej: Calificado"
                                 className="bg-slate-800 border-slate-700"
                             />
                         </div>

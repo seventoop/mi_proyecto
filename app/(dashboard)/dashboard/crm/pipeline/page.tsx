@@ -19,8 +19,8 @@ export default async function PipelinePage({
     if (needsSelection) {
         return (
             <AdminOrgSelector 
-                title="Pipeline CRM" 
-                description="Selecciona una organización para gestionar sus etapas y flujo de leads."
+                title="Configuración de Leads" 
+                description="Selecciona una organización para gestionar sus etapas y flujo de contactos."
                 error={error}
             />
         );
@@ -30,7 +30,7 @@ export default async function PipelinePage({
         return (
             <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
                 <ModuleHelp content={MODULE_HELP_CONTENT.crmPipeline} />
-                <EmptyOrgState moduleName="Pipeline CRM" />
+                <EmptyOrgState moduleName="Gestión de Leads" />
             </div>
         );
     }
