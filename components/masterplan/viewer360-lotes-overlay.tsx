@@ -179,6 +179,7 @@ export default function Viewer360LotesOverlay({
   const bboxRef        = useRef<Bbox | null>(null);
   const hullRef        = useRef<ScreenPt[]>([]);        // convex hull of all visible pts
   const geoCornersRef  = useRef<ScreenPt[]>([]);        // 4 projected geo-bbox corners
+  const centScreenRef  = useRef<ScreenPt | null>(null); // projected geo centroid (stable during rotation)
   const ROT_GAP        = 36;
 
   const liveDeltaRef = useRef<LiveDelta>({ latM: 0, lngM: 0, scaleFactor: 1, hdgDelta: 0, planRotDelta: 0 });
@@ -248,6 +249,18 @@ export default function Viewer360LotesOverlay({
       }
       if (centCount > 0) { centLat /= centCount; centLng /= centCount; }
       const cosCent = Math.cos(centLat * DEG);
+
+      // Project geo centroid to screen — stable anchor for rotation handle.
+      // Since planRotation rotates around this centroid, its screen position
+      // does NOT change when the plan rotates (only when translated/zoomed).
+      {
+        const { pitch: cPitch, yaw: cYaw } = geoToPitchYaw(
+          centLat, centLng, _camLat, _camLng, _alt, _hdg
+        );
+        centScreenRef.current = projectSphericalToScreen(
+          cPitch, cYaw, viewPitch, viewYaw, hfov, W, H
+        );
+      }
 
       // ── Pass 1: apply plan transform, project to screen ───────────────────
       interface UnitData {
@@ -388,9 +401,12 @@ export default function Viewer360LotesOverlay({
 
       // ── Pass 3: edit handles ─────────────────────────────────────────────
       if (_editing && bboxRef.current && screenGeoCorners.length === 4) {
-        const bb  = bboxRef.current;
-        const cx  = bb.centX, cy = bb.centY;
-        const rotY = bb.minY - ROT_GAP;
+        // Rotation handle anchor: projected geo centroid (invariant under planRotation).
+        // Falls back to AABB centroid only if projection failed (edge case).
+        const centSc = centScreenRef.current;
+        const rhX = centSc ? centSc.x : bboxRef.current.centX;
+        const rhY = centSc ? centSc.y - ROT_GAP - HANDLE_R * 2 : bboxRef.current.minY - ROT_GAP;
+        const lineStartY = centSc ? centSc.y - HANDLE_R - 4 : bboxRef.current.minY;
 
         // Border: solid thin line connecting the 4 projected geo corners
         const borderD = screenGeoCorners.map((p, i) =>
@@ -403,9 +419,9 @@ export default function Viewer360LotesOverlay({
           "stroke-width": "1.5",
         }));
 
-        // Line to rotation handle
+        // Line from stable centroid anchor up to rotation handle
         svg.appendChild(svgEl("line", {
-          x1: cx, y1: bb.minY, x2: cx, y2: rotY,
+          x1: rhX, y1: lineStartY, x2: rhX, y2: rhY + HANDLE_R,
           stroke: "rgba(99,102,241,0.6)", "stroke-width": "1.5", "stroke-dasharray": "4 3",
         }));
 
@@ -417,13 +433,13 @@ export default function Viewer360LotesOverlay({
           }));
         }
 
-        // Rotation handle (above centroid)
+        // Rotation handle — fixed above projected centroid, never rotates
         svg.appendChild(svgEl("circle", {
-          cx, cy: rotY, r: HANDLE_R,
+          cx: rhX, cy: rhY, r: HANDLE_R,
           fill: "#6366f1", stroke: "white", "stroke-width": "2",
         }));
         svg.appendChild(svgEl("path", {
-          d: `M${cx - 4},${rotY} a4,4 0 1,1 5,3`,
+          d: `M${rhX - 4},${rhY} a4,4 0 1,1 5,3`,
           fill: "none", stroke: "white", "stroke-width": "1.5", "stroke-linecap": "round",
         }));
       }
@@ -467,7 +483,11 @@ export default function Viewer360LotesOverlay({
 
       if (!bb) { onExitEditRef.current?.(); return; }
 
-      const rotHandle  = { x: bb.centX, y: bb.minY - 36 };
+      // Match the render position: centroid-projected anchor, fixed offset above it
+      const centSc = centScreenRef.current;
+      const rotHandle = centSc
+        ? { x: centSc.x, y: centSc.y - ROT_GAP - HANDLE_R * 2 }
+        : { x: bb.centX, y: bb.minY - 36 };
 
       let mode: DragMode | null = null;
       if (dist(pt, rotHandle) <= HANDLE_HIT) {
