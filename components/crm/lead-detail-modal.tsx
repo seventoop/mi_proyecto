@@ -3,7 +3,6 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Mail, Phone, Plus, MessageSquare } from "lucide-react";
 import { useState, useEffect, useTransition } from "react";
 import { addLeadNote } from "@/lib/actions/crm-actions";
@@ -18,6 +17,7 @@ interface LeadMessage {
     id: string;
     content: string;
     createdAt: string;
+    user: { nombre: string } | null;
 }
 
 interface LeadFull {
@@ -120,63 +120,47 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
                             </div>
                         </div>
 
-                        {/* Main Content Tabs */}
-                        <div className="flex-1 flex flex-col bg-slate-950">
-                            <Tabs defaultValue="timeline" className="flex-1 flex flex-col">
-                                <div className="px-6 py-4 border-b border-white/10 bg-slate-900/30">
-                                    <TabsList className="bg-slate-800 text-slate-400">
-                                        <TabsTrigger value="timeline" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">Actividad</TabsTrigger>
-                                        <TabsTrigger value="tasks" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">Tareas</TabsTrigger>
-                                    </TabsList>
-                                </div>
+                        {/* Activity Timeline */}
+                        <div className="flex-1 flex flex-col bg-slate-950 p-6 overflow-y-auto">
+                            <div className="flex gap-3 mb-8">
+                                <textarea
+                                    value={newNote}
+                                    onChange={(e) => setNewNote(e.target.value)}
+                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl p-4 text-sm h-[80px] focus:border-brand-orange/50 ring-0 outline-none resize-none text-brand-surface placeholder:text-brand-muted transition-all"
+                                    placeholder="Escribe una nota interna..."
+                                />
+                                <button
+                                    onClick={handleAddNote}
+                                    disabled={!newNote.trim() || isPending}
+                                    className="h-[80px] w-14 flex items-center justify-center bg-brand-orange hover:bg-brand-orangeDark disabled:opacity-50 disabled:bg-white/5 rounded-xl transition-all shadow-lg shadow-brand-orange/10"
+                                >
+                                    <MessageSquare className="w-5 h-5 text-white" />
+                                </button>
+                            </div>
 
-                                <TabsContent value="timeline" className="flex-1 overflow-y-auto p-6 m-0">
-                                    <div className="flex gap-3 mb-8">
-                                        <textarea
-                                            value={newNote}
-                                            onChange={(e) => setNewNote(e.target.value)}
-                                            className="flex-1 bg-white/5 border border-white/10 rounded-xl p-4 text-sm h-[80px] focus:border-brand-orange/50 ring-0 outline-none resize-none text-brand-surface placeholder:text-brand-muted transition-all"
-                                            placeholder="Escribe una nota interna..."
-                                        />
-                                        <button
-                                            onClick={handleAddNote}
-                                            disabled={!newNote.trim() || isPending}
-                                            className="h-[80px] w-14 flex items-center justify-center bg-brand-orange hover:bg-brand-orangeDark disabled:opacity-50 disabled:bg-white/5 rounded-xl transition-all shadow-lg shadow-brand-orange/10"
-                                        >
-                                            <MessageSquare className="w-5 h-5 text-white" />
-                                        </button>
-                                    </div>
+                            {error && (
+                                <p className="text-xs text-red-400 mb-4">{error}</p>
+                            )}
 
-                                    {error && (
-                                        <p className="text-xs text-red-400 mb-4">{error}</p>
-                                    )}
-
-                                    <div className="space-y-6">
-                                        <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-xs mb-4">Historial</h4>
-                                        {lead.mensajes.length > 0 ? (
-                                            <div className="space-y-6 border-l-2 border-slate-800 ml-2 pl-6">
-                                                {lead.mensajes.map((msg) => (
-                                                    <div key={msg.id} className="relative">
-                                                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-slate-600 ring-4 ring-slate-950" />
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-xs text-slate-500">{format(new Date(msg.createdAt), "dd MMM HH:mm", { locale: es })}</span>
-                                                        </div>
-                                                        <p className="text-sm text-slate-300 bg-slate-900/50 p-3 rounded-lg border border-white/5">
-                                                            {msg.content}
-                                                        </p>
-                                                    </div>
-                                                ))}
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Historial</h4>
+                            {lead.mensajes.length > 0 ? (
+                                <div className="space-y-6 border-l-2 border-slate-800 ml-2 pl-6">
+                                    {lead.mensajes.map((msg) => (
+                                        <div key={msg.id} className="relative">
+                                            <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-slate-600 ring-4 ring-slate-950" />
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-bold text-white">{msg.user?.nombre ?? "Sistema"}</span>
+                                                <span className="text-xs text-slate-500">{format(new Date(msg.createdAt), "dd MMM HH:mm", { locale: es })}</span>
                                             </div>
-                                        ) : (
-                                            <p className="text-slate-500 text-sm italic">No hay actividad registrada.</p>
-                                        )}
-                                    </div>
-                                </TabsContent>
-
-                                <TabsContent value="tasks" className="flex-1 p-6 m-0">
-                                    <p className="text-slate-500">Listado de tareas (pendiente de implementación visual)</p>
-                                </TabsContent>
-                            </Tabs>
+                                            <p className="text-sm text-slate-300 bg-slate-900/50 p-3 rounded-lg border border-white/5">
+                                                {msg.content}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-slate-500 text-sm italic">No hay actividad registrada.</p>
+                            )}
                         </div>
                     </div>
                 )}

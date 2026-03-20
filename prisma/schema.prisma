@@ -74,6 +74,7 @@ model User {
   historialAcciones     HistorialUnidad[]
   inversiones           Inversion[]         @relation("InversorInversion")
   kycProfile            KycProfile?
+  leadMessages          LeadMessage[]
   leadsAsignados        Lead[]              @relation("LeadAsignado")
   noticiasEscritas      Noticia[]           @relation("NoticiaAutor")
   notificaciones        Notificacion[]
@@ -453,10 +454,12 @@ model PipelineEtapa {
 model LeadMessage {
   id        String   @id @default(cuid())
   leadId    String
+  userId    String?
   role      String
   content   String
   createdAt DateTime @default(now())
   lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([leadId])
   @@map("lead_messages")

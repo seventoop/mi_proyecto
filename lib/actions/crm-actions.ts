@@ -58,8 +58,13 @@ export async function createPipelineEtapa(orgId: string, input: any) {
 
 export async function updatePipelineEtapa(etapaId: string, input: any) {
     try {
-        const etapa = await prisma.pipelineEtapa.findUnique({
-            where: { id: etapaId }
+        // requireAuth first so the DB lookup can be scoped by org (prevents timing side-channel)
+        const user = await requireAuth();
+
+        const etapa = await prisma.pipelineEtapa.findFirst({
+            where: (user.role === "ADMIN" || user.role === "SUPERADMIN")
+                ? { id: etapaId }
+                : { id: etapaId, orgId: user.orgId ?? "__none__" }
         });
         if (!etapa) return { success: false, error: "Etapa no encontrada" };
 
@@ -82,8 +87,13 @@ export async function updatePipelineEtapa(etapaId: string, input: any) {
 
 export async function deletePipelineEtapa(etapaId: string, destEtapaId?: string) {
     try {
-        const etapa = await prisma.pipelineEtapa.findUnique({
-            where: { id: etapaId },
+        // requireAuth first so the DB lookup can be scoped by org (prevents timing side-channel)
+        const user = await requireAuth();
+
+        const etapa = await prisma.pipelineEtapa.findFirst({
+            where: (user.role === "ADMIN" || user.role === "SUPERADMIN")
+                ? { id: etapaId }
+                : { id: etapaId, orgId: user.orgId ?? "__none__" },
             include: { _count: { select: { leads: true } } }
         });
         if (!etapa) return { success: false, error: "Etapa no encontrada" };
@@ -455,7 +465,8 @@ export async function addLeadNote(leadId: string, contenido: string) {
             data: {
                 leadId,
                 role: "note",
-                content: contentParsed.data
+                content: contentParsed.data,
+                userId: user.id
             }
         });
 

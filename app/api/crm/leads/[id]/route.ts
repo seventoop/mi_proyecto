@@ -32,7 +32,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
                 mensajes: {
                     where: { role: "note" },
                     orderBy: { createdAt: "asc" },
-                    select: { id: true, content: true, createdAt: true }
+                    select: {
+                        id: true,
+                        content: true,
+                        createdAt: true,
+                        user: { select: { nombre: true } }
+                    }
                 }
             },
         });
@@ -74,36 +79,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
             return NextResponse.json({ errors: validation.error.flatten() }, { status: 400 });
         }
 
-        const { nota, ...data } = validation.data as typeof validation.data & { nota?: string };
-
-        const updateData: any = { ...data };
-
-        if (nota) {
-            // For SQLite compatibility, we must fetch, modify, and set the array
-            // instead of using atomic push operations.
-            const currentLead = await db.lead.findUnique({
-                where: { id: params.id },
-                select: { notas: true }
-            });
-
-            // Parse existing JSON string
-            let currentNotas = [];
-            try {
-                currentNotas = JSON.parse((currentLead?.notas as string) || "[]");
-                if (!Array.isArray(currentNotas)) currentNotas = [];
-            } catch (e) {
-                currentNotas = [];
-            }
-
-            const newNota = {
-                fecha: new Date(),
-                texto: nota,
-                userId: user.id,
-                userName: user.name || "Usuario"
-            };
-
-            updateData.notas = JSON.stringify([...currentNotas, newNota]);
-        }
+        const updateData: any = { ...validation.data };
 
         const lead = await db.lead.update({
             where: { id: params.id },
