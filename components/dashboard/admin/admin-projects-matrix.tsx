@@ -148,7 +148,7 @@ export default function AdminProjectsMatrix({ projects }: AdminProjectsMatrixPro
                                     <SheetContent className="dark:bg-[#111116] border-white/10">
                                         <SheetHeader>
                                             <SheetTitle className="text-2xl font-black uppercase italic tracking-tighter">
-                                                Configurar <span className="text-brand-500">Features</span>
+                                                Configurar <span className="text-brand-500">Funcionalidades</span>
                                             </SheetTitle>
                                             <SheetDescription className="text-slate-500 font-bold uppercase text-xs tracking-widest">
                                                 Control de acceso para {project.nombre}

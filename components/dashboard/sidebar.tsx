@@ -223,7 +223,7 @@ export default function Sidebar() {
                                         className="group/upgrade flex items-center justify-center gap-2 py-1.5 w-full bg-white/[0.03] hover:bg-white/[0.08] text-white/70 hover:text-white rounded-md text-xs font-semibold uppercase tracking-wider transition-all"
                                     >
                                         <ArrowUpCircle className="w-3.5 h-3.5 text-brand-400 group-hover/upgrade:text-brand-300" />
-                                        Upgrade
+                                        Mejorar Plan
                                     </Link>
                                 </div>
                             </div>
