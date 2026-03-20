@@ -220,9 +220,9 @@ export default function Navbar() {
                         src="/logo-navbar.png"
                         alt="SevenToop"
                         width={140}
-                        height={36}
+                        height={40}
                         priority
-                        className="h-9 w-auto object-contain sm:h-10"
+                        className="h-auto w-[120px] object-contain sm:w-[140px] max-h-10"
                     />
                 </Link>
 
