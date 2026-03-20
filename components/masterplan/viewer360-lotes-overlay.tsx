@@ -180,6 +180,7 @@ export default function Viewer360LotesOverlay({
   const hullRef        = useRef<ScreenPt[]>([]);        // convex hull of all visible pts
   const geoCornersRef  = useRef<ScreenPt[]>([]);        // 4 projected geo-bbox corners
   const centScreenRef  = useRef<ScreenPt | null>(null); // projected geo centroid (stable during rotation)
+  const rotHandlePosRef= useRef<ScreenPt | null>(null); // cached rotation handle screen position
   const ROT_GAP        = 36;
 
   const liveDeltaRef = useRef<LiveDelta>({ latM: 0, lngM: 0, scaleFactor: 1, hdgDelta: 0, planRotDelta: 0 });
@@ -401,12 +402,30 @@ export default function Viewer360LotesOverlay({
 
       // ── Pass 3: edit handles ─────────────────────────────────────────────
       if (_editing && bboxRef.current && screenGeoCorners.length === 4) {
-        // Rotation handle anchor: projected geo centroid (invariant under planRotation).
-        // Falls back to AABB centroid only if projection failed (edge case).
+        // Rotation handle: midpoint of the two topmost screen corners (min Y),
+        // offset perpendicularly outward from that edge by ROT_GAP.
+        // Works at any plan rotation angle — "top" always means smallest Y.
+        const topTwo = [...screenGeoCorners].sort((a, b) => a.y - b.y).slice(0, 2);
+        const midX = (topTwo[0].x + topTwo[1].x) / 2;
+        const midY = (topTwo[0].y + topTwo[1].y) / 2;
+        // Edge direction, perpendicular options
+        const eDx = topTwo[1].x - topTwo[0].x;
+        const eDy = topTwo[1].y - topTwo[0].y;
+        const eLen = Math.hypot(eDx, eDy) || 1;
+        // Perpendicular candidates (±90°)
+        const p1x = -eDy / eLen, p1y =  eDx / eLen;
+        const p2x =  eDy / eLen, p2y = -eDx / eLen;
+        // Choose the one pointing away from the plan centroid (outward)
         const centSc = centScreenRef.current;
-        const rhX = centSc ? centSc.x : bboxRef.current.centX;
-        const rhY = centSc ? centSc.y - ROT_GAP - HANDLE_R * 2 : bboxRef.current.minY - ROT_GAP;
-        const lineStartY = centSc ? centSc.y - HANDLE_R - 4 : bboxRef.current.minY;
+        const ccX = centSc ? centSc.x : bboxRef.current.centX;
+        const ccY = centSc ? centSc.y : bboxRef.current.centY;
+        const dot1 = (midX - ccX) * p1x + (midY - ccY) * p1y;
+        const outX = dot1 >= 0 ? p1x : p2x;
+        const outY = dot1 >= 0 ? p1y : p2y;
+        const rhX = midX + outX * ROT_GAP;
+        const rhY = midY + outY * ROT_GAP;
+        // Cache for pointer handler hit detection
+        rotHandlePosRef.current = { x: rhX, y: rhY };
 
         // Border: solid thin line connecting the 4 projected geo corners
         const borderD = screenGeoCorners.map((p, i) =>
@@ -419,9 +438,9 @@ export default function Viewer360LotesOverlay({
           "stroke-width": "1.5",
         }));
 
-        // Line from stable centroid anchor up to rotation handle
+        // Line from top-edge midpoint to rotation handle
         svg.appendChild(svgEl("line", {
-          x1: rhX, y1: lineStartY, x2: rhX, y2: rhY + HANDLE_R,
+          x1: midX, y1: midY, x2: rhX, y2: rhY,
           stroke: "rgba(99,102,241,0.6)", "stroke-width": "1.5", "stroke-dasharray": "4 3",
         }));
 
@@ -433,7 +452,7 @@ export default function Viewer360LotesOverlay({
           }));
         }
 
-        // Rotation handle — fixed above projected centroid, never rotates
+        // Rotation handle at top-edge midpoint + outward offset
         svg.appendChild(svgEl("circle", {
           cx: rhX, cy: rhY, r: HANDLE_R,
           fill: "#6366f1", stroke: "white", "stroke-width": "2",
@@ -483,11 +502,8 @@ export default function Viewer360LotesOverlay({
 
       if (!bb) { onExitEditRef.current?.(); return; }
 
-      // Match the render position: centroid-projected anchor, fixed offset above it
-      const centSc = centScreenRef.current;
-      const rotHandle = centSc
-        ? { x: centSc.x, y: centSc.y - ROT_GAP - HANDLE_R * 2 }
-        : { x: bb.centX, y: bb.minY - 36 };
+      // Use the cached render position (midpoint of top edge + outward offset)
+      const rotHandle = rotHandlePosRef.current ?? { x: bb.centX, y: bb.minY - 36 };
 
       let mode: DragMode | null = null;
       if (dist(pt, rotHandle) <= HANDLE_HIT) {
@@ -541,9 +557,11 @@ export default function Viewer360LotesOverlay({
         const effHdgRad      = (drag.startHdg + drag.startViewYaw) * DEG;
         const screen_right_m = dx * mpp;
         const screen_down_m  = dy * mpp;
+        // latM/lngM move the camera. Camera moving north makes plan appear to
+        // move south. Negate so the plan visually follows the cursor 1:1.
         const north_m = screen_right_m * (-Math.sin(effHdgRad)) + screen_down_m * (-Math.cos(effHdgRad));
         const east_m  = screen_right_m * ( Math.cos(effHdgRad)) + screen_down_m * (-Math.sin(effHdgRad));
-        liveDeltaRef.current = { latM: north_m, lngM: east_m, scaleFactor: 1, hdgDelta: 0, planRotDelta: 0 };
+        liveDeltaRef.current = { latM: -north_m, lngM: -east_m, scaleFactor: 1, hdgDelta: 0, planRotDelta: 0 };
 
       } else if (drag.mode === "scale") {
         const factor = Math.exp(-dy / H * 3);
