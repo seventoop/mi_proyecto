@@ -26,7 +26,7 @@ export function TemplateCard({ template, orgId }: TemplateCardProps) {
                 toast.success("¡Plantilla instalada con éxito!");
                 router.push(`/dashboard/admin/logictoop/flows/${res.flowId}`);
             } else {
-                toast.error(`Error: ${res.error}`);
+                toast.error(`Error: ${'error' in res ? res.error : 'Error desconocido'}`);
             }
         } catch (e) {
             toast.error("Error al instalar la plantilla.");
