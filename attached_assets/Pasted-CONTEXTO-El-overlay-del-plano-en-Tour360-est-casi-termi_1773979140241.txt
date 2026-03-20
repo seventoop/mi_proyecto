@@ -1,0 +1,136 @@
+CONTEXTO
+
+El overlay del plano en Tour360 está casi terminado, pero quedaron dos errores críticos de implementación.
+
+IMPORTANTE:
+- no hacer refactor
+- no tocar lo que ya funciona
+- corregir solo estos puntos
+- si algo no está claro, preguntarme antes de actuar
+
+==================================================
+PROBLEMA 1 — DRAG CON MOUSE INVERTIDO
+==================================================
+
+ACLARACIÓN IMPORTANTE:
+El problema YA NO es que el movimiento esté cruzado o rotado 90°.
+
+El problema actual es este:
+
+- si arrastro el mouse hacia abajo, el plano sube
+- si arrastro el mouse hacia arriba, el plano baja
+- si arrastro el mouse hacia la izquierda, el plano va a la derecha
+- si arrastro el mouse hacia la derecha, el plano va a la izquierda
+
+O sea:
+el drag del mouse está invertido en ambos ejes.
+
+Esto hay que entenderlo bien:
+NO está girado
+NO está cruzado
+ESTÁ AL REVÉS / ESPEJADO
+
+OBJETIVO:
+el plano debe seguir al cursor de forma directa, natural y 1:1
+
+Resultado correcto:
+- mouse arriba → plano arriba
+- mouse abajo → plano abajo
+- mouse izquierda → plano izquierda
+- mouse derecha → plano derecha
+
+IMPORTANTE:
+- teclado y botones ya funcionan bien
+- NO tocar esa lógica
+- corregir SOLO la lógica del drag con mouse
+
+REVISAR CONCRETAMENTE:
+- cálculo de dx / dy
+- si se está usando start - current en vez de current - start
+- signos invertidos en X/Y
+- si al aplicar el delta final se invirtieron ambos ejes
+
+PRIORIDAD:
+el plano debe sentirse literalmente “pegado al cursor”.
+
+==================================================
+PROBLEMA 2 — HANDLE DE ROTACIÓN MAL UBICADO
+==================================================
+
+Estado actual:
+- el handle de rotación quedó en el centro del plano
+- eso es incorrecto
+
+UBICACIÓN CORRECTA:
+el handle debe estar SIEMPRE en el centro del borde superior del plano
+
+Es decir:
+- entre la esquina superior izquierda y la esquina superior derecha
+- exactamente en el punto medio entre ambas
+- con un offset visual hacia afuera
+
+IMPORTANTE:
+- NO usar el centroide del plano
+- NO usar el centro general del bounding
+- usar las dos esquinas superiores reales del plano
+
+Cálculo esperado:
+1. tomar topLeft y topRight
+2. calcular midpoint(topLeft, topRight)
+3. aplicar un offset perpendicular hacia afuera del borde superior
+4. renderizar ahí el handle
+
+COMPORTAMIENTO ESPERADO:
+- si el plano rota, el handle debe seguir estando arriba
+- si el plano se mueve, el handle se mueve con él
+- si el plano gira, el handle NO debe terminar en el medio ni orbitar raro
+
+==================================================
+NO ROMPER
+==================================================
+
+- teclado
+- botones de mover
+- escala
+- rotación
+- hitbox
+- bounding
+- calibración general
+
+==================================================
+ENTREGA
+==================================================
+
+Responder con:
+
+1. causa exacta del drag invertido
+2. corrección aplicada
+3. cálculo exacto usado para posicionar el handle de rotación
+4. cambios realizados
+5. archivos modificados
+6. prueba manual paso a paso
+7. branch
+8. commit hash
+
+IMPORTANTE:
+- no presentar como hecho algo no probado
+- no hacer cambios extra
+- priorizar precisión sobre creatividad
+
+==================================================
+VALIDACIÓN FINAL OBLIGATORIA
+==================================================
+
+Antes de cerrar, verificar manualmente:
+
+DRAG:
+- arrastrar arriba → sube
+- arrastrar abajo → baja
+- arrastrar izquierda → izquierda
+- arrastrar derecha → derecha
+
+HANDLE:
+- queda arriba del plano
+- en el medio entre las dos esquinas superiores
+- no queda en el centro del plano
+- no orbita raro al rotar
