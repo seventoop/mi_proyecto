@@ -9,7 +9,6 @@ import {
     useSensor,
     useSensors,
 } from "@dnd-kit/core";
-import { SortableContext, arrayMove } from "@dnd-kit/sortable";
 import { useState } from "react";
 import LeadCard from "./lead-card";
 import { createPortal } from "react-dom";
@@ -25,7 +24,7 @@ const COLUMNS = [
     { id: "CALIFICADO", label: "Calificado" },
     { id: "VISITA", label: "Visitas / Entrevistas" },
     { id: "NEGOCIACION", label: "En Seguimiento" },
-    { id: "RESERVA", label: "Conversión" },
+    { id: "RESERVA", label: "Reserva" },
 ];
 
 interface KanbanBoardProps {

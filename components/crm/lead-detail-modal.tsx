@@ -3,7 +3,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, Mail, Phone, Plus, MessageSquare } from "lucide-react";
+import { Calendar, Mail, Phone, MessageSquare } from "lucide-react";
 import { useState, useEffect, useTransition } from "react";
 import { addLeadNote } from "@/lib/actions/crm-actions";
 
@@ -113,11 +113,6 @@ export default function LeadDetailModal({ leadId, open, onOpenChange }: LeadDeta
                                 </div>
                             </div>
 
-                            <div className="pt-4 border-t border-white/5">
-                                <button className="w-full py-3 bg-brand-orange hover:bg-brand-orangeDark text-white text-xs font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-orange/20 active:scale-95">
-                                    <Plus className="w-4 h-4" /> Nueva Tarea
-                                </button>
-                            </div>
                         </div>
 
                         {/* Activity Timeline */}
