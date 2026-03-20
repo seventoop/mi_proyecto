@@ -3,9 +3,8 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import BlueprintEngine from "@/components/masterplan/blueprint-engine";
-import ProjectProgressWidget from "@/components/dashboard/proyectos/project-progress-widget";
 import {
-    ArrowLeft, Building2, MapPin, FileText, BarChart3, Layers, Home,
+    ArrowLeft, MapPin, FileText, BarChart3, Layers, Home,
     Globe, DollarSign, Archive, AlertCircle, LayoutDashboard,
     CheckCircle2, Info, ChevronRight, Camera, Edit3, Users,
 } from "lucide-react";
@@ -278,64 +277,55 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         }));
 
     return (
-        <div className="animate-fade-in pb-8">
-            {/* Compact project header */}
-            <div className="flex items-center justify-between gap-4 mb-4">
-                <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500/20 to-brand-700/30 flex items-center justify-center shrink-0">
-                        <Building2 className="w-5 h-5 text-brand-400" />
-                    </div>
-                    <div className="min-w-0">
-                        <Link
-                            href="/dashboard/proyectos"
-                            className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-brand-500 transition-colors mb-0.5"
-                        >
-                            <ArrowLeft className="w-3 h-3" />
-                            Proyectos
-                        </Link>
-                        <h1 className="text-xl font-bold text-slate-800 dark:text-white leading-tight">
-                            {proyecto.nombre}
-                        </h1>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            {proyecto.ubicacion && (
-                                <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    {proyecto.ubicacion}
-                                </span>
-                            )}
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400">
-                                {proyecto.estado}
-                            </span>
-                            {proyecto.isDemo && (
-                                <span className="text-xs font-black uppercase tracking-widest text-brand-500 bg-brand-500/10 px-2 py-0.5 rounded-md border border-brand-500/20">
-                                    DEMO 48h
-                                </span>
-                            )}
-                        </div>
-                        {proyecto.isDemo && (
-                            <p className="text-xs text-amber-500 font-medium mt-0.5 flex items-center gap-1">
-                                <AlertCircle className="w-3 h-3" />
-                                Proyecto temporal.{" "}
-                                <Link href="/dashboard/developer/mi-perfil/kyc" className="underline font-bold">
-                                    Completá tu KYC
-                                </Link>{" "}
-                                para hacerlo oficial.
-                            </p>
-                        )}
-                    </div>
+        <div className="animate-fade-in pb-6">
+
+            {/* ── Compact single-row header ── */}
+            <div className="flex items-center justify-between gap-3 mb-3 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <Link
+                        href="/dashboard/proyectos"
+                        className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-brand-500 transition-colors shrink-0"
+                    >
+                        <ArrowLeft className="w-3 h-3" />
+                        Proyectos
+                    </Link>
+                    <span className="text-slate-300 dark:text-slate-600 text-xs shrink-0">/</span>
+                    <h1 className="text-base font-bold text-slate-800 dark:text-white truncate max-w-[280px]">
+                        {proyecto.nombre}
+                    </h1>
+                    {proyecto.ubicacion && (
+                        <span className="text-[11px] text-slate-500 flex items-center gap-1 shrink-0">
+                            <MapPin className="w-3 h-3" />
+                            {proyecto.ubicacion}
+                        </span>
+                    )}
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 shrink-0">
+                        {proyecto.estado}
+                    </span>
+                    {proyecto.isDemo && (
+                        <span className="text-[11px] font-black uppercase tracking-widest text-brand-500 bg-brand-500/10 px-2 py-0.5 rounded-md border border-brand-500/20 shrink-0">
+                            DEMO
+                        </span>
+                    )}
                 </div>
-
-                {/* Progress widget */}
-                <ProjectProgressWidget
-                    steps={steps.map(({ id, num, label, done }) => ({ id, num, label, done }))}
-                    completedCount={completedCount}
-                    activeTab={activeTab}
-                />
+                <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg shrink-0 tabular-nums">
+                    {completedCount}/7 pasos
+                </span>
             </div>
+            {proyecto.isDemo && (
+                <p className="text-xs text-amber-500 font-medium mb-3 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    Proyecto temporal.{" "}
+                    <Link href="/dashboard/developer/mi-perfil/kyc" className="underline font-bold ml-0.5">
+                        Completá tu KYC
+                    </Link>{" "}
+                    para hacerlo oficial.
+                </p>
+            )}
 
-            {/* Mobile step tabs */}
-            <div className="lg:hidden overflow-x-auto mb-3 -mx-4 px-4">
-                <div className="flex gap-2 pb-1 min-w-max">
+            {/* ── Unified horizontal step bar (all viewports) ── */}
+            <div className="overflow-x-auto mb-4 -mx-1">
+                <div className="flex gap-1 pb-1 min-w-max px-1">
                     {steps.map((step) => {
                         const isActive = activeTab === step.id;
                         return (
@@ -343,101 +333,36 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                 key={step.id}
                                 href={`?tab=${step.id}`}
                                 className={cn(
-                                    "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all",
+                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150",
                                     isActive
-                                        ? "bg-brand-500 text-white shadow-md shadow-brand-500/25"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                                        ? "bg-brand-500 text-white shadow shadow-brand-500/25"
+                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
                                 )}
                             >
                                 <span
                                     className={cn(
-                                        "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0",
+                                        "w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black shrink-0",
                                         isActive
-                                            ? "bg-white/20"
+                                            ? "bg-white/25 text-white"
                                             : step.done
                                             ? "bg-emerald-500/20 text-emerald-500"
-                                            : "bg-slate-200 dark:bg-slate-700"
+                                            : "bg-slate-200 dark:bg-slate-700 text-slate-500"
                                     )}
                                 >
                                     {step.done && !isActive ? "✓" : step.num}
                                 </span>
                                 {step.label}
+                                {step.required && !step.done && !isActive && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+                                )}
                             </Link>
                         );
                     })}
                 </div>
             </div>
 
-            {/* Main layout */}
-            <div className="flex gap-4 items-start">
-                {/* Desktop stepper sidebar */}
-                <nav className="hidden lg:flex flex-col gap-0.5 w-48 shrink-0 sticky top-6">
-                    {steps.map((step, idx) => {
-                        const isActive = activeTab === step.id;
-                        const Icon = step.icon;
-                        return (
-                            <div key={step.id} className="relative">
-                                <Link
-                                    href={`?tab=${step.id}`}
-                                    className={cn(
-                                        "flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all duration-200",
-                                        isActive
-                                            ? "bg-brand-500 text-white shadow-lg shadow-brand-500/25"
-                                            : "text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-white hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-                                    )}
-                                >
-                                    {/* Status indicator */}
-                                    <div
-                                        className={cn(
-                                            "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                                            isActive
-                                                ? "bg-white/20 text-white"
-                                                : step.done
-                                                ? "bg-emerald-500/15 text-emerald-500"
-                                                : "bg-slate-100 dark:bg-slate-700/60 text-slate-500"
-                                        )}
-                                    >
-                                        {step.done && !isActive ? (
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                        ) : (
-                                            step.num
-                                        )}
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <p
-                                            className={cn(
-                                                "text-xs font-bold truncate",
-                                                isActive ? "text-white" : ""
-                                            )}
-                                        >
-                                            {step.label}
-                                        </p>
-                                    </div>
-
-                                    {step.done && !isActive && (
-                                        <span className="text-[9px] font-black uppercase px-1 py-0.5 rounded shrink-0 bg-emerald-500/10 text-emerald-500">
-                                            ✓
-                                        </span>
-                                    )}
-                                    {step.required && !step.done && !isActive && (
-                                        <span className="text-[9px] font-black uppercase px-1 py-0.5 rounded shrink-0 bg-rose-500/10 text-rose-500">
-                                            !
-                                        </span>
-                                    )}
-                                </Link>
-
-                                {/* Connector */}
-                                {idx < steps.length - 1 && (
-                                    <div className="absolute bottom-0 left-[0.875rem] w-px h-0.5 bg-slate-200 dark:bg-slate-700/60" />
-                                )}
-                            </div>
-                        );
-                    })}
-                </nav>
-
-                {/* Content area */}
-                <div className="flex-1 min-w-0">
+                {/* Content area — full width */}
+                <div className="w-full">
                     {/* Active step guidance banner — only on non-visual steps */}
                     {(activeTab === "info" || activeTab === "comercial" || activeTab === "crm") && (
                     <div className="flex items-center gap-3 p-3 bg-brand-500/5 border border-brand-500/15 rounded-xl mb-4">
@@ -1016,7 +941,6 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         )}
                     </div>
                 </div>
-            </div>
 
             {/* Minimal footer */}
             <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">

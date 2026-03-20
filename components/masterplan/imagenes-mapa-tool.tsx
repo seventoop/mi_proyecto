@@ -140,8 +140,12 @@ export default function ImagenesMapaTool({
           setSelectedId(item.id);
           onOpenChange(true);
         });
-        marker.addTo(map);
-        markersRef.current.set(item.id, marker);
+        try {
+          marker.addTo(map);
+          markersRef.current.set(item.id, marker);
+        } catch {
+          // map pane not ready or unmounted — skip
+        }
       });
     };
 
