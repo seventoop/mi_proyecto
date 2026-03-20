@@ -212,7 +212,7 @@ export default function Navbar() {
             <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:h-16 sm:px-6">
                 <Link
                     href="/#inicio"
-                    className="relative z-10 flex flex-shrink-0 items-center"
+                    className="relative z-10 flex flex-shrink-0 items-center self-center"
                     onClick={() => setMobileMenuOpen(false)}
                     aria-label={t.common.goHome}
                 >
@@ -220,9 +220,9 @@ export default function Navbar() {
                         src="/logo-navbar.png"
                         alt="SevenToop"
                         width={140}
-                        height={40}
+                        height={36}
                         priority
-                        className="h-auto w-[120px] object-contain sm:w-[140px]"
+                        className="h-9 w-auto object-contain sm:h-10"
                     />
                 </Link>
 
@@ -291,14 +291,17 @@ export default function Navbar() {
                                     <ChevronDown className="h-4 w-4" />
                                 </DropdownMenuTrigger>
 
-                                <DropdownMenuContent align="end" className="w-48 p-1.5">
-                                    <DropdownMenuItem asChild className="cursor-pointer font-semibold">
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="w-52 p-1.5 bg-white dark:bg-[#1e1e2e] border border-slate-200 dark:border-white/10 shadow-xl shadow-black/10 dark:shadow-black/40 rounded-xl"
+                                >
+                                    <DropdownMenuItem asChild className="cursor-pointer font-semibold rounded-lg px-3 py-2.5 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10">
                                         <Link href="/dashboard">{t.common.dashboard}</Link>
                                     </DropdownMenuItem>
 
                                     <DropdownMenuItem
                                         onClick={() => signOut()}
-                                        className="cursor-pointer font-semibold text-rose-500 focus:text-rose-500"
+                                        className="cursor-pointer font-semibold rounded-lg px-3 py-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 focus:bg-rose-50 dark:focus:bg-rose-500/10 focus:text-rose-500"
                                     >
                                         {t.common.logout}
                                     </DropdownMenuItem>
