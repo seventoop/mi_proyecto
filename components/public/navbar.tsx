@@ -222,7 +222,7 @@ export default function Navbar() {
                         width={140}
                         height={40}
                         priority
-                        className="h-auto w-[120px] object-contain sm:w-[140px]"
+                        className="h-auto w-[120px] object-contain sm:w-[140px] translate-y-[5px]"
                     />
                 </Link>
 
