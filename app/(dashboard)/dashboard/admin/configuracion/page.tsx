@@ -105,7 +105,7 @@ export default function AdminConfiguracionPage() {
             </div>
 
             {/* Health Section */}
-            <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6">
+            <div className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6">
                 <h2 className="text-[12px] font-black uppercase tracking-widest text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                     <Database className="w-4 h-4 text-brand-500" /> Salud de Servicios
                 </h2>
@@ -118,7 +118,7 @@ export default function AdminConfiguracionPage() {
 
             {/* Config Sections */}
             {CONFIG_SECTIONS.map(section => (
-                <div key={section.title} className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6">
+                <div key={section.title} className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6">
                     <h2 className="text-[12px] font-black uppercase tracking-widest text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                         <section.icon className="w-4 h-4 text-brand-500" /> {section.title}
                     </h2>
@@ -134,13 +134,13 @@ export default function AdminConfiguracionPage() {
                                     </button>
                                 ) : type === "select" ? (
                                     <select value={config[key] || def} onChange={e => updateKey(key, e.target.value)}
-                                        className="flex-1 px-4 py-2 rounded-xl bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-[11px] font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50">
+                                        className="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-[11px] font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50">
                                         {options?.map(o => <option key={o} value={o}>{o}</option>)}
                                     </select>
                                 ) : (
                                     <input type={type === "password" ? "password" : "text"} value={config[key] || ""} onChange={e => updateKey(key, e.target.value)}
                                         placeholder={def}
-                                        className="flex-1 px-4 py-2 rounded-xl bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-[11px] font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50" />
+                                        className="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors text-[11px] font-black uppercase tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50" />
                                 )}
                             </div>
                         ))}

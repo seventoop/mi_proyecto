@@ -157,7 +157,7 @@ export default function AdminValidacionesPage() {
 
             {/* Stats Bar */}
             <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-4 py-2 bg-[#0A0A0C] border border-white/[0.06] rounded-xl shadow-sm">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-xl shadow-sm">
                     <Clock className="w-4 h-4 text-brand-500" />
                     <span className="text-sm font-semibold text-slate-300">
                         {loading ? "—" : projects.length} proyectos pendientes
@@ -172,7 +172,7 @@ export default function AdminValidacionesPage() {
                     <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
                 </div>
             ) : projects.length === 0 ? (
-                <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-3xl p-20 text-center border-dashed">
+                <div className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-3xl p-20 text-center border-dashed">
                     <ClipboardCheck className="w-12 h-12 text-emerald-500/50 mx-auto mb-4" />
                     <h3 className="text-xl font-bold text-white mb-2">Todo en orden</h3>
                     <p className="text-sm text-slate-500 max-w-sm mx-auto">
@@ -185,7 +185,7 @@ export default function AdminValidacionesPage() {
                         <div
                             key={project.id}
                             className={cn(
-                                "group bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden transition-all duration-300",
+                                "group bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden transition-all duration-300",
                                 expandedId === project.id ? "border-slate-700 shadow-xl" : "hover:border-white/10"
                             )}
                         >
@@ -330,7 +330,7 @@ export default function AdminValidacionesPage() {
 
             {/* Action Dialog */}
             <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-                <DialogContent className="bg-[#0A0A0C] border border-white/[0.1] text-white rounded-3xl">
+                <DialogContent className="bg-white dark:bg-[#0A0A0C] border border-white/[0.1] text-white rounded-3xl">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-xl font-bold">
                             {modalType === "APROBADO" && <CheckCircle className="w-6 h-6 text-emerald-500" />}

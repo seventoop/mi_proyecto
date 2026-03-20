@@ -144,7 +144,7 @@ export default function AdminBannersPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex gap-2 bg-[#0A0A0C] border border-white/[0.06] p-1.5 rounded-xl w-fit overflow-x-auto">
+            <div className="flex gap-2 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] p-1.5 rounded-xl w-fit overflow-x-auto">
                 {FILTERS.map((f) => (
                     <button
                         key={f.id}
@@ -174,7 +174,7 @@ export default function AdminBannersPage() {
                     ))}
                 </div>
             ) : filteredBanners.length === 0 ? (
-                <div className="text-center py-20 bg-[#0A0A0C] border border-white/[0.06] rounded-3xl">
+                <div className="text-center py-20 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-3xl">
                     <div className="w-16 h-16 bg-white/[0.02] border border-white/[0.06] rounded-full flex items-center justify-center mx-auto mb-4">
                         <ImageIcon className="w-8 h-8 text-white/[0.06]" />
                     </div>
@@ -183,7 +183,7 @@ export default function AdminBannersPage() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredBanners.map((banner) => (
-                        <div key={banner.id} className="bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl group flex flex-col h-full overflow-hidden transition-all shadow-sm">
+                        <div key={banner.id} className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl group flex flex-col h-full overflow-hidden transition-all shadow-sm">
                             {/* Media Preview */}
                             <div className="aspect-video relative bg-white/[0.02]">
                                 {banner.mediaUrl ? (
@@ -327,7 +327,7 @@ export default function AdminBannersPage() {
             {/* Reject Reason Modal */}
             {rejectingId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-[#0A0A0C] rounded-2xl border border-white/[0.06] ring-1 ring-white/[0.04] p-6 w-full max-w-md shadow-2xl">
+                    <div className="bg-white dark:bg-[#0A0A0C] rounded-2xl border border-white/[0.06] ring-1 ring-white/[0.04] p-6 w-full max-w-md shadow-2xl">
                         <h3 className="text-[14px] font-black uppercase tracking-tight text-slate-900 dark:text-white mb-2">Rechazar Banner</h3>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 font-bold">
                             Opcionalmente indicá el motivo (se notificará al creador).

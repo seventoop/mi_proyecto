@@ -59,7 +59,7 @@ export default function AdminLeadsInbox() {
                 </div>
             </div>
 
-            <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden shadow-sm">
                 <Table>
                     <TableHeader className="bg-white/[0.02] border-b border-white/[0.06]">
                         <TableRow className="border-none hover:bg-transparent">
@@ -104,7 +104,7 @@ export default function AdminLeadsInbox() {
                                                 Asignar Orga
                                             </Button>
                                         </SheetTrigger>
-                                        <SheetContent className="dark:bg-[#0A0A0C] border-l-white/[0.06] sm:max-w-md w-full p-6">
+                                        <SheetContent className="bg-white dark:bg-[#0A0A0C] border-l-white/[0.06] sm:max-w-md w-full p-6">
                                             <SheetHeader className="text-left mb-6">
                                                 <SheetTitle className="text-[18px] font-black uppercase tracking-tighter text-slate-900 dark:text-white">Asignar <span className="text-brand-500">Organización</span></SheetTitle>
                                                 <SheetDescription className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">

@@ -116,7 +116,7 @@ export default function PlanesPage() {
 
             {/* Create/Edit Form */}
             {(creating || editing) && (
-                <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6 space-y-6">
+                <div className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6 space-y-6">
                     <h2 className="text-[12px] font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                         <LayoutTemplate className="w-4 h-4 text-brand-500" />
                         {editing ? "Editar Plan" : "Crear Plan"}
@@ -125,12 +125,12 @@ export default function PlanesPage() {
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nombre</label>
                             <input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })}
-                                className="w-full mt-2 px-4 py-2 bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors rounded-xl text-[12px] font-black uppercase tracking-tighter text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50" />
+                                className="w-full mt-2 px-4 py-2 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors rounded-xl text-[12px] font-black uppercase tracking-tighter text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50" />
                         </div>
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Precio (USD/mes)</label>
                             <input type="number" value={form.precio} onChange={e => setForm({ ...form, precio: Number(e.target.value) })}
-                                className="w-full mt-2 px-4 py-2 bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors rounded-xl text-[12px] font-black uppercase tracking-tighter text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50" />
+                                className="w-full mt-2 px-4 py-2 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] transition-colors rounded-xl text-[12px] font-black uppercase tracking-tighter text-white focus:ring-2 focus:ring-brand-500 focus:outline-none placeholder:text-slate-500/50" />
                         </div>
                     </div>
                     <div>
@@ -173,7 +173,7 @@ export default function PlanesPage() {
             )}
 
             {/* Plans Table */}
-            <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden">
+            <div className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden">
                 <table className="w-full">
                     <thead className="bg-white/[0.02] border-b border-white/[0.06]">
                         <tr className="text-[10px] uppercase text-slate-500 font-black tracking-widest">
@@ -216,7 +216,7 @@ export default function PlanesPage() {
             </div>
 
             {/* Organizations & Plan Assignment */}
-            <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden mt-6">
+            <div className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden mt-6">
                 <div className="p-6 border-b border-white/[0.06]">
                     <h2 className="text-[12px] font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                         <Users className="w-4 h-4 text-brand-500" /> Asignación de Organizaciones
@@ -238,7 +238,7 @@ export default function PlanesPage() {
                                     {assigningOrg === org.id ? (
                                         <div className="flex gap-2 items-center">
                                             <select value={selectedPlanId} onChange={e => setSelectedPlanId(e.target.value)}
-                                                className="px-3 py-1.5 rounded-xl bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] text-[11px] font-black uppercase tracking-widest text-slate-900 dark:text-white focus:outline-none">
+                                                className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] text-[11px] font-black uppercase tracking-widest text-slate-900 dark:text-white focus:outline-none">
                                                 <option value="">SIN PLAN</option>
                                                 {plans.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                                             </select>

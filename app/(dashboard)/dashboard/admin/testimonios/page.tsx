@@ -59,7 +59,7 @@ export default function AdminTestimoniosPage() {
                 </div>
             </div>
 
-            <div className="flex gap-2 bg-[#0A0A0C] border border-white/[0.06] p-1.5 rounded-xl w-fit overflow-x-auto">
+            <div className="flex gap-2 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] p-1.5 rounded-xl w-fit overflow-x-auto">
                 {["PENDIENTE", "APROBADO", "RECHAZADO", "TODOS"].map((f) => (
                     <button
                         key={f}
@@ -81,14 +81,14 @@ export default function AdminTestimoniosPage() {
                     {[1, 2, 3, 4].map(i => <div key={i} className="h-48 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />)}
                 </div>
             ) : filteredTestimonios.length === 0 ? (
-                <div className="text-center py-20 bg-[#0A0A0C] border border-white/[0.06] rounded-3xl shadow-sm">
+                <div className="text-center py-20 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-3xl shadow-sm">
                     <MessageSquareQuote className="w-12 h-12 text-white/[0.06] mx-auto mb-4" />
                     <p className="text-[12px] font-black uppercase tracking-widest text-slate-500">No hay testimonios en esta categoría.</p>
                 </div>
             ) : (
                 <div className="masonry-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredTestimonios.map((t) => (
-                        <div key={t.id} className="bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl p-6 transition-all group flex flex-col h-full shadow-sm">
+                        <div key={t.id} className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl p-6 transition-all group flex flex-col h-full shadow-sm">
                             {/* Header */}
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center gap-3">

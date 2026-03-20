@@ -72,7 +72,7 @@ function DocLink({ url }: { url: string | null }) {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0A0A0C] border border-white/[0.06] hover:border-brand-500/30 text-brand-400 hover:text-brand-300 transition-all text-xs font-semibold group"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-brand-500/30 text-brand-400 hover:text-brand-300 transition-all text-xs font-semibold group"
         >
             <FileText className="w-3.5 h-3.5" />
             Ver documento
@@ -153,7 +153,7 @@ export default function AdminMandatosPage() {
 
             {/* Stats bar */}
             <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-4 py-2 bg-[#0A0A0C] border border-white/[0.06] rounded-xl">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-xl">
                     <Clock className="w-4 h-4 text-amber-400" />
                     <span className="text-sm font-semibold text-slate-300">
                         {loading ? "—" : mandates.length} pendientes
@@ -168,7 +168,7 @@ export default function AdminMandatosPage() {
                     <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
                 </div>
             ) : mandates.length === 0 ? (
-                <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-16 text-center border-dashed">
+                <div className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-16 text-center border-dashed">
                     <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
                     <h3 className="text-lg font-bold text-white mb-2">Sin mandatos pendientes</h3>
                     <p className="text-sm text-slate-500">Todos los mandatos han sido procesados.</p>
@@ -180,7 +180,7 @@ export default function AdminMandatosPage() {
                         return (
                             <div
                                 key={mandate.id}
-                                className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden transition-colors duration-300"
+                                className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden transition-colors duration-300"
                             >
                                 {/* Row header */}
                                 <div className="flex items-center gap-4 p-5">
@@ -302,7 +302,7 @@ export default function AdminMandatosPage() {
 
             {/* Reject dialog */}
             <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-                <DialogContent className="bg-[#0A0A0C] border border-white/[0.06] text-white">
+                <DialogContent className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] text-white">
                     <DialogHeader>
                         <DialogTitle className="text-white font-bold">Rechazar mandato</DialogTitle>
                         <DialogDescription className="text-slate-400 text-sm">

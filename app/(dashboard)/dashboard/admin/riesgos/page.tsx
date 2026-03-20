@@ -40,7 +40,7 @@ export default async function AdminRisksPage({
             {/* Risk Distribution Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Link href="/dashboard/admin/riesgos?level=low" className={cn(
-                    "bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 border-l-4 border-l-emerald-500 hover:border-r-white/[0.12] hover:border-y-white/[0.12] hover:bg-white/[0.02] transition-all text-left shadow-sm",
+                    "bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 border-l-4 border-l-emerald-500 hover:border-r-white/[0.12] hover:border-y-white/[0.12] hover:bg-white/[0.02] transition-all text-left shadow-sm",
                     searchParams.level === "low" && "bg-white/[0.02] border-r-white/[0.12] border-y-white/[0.12]"
                 )}>
                     <div className="flex justify-between items-start mb-2">
@@ -52,7 +52,7 @@ export default async function AdminRisksPage({
                 </Link>
 
                 <Link href="/dashboard/admin/riesgos?level=medium" className={cn(
-                    "bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 border-l-4 border-l-amber-500 hover:border-r-white/[0.12] hover:border-y-white/[0.12] hover:bg-white/[0.02] transition-all text-left shadow-sm",
+                    "bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 border-l-4 border-l-amber-500 hover:border-r-white/[0.12] hover:border-y-white/[0.12] hover:bg-white/[0.02] transition-all text-left shadow-sm",
                     searchParams.level === "medium" && "bg-white/[0.02] border-r-white/[0.12] border-y-white/[0.12]"
                 )}>
                     <div className="flex justify-between items-start mb-2">
@@ -64,7 +64,7 @@ export default async function AdminRisksPage({
                 </Link>
 
                 <Link href="/dashboard/admin/riesgos?level=high" className={cn(
-                    "bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 border-l-4 border-l-rose-500 hover:border-r-white/[0.12] hover:border-y-white/[0.12] hover:bg-white/[0.02] transition-all text-left shadow-sm",
+                    "bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-5 border-l-4 border-l-rose-500 hover:border-r-white/[0.12] hover:border-y-white/[0.12] hover:bg-white/[0.02] transition-all text-left shadow-sm",
                     searchParams.level === "high" && "bg-white/[0.02] border-r-white/[0.12] border-y-white/[0.12]"
                 )}>
                     <div className="flex justify-between items-start mb-2">
@@ -77,7 +77,7 @@ export default async function AdminRisksPage({
             </div>
 
             {/* Users List */}
-            <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-2xl overflow-hidden shadow-sm">
                 <div className="p-5 border-b border-white/[0.06] flex items-center justify-between bg-white/[0.02]">
                     <div className="flex items-center gap-4">
                         <h2 className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
