@@ -60,7 +60,6 @@ export default async function PipelinePage({
 
     return (
         <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
-            <ModuleHelp content={MODULE_HELP_CONTENT.crmPipeline} />
             <PipelineConfigClient orgId={orgId} initialEtapas={etapas} />
         </div>
     );

@@ -25,8 +25,7 @@ export async function getSettings() {
             },
             appearance: {
                 theme: "system",
-                language: "es",
-                fontSize: "base"
+                language: "es"
             },
             privacy: {
                 showProfile: true

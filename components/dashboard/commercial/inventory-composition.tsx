@@ -1,7 +1,6 @@
 "use client";
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { useTheme } from "next-themes";
 
 interface Props {
     disponibles: number;
@@ -22,14 +21,12 @@ const LABELS: Record<string, string> = {
 };
 
 const CustomTooltip = ({ active, payload }: any) => {
-    const { resolvedTheme } = useTheme();
-    const isDark = resolvedTheme === "dark";
     if (!active || !payload?.length) return null;
     const { name, value } = payload[0].payload;
     return (
-        <div className="bg-white dark:bg-[#09090b] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 shadow-xl">
-            <p className="text-[10px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest mb-1">{LABELS[name] || name}</p>
-            <p className="text-lg font-black text-slate-900 dark:text-white">{value} unidades</p>
+        <div className="bg-[#09090b] border border-white/10 rounded-xl px-4 py-2.5 shadow-xl">
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">{LABELS[name] || name}</p>
+            <p className="text-lg font-black text-white">{value} unidades</p>
         </div>
     );
 };
@@ -41,7 +38,7 @@ const renderLegend = (props: any) => {
             {payload.map((entry: any, idx: number) => (
                 <div key={idx} className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                    <span className="text-[11px] font-semibold text-slate-500 dark:text-white/50">{LABELS[entry.value] || entry.value}</span>
+                    <span className="text-[11px] font-semibold text-white/50">{LABELS[entry.value] || entry.value}</span>
                 </div>
             ))}
         </div>
@@ -53,7 +50,7 @@ export function InventoryComposition({ disponibles, reservadas, vendidas }: Prop
 
     if (total === 0) {
         return (
-            <div className="flex items-center justify-center h-[200px] text-slate-400 dark:text-white/20 text-sm font-medium">
+            <div className="flex items-center justify-center h-[200px] text-white/20 text-sm font-medium">
                 Sin unidades registradas
             </div>
         );

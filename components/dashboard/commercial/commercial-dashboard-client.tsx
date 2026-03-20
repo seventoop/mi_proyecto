@@ -54,10 +54,10 @@ export function CommercialDashboardClient({
             {/* Header row */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 mb-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">
                         {contextLabel ?? "Vista comercial"}
                     </p>
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white/90">Dashboard Comercial</h2>
+                    <h2 className="text-xl font-black text-white/90">Dashboard Comercial</h2>
                 </div>
                 <PeriodSelector period={period} onChangePeriod={setPeriod} />
             </div>
@@ -97,11 +97,11 @@ export function CommercialDashboardClient({
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Timeline — spans 2 cols */}
-                <div className="lg:col-span-2 bg-white dark:bg-[#09090b] border border-slate-200 dark:border-white/[0.06] rounded-2xl p-6 shadow-sm dark:shadow-lg">
+                <div className="lg:col-span-2 bg-[#09090b] border border-white/[0.06] rounded-2xl p-6 shadow-lg">
                     <div className="flex items-center justify-between mb-5">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 mb-0.5">Timeline</p>
-                            <h3 className="text-sm font-bold text-slate-900 dark:text-white/80">Leads por día</h3>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-0.5">Timeline</p>
+                            <h3 className="text-sm font-bold text-white/80">Leads por día</h3>
                         </div>
                         <span className="text-2xl font-black text-brand-400">{leadsEnPeriodo}</span>
                     </div>
@@ -109,10 +109,10 @@ export function CommercialDashboardClient({
                 </div>
 
                 {/* Inventory Donut */}
-                <div className="bg-white dark:bg-[#09090b] border border-slate-200 dark:border-white/[0.06] rounded-2xl p-6 shadow-sm dark:shadow-lg">
+                <div className="bg-[#09090b] border border-white/[0.06] rounded-2xl p-6 shadow-lg">
                     <div className="mb-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 mb-0.5">Inventario</p>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white/80">Composición de unidades</h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-0.5">Inventario</p>
+                        <h3 className="text-sm font-bold text-white/80">Composición de unidades</h3>
                     </div>
                     <InventoryComposition
                         disponibles={unidadesDisponibles}
@@ -128,7 +128,7 @@ export function CommercialDashboardClient({
                         ].map(item => (
                             <div key={item.label} className="text-center">
                                 <p className={`text-lg font-black ${item.color}`}>{item.value}</p>
-                                <p className="text-[9px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">{item.label}</p>
+                                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest">{item.label}</p>
                             </div>
                         ))}
                     </div>
@@ -137,10 +137,10 @@ export function CommercialDashboardClient({
 
             {/* Rankings Table */}
             {rankings.length > 0 && (
-                <div className="bg-white dark:bg-[#09090b] border border-slate-200 dark:border-white/[0.06] rounded-2xl p-6 shadow-sm dark:shadow-lg">
+                <div className="bg-[#09090b] border border-white/[0.06] rounded-2xl p-6 shadow-lg">
                     <div className="mb-5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/30 mb-0.5">Performance</p>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white/80">Ranking de Proyectos</h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-0.5">Performance</p>
+                        <h3 className="text-sm font-bold text-white/80">Ranking de Proyectos</h3>
                     </div>
                     <ProjectsRankingTable rows={rankings} />
                 </div>
