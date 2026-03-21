@@ -192,7 +192,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                             <Plus className="w-4 h-4 text-brand-500" />
                             Gestión de Medios
                         </h4>
-                        <p className="text-[10px] text-slate-500 font-medium mt-0.5 uppercase tracking-wider">
+                        <p className="text-xs text-slate-500 font-medium mt-0.5 uppercase tracking-wider">
                             Importa imágenes y exporta la galería completa
                         </p>
                     </div>
@@ -326,13 +326,13 @@ function SortableImage({ img, onDelete, onSetMain }: {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                    <div className="px-2 py-0.5 bg-black/60 rounded text-[9px] font-black text-white uppercase tracking-widest w-fit">
+                    <div className="px-2 py-0.5 bg-black/60 rounded text-xs font-black text-white uppercase tracking-widest w-fit">
                         {img.categoria.replace("_", " ")}
                     </div>
                     <button
                         onClick={() => onSetMain(img.id)}
                         className={cn(
-                            "w-full py-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all",
+                            "w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all",
                             img.esPrincipal
                                 ? "bg-brand-500 text-white"
                                 : "bg-white/20 hover:bg-white/80 text-white hover:text-slate-900"

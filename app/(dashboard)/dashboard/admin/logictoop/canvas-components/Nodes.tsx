@@ -8,7 +8,7 @@ export function TriggerNode({ data }: any) {
         <div className="glass-card !p-0 overflow-hidden min-w-[200px] border-emerald-500/30">
             <div className="bg-emerald-500/10 p-3 border-b border-emerald-500/20 flex items-center gap-2">
                 <Play className="w-4 h-4 text-emerald-600 fill-emerald-600" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Trigger</span>
+                <span className="text-xs font-black uppercase tracking-widest text-emerald-700">Trigger</span>
             </div>
             <div className="p-4">
                 <h3 className="text-sm font-black italic uppercase tracking-tighter">{data.label || "System Event"}</h3>
@@ -25,12 +25,12 @@ export function ActionNode({ data, selected }: any) {
             <div className="bg-blue-500/10 p-2 border-b border-blue-500/20 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Activity className="w-3 h-3 text-blue-600" />
-                    <span className="text-[9px] font-black uppercase tracking-tighter text-blue-700">Acción</span>
+                    <span className="text-xs font-black uppercase tracking-tighter text-blue-700">Acción</span>
                 </div>
                 {data.config?.minutes && <Clock className="w-3 h-3 text-purple-500" />}
             </div>
             <div className="p-3">
-                <h3 className="text-[11px] font-black italic uppercase truncate">{data.label || data.type}</h3>
+                <h3 className="text-sm font-black italic uppercase truncate">{data.label || data.type}</h3>
                 <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">
                     {data.type === "WAIT" ? `Espera ${data.config.minutes}m` : data.type}
                 </p>
@@ -46,10 +46,10 @@ export function ConditionNode({ data, selected }: any) {
             <Handle type="target" position={Position.Top} className="!bg-slate-300" />
             <div className="bg-amber-500/10 p-2 border-b border-amber-500/20 flex items-center gap-2">
                 <Filter className="w-3 h-3 text-amber-600" />
-                <span className="text-[9px] font-black uppercase tracking-tighter text-amber-700">Condición</span>
+                <span className="text-xs font-black uppercase tracking-tighter text-amber-700">Condición</span>
             </div>
             <div className="p-3">
-                <h3 className="text-[11px] font-black italic uppercase truncate">{data.label || "Evaluar"}</h3>
+                <h3 className="text-sm font-black italic uppercase truncate">{data.label || "Evaluar"}</h3>
                 <div className="flex items-center gap-1 mt-1">
                     <span className="text-[8px] font-bold bg-amber-100 text-amber-700 px-1 rounded uppercase tracking-tighter">
                         {data.config?.field} {data.config?.operator} {data.config?.value}

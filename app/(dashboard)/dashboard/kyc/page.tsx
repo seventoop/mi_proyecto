@@ -104,7 +104,7 @@ export default function AdminKYCPage() {
                                                     </div>
                                                     <div>
                                                         <p className="text-sm font-medium text-slate-700 dark:text-gray-200 capitalize">{doc.tipo.replace("_", " ")}</p>
-                                                        <p className="text-[10px] text-slate-400">Clic para ver</p>
+                                                        <p className="text-xs text-slate-400">Clic para ver</p>
                                                     </div>
                                                 </a>
                                             ))

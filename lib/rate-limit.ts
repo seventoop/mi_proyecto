@@ -41,7 +41,7 @@ export interface RateLimitOptions {
  * Standard security policies as per SevenToop Hardening spec.
  */
 export const RATE_LIMIT_POLICIES = {
-    AUTH: { limit: 10, windowMs: 60 * 1000, keyPrefix: "rl:auth:" },          // 10 req/min per IP
+    AUTH: { limit: 5, windowMs: 60 * 1000, keyPrefix: "rl:auth:" },           // 5 req/min per IP (Hardened)
     RESET: { limit: 5, windowMs: 60 * 1000, keyPrefix: "rl:reset:" },         // 5 req/min per IP
     PUBLIC_FORM: { limit: 10, windowMs: 60 * 1000, keyPrefix: "rl:form:" },   // 10 req/min per IP
     WEBHOOK: { limit: 30, windowMs: 60 * 1000, keyPrefix: "rl:webhook:" },    // 30 req/min per source

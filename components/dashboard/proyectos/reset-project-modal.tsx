@@ -171,7 +171,7 @@ export default function ResetProjectModal({ proyectoId }: ResetProjectModalProps
                                         </div>
                                         <div>
                                             <h2 className="text-sm font-bold text-white">Reiniciar datos del proyecto</h2>
-                                            <p className="text-[11px] text-slate-500">Solo modo administrador</p>
+                                            <p className="text-sm text-slate-500">Solo modo administrador</p>
                                         </div>
                                     </div>
                                     <button
@@ -219,15 +219,15 @@ export default function ResetProjectModal({ proyectoId }: ResetProjectModalProps
                                                         <span className={cn("text-xs font-semibold", isChecked || isDisabled ? step.color : "text-slate-200")}>
                                                             {step.label}
                                                         </span>
-                                                        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wide", BADGE_STYLE[step.badge])}>
+                                                        <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded border uppercase tracking-wide", BADGE_STYLE[step.badge])}>
                                                             {step.badge}
                                                         </span>
                                                         {isDisabled && (
-                                                            <span className="text-[9px] text-slate-500 italic">incluido en Paso 2</span>
+                                                            <span className="text-xs text-slate-500 italic">incluido en Paso 2</span>
                                                         )}
                                                     </div>
-                                                    <p className="text-[11px] text-slate-400 leading-snug">{step.description}</p>
-                                                    <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">{step.detail}</p>
+                                                    <p className="text-sm text-slate-400 leading-snug">{step.description}</p>
+                                                    <p className="text-xs text-slate-600 mt-0.5 leading-snug">{step.detail}</p>
                                                 </div>
                                             </label>
                                         );
@@ -238,7 +238,7 @@ export default function ResetProjectModal({ proyectoId }: ResetProjectModalProps
                                 {anySelected && !result && (
                                     <div className="mx-5 mb-4 flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
                                         <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                                        <p className="text-[11px] text-amber-300 leading-snug">
+                                        <p className="text-sm text-amber-300 leading-snug">
                                             Se eliminarán los datos seleccionados.{" "}
                                             <span className="font-bold">Esta acción no se puede deshacer.</span>{" "}
                                             La información general del proyecto (Paso 1) no se modifica.
@@ -262,13 +262,13 @@ export default function ResetProjectModal({ proyectoId }: ResetProjectModalProps
                                         <div>
                                             {result.ok ? (
                                                 <>
-                                                    <p className="text-[11px] text-emerald-300 font-semibold">Reinicio completado</p>
-                                                    <p className="text-[10px] text-emerald-400/70 mt-0.5">
+                                                    <p className="text-sm text-emerald-300 font-semibold">Reinicio completado</p>
+                                                    <p className="text-xs text-emerald-400/70 mt-0.5">
                                                         Resetado: {result.reset?.map((k) => stepLabels[k]).join(", ")}. Recargando...
                                                     </p>
                                                 </>
                                             ) : (
-                                                <p className="text-[11px] text-rose-300">{result.error}</p>
+                                                <p className="text-sm text-rose-300">{result.error}</p>
                                             )}
                                         </div>
                                     </div>

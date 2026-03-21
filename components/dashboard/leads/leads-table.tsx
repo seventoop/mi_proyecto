@@ -20,12 +20,12 @@ import LeadDetailDrawer from "./lead-detail-drawer";
 import { useState } from "react";
 
 const STATUS_COLORS: Record<string, string> = {
-    "NUEVO": "bg-blue-500/20 text-blue-400",
-    "CONTACTADO": "bg-amber-500/20 text-amber-400",
-    "INTERESADO": "bg-purple-500/20 text-purple-400",
-    "VISITA": "bg-pink-500/20 text-pink-400",
-    "RESERVA": "bg-emerald-500/20 text-emerald-400",
-    "PERDIDO": "bg-slate-500/20 text-slate-400",
+    "NUEVO": "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    "CONTACTADO": "bg-amber-500/10 text-amber-500 border-amber-500/20",
+    "INTERESADO": "bg-purple-500/10 text-purple-500 border-purple-500/20",
+    "VISITA": "bg-pink-500/10 text-pink-500 border-pink-500/20",
+    "RESERVA": "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+    "PERDIDO": "bg-slate-500/10 text-slate-400 border-slate-500/20",
 };
 
 export default function LeadsTable({
@@ -47,18 +47,18 @@ export default function LeadsTable({
     };
 
     return (
-        <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] overflow-hidden shadow-sm dark:shadow-none">
             <Table>
-                <TableHeader className="bg-slate-900/50">
-                    <TableRow className="border-slate-800 hover:bg-transparent">
-                        <TableHead>Nombre</TableHead>
-                        <TableHead>Contacto</TableHead>
-                        <TableHead>Proyecto</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Score AI</TableHead>
-                        <TableHead>Asignado A</TableHead>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                <TableHeader className="bg-slate-50 dark:bg-white/[0.01]">
+                    <TableRow className="border-slate-100 dark:border-white/[0.06] hover:bg-transparent">
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Nombre</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Contacto</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Proyecto</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Estado</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4 text-center">Score AI</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Asignado</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Fecha</TableHead>
+                        <TableHead className="w-[50px] py-4"></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -69,82 +69,86 @@ export default function LeadsTable({
                         return (
                             <TableRow
                                 key={lead.id}
-                                className="border-slate-800 hover:bg-slate-800/50 cursor-pointer"
+                                className="border-slate-100 dark:border-white/[0.04] hover:bg-slate-50/50 dark:hover:bg-white/[0.03] cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group"
                                 onClick={() => openLead(lead)}
                             >
-                                <TableCell className="font-medium text-white">
-                                    {lead.nombre}
+                                <TableCell className="py-4">
+                                    <span className="text-[14px] font-black text-slate-900 dark:text-zinc-100 group-hover:text-brand-500 transition-colors uppercase tracking-tight">
+                                        {lead.nombre}
+                                    </span>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="py-4">
                                     <div className="space-y-1">
                                         {lead.email && (
-                                            <div className="flex items-center gap-2 text-xs text-slate-400">
-                                                <Mail className="w-3 h-3" /> {lead.email}
+                                            <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight">
+                                                <Mail className="w-3 h-3 text-slate-400 dark:text-white/20" /> {lead.email}
                                             </div>
                                         )}
                                         {lead.telefono && (
-                                            <div className="flex items-center gap-2 text-xs text-slate-400">
-                                                <Phone className="w-3 h-3" /> {lead.telefono}
+                                            <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight">
+                                                <Phone className="w-3 h-3 text-slate-400 dark:text-white/20" /> {lead.telefono}
                                             </div>
                                         )}
                                     </div>
                                 </TableCell>
-                                <TableCell className="text-slate-300">
-                                    {lead.proyecto?.nombre || "-"}
+                                <TableCell className="text-[12px] font-bold text-slate-600 dark:text-zinc-400 py-4 uppercase tracking-tighter italic">
+                                    {lead.proyecto?.nombre || "General"}
                                 </TableCell>
-                                <TableCell>
-                                    <Badge variant="outline" className={`border-0 ${STATUS_COLORS[lead.estado] || "bg-slate-700"}`}>
+                                <TableCell className="py-4">
+                                    <span className={cn("text-xs font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border shadow-sm", STATUS_COLORS[lead.estado] || "bg-slate-500/10 text-slate-400 border-slate-500/20")}>
                                         {lead.estado}
-                                    </Badge>
+                                    </span>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="text-center py-4">
                                     {hasAiScoring ? (
-                                        <div className={cn("inline-flex px-1.5 py-0.5 rounded text-[10px] font-black border border-current", scoreColor)}>
+                                        <div className={cn("inline-flex px-1.5 py-0.5 rounded text-xs font-black border", scoreColor)}>
                                             {score}
                                         </div>
                                     ) : (
-                                        <div className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-black border border-slate-600 text-slate-600" title="AI Scoring no incluido en tu plan">
+                                        <div className="inline-flex px-1.5 py-0.5 rounded text-xs font-black border border-slate-200 dark:border-white/10 text-slate-300 dark:text-white/10">
                                             —
                                         </div>
                                     )}
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="py-4">
                                     {lead.asignadoA ? (
-                                        <div className="flex items-center gap-2">
-                                            <Avatar className="w-6 h-6">
+                                        <div className="flex items-center gap-2.5">
+                                            <Avatar className="w-6 h-6 border border-slate-100 dark:border-white/10 shadow-sm">
                                                 <AvatarImage src={lead.asignadoA.avatar} />
-                                                <AvatarFallback className="text-[10px]">{lead.asignadoA.nombre.substring(0, 2)}</AvatarFallback>
+                                                <AvatarFallback className="text-xs font-black bg-brand-500/10 text-brand-500">{lead.asignadoA.nombre.substring(0, 2).toUpperCase()}</AvatarFallback>
                                             </Avatar>
-                                            <span className="text-xs text-slate-400">{lead.asignadoA.nombre}</span>
+                                            <span className="text-sm font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight">{lead.asignadoA.nombre}</span>
                                         </div>
                                     ) : (
-                                        <span className="text-xs text-slate-500">Sin asignar</span>
+                                        <span className="text-xs font-bold text-slate-400 dark:text-white/10 uppercase tracking-widest italic">Sin asignar</span>
                                     )}
                                 </TableCell>
-                                <TableCell className="text-xs text-slate-400">
+                                <TableCell className="text-sm font-bold text-slate-500 dark:text-white/40 uppercase tracking-tight py-4">
                                     {format(new Date(lead.createdAt), "dd MMM, yyyy", { locale: es })}
                                 </TableCell>
-                                <TableCell onClick={(e) => e.stopPropagation()}>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400">
-                                                <MoreHorizontal className="w-4 h-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-200">
-                                            <DropdownMenuItem onClick={() => openLead(lead)}>Ver Detalles</DropdownMenuItem>
-                                            <DropdownMenuItem>Editar</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-rose-400 hover:text-rose-300">Eliminar</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                <TableCell className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex items-center justify-end gap-1.5">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 dark:text-white/20 hover:text-brand-500 dark:hover:bg-white/[0.06] transition-colors">
+                                                    <MoreHorizontal className="w-4 h-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="bg-white dark:bg-[#0A0A0C] border-slate-200 dark:border-white/[0.06] shadow-xl">
+                                                <DropdownMenuItem onClick={() => openLead(lead)} className="text-sm font-bold uppercase tracking-widest py-2 dark:hover:bg-white/[0.04] cursor-pointer">Ver Detalles</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-sm font-bold uppercase tracking-widest py-2 dark:hover:bg-white/[0.04] cursor-pointer">Editar</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-sm font-bold uppercase tracking-widest py-2 text-rose-500 dark:hover:bg-white/[0.04] cursor-pointer">Eliminar</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         );
                     })}
                     {leads.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center text-slate-500">
-                                No se encontraron leads.
+                            <TableCell colSpan={8} className="h-32 text-center">
+                                <p className="text-[12px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest italic">No se encontraron leads.</p>
                             </TableCell>
                         </TableRow>
                     )}

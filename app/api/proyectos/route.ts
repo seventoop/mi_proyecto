@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { z } from "zod";
+import { requireAnyRole, handleApiGuardError } from "@/lib/guards";
 
 const proyectoCreateSchema = z.object({
     nombre: z.string().min(3).max(100),
@@ -19,6 +20,8 @@ const proyectoCreateSchema = z.object({
 
 export async function POST(request: Request) {
     try {
+        const user = await requireAnyRole(["ADMIN", "DESARROLLADOR"]);
+
         const body = await request.json();
         const parsed = proyectoCreateSchema.safeParse(body);
 
@@ -35,15 +38,13 @@ export async function POST(request: Request) {
                 ...data,
                 galeria: JSON.stringify(data.galeria),
                 documentos: JSON.stringify(data.documentos),
+                orgId: user.orgId ?? undefined,
+                creadoPorId: user.id,
             },
         });
 
         return NextResponse.json(proyecto, { status: 201 });
     } catch (error) {
-        console.error("Error creating proyecto:", error);
-        return NextResponse.json(
-            { error: "Error al crear proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

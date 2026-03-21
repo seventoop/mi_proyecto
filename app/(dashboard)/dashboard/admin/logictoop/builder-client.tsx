@@ -79,7 +79,7 @@ export function LogicToopBuilder({ flow }: LogicToopBuilderProps) {
             <div className="lg:col-span-2 space-y-6">
                 <div className="glass-card p-6 flex justify-between items-center bg-brand-50/50">
                     <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-600 block mb-1">Trigger Activo</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-brand-600 block mb-1">Trigger Activo</span>
                         <h2 className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-2">
                             <Play className="w-5 h-5 fill-brand-500 text-brand-500" />
                             {flow.triggerType}
@@ -122,7 +122,7 @@ export function LogicToopBuilder({ flow }: LogicToopBuilderProps) {
                                     </div>
                                     <div>
                                         <h3 className="font-black italic uppercase text-sm">{step.label}</h3>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{step.type}</p>
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{step.type}</p>
                                     </div>
                                 </div>
 
@@ -189,7 +189,7 @@ function StepEditor({ step, onChange, onClose }: { step: any, onChange: (s: any)
 
             <div className="space-y-4">
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Nombre del Paso</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-500 block mb-2">Nombre del Paso</label>
                     <input 
                         type="text" 
                         value={step.label}
@@ -200,7 +200,7 @@ function StepEditor({ step, onChange, onClose }: { step: any, onChange: (s: any)
 
                 {step.type === 'ACTION' && (
                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Tipo de Acción</label>
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-500 block mb-2">Tipo de Acción</label>
                         <select 
                             value={step.config.type || ''} 
                             onChange={(e) => onChange({ ...step, config: { ...step.config, type: e.target.value } })}
@@ -211,7 +211,7 @@ function StepEditor({ step, onChange, onClose }: { step: any, onChange: (s: any)
                             <option value="CREATE_TASK">Crear Tarea</option>
                             <option value="NOTIFY_INTERNAL">Notificar Interno</option>
                             <option value="SEND_WHATSAPP_TEMPLATE">WhatsApp Template</option>
-                            <option value="SEND_EMAIL_TEMPLATE">Email Template</option>
+                            <option value="SEND_EMAIL_TEMPLATE">Plantilla de Email</option>
                             <option value="MOVE_LEAD_STAGE">Cambiar Etapa Pipeline</option>
                             <option value="ADD_AUDIT_LOG">Log de Auditoría</option>
                         </select>
@@ -220,7 +220,7 @@ function StepEditor({ step, onChange, onClose }: { step: any, onChange: (s: any)
 
                 {step.type === 'WAIT' && (
                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Tiempo de Espera (Minutos)</label>
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-500 block mb-2">Tiempo de Espera (Minutos)</label>
                         <input 
                             type="number" 
                             value={step.config.minutes || 0}
@@ -233,7 +233,7 @@ function StepEditor({ step, onChange, onClose }: { step: any, onChange: (s: any)
                 {step.type === 'CONDITION' && (
                     <div className="space-y-4">
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Campo a evaluar</label>
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 block mb-2">Campo a evaluar</label>
                             <input 
                                 type="text" 
                                 placeholder="p.ej. leadId, value, source"
@@ -243,7 +243,7 @@ function StepEditor({ step, onChange, onClose }: { step: any, onChange: (s: any)
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Operador</label>
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 block mb-2">Operador</label>
                             <select 
                                 value={step.config.operator || 'EQUALS'}
                                 onChange={(e) => onChange({ ...step, config: { ...step.config, operator: e.target.value } })}
@@ -257,7 +257,7 @@ function StepEditor({ step, onChange, onClose }: { step: any, onChange: (s: any)
                             </select>
                         </div>
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Valor</label>
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 block mb-2">Valor</label>
                             <input 
                                 type="text" 
                                 value={step.config.value || ''}

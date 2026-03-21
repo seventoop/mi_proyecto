@@ -9,22 +9,22 @@ import {
     useSensor,
     useSensors,
 } from "@dnd-kit/core";
-import { SortableContext, arrayMove } from "@dnd-kit/sortable";
 import { useState } from "react";
 import LeadCard from "./lead-card";
 import { createPortal } from "react-dom";
 import { Oportunidad, Lead } from "@prisma/client";
 import { useDroppable } from "@dnd-kit/core";
 import LeadDetailModal from "./lead-detail-modal";
+import { updateOportunidad } from "@/lib/actions/crm-actions";
 
 // Define columns based on Schema Enum
 const COLUMNS = [
-    { id: "NUEVO", title: "Nuevo" },
-    { id: "CONTACTADO", title: "Contactado" },
-    { id: "CALIFICADO", title: "Calificado" },
-    { id: "VISITA", title: "Visita" },
-    { id: "NEGOCIACION", title: "Negociación" },
-    { id: "RESERVA", title: "Reserva" },
+    { id: "NUEVO", label: "Nuevo" },
+    { id: "CONTACTADO", label: "Contactado" },
+    { id: "CALIFICADO", label: "Calificado" },
+    { id: "VISITA", label: "Visitas / Entrevistas" },
+    { id: "NEGOCIACION", label: "En Seguimiento" },
+    { id: "RESERVA", label: "Reserva" },
 ];
 
 interface KanbanBoardProps {
@@ -72,15 +72,10 @@ export default function KanbanBoard({ oportunidades: initialData }: KanbanBoardP
                 )
             );
 
-            // API Call
-            try {
-                await fetch("/api/crm/pipeline", {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ oportunidadId: opId, nuevaEtapa: newStage }),
-                });
-            } catch (error) {
-                console.error("Failed to update status", error);
+            // Update via server action
+            const result = await updateOportunidad(opId, { etapa: newStage });
+            if (!result.success) {
+                console.error("Failed to update status", result.error);
                 // Revert on error
                 setOportunidades((prev) =>
                     prev.map((item) =>
@@ -115,7 +110,7 @@ export default function KanbanBoard({ oportunidades: initialData }: KanbanBoardP
                         <Column
                             key={col.id}
                             id={col.id}
-                            title={col.title}
+                            title={col.label}
                             oportunidades={oportunidades.filter((op) => op.etapa === col.id)}
                             onCardClick={handleCardClick}
                         />

@@ -115,16 +115,16 @@ function Column({ col, items, hasAiScoring, onLeadClick }: { col: any, items: an
     const bgColor = col.color.startsWith('#') ? col.color : null;
 
     return (
-        <div ref={setNodeRef} className="min-w-[300px] w-[300px] flex flex-col bg-slate-900/50 rounded-xl border border-slate-800 h-full max-h-[calc(100vh-220px)]">
-            <div className="p-3 border-b border-slate-800 flex justify-between items-center sticky top-0 bg-slate-900/90 z-10 rounded-t-xl">
-                <div className="flex items-center gap-2">
+        <div ref={setNodeRef} className="min-w-[310px] w-[310px] flex flex-col bg-slate-50/50 dark:bg-white/[0.01] rounded-2xl border border-slate-200 dark:border-white/[0.04] h-full max-h-[calc(100vh-220px)] shadow-sm dark:shadow-none">
+            <div className="p-4 border-b border-slate-100 dark:border-white/[0.04] flex justify-between items-center sticky top-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md z-10 rounded-t-2xl">
+                <div className="flex items-center gap-2.5">
                     <div
-                        className={cn("w-3 h-3 rounded-full", !bgColor && col.color)}
+                        className={cn("w-1.5 h-1.5 rounded-full", !bgColor && col.color)}
                         style={bgColor ? { backgroundColor: bgColor } : {}}
                     />
-                    <span className="font-semibold text-slate-200">{col.nombre || col.title}</span>
+                    <span className="text-sm font-black text-slate-900 dark:text-zinc-100 uppercase tracking-widest">{col.nombre || col.title}</span>
                 </div>
-                <Badge variant="secondary" className="bg-slate-800 text-slate-400">
+                <Badge variant="secondary" className="bg-slate-100 dark:bg-white/[0.04] text-slate-500 dark:text-white/30 text-xs font-black border-none px-2 py-0">
                     {items.length}
                 </Badge>
             </div>
@@ -157,9 +157,9 @@ function DraggableLeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiSc
 }
 
 function ScoreBadge({ score }: { score: number }) {
-    if (score > 70) return <span className="px-1.5 py-0.5 rounded text-[10px] font-black border border-rose-500/40 text-rose-500 bg-rose-500/10">HOT</span>;
-    if (score > 40) return <span className="px-1.5 py-0.5 rounded text-[10px] font-black border border-amber-500/40 text-amber-500 bg-amber-500/10">WARM</span>;
-    return <span className="px-1.5 py-0.5 rounded text-[10px] font-black border border-blue-500/40 text-blue-500 bg-blue-500/10">COLD</span>;
+    if (score > 70) return <span className="px-1.5 py-0.5 rounded text-xs font-black border border-rose-500/20 text-rose-500 bg-rose-500/10">HOT</span>;
+    if (score > 40) return <span className="px-1.5 py-0.5 rounded text-xs font-black border border-amber-500/20 text-amber-500 bg-amber-500/10">WARM</span>;
+    return <span className="px-1.5 py-0.5 rounded text-xs font-black border border-blue-500/20 text-blue-500 bg-blue-500/10">COLD</span>;
 }
 
 function LeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiScoring?: boolean, onClick?: () => void }) {
@@ -177,16 +177,16 @@ function LeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiScoring?: b
 
     return (
         <Card
-            className="p-3 bg-slate-800 border-slate-700 hover:border-slate-600 shadow-sm group relative overflow-hidden transition-all cursor-pointer"
+            className="p-4 bg-white dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/[0.12] hover:bg-slate-50 dark:hover:bg-white/[0.04] shadow-sm dark:shadow-none group relative overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer rounded-xl"
             onClick={onClick}
         >
-            <div className="flex justify-between items-start mb-2">
-                <div className="flex flex-col">
+            <div className="flex justify-between items-start mb-3">
+                <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                         {getOriginIcon(lead.canalOrigen)}
-                        <h4 className="font-semibold text-white truncate max-w-[150px]">{lead.nombre}</h4>
+                        <h4 className="text-[13px] font-black text-slate-900 dark:text-zinc-100 group-hover:text-brand-500 transition-colors uppercase tracking-tight truncate max-w-[160px]">{lead.nombre}</h4>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-medium px-1 bg-slate-900/50 rounded inline-block w-fit mt-1">
+                    <p className="text-xs font-bold text-slate-500 dark:text-white/20 uppercase tracking-tighter">
                         {lead.proyecto?.nombre || "General"}
                     </p>
                 </div>
@@ -194,36 +194,36 @@ function LeadCard({ lead, hasAiScoring, onClick }: { lead: any, hasAiScoring?: b
                 {hasAiScoring && score > 0 ? (
                     <ScoreBadge score={score} />
                 ) : (
-                    <div className="px-1.5 py-0.5 rounded text-[10px] font-black border border-slate-600 text-slate-600" title="AI Scoring no incluido en tu plan">
+                    <div className="px-1.5 py-0.5 rounded text-xs font-black border border-slate-200 dark:border-white/10 text-slate-300 dark:text-white/10">
                         —
                     </div>
                 )}
             </div>
 
-            <div className="space-y-1 my-3">
+            <div className="space-y-1.5 my-4">
                 {lead.email && (
-                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                        <Mail className="w-3 h-3 text-slate-500" />
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-400 dark:text-white/20 uppercase tracking-tight">
+                        <Mail className="w-3 h-3 text-slate-400 dark:text-white/10" />
                         <span className="truncate">{lead.email}</span>
                     </div>
                 )}
                 {lead.telefono && (
-                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                        <Phone className="w-3 h-3 text-slate-500" />
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-400 dark:text-white/20 uppercase tracking-tight">
+                        <Phone className="w-3 h-3 text-slate-400 dark:text-white/10" />
                         <span>{lead.telefono}</span>
                     </div>
                 )}
             </div>
 
-            <div className="flex justify-between items-center pt-2 border-t border-slate-700/50">
-                <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+            <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-white/[0.04]">
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-white/20 font-black uppercase tracking-widest">
                     <Calendar className="w-3 h-3" />
                     <span>{formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true, locale: es })}</span>
                 </div>
                 {lead.asignadoA && (
-                    <Avatar className="w-5 h-5 border border-slate-700">
+                    <Avatar className="w-5 h-5 border border-slate-100 dark:border-white/10 shadow-sm">
                         <AvatarImage src={lead.asignadoA.avatar} />
-                        <AvatarFallback className="text-[8px] bg-brand-orange/20 text-brand-orange">{lead.asignadoA.nombre.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback className="text-[8px] font-black bg-brand-500/10 text-brand-500">{lead.asignadoA.nombre.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                 )}
             </div>

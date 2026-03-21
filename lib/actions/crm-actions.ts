@@ -2,9 +2,12 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, handleGuardError, requireOrgAccess } from "@/lib/guards";
+import { requireAuth, handleGuardError, requireOrgAccess, requireCrmRead, requireCrmWrite } from "@/lib/guards";
 import { z } from "zod";
-import { idSchema } from "@/lib/validations";
+import { idSchema, closeOportunidadSchema, updateOportunidadSchema } from "@/lib/validations";
+import { createNotification } from "@/lib/actions/notifications";
+import { audit } from "@/lib/actions/audit";
+import { createReserva } from "@/lib/actions/reservas";
 
 const etapaSchema = z.object({
     nombre: z.string().min(2, "Nombre demasiado corto"),
@@ -14,7 +17,7 @@ const etapaSchema = z.object({
 
 export async function getPipelineEtapas(orgId: string) {
     try {
-        await requireOrgAccess(orgId);
+        await requireCrmRead(orgId);
         const etapas = await prisma.pipelineEtapa.findMany({
             where: { orgId },
             orderBy: { orden: "asc" }
@@ -34,7 +37,7 @@ export async function getPipelineEtapas(orgId: string) {
 
 export async function createPipelineEtapa(orgId: string, input: any) {
     try {
-        await requireOrgAccess(orgId);
+        await requireCrmWrite(orgId);
         const parsed = etapaSchema.safeParse(input);
         if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
@@ -55,12 +58,17 @@ export async function createPipelineEtapa(orgId: string, input: any) {
 
 export async function updatePipelineEtapa(etapaId: string, input: any) {
     try {
-        const etapa = await prisma.pipelineEtapa.findUnique({
-            where: { id: etapaId }
+        // requireAuth first so the DB lookup can be scoped by org (prevents timing side-channel)
+        const user = await requireAuth();
+
+        const etapa = await prisma.pipelineEtapa.findFirst({
+            where: (user.role === "ADMIN" || user.role === "SUPERADMIN")
+                ? { id: etapaId }
+                : { id: etapaId, orgId: user.orgId ?? "__none__" }
         });
         if (!etapa) return { success: false, error: "Etapa no encontrada" };
 
-        await requireOrgAccess(etapa.orgId);
+        await requireCrmWrite(etapa.orgId);
 
         const parsed = etapaSchema.partial().safeParse(input);
         if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
@@ -79,13 +87,18 @@ export async function updatePipelineEtapa(etapaId: string, input: any) {
 
 export async function deletePipelineEtapa(etapaId: string, destEtapaId?: string) {
     try {
-        const etapa = await prisma.pipelineEtapa.findUnique({
-            where: { id: etapaId },
+        // requireAuth first so the DB lookup can be scoped by org (prevents timing side-channel)
+        const user = await requireAuth();
+
+        const etapa = await prisma.pipelineEtapa.findFirst({
+            where: (user.role === "ADMIN" || user.role === "SUPERADMIN")
+                ? { id: etapaId }
+                : { id: etapaId, orgId: user.orgId ?? "__none__" },
             include: { _count: { select: { leads: true } } }
         });
         if (!etapa) return { success: false, error: "Etapa no encontrada" };
 
-        await requireOrgAccess(etapa.orgId);
+        await requireCrmWrite(etapa.orgId);
 
         // Si tiene leads, requiere etapa destino
         if (etapa._count.leads > 0) {
@@ -168,7 +181,17 @@ export async function convertLeadToOportunidad(leadId: string, proyectoId: strin
         });
 
         if (!lead) return { success: false, error: "Lead no encontrado" };
-        if (lead.orgId && lead.orgId !== orgId) return { success: false, error: "Acceso denegado" };
+
+        const isAdminCvt = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdminCvt) {
+            if (lead.orgId) {
+                if (!orgId || lead.orgId !== orgId) return { success: false, error: "Acceso denegado" };
+            } else {
+                // Lead legacy sin orgId: denegar a no-admin (fail-secure)
+                return { success: false, error: "Lead no encontrado" };
+            }
+        }
+
         if (lead.oportunidades.length > 0) return { success: false, error: "Ya existe una oportunidad para este lead en este proyecto" };
 
         const oportunidad = await prisma.oportunidad.create({
@@ -257,6 +280,159 @@ export async function getCrmMetrics(orgId: string) {
     }
 }
 
+/**
+ * Closes an Oportunidad by creating a linked Reserva, advancing the Lead to CONVERTIDO,
+ * and moving the Oportunidad stage to RESERVA.
+ * Reuses createReserva (atomic unit lock, permission check, audit).
+ */
+export async function closeOportunidad(
+    oportunidadId: string,
+    rawInput: { unidadId: string; montoSena: number; fechaVencimiento?: string }
+) {
+    try {
+        const user = await requireAuth();
+
+        const parsed = closeOportunidadSchema.safeParse(rawInput);
+        if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+        const input = parsed.data;
+
+        const oportunidad = await prisma.oportunidad.findUnique({
+            where: { id: oportunidadId },
+            include: {
+                lead: { select: { id: true, orgId: true, asignadoAId: true, nombre: true } }
+            }
+        });
+        if (!oportunidad) return { success: false, error: "Oportunidad no encontrada" };
+
+        const lead = oportunidad.lead;
+
+        // Org isolation
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            if (!lead.orgId || lead.orgId !== user.orgId) {
+                return { success: false, error: "Acceso denegado" };
+            }
+        }
+
+        if (oportunidad.etapa === "RESERVA" || oportunidad.etapa === "VENTA") {
+            return { success: false, error: "Esta oportunidad ya fue convertida a reserva" };
+        }
+
+        const unidadId = input.unidadId;
+        const fechaVencimiento = input.fechaVencimiento
+            ?? new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
+        // Reuse createReserva: handles atomic unit lock, RESERVAR permission, historialUnidad, audit
+        const reservaResult = await createReserva({
+            unidadId,
+            leadId: lead.id,
+            montoSena: input.montoSena,
+            fechaVencimiento,
+        });
+
+        if (!reservaResult.success) {
+            return { success: false, error: (reservaResult as any).error ?? "Error al crear la reserva" };
+        }
+
+        const reservaId = (reservaResult as any).data?.id;
+
+        // Find "Convertido" pipeline stage for this org (if configured)
+        const etapaConvertido = lead.orgId
+            ? await prisma.pipelineEtapa.findFirst({
+                where: { orgId: lead.orgId, nombre: { contains: "Conver", mode: "insensitive" } }
+            })
+            : null;
+
+        // Advance Lead + Oportunidad atomically
+        await prisma.$transaction([
+            prisma.lead.update({
+                where: { id: lead.id },
+                data: {
+                    estado: "CONVERTIDO",
+                    ...(etapaConvertido ? { etapaId: etapaConvertido.id } : {}),
+                }
+            }),
+            prisma.oportunidad.update({
+                where: { id: oportunidadId },
+                data: { etapa: "RESERVA" }
+            }),
+        ]);
+
+        // Notify vendedor (assigned user) if present
+        if (lead.asignadoAId) {
+            await createNotification(
+                lead.asignadoAId,
+                "EXITO",
+                "Oportunidad convertida a reserva",
+                `La oportunidad de ${lead.nombre} fue convertida a reserva. Pendiente de aprobación.`,
+                "/dashboard/developer/reservas"
+            );
+        }
+
+        await audit({
+            userId: user.id,
+            action: "OPORTUNIDAD_CLOSED",
+            entity: "Oportunidad",
+            entityId: oportunidadId,
+            details: { unidadId, leadId: lead.id, reservaId },
+        });
+
+        revalidatePath("/dashboard/developer/oportunidades");
+        revalidatePath("/dashboard/developer/reservas");
+        revalidatePath("/dashboard/developer/leads");
+
+        return { success: true, data: { reservaId } };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+/**
+ * Updates operational fields on an Oportunidad (stage, probability, value, dates).
+ * Used by the kanban card interactive controls.
+ */
+export async function updateOportunidad(
+    oportunidadId: string,
+    rawInput: unknown
+) {
+    try {
+        const user = await requireAuth();
+
+        const parsed = updateOportunidadSchema.safeParse(rawInput);
+        if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+        const input = parsed.data;
+
+        const oportunidad = await prisma.oportunidad.findUnique({
+            where: { id: oportunidadId },
+            include: { lead: { select: { orgId: true } } }
+        });
+        if (!oportunidad) return { success: false, error: "Oportunidad no encontrada" };
+
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            if (!oportunidad.lead?.orgId || oportunidad.lead.orgId !== user.orgId) {
+                return { success: false, error: "Acceso denegado" };
+            }
+        }
+
+        const updated = await prisma.oportunidad.update({
+            where: { id: oportunidadId },
+            data: {
+                ...(input.probabilidad !== undefined ? { probabilidad: input.probabilidad } : {}),
+                ...(input.valorEstimado !== undefined ? { valorEstimado: input.valorEstimado } : {}),
+                ...(input.fechaCierreEstimada ? { fechaCierreEstimada: new Date(input.fechaCierreEstimada) } : {}),
+                ...(input.proximaAccion !== undefined ? { proximaAccion: input.proximaAccion } : {}),
+                ...(input.etapa ? { etapa: input.etapa } : {}),
+            }
+        });
+
+        revalidatePath("/dashboard/developer/oportunidades");
+        return { success: true, data: { id: updated.id, etapa: updated.etapa } };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
 export async function addLeadNote(leadId: string, contenido: string) {
     try {
         const idParsed = idSchema.safeParse(leadId);
@@ -272,15 +448,25 @@ export async function addLeadNote(leadId: string, contenido: string) {
             select: { orgId: true }
         });
         if (!lead) return { success: false, error: "Lead no encontrado" };
-        if (lead.orgId && user.orgId && lead.orgId !== user.orgId) {
-            return { success: false, error: "Acceso denegado" };
+
+        const isAdminNote = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdminNote) {
+            if (lead.orgId) {
+                if (!user.orgId || lead.orgId !== user.orgId) {
+                    return { success: false, error: "Acceso denegado" };
+                }
+            } else {
+                // Lead legacy sin orgId: denegar a no-admin (fail-secure)
+                return { success: false, error: "Acceso denegado" };
+            }
         }
 
         const message = await prisma.leadMessage.create({
             data: {
                 leadId,
                 role: "note",
-                content: contentParsed.data
+                content: contentParsed.data,
+                userId: user.id
             }
         });
 

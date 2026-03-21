@@ -61,18 +61,27 @@ export const authOptions: NextAuthOptions = {
         maxAge: 24 * 60 * 60, // 24 horas
     },
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger }) {
+            // Initial sign-in: populate token from the authorize() return value
             if (user) {
                 token.id = user.id;
                 token.role = user.role;
                 token.orgId = user.orgId;
                 token.kycStatus = user.kycStatus;
                 token.demoEndsAt = user.demoEndsAt;
+                token.lastDbSync = Math.floor(Date.now() / 1000);
+                return token;
             }
 
-            // High-security refetch: If we are already logged in, 
-            // periodically or on trigger, refresh from DB
-            if (token.id) {
+            // Subsequent validations: only refetch from DB if TTL has elapsed
+            // or if an explicit session update was triggered (e.g. SessionSyncHandler).
+            // This prevents a DB query on every page navigation and API call.
+            const DB_SYNC_INTERVAL_S = 5 * 60; // 5 minutes
+            const now = Math.floor(Date.now() / 1000);
+            const elapsed = now - (token.lastDbSync ?? 0);
+            const needsSync = trigger === "update" || elapsed >= DB_SYNC_INTERVAL_S;
+
+            if (token.id && needsSync) {
                 const dbUser = await prisma.user.findUnique({
                     where: { id: token.id },
                     select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true }
@@ -82,6 +91,7 @@ export const authOptions: NextAuthOptions = {
                     token.orgId = dbUser.orgId;
                     token.kycStatus = dbUser.kycStatus;
                     token.demoEndsAt = dbUser.demoEndsAt ? dbUser.demoEndsAt.toISOString() : null;
+                    token.lastDbSync = now;
                 }
             }
 

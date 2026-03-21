@@ -133,7 +133,7 @@ export default function LeadDetailDrawer({
                         </div>
                         {hasAiScoring && (
                             <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-current shadow-glow-sm", scoreColor, scoreBg)}>
-                                <span className="text-[10px] font-black uppercase tracking-tighter">AI Score</span>
+                                <span className="text-xs font-black uppercase tracking-tighter">AI Score</span>
                                 <span className="text-2xl font-black">{score}</span>
                             </div>
                         )}

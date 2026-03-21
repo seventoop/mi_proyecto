@@ -9,7 +9,8 @@ export async function POST(
     { params }: { params: { id: string } },
 ) {
     try {
-        const user = await requireAnyRole(["ADMIN", "DESARROLLADOR"]);
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
         const workflow = await prisma.workflow.findUnique({
             where: { id: params.id },
@@ -20,8 +21,8 @@ export async function POST(
             return NextResponse.json({ error: "Workflow no encontrado" }, { status: 404 });
         }
 
-        // ADMIN can run any workflow; DESARROLLADOR only their org's
-        if (user.role !== "ADMIN" && workflow.orgId !== user.orgId) {
+        // ADMIN/SUPERADMIN can run any workflow; DESARROLLADOR only their org's
+        if (!isAdmin && workflow.orgId !== user.orgId) {
             return NextResponse.json({ error: "No autorizado" }, { status: 403 });
         }
 

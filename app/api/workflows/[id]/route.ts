@@ -15,7 +15,8 @@ export async function PATCH(
     { params }: { params: { id: string } },
 ) {
     try {
-        const user = await requireAnyRole(["ADMIN", "DESARROLLADOR"]);
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
         const workflow = await prisma.workflow.findUnique({
             where: { id: params.id },
@@ -25,7 +26,9 @@ export async function PATCH(
         if (!workflow) {
             return NextResponse.json({ error: "Workflow no encontrado" }, { status: 404 });
         }
-        if (user.role !== "ADMIN" && workflow.orgId !== user.orgId) {
+        
+        // Tenant boundary check
+        if (!isAdmin && workflow.orgId !== user.orgId) {
             return NextResponse.json({ error: "No autorizado" }, { status: 403 });
         }
 
@@ -54,7 +57,8 @@ export async function GET(
     { params }: { params: { id: string } },
 ) {
     try {
-        const user = await requireAnyRole(["ADMIN", "DESARROLLADOR"]);
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
         const workflow = await prisma.workflow.findUnique({
             where: { id: params.id },
@@ -72,7 +76,9 @@ export async function GET(
         if (!workflow) {
             return NextResponse.json({ error: "Workflow no encontrado" }, { status: 404 });
         }
-        if (user.role !== "ADMIN" && workflow.orgId !== user.orgId) {
+
+        // Tenant boundary check
+        if (!isAdmin && workflow.orgId !== user.orgId) {
             return NextResponse.json({ error: "No autorizado" }, { status: 403 });
         }
 

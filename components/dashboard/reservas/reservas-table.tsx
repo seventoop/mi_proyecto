@@ -50,45 +50,45 @@ export default function ReservasTable({ reservas }: { reservas: any[] }) {
     };
 
     return (
-        <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] overflow-hidden shadow-sm dark:shadow-none">
             <Table>
-                <TableHeader className="bg-slate-900/50">
-                    <TableRow className="border-slate-800 hover:bg-transparent">
-                        <TableHead>Unidad / Proyecto</TableHead>
-                        <TableHead>Cliente (Lead)</TableHead>
-                        <TableHead>Vencimiento</TableHead>
-                        <TableHead>Seña</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
+                <TableHeader className="bg-slate-50 dark:bg-white/[0.01]">
+                    <TableRow className="border-slate-100 dark:border-white/[0.06] hover:bg-transparent">
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Unidad / Proyecto</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Cliente (Lead)</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Vencimiento</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Seña</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4">Estado</TableHead>
+                        <TableHead className="text-xs font-black text-slate-400 dark:text-white/30 uppercase tracking-widest py-4 text-right">Acciones</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {reservas.map((reserva) => (
-                        <TableRow key={reserva.id} className="border-slate-800 hover:bg-slate-800/50">
-                            <TableCell>
-                                <div className="flex flex-col">
-                                    <span className="font-medium text-white">{reserva.unidad}</span>
-                                    <span className="text-xs text-slate-400">{reserva.proyecto}</span>
+                        <TableRow key={reserva.id} className="border-slate-100 dark:border-white/[0.04] hover:bg-slate-50/50 dark:hover:bg-white/[0.03] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group">
+                            <TableCell className="py-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[13px] font-black text-slate-900 dark:text-zinc-100 group-hover:text-brand-500 transition-colors uppercase tracking-tight">{reserva.unidad}</span>
+                                    <span className="text-xs font-bold text-slate-500 dark:text-white/30 uppercase tracking-tighter">{reserva.proyecto}</span>
                                 </div>
                             </TableCell>
-                            <TableCell>
-                                <div className="flex flex-col">
-                                    <span className="text-slate-200">{reserva.lead}</span>
-                                    <span className="text-xs text-slate-400">{reserva.leadEmail}</span>
+                            <TableCell className="py-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">{reserva.lead}</span>
+                                    <span className="text-xs font-bold text-slate-500 dark:text-white/30 uppercase tracking-widest">{reserva.leadEmail}</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="text-slate-300">
+                            <TableCell className="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-tight py-4">
                                 {format(new Date(reserva.fechaVencimiento), "dd MMM yyyy", { locale: es })}
                             </TableCell>
-                            <TableCell className="font-mono text-slate-300">
+                            <TableCell className="font-mono text-sm font-bold text-slate-600 dark:text-slate-300 py-4">
                                 {reserva.montoSena ? `$${reserva.montoSena.toLocaleString()}` : "-"}
                             </TableCell>
-                            <TableCell>
-                                <Badge variant="outline" className={`border-0 ${STATUS_CONFIG[reserva.estado]?.color || "bg-slate-700"}`}>
+                            <TableCell className="py-4">
+                                <Badge variant="outline" className={`border-0 px-2 py-0.5 rounded-md text-xs font-black uppercase tracking-tighter shadow-sm ${STATUS_CONFIG[reserva.estado]?.color || "bg-slate-500/10 text-slate-400"}`}>
                                     {STATUS_CONFIG[reserva.estado]?.label || reserva.estado}
                                 </Badge>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right py-4">
                                 <div className="flex justify-end gap-2">
                                     {reserva.estado === "PENDIENTE_APROBACION" && (
                                         <>
@@ -140,8 +140,8 @@ export default function ReservasTable({ reservas }: { reservas: any[] }) {
                     ))}
                     {reservas.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={6} className="h-24 text-center text-slate-500">
-                                No hay reservas registradas.
+                            <TableCell colSpan={6} className="h-32 text-center">
+                                <p className="text-[12px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest">No hay reservas registradas.</p>
                             </TableCell>
                         </TableRow>
                     )}

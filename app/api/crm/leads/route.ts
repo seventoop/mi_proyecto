@@ -51,6 +51,14 @@ export async function POST(request: Request) {
                 where: { id: proyectoId },
                 select: { orgId: true },
             });
+            
+            // Validate project tenant boundary
+            if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+                if (!proyecto || !user.orgId || proyecto.orgId !== user.orgId) {
+                    return NextResponse.json({ message: "Proyecto no encontrado" }, { status: 404 });
+                }
+            }
+            
             if (proyecto?.orgId) orgId = proyecto.orgId;
         }
 

@@ -49,11 +49,11 @@ export default function TaskList({ tasks: initialTasks }: TaskListProps) {
                                         <p className="text-xs text-slate-600 dark:text-slate-500 line-clamp-1">{task.descripcion}</p>
                                     )}
                                     <div className="flex items-center gap-3 mt-2">
-                                        <span className="flex items-center gap-1 text-[10px] text-slate-900 dark:text-slate-400 font-bold bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded">
+                                        <span className="flex items-center gap-1 text-xs text-slate-900 dark:text-slate-400 font-bold bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded">
                                             <Clock className="w-3 h-3" />
                                             {format(new Date(task.fechaVencimiento), "d MMM", { locale: es })}
                                         </span>
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${task.prioridad === 'ALTA' ? 'bg-red-500/20 text-red-400' :
+                                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${task.prioridad === 'ALTA' ? 'bg-red-500/20 text-red-400' :
                                             task.prioridad === 'MEDIA' ? 'bg-yellow-500/20 text-yellow-400' :
                                                 'bg-slate-700 text-slate-400'
                                             }`}>

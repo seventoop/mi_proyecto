@@ -10,7 +10,7 @@ const updateTourSchema = z.object({
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
     try {
-        await requireAuth();
+        const user = await requireAuth();
 
         const tour = await db.tour360.findUnique({
             where: { id: params.id },
@@ -19,6 +19,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
         if (!tour) {
             return NextResponse.json({ message: "Tour no encontrado" }, { status: 404 });
         }
+
+        // Security: Check project ownership/tenant boundary
+        await requireProjectOwnership(tour.proyectoId);
 
         return NextResponse.json(tour);
     } catch (error) {

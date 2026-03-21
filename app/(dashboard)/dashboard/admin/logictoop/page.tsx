@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { LogicToopDashboardClient } from "./logictoop-client";
 import { getLogicToopDashboardData } from "@/lib/actions/logictoop";
 import { db } from "@/lib/db";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function LogicToopAdminPage() {
     const result = await getLogicToopDashboardData();
@@ -19,7 +21,7 @@ export default async function LogicToopAdminPage() {
                     <h1 className="text-4xl font-black tracking-tighter uppercase italic">
                         LogicToop <span className="text-brand-500 underline decoration-4">Automation</span>
                     </h1>
-                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">
+                    <p className="text-slate-500 font-bold uppercase text-xs tracking-widest mt-1">
                         Motor de reglas y automatización v1.0 • <span className="text-brand-500">v2 Orchestrator Active</span>
                     </p>
                 </div>
@@ -38,6 +40,8 @@ export default async function LogicToopAdminPage() {
                     </a>
                 </div>
             </div>
+
+            <ModuleHelp content={MODULE_HELP_CONTENT.adminLogicToop} />
 
             <Suspense fallback={<div className="glass-card p-8 animate-pulse text-center uppercase font-black italic">Iniciando Motor...</div>}>
                 <LogicToopDashboardClient 

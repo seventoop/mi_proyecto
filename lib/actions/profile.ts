@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { idSchema, phoneSchema } from "@/lib/validations";
+import { requireAuth, handleGuardError } from "@/lib/guards";
 
 // ─── Schemas ───
 
@@ -22,6 +23,13 @@ const profileUpdateSchema = z.object({
 
 export async function updateProfile(userId: string, input: unknown) {
     try {
+        const user = await requireAuth();
+
+        // Users can only update their own profile; ADMIN/SUPERADMIN can update any user
+        if (user.role !== "ADMIN" && user.role !== "SUPERADMIN" && user.id !== userId) {
+            return { success: false, error: "No tienes permisos para modificar este perfil" };
+        }
+
         const idParsed = idSchema.safeParse(userId);
         if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
 
@@ -40,7 +48,6 @@ export async function updateProfile(userId: string, input: unknown) {
         revalidatePath("/dashboard/developer/mi-perfil");
         return { success: true };
     } catch (error) {
-        console.error("Error updating profile:", error);
-        return { success: false, error: "Error al actualizar el perfil" };
+        return handleGuardError(error);
     }
 }

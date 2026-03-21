@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { signIn } from "next-auth/react";
+import { X, Mail, Lock, User, ArrowRight, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -23,24 +24,45 @@ export default function LoginGate({ isOpen, onClose, redirectTo, triggerAction }
         password: "",
         nombre: "",
     });
+    const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        setError(null);
 
-        // TODO: Implement actual authentication
-        // For now simulate a delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        if (mode === "login") {
+            try {
+                const result = await signIn("credentials", {
+                    email: formData.email,
+                    password: formData.password,
+                    redirect: false,
+                });
 
-        // Redirect after login
-        if (redirectTo) {
-            router.push(redirectTo);
+                if (result?.error) {
+                    setError("Credenciales inválidas. Por favor intenta de nuevo.");
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Success
+                if (redirectTo) {
+                    router.push(redirectTo);
+                } else {
+                    router.push("/dashboard");
+                    router.refresh();
+                }
+                onClose();
+            } catch (err) {
+                setError("Ocurrió un error inesperado. Intenta de nuevo.");
+            } finally {
+                setIsLoading(false);
+            }
         } else {
-            router.push("/dashboard");
+            // Register logic would go here, for now just a message or TODO
+            setError("El registro no está habilitado desde aquí. Contacta con tu administrador.");
+            setIsLoading(false);
         }
-
-        setIsLoading(false);
-        onClose();
     };
 
     return (
@@ -138,6 +160,13 @@ export default function LoginGate({ isOpen, onClose, redirectTo, triggerAction }
                                         />
                                     </div>
                                 </div>
+
+                                {error && (
+                                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-3 text-red-500 text-sm animate-in fade-in slide-in-from-top-1">
+                                        <AlertCircle className="w-5 h-5 shrink-0" />
+                                        <p>{error}</p>
+                                    </div>
+                                )}
 
                                 <button
                                     type="submit"

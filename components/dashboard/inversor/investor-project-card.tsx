@@ -104,13 +104,13 @@ export default function InvestorProjectCard({ proyecto, showFavorite = true }: P
                     <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                         <div className="flex justify-between items-end">
                             <div>
-                                <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-0.5">Precio M²</p>
+                                <p className="text-xs uppercase font-black tracking-widest text-slate-400 mb-0.5">Precio M²</p>
                                 <p className="text-lg font-black text-slate-900 dark:text-white">
                                     {formatCurrency(Number(proyecto.precioM2Inversor) || 0)}
                                 </p>
                             </div>
                             <div className="text-right">
-                                <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-0.5">Fondeado</p>
+                                <p className="text-xs uppercase font-black tracking-widest text-slate-400 mb-0.5">Fondeado</p>
                                 <p className="text-lg font-black text-brand-500">
                                     {progress.toFixed(0)}%
                                 </p>

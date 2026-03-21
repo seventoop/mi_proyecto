@@ -43,6 +43,7 @@ const updateTourSchema = createTourSchema.extend({
 export async function getProjectTours(proyectoId: string) {
     try {
         await requireAuth();
+        await requireProjectOwnership(proyectoId);
 
         const tours = await prisma.tour360.findMany({
             where: { proyectoId },

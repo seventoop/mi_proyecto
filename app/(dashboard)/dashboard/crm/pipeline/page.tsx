@@ -2,8 +2,11 @@ import { resolveAdminOrgContext } from "@/lib/auth/guards";
 import { getPipelineEtapas } from "@/lib/actions/crm-actions";
 import PipelineConfigClient from "@/components/dashboard/crm/pipeline-config-client";
 import AdminOrgSelector from "@/components/dashboard/admin/admin-org-selector";
+import EmptyOrgState from "@/components/dashboard/empty-org-state";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function PipelinePage({ 
     searchParams 
@@ -16,15 +19,20 @@ export default async function PipelinePage({
     if (needsSelection) {
         return (
             <AdminOrgSelector 
-                title="Pipeline CRM" 
-                description="Selecciona una organización para gestionar sus etapas y flujo de leads."
+                title="Configuración de Leads" 
+                description="Selecciona una organización para gestionar sus etapas y flujo de contactos."
                 error={error}
             />
         );
     }
 
     if (!orgId) {
-        redirect("/dashboard/developer");
+        return (
+            <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
+                <ModuleHelp content={MODULE_HELP_CONTENT.crmPipeline} />
+                <EmptyOrgState moduleName="Gestión de Leads" />
+            </div>
+        );
     }
 
     // Obtener etapas actuales
@@ -51,7 +59,8 @@ export default async function PipelinePage({
     }
 
     return (
-        <div className="p-6">
+        <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
+            <ModuleHelp content={MODULE_HELP_CONTENT.pipelineConfig} />
             <PipelineConfigClient orgId={orgId} initialEtapas={etapas} />
         </div>
     );

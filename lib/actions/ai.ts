@@ -6,6 +6,7 @@ import { getSystemConfig } from "./configuration";
 import { z } from "zod";
 import { executeLeadReception } from "@/lib/crm-pipeline";
 import { idSchema } from "@/lib/validations";
+import { requireAuth, handleGuardError } from "@/lib/guards";
 
 // ─── Schemas ───
 
@@ -33,6 +34,8 @@ const improveDescriptionSchema = z.object({
  */
 export async function getAICopilotSuggestion(leadId: string) {
     try {
+        const user = await requireAuth();
+
         const idParsed = idSchema.safeParse(leadId);
         if (!idParsed.success) return { success: false, error: "ID de lead inválido" };
 
@@ -49,6 +52,19 @@ export async function getAICopilotSuggestion(leadId: string) {
 
         if (!lead || !lead.proyecto) {
             return { success: false, error: "Lead o Proyecto no encontrado" };
+        }
+
+        // Fail-secure tenant check: non-privileged users can only access leads in their org
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            if (lead.orgId) {
+                if (!user.orgId || lead.orgId !== user.orgId) {
+                    return { success: false, error: "Lead no encontrado" };
+                }
+            } else {
+                // Lead legacy sin orgId: denegar acceso a no-admin (fail-secure)
+                return { success: false, error: "Lead no encontrado" };
+            }
         }
 
         const configRes = await getSystemConfig("OPENAI_API_KEY");
@@ -100,8 +116,7 @@ Usa el nombre del lead para personalizar.
         const suggestion = response.choices[0]?.message?.content || "No se pudo generar una sugerencia.";
         return { success: true, data: suggestion };
     } catch (error: any) {
-        console.error("Error generating AI suggestion:", error);
-        return { success: false, error: error.message || "Error al generar sugerencia de IA" };
+        return handleGuardError(error);
     }
 }
 

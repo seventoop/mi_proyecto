@@ -31,7 +31,7 @@ export default async function HealthPage({
                 <h1 className="text-4xl font-black tracking-tighter uppercase italic flex items-center gap-2">
                     <span className="text-brand-500">AI</span> Health
                 </h1>
-                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">
+                <p className="text-slate-500 font-bold uppercase text-xs tracking-widest mt-1">
                     LogicToop v2 • Reliability Metrics
                 </p>
             </div>

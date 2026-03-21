@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireProjectOwnership, requireAnyRole, AuthError } from "@/lib/guards";
+import { requireAnyRole, handleApiGuardError } from "@/lib/guards";
 import prisma from "@/lib/db";
 
 // PUT /api/imagenes-mapa/[id]
@@ -8,11 +8,23 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    await requireAnyRole(["ADMIN", "VENDEDOR", "DESARROLLADOR"]);
-    
-    const existing = await prisma.imagenMapa.findUnique({ where: { id: params.id }, select: { proyectoId: true } });
+    const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "VENDEDOR", "DESARROLLADOR"]);
+
+    const existing = await prisma.imagenMapa.findUnique({
+      where: { id: params.id },
+      select: { proyectoId: true },
+    });
     if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    await requireProjectOwnership(existing.proyectoId);
+
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+      const proyecto = await prisma.proyecto.findUnique({
+        where: { id: existing.proyectoId },
+        select: { orgId: true },
+      });
+      if (!proyecto || !user.orgId || !proyecto.orgId || proyecto.orgId !== user.orgId) {
+        return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+      }
+    }
 
     const body = await req.json();
     const { titulo, tipo, lat, lng, unidadId, orden, altitudM, imageHeading, latOffset, lngOffset, planRotation, planScale } = body;
@@ -39,11 +51,7 @@ export async function PUT(
 
     return NextResponse.json({ item });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-    console.error("[PUT /imagenes-mapa]", error);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return handleApiGuardError(error);
   }
 }
 
@@ -53,19 +61,27 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await requireAnyRole(["ADMIN", "VENDEDOR", "DESARROLLADOR"]);
+    const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "VENDEDOR", "DESARROLLADOR"]);
 
-    const existing = await prisma.imagenMapa.findUnique({ where: { id: params.id }, select: { proyectoId: true } });
+    const existing = await prisma.imagenMapa.findUnique({
+      where: { id: params.id },
+      select: { proyectoId: true },
+    });
     if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    await requireProjectOwnership(existing.proyectoId);
+
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+      const proyecto = await prisma.proyecto.findUnique({
+        where: { id: existing.proyectoId },
+        select: { orgId: true },
+      });
+      if (!proyecto || !user.orgId || !proyecto.orgId || proyecto.orgId !== user.orgId) {
+        return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+      }
+    }
 
     await prisma.imagenMapa.delete({ where: { id: params.id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-    console.error("[DELETE /imagenes-mapa]", error);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return handleApiGuardError(error);
   }
 }

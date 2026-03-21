@@ -105,7 +105,7 @@ export default function ProjectPaymentsTab({ proyectoId, pagos, userRole = "DESA
                                         className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                                     />
                                 </div>
-                                <p className="text-[10px] text-slate-400 mt-1">Sube el comprobante a un servicio de almacenamiento y pega el link.</p>
+                                <p className="text-xs text-slate-400 mt-1">Sube el comprobante a un servicio de almacenamiento y pega el link.</p>
                             </div>
 
                             <button

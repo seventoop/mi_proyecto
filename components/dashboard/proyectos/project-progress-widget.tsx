@@ -74,7 +74,7 @@ export default function ProjectProgressWidget({
                     )}
                 >
                     <span className="text-lg leading-none">{completedCount}</span>
-                    <span className="text-[11px] text-slate-400 font-semibold">/{total}</span>
+                    <span className="text-sm text-slate-400 font-semibold">/{total}</span>
                 </motion.div>
             </div>
 
@@ -150,7 +150,7 @@ export default function ProjectProgressWidget({
                     exit={{ opacity: 0, y: -4 }}
                     transition={{ duration: 0.25 }}
                     className={cn(
-                        "text-[11px] font-semibold",
+                        "text-sm font-semibold",
                         isComplete
                             ? "text-emerald-500"
                             : "text-slate-400 dark:text-slate-500"

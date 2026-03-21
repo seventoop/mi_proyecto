@@ -8,6 +8,7 @@ import { LeadsImportDialog } from "./leads-import-dialog";
 import { LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import FeatureGate from "@/components/saas/FeatureGate";
+import { cn } from "@/lib/utils";
 
 interface Lead {
     id: string;
@@ -42,47 +43,54 @@ export default function LeadsView({
     const [viewMode, setViewMode] = useState<"BOARD" | "LIST">("BOARD");
 
     return (
-        <div className="space-y-6 h-full flex flex-col">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold gradient-text">Gestión de Leads</h1>
-                    <p className="text-slate-400 mt-1">Administra tu pipeline de ventas y contactos</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="bg-slate-900 p-1 rounded-lg border border-slate-800 flex">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`px-3 py-1.5 h-8 ${viewMode === "BOARD" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"}`}
+        <div className="space-y-6 h-full flex flex-col pb-8">
+            <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4 w-full">
+                <div className="flex items-center gap-3">
+                    <div className="bg-slate-100 dark:bg-white/[0.04] p-1 rounded-xl border border-slate-200 dark:border-white/[0.06] flex items-center">
+                        <button
                             onClick={() => setViewMode("BOARD")}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-black uppercase tracking-wider transition-all duration-300",
+                                viewMode === "BOARD" 
+                                    ? "bg-white dark:bg-white/[0.08] shadow-sm text-brand-500 dark:text-zinc-100" 
+                                    : "text-slate-400 hover:text-slate-600 dark:hover:text-white/60"
+                            )}
                         >
-                            <LayoutGrid className="w-4 h-4 mr-2" /> Tablero
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`px-3 py-1.5 h-8 ${viewMode === "LIST" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"}`}
+                            <LayoutGrid className="w-3.5 h-3.5" />
+                            <span>Tablero</span>
+                        </button>
+                        <button
                             onClick={() => setViewMode("LIST")}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-black uppercase tracking-wider transition-all duration-300",
+                                viewMode === "LIST" 
+                                    ? "bg-white dark:bg-white/[0.08] shadow-sm text-brand-500 dark:text-zinc-100" 
+                                    : "text-slate-400 hover:text-slate-600 dark:hover:text-white/60"
+                            )}
                         >
-                            <List className="w-4 h-4 mr-2" /> Lista
-                        </Button>
+                            <List className="w-3.5 h-3.5" />
+                            <span>Lista</span>
+                        </button>
                     </div>
-                    <FeatureGate
-                        feature="importacion_leads"
-                        features={planFeatures}
-                        showUpgradeCard={false}
-                    >
-                        <LeadsImportDialog />
-                    </FeatureGate>
 
-                    <FeatureGate
-                        feature="leads"
-                        max={usage?.limit}
-                        current={usage?.current}
-                        showUpgradeCard={false}
-                    >
-                        <LeadDialog projects={projects} />
-                    </FeatureGate>
+                    <div className="flex items-center gap-2">
+                        <FeatureGate
+                            feature="importacion_leads"
+                            features={planFeatures}
+                            showUpgradeCard={false}
+                        >
+                            <LeadsImportDialog />
+                        </FeatureGate>
+
+                        <FeatureGate
+                            feature="leads"
+                            max={usage?.limit}
+                            current={usage?.current}
+                            showUpgradeCard={false}
+                        >
+                            <LeadDialog projects={projects} />
+                        </FeatureGate>
+                    </div>
                 </div>
             </div>
 

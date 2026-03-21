@@ -35,7 +35,7 @@ export function ObservabilityDashboard() {
         <div className="space-y-6">
             <h2 className="text-2xl font-black italic tracking-tighter uppercase flex items-center gap-2">
                 <Activity className="w-6 h-6 text-brand-500" />
-                Observabilidad <span className="text-brand-500 border border-brand-500 bg-brand-500/10 px-2 py-0.5 rounded text-[10px] tracking-widest ml-2">ESTADO GLOBAL</span>
+                Observabilidad <span className="text-brand-500 border border-brand-500 bg-brand-500/10 px-2 py-0.5 rounded text-xs tracking-widest ml-2">ESTADO GLOBAL</span>
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -90,7 +90,7 @@ export function ObservabilityDashboard() {
                         <CardTitle className="text-md font-black uppercase italic tracking-tighter flex items-center gap-2">
                             <AlertTriangle className="w-5 h-5 text-amber-500" /> Fallos Recientes
                         </CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Ejecuciones fallidas o reintentando</CardDescription>
+                        <CardDescription className="text-xs font-bold uppercase tracking-widest">Ejecuciones fallidas o reintentando</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {stats.recentFailures?.length === 0 ? (
@@ -103,10 +103,10 @@ export function ObservabilityDashboard() {
                                     <div key={exec.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg flex flex-col gap-1">
                                         <div className="flex justify-between items-center">
                                             <span className="text-xs font-bold text-slate-300">ID: {exec.id.slice(0, 8)}</span>
-                                            <Badge variant="destructive" className="italic text-[9px] uppercase font-black">{exec.status}</Badge>
+                                            <Badge variant="destructive" className="italic text-xs uppercase font-black">{exec.status}</Badge>
                                         </div>
-                                        <div className="text-[10px] text-slate-400 col-span-2 capitalize"><strong className="uppercase">Flow:</strong> {exec.flow?.nombre} ({exec.flow?.org?.nombre})</div>
-                                        <div className="mt-2 text-[10px] text-rose-400 font-mono bg-rose-950/20 p-2 rounded truncate" title={exec.errorMessage}>
+                                        <div className="text-xs text-slate-400 col-span-2 capitalize"><strong className="uppercase">Flow:</strong> {exec.flow?.nombre} ({exec.flow?.org?.nombre})</div>
+                                        <div className="mt-2 text-xs text-rose-400 font-mono bg-rose-950/20 p-2 rounded truncate" title={exec.errorMessage}>
                                             {exec.errorMessage || "Error desconocido"}
                                         </div>
                                     </div>
@@ -121,14 +121,14 @@ export function ObservabilityDashboard() {
                         <CardTitle className="text-md font-black uppercase italic tracking-tighter flex items-center gap-2">
                             <Users className="w-5 h-5 text-brand-500" /> Consumo por Organización
                         </CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Top 10 orgs por volumen de ejecución</CardDescription>
+                        <CardDescription className="text-xs font-bold uppercase tracking-widest">Top 10 orgs por volumen de ejecución</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
                             <TableHeader>
                                 <TableRow className="border-white/5">
-                                    <TableHead className="text-[10px] font-black uppercase text-slate-400">Organización</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase text-slate-400 text-right">Ejecuciones</TableHead>
+                                    <TableHead className="text-xs font-black uppercase text-slate-400">Organización</TableHead>
+                                    <TableHead className="text-xs font-black uppercase text-slate-400 text-right">Ejecuciones</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

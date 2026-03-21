@@ -75,7 +75,7 @@ export default function TestimoniosPage() {
                                 </blockquote>
 
                                 {t.proyecto && (
-                                    <div className="mb-3 text-[10px] text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded w-fit">
+                                    <div className="mb-3 text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded w-fit">
                                         Sobre: <span className="font-medium text-slate-600 dark:text-slate-300">{t.proyecto.nombre}</span>
                                     </div>
                                 )}

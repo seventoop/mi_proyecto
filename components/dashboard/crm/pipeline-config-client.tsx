@@ -71,7 +71,7 @@ function SortableItem({ etapa, editingId, setEditingId, editNombre, setEditNombr
     return (
         <div ref={setNodeRef} style={style} className="group">
             <Card className={cn(
-                "p-4 bg-slate-900 border-slate-800 transition-all group-hover:border-slate-700",
+                "p-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 transition-all dark:group-hover:border-slate-700 group-hover:border-slate-300",
                 editingId === etapa.id ? "ring-2 ring-brand-orange border-brand-orange" : ""
             )}>
                 <div className="flex items-center gap-4">
@@ -86,13 +86,13 @@ function SortableItem({ etapa, editingId, setEditingId, editNombre, setEditNombr
                             <Input
                                 value={editNombre}
                                 onChange={(e) => setEditNombre(e.target.value)}
-                                className="bg-slate-800 border-slate-700 h-9"
+                                className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white h-9"
                             />
                             <Input
                                 type="color"
                                 value={editColor}
                                 onChange={(e) => setEditColor(e.target.value)}
-                                className="w-10 h-9 p-1 bg-slate-800 border-slate-700"
+                                className="w-10 h-9 p-1 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 cursor-pointer"
                             />
                             <Button size="sm" onClick={() => handleUpdate(etapa.id)} className="bg-emerald-600 hover:bg-emerald-500">
                                 <Check className="w-4 h-4" />
@@ -104,7 +104,7 @@ function SortableItem({ etapa, editingId, setEditingId, editNombre, setEditNombr
                     ) : (
                         <>
                             <div className="flex-1">
-                                <h3 className="font-bold text-white">{etapa.nombre}</h3>
+                                <h3 className="font-bold text-slate-900 dark:text-white">{etapa.nombre}</h3>
                             </div>
                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button
@@ -223,30 +223,23 @@ export default function PipelineConfigClient({ orgId, initialEtapas }: { orgId: 
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-white flex items-center gap-3">
-                        <Settings2 className="w-8 h-8 text-brand-orange" />
-                        Configuración de Pipeline
-                    </h1>
-                    <p className="text-slate-400 mt-1">Personaliza las etapas de tu embudo de ventas</p>
-                </div>
+        <div className="space-y-6">
+            <div className="flex justify-end items-center">
                 <Button onClick={() => setIsAdding(true)} className="gradient-brand shadow-glow hover:shadow-glow-lg text-white font-bold gap-2">
                     <Plus className="w-4 h-4" /> Nueva Etapa
                 </Button>
             </div>
 
             {isAdding && (
-                <Card className="p-6 bg-slate-900 border-brand-orange/30 animate-in slide-in-from-top-4 duration-300">
+                <Card className="p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-brand-orange/30 shadow-sm dark:shadow-none animate-in slide-in-from-top-4 duration-300">
                     <div className="flex flex-col md:flex-row gap-4 items-end">
                         <div className="flex-1 space-y-2">
                             <label className="text-xs font-bold text-slate-500 uppercase">Nombre de la Etapa</label>
                             <Input
                                 value={newNombre}
                                 onChange={(e) => setNewNombre(e.target.value)}
-                                placeholder="Ej: Negociación"
-                                className="bg-slate-800 border-slate-700"
+                                placeholder="Ej: Calificado"
+                                className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
                             />
                         </div>
                         <div className="space-y-2">
@@ -256,7 +249,7 @@ export default function PipelineConfigClient({ orgId, initialEtapas }: { orgId: 
                                     type="color"
                                     value={newColor}
                                     onChange={(e) => setNewColor(e.target.value)}
-                                    className="w-12 h-10 p-1 bg-slate-800 border-slate-700 cursor-pointer"
+                                    className="w-12 h-10 p-1 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 cursor-pointer"
                                 />
                                 <Badge variant="outline" style={{ borderColor: newColor, color: newColor }}>
                                     Previsualización
@@ -305,9 +298,9 @@ export default function PipelineConfigClient({ orgId, initialEtapas }: { orgId: 
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-                <DialogContent className="bg-slate-900 border-slate-800">
+                <DialogContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+                        <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <Trash2 className="w-6 h-6 text-rose-500" />
                             Eliminar Etapa
                         </DialogTitle>
@@ -319,10 +312,10 @@ export default function PipelineConfigClient({ orgId, initialEtapas }: { orgId: 
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 uppercase">Mover leads a:</label>
                             <Select value={destEtapaId} onValueChange={setDestEtapaId}>
-                                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                                <SelectTrigger className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
                                     <SelectValue placeholder="Seleccionar etapa de destino" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                                <SelectContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
                                     {etapas.filter(e => e.id !== deleteId).map(e => (
                                         <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>
                                     ))}

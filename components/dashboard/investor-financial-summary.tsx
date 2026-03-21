@@ -122,7 +122,7 @@ export default function InvestorFinancialSummary({ stats, distribution, nextMile
                                     </div>
                                 ))}
                                 {distribution.length > 3 && (
-                                    <p className="text-[10px] text-slate-500 text-center font-bold">
+                                    <p className="text-xs text-slate-500 text-center font-bold">
                                         + {distribution.length - 3} proyectos más
                                     </p>
                                 )}
@@ -139,18 +139,18 @@ export default function InvestorFinancialSummary({ stats, distribution, nextMile
                 {nextMilestone && (
                     <div className="mt-4 p-3 rounded-xl bg-brand-500/5 border border-brand-500/10">
                         <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-brand-600 uppercase">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-brand-600 uppercase">
                                 <Landmark className="w-3 h-3" />
                                 Próximo Hito
                             </div>
-                            <span className="text-[10px] font-black text-slate-900 dark:text-white">
+                            <span className="text-xs font-black text-slate-900 dark:text-white">
                                 {nextMilestone.porcentaje}% liberado
                             </span>
                         </div>
                         <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {nextMilestone.titulo}
                         </p>
-                        <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
                             {nextMilestone.proyecto.nombre}
                         </p>
                     </div>

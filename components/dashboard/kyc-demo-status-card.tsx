@@ -61,7 +61,7 @@ export function KycDemoStatusCard({ kycStatus, demoEndsAt, demoUsed }: KycDemoSt
 
     return (
         <div className={cn(
-            "relative overflow-hidden group rounded-3xl border transition-all duration-300",
+            "relative overflow-hidden group rounded-2xl border transition-all duration-300",
             hasDemo
                 ? "bg-gradient-to-br from-brand-500/10 via-brand-500/5 to-transparent border-brand-500/20 shadow-lg shadow-brand-500/5"
                 : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"
@@ -106,7 +106,7 @@ export function KycDemoStatusCard({ kycStatus, demoEndsAt, demoUsed }: KycDemoSt
                     {hasDemo ? (
                         <div className="flex items-center gap-6 bg-white/50 dark:bg-black/20 px-6 py-3 rounded-2xl border border-white dark:border-white/5 backdrop-blur-sm">
                             <div className="text-right">
-                                <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest leading-none mb-1">Tu Tiempo</p>
+                                <p className="text-xs uppercase font-black text-slate-400 tracking-widest leading-none mb-1">Tu Tiempo</p>
                                 <p className="font-black text-brand-500 text-2xl tracking-tighter italic leading-none">
                                     {timeLeft}
                                 </p>

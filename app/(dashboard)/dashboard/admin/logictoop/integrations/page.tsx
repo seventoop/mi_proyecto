@@ -17,7 +17,7 @@ export default async function IntegrationsPage() {
         <h1 className="text-4xl font-black tracking-tighter uppercase italic">
           External <span className="text-brand-500 underline decoration-4">Integrations</span>
         </h1>
-        <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">
+        <p className="text-slate-500 font-bold uppercase text-xs tracking-widest mt-1">
           Configure multi-tenant connections for LogicToop flows
         </p>
       </div>

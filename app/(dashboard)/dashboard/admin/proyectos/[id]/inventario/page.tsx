@@ -228,10 +228,10 @@ export default function InventarioPage({ params }: { params: { id: string } }) {
                         <div>
                             <label className="text-xs text-slate-400 mb-1.5 block">Rango de Precio (USD)</label>
                             <div className="flex items-center gap-2">
-                                <input type="number" placeholder="Min" value={precioMin} onChange={(e) => setPrecioMin(e.target.value)}
+                                <input type="number" placeholder="Mín" value={precioMin} onChange={(e) => setPrecioMin(e.target.value)}
                                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
                                 <span className="text-slate-400">—</span>
-                                <input type="number" placeholder="Max" value={precioMax} onChange={(e) => setPrecioMax(e.target.value)}
+                                <input type="number" placeholder="Máx" value={precioMax} onChange={(e) => setPrecioMax(e.target.value)}
                                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
                             </div>
                         </div>
@@ -240,10 +240,10 @@ export default function InventarioPage({ params }: { params: { id: string } }) {
                         <div>
                             <label className="text-xs text-slate-400 mb-1.5 block">Superficie (m²)</label>
                             <div className="flex items-center gap-2">
-                                <input type="number" placeholder="Min" value={superficieMin} onChange={(e) => setSuperficieMin(e.target.value)}
+                                <input type="number" placeholder="Mín" value={superficieMin} onChange={(e) => setSuperficieMin(e.target.value)}
                                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
                                 <span className="text-slate-400">—</span>
-                                <input type="number" placeholder="Max" value={superficieMax} onChange={(e) => setSuperficieMax(e.target.value)}
+                                <input type="number" placeholder="Máx" value={superficieMax} onChange={(e) => setSuperficieMax(e.target.value)}
                                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
                             </div>
                         </div>
@@ -280,7 +280,7 @@ export default function InventarioPage({ params }: { params: { id: string } }) {
                                 <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                                     <td className="px-5 py-3.5">
                                         <span className="text-sm font-bold text-slate-700 dark:text-white">{u.numero}</span>
-                                        {u.esEsquina && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-400">ESQ</span>}
+                                        {u.esEsquina && <span className="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-400">ESQ</span>}
                                     </td>
                                     <td className="px-5 py-3.5 text-sm text-slate-500 dark:text-slate-400">{u.tipo === "LOTE" ? "Lote" : "Depto"}</td>
                                     <td className="px-5 py-3.5 text-sm text-slate-500 dark:text-slate-400">{u.etapa}</td>

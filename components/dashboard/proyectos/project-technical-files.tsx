@@ -97,7 +97,7 @@ export default function ProjectTechnicalFiles({ proyectoId, readOnly = false }: 
                 setNewFile({ nombre: "", tipo: "PLANO", visiblePublicamente: false });
                 loadArchivos();
             } else {
-                throw new Error(addRes.error);
+                throw new Error('error' in addRes ? addRes.error : "Error al importar archivo");
             }
         } catch (error: any) {
             toast.error(error.message || "Error al importar archivo", { id: toastId });
@@ -136,13 +136,13 @@ export default function ProjectTechnicalFiles({ proyectoId, readOnly = false }: 
                             <Plus className="w-4 h-4 text-brand-500" />
                             Importar Archivo Técnico
                         </h4>
-                        <p className="text-[10px] text-slate-500 font-medium mt-0.5 uppercase tracking-wider">
+                        <p className="text-xs text-slate-500 font-medium mt-0.5 uppercase tracking-wider">
                             Planos, memorias, documentos legales (PDF, DWG, ZIP, etc.)
                         </p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <div className="md:col-span-1">
-                            <label className="text-[10px] font-black uppercase text-slate-400 mb-1.5 block">Nombre del Archivo</label>
+                            <label className="text-xs font-black uppercase text-slate-400 mb-1.5 block">Nombre del Archivo</label>
                             <input
                                 type="text"
                                 value={newFile.nombre}
@@ -152,7 +152,7 @@ export default function ProjectTechnicalFiles({ proyectoId, readOnly = false }: 
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] font-black uppercase text-slate-400 mb-1.5 block">Categoría</label>
+                            <label className="text-xs font-black uppercase text-slate-400 mb-1.5 block">Categoría</label>
                             <select
                                 value={newFile.tipo}
                                 onChange={(e) => setNewFile(prev => ({ ...prev, tipo: e.target.value }))}
@@ -200,10 +200,10 @@ export default function ProjectTechnicalFiles({ proyectoId, readOnly = false }: 
                     <table className="w-full text-left border-collapse min-w-[600px]">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Archivo</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoría</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Visibilidad</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
+                                <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Archivo</th>
+                                <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Categoría</th>
+                                <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Visibilidad</th>
+                                <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -223,12 +223,12 @@ export default function ProjectTechnicalFiles({ proyectoId, readOnly = false }: 
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{archivo.nombre}</p>
-                                                    <p className="text-[10px] text-slate-400">{new Date(archivo.createdAt).toLocaleDateString()}</p>
+                                                    <p className="text-xs text-slate-400">{new Date(archivo.createdAt).toLocaleDateString()}</p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-black tracking-wider uppercase">
+                                            <span className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-black tracking-wider uppercase">
                                                 {archivo.tipo}
                                             </span>
                                         </td>
@@ -237,12 +237,12 @@ export default function ProjectTechnicalFiles({ proyectoId, readOnly = false }: 
                                                 {archivo.visiblePublicamente ? (
                                                     <div className="flex items-center gap-1.5 text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                                                         <CheckCircle2 className="w-3 h-3" />
-                                                        <span className="text-[9px] font-black uppercase">Público</span>
+                                                        <span className="text-xs font-black uppercase">Público</span>
                                                     </div>
                                                 ) : (
                                                     <div className="flex items-center gap-1.5 text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
                                                         <XCircle className="w-3 h-3" />
-                                                        <span className="text-[9px] font-black uppercase tracking-widest">Privado</span>
+                                                        <span className="text-xs font-black uppercase tracking-widest">Privado</span>
                                                     </div>
                                                 )}
                                             </div>

@@ -49,7 +49,7 @@ const NotificationList = memo(({
                     {notifications.some(n => !n.leido) && (
                         <button
                             onClick={onMarkAllAsRead}
-                            className="text-[11px] text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-medium"
+                            className="text-sm text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-medium"
                         >
                             <Check className="w-3 h-3" />
                             Marcar todas
@@ -93,7 +93,7 @@ const NotificationList = memo(({
                                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 leading-normal">
                                         {notif.mensaje}
                                     </p>
-                                    <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-500 dark:text-slate-500 font-medium">
+                                    <div className="flex items-center gap-1 mt-2 text-xs text-slate-500 dark:text-slate-500 font-medium">
                                         <Clock className="w-3 h-3" />
                                         {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true, locale: es })}
                                     </div>
@@ -114,7 +114,7 @@ const NotificationList = memo(({
             </div>
             {notifications.length > 0 && (
                 <div className="p-2 border-t border-slate-100 dark:border-white/10 bg-slate-50/30 dark:bg-white/5 text-center">
-                    <p className="text-[10px] text-slate-400 dark:text-slate-600 font-medium italic">
+                    <p className="text-xs text-slate-400 dark:text-slate-600 font-medium italic">
                         Has llegado al final de tus alertas
                     </p>
                 </div>
@@ -190,6 +190,7 @@ export default function NotificationBell() {
     }, [session]);
 
     useEffect(() => {
+        if (!isOpen) return;
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
@@ -197,7 +198,7 @@ export default function NotificationBell() {
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+    }, [isOpen]);
 
     const markAsRead = async (id: string) => {
         try {

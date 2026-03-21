@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { requireAuth, requireAnyRole, handleApiGuardError } from "@/lib/guards";
 
 // GET /api/proyectos/[id]/infraestructura — list all for a project
 export async function GET(
@@ -9,9 +8,21 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    const user = await requireAuth();
+
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+      const proyecto = await prisma.proyecto.findUnique({
+        where: { id: params.id },
+        select: { orgId: true },
+      });
+      if (!proyecto) {
+        return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+      }
+      // Fail-secure: deny if either side has no orgId, or if they differ.
+      // Returns 404 (not 403) to avoid leaking existence of other tenants' data.
+      if (!user.orgId || !proyecto.orgId || proyecto.orgId !== user.orgId) {
+        return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+      }
     }
 
     const items = await prisma.infraestructura.findMany({
@@ -27,8 +38,7 @@ export async function GET(
 
     return NextResponse.json({ items: parsed });
   } catch (error) {
-    console.error("[GET /infraestructura]", error);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return handleApiGuardError(error);
   }
 }
 
@@ -38,10 +48,19 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    const userRole = (session?.user as any)?.role;
-    if (!session?.user || !["ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole)) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    const user = await requireAnyRole(["ADMIN", "VENDEDOR", "DESARROLLADOR"]);
+
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+      const proyecto = await prisma.proyecto.findUnique({
+        where: { id: params.id },
+        select: { orgId: true },
+      });
+      if (!proyecto) {
+        return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+      }
+      if (!user.orgId || !proyecto.orgId || proyecto.orgId !== user.orgId) {
+        return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+      }
     }
 
     const body = await req.json();
@@ -96,7 +115,6 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error("[POST /infraestructura]", error);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return handleApiGuardError(error);
   }
 }

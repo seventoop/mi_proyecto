@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { getUserKYC } from "@/lib/actions/kyc";
 import { getKycProfile } from "@/lib/actions/kyc-actions";
 import KycWizardClient from "./kyc-wizard-client";
-
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 export const dynamic = "force-dynamic";
 
 export default async function KYCPage() {
@@ -24,11 +25,14 @@ export default async function KYCPage() {
     const kycProfile = profileRes.success ? profileRes.data : null;
 
     return (
-        <KycWizardClient
-            userId={userId}
-            initialStatus={kycData?.kycStatus || "PENDIENTE"}
-            initialDocs={kycData?.documentacion || []}
-            initialProfile={kycProfile}
-        />
+        <div className="p-6 max-w-3xl mx-auto space-y-8 animate-fade-in">
+            <ModuleHelp content={MODULE_HELP_CONTENT.kyc} />
+            <KycWizardClient
+                userId={userId}
+                initialStatus={kycData?.kycStatus || "PENDIENTE"}
+                initialDocs={kycData?.documentacion || []}
+                initialProfile={kycProfile}
+            />
+        </div>
     );
 }

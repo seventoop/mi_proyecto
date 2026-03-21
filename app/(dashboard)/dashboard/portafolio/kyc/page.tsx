@@ -10,6 +10,8 @@ import FileUploader from "@/components/ui/file-uploader";
 import { toast } from "sonner";
 import InversorUpgradeModal from "@/components/portafolio/inversor-upgrade-modal";
 import { getInversorKycProfile } from "@/lib/actions/kyc-upgrade-actions";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 const requiredDocs = [
     { id: "dni_front", label: "DNI (Frente)", description: "Foto clara del frente de tu documento" },
@@ -98,10 +100,7 @@ export default function PortafolioKycPage() {
         <div className="p-6 max-w-4xl mx-auto space-y-10 animate-fade-in">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Verificación de Identidad</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-                    Completá tu documentación para acceder a todas las funciones de la plataforma.
-                </p>
+                <ModuleHelp content={MODULE_HELP_CONTENT.investorKyc} />
             </div>
 
             {/* ─── NIVEL 1: Identidad básica (todos los roles) ────────────── */}
@@ -117,7 +116,7 @@ export default function PortafolioKycPage() {
                     </div>
                 </div>
 
-                <div className="glass-card p-6 space-y-6">
+                <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6 space-y-6">
                     <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800 text-purple-800 dark:text-purple-300">
                         <h3 className="font-bold flex items-center gap-2 mb-1 text-sm">
                             <Wallet className="w-4 h-4" /> Seguridad AML
@@ -149,7 +148,7 @@ export default function PortafolioKycPage() {
                                 <div key={doc.id} className="space-y-1">
                                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                         {doc.label}
-                                        {doc.optional && <span className="text-[10px] text-slate-400">(Opcional)</span>}
+                                        {doc.optional && <span className="text-xs text-slate-400">(Opcional)</span>}
                                     </label>
                                     <FileUploader
                                         label={`Subir ${doc.label}`}
@@ -172,7 +171,7 @@ export default function PortafolioKycPage() {
                         <TrendingUp className="w-5 h-5 text-brand-500" />
                         Nivel 2 — Perfil Inversor
                     </h2>
-                    <div className="glass-card p-6">
+                    <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6">
                         {inversorKycEstado === "VERIFICADO" || kycStatus === "VERIFICADO" ? (
                             <div className="flex items-center gap-3">
                                 <ShieldCheck className="w-8 h-8 text-emerald-500" />
@@ -208,7 +207,7 @@ export default function PortafolioKycPage() {
                             <TrendingUp className="w-5 h-5 text-brand-500" />
                             Nivel 2 — Upgrade a Inversor
                         </h2>
-                        <div className="glass-card p-6 border border-brand-500/20">
+                        <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6">
                             {inversorKycEstado === "EN_REVISION" ? (
                                 <div className="flex items-center gap-3">
                                     <Clock className="w-6 h-6 text-amber-500" />

@@ -120,7 +120,7 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                 <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-brand-500">
                                     Crear desde Plantilla
                                 </DialogTitle>
-                                <DialogDescription className="font-bold uppercase text-[10px] tracking-widest text-slate-500">
+                                <DialogDescription className="font-bold uppercase text-xs tracking-widest text-slate-500">
                                     Selecciona un patrón de automatización y una organización
                                 </DialogDescription>
                             </DialogHeader>
@@ -131,29 +131,29 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                             <CardTitle className="text-sm font-black uppercase italic tracking-tighter group-hover:text-brand-500 transition-colors">
                                                 {t.nombre}
                                             </CardTitle>
-                                            <CardDescription className="text-[10px] font-bold uppercase text-slate-500">
+                                            <CardDescription className="text-xs font-bold uppercase text-slate-500">
                                                 Trigger: {t.triggerType}
                                             </CardDescription>
                                         </CardHeader>
                                         <CardContent>
-                                            <p className="text-[11px] text-slate-400 mb-4 h-8 overflow-hidden">{t.descripcion}</p>
+                                            <p className="text-sm text-slate-400 mb-4 h-8 overflow-hidden">{t.descripcion}</p>
                                             <div className="space-y-1">
-                                                <p className="text-[9px] font-black uppercase text-brand-500/70 tracking-widest">Acciones:</p>
+                                                <p className="text-xs font-black uppercase text-brand-500/70 tracking-widest">Acciones:</p>
                                                 {(t.defaultActions as any[])?.map((a, idx) => (
-                                                    <div key={idx} className="text-[9px] font-bold text-slate-300 flex items-center gap-1 uppercase italic">
+                                                    <div key={idx} className="text-xs font-bold text-slate-300 flex items-center gap-1 uppercase italic">
                                                         <ChevronRight className="w-3 h-3 text-brand-500" /> {a.type}
                                                     </div>
                                                 ))}
                                             </div>
                                             <div className="mt-6 flex flex-col gap-2">
-                                                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Seleccionar Orga:</p>
+                                                <p className="text-xs font-black uppercase text-slate-500 tracking-widest">Seleccionar Orga:</p>
                                                 <div className="grid grid-cols-1 gap-1">
                                                     {orgs.map(org => (
                                                         <Button 
                                                             key={org.id}
                                                             size="sm" 
                                                             variant="outline"
-                                                            className="h-7 border-white/10 text-[9px] font-black uppercase italic hover:bg-brand-500/10 hover:text-brand-500"
+                                                            className="h-7 border-white/10 text-xs font-black uppercase italic hover:bg-brand-500/10 hover:text-brand-500"
                                                             onClick={() => handleCreateFromTemplate(t.id, org.id)}
                                                         >
                                                             {org.nombre}
@@ -175,7 +175,7 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                     <input 
                         type="text" 
                         placeholder="Buscar por nombre o organización..."
-                        className="bg-black/20 border-white/10 text-[10px] uppercase font-black italic rounded-lg px-3 py-1.5 focus:border-brand-500/50 outline-none flex-1 min-w-[200px]"
+                        className="bg-black/20 border-white/10 text-xs uppercase font-black italic rounded-lg px-3 py-1.5 focus:border-brand-500/50 outline-none flex-1 min-w-[200px]"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -187,7 +187,7 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                 size="sm"
                                 onClick={() => setStatusFilter(status)}
                                 className={cn(
-                                    "text-[9px] font-black uppercase italic h-7 px-3 rounded-lg border border-white/5",
+                                    "text-xs font-black uppercase italic h-7 px-3 rounded-lg border border-white/5",
                                     statusFilter === status ? "bg-brand-500/20 text-brand-500 border-brand-500/30" : "text-slate-500 hover:text-white"
                                 )}
                             >
@@ -201,10 +201,10 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                     <Table>
                         <TableHeader className="bg-white/5">
                             <TableRow className="border-white/10">
-                                <TableHead className="text-[10px] font-black uppercase text-slate-400">Flow / Orga</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase text-slate-400">Trigger</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase text-slate-400">Ejecuciones</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase text-slate-400 text-right">Estado</TableHead>
+                                <TableHead className="text-xs font-black uppercase text-slate-400">Flow / Orga</TableHead>
+                                <TableHead className="text-xs font-black uppercase text-slate-400">Trigger</TableHead>
+                                <TableHead className="text-xs font-black uppercase text-slate-400">Ejecuciones</TableHead>
+                                <TableHead className="text-xs font-black uppercase text-slate-400 text-right">Estado</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -214,7 +214,7 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                         <div className="flex flex-col">
                                             <span className="font-bold text-sm text-white uppercase italic tracking-tighter">{flow.nombre}</span>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-brand-500 font-extrabold uppercase tracking-widest">{flow.org?.nombre}</span>
+                                                <span className="text-xs text-brand-500 font-extrabold uppercase tracking-widest">{flow.org?.nombre}</span>
                                                 <span className="text-[8px] font-black uppercase text-slate-500 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
                                                     {Array.isArray(flow.actions) ? flow.actions.length : 0} PASOS
                                                 </span>
@@ -222,7 +222,7 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="outline" className="border-white/20 text-white text-[9px] font-black uppercase italic tracking-tighter">
+                                        <Badge variant="outline" className="border-white/20 text-white text-xs font-black uppercase italic tracking-tighter">
                                             {flow.triggerType}
                                         </Badge>
                                     </TableCell>
@@ -251,7 +251,7 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                             </button>
                                             <Sheet onOpenChange={() => viewExecutions(flow.id)}>
                                                 <SheetTrigger asChild>
-                                                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[9px] font-black uppercase italic bg-white/5 hover:bg-white/10">
+                                                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs font-black uppercase italic bg-white/5 hover:bg-white/10">
                                                         Logs
                                                     </Button>
                                                 </SheetTrigger>
@@ -261,7 +261,7 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                                             <History className="w-8 h-8 text-brand-500" />
                                                             Historial de <span className="text-brand-500 font-black italic uppercase">Ejecuciones</span>
                                                         </SheetTitle>
-                                                        <SheetDescription className="font-black uppercase text-[10px] tracking-widest text-slate-500">
+                                                        <SheetDescription className="font-black uppercase text-xs tracking-widest text-slate-500">
                                                             Flow: {flow.nombre} ({flow.triggerType})
                                                         </SheetDescription>
                                                     </SheetHeader>
@@ -273,13 +273,13 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                                             <div key={exec.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-all">
                                                                 <div className="flex justify-between items-start mb-4">
                                                                     <div className="flex flex-col">
-                                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                                                                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
                                                                             <Clock className="w-3 h-3" /> {new Date(exec.startedAt).toLocaleString()}
                                                                         </span>
-                                                                        <span className="text-[10px] font-bold text-slate-400">ID: {exec.id.slice(-8)}</span>
+                                                                        <span className="text-xs font-bold text-slate-400">ID: {exec.id.slice(-8)}</span>
                                                                     </div>
                                                                     <Badge className={cn(
-                                                                        "text-[10px] font-black uppercase italic tracking-tighter",
+                                                                        "text-xs font-black uppercase italic tracking-tighter",
                                                                         exec.status === "SUCCESS" ? "bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30" : "bg-rose-500/20 text-rose-500 hover:bg-rose-500/30"
                                                                     )}>
                                                                         {exec.status}
@@ -288,23 +288,23 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
 
                                                                 <div className="flex items-center gap-2 mb-3 bg-white/5 p-2 rounded-lg">
                                                                     <Box className="w-3 h-3 text-brand-500" />
-                                                                    <span className="text-[10px] font-black uppercase italic text-slate-300">
+                                                                    <span className="text-xs font-black uppercase italic text-slate-300">
                                                                         Entidad: {(exec.triggerPayload as any)?.nombre || (exec.triggerPayload as any)?.leadId || (exec.triggerPayload as any)?.proyectoId || "Sistema"}
                                                                     </span>
                                                                 </div>
 
                                                                 <div className="space-y-2 border-l-2 border-white/5 ml-2 pl-4">
                                                                     {exec.logs?.map((log: any, idx: number) => (
-                                                                        <div key={idx} className="flex items-center justify-between text-[11px]">
+                                                                        <div key={idx} className="flex items-center justify-between text-sm">
                                                                             <div className="flex items-center gap-2">
                                                                                 {log.status === "SUCCESS" ? <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : <XCircle className="w-3 h-3 text-rose-500" />}
                                                                                 <span className="font-bold text-slate-300 italic uppercase">{log.action}</span>
                                                                             </div>
-                                                                            <span className="text-[9px] text-slate-600 font-mono">OK</span>
+                                                                            <span className="text-xs text-slate-600 font-mono">OK</span>
                                                                         </div>
                                                                     ))}
                                                                     {exec.errorMessage && (
-                                                                        <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/20 rounded-lg text-[10px] text-rose-500 font-bold uppercase italic italic">
+                                                                        <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/20 rounded-lg text-xs text-rose-500 font-bold uppercase italic italic">
                                                                             ERROR: {exec.errorMessage}
                                                                         </div>
                                                                     )}
@@ -325,7 +325,7 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                             variant="ghost"
                                             size="sm"
                                             className={cn(
-                                                "font-black uppercase italic text-[10px] tracking-tighter rounded-full px-4 h-7",
+                                                "font-black uppercase italic text-xs tracking-tighter rounded-full px-4 h-7",
                                                 flow.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20" : "bg-slate-500/10 text-slate-500 hover:bg-slate-500/20"
                                             )}
                                         >
@@ -337,7 +337,7 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                             ))}
                             {flows.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-12 text-slate-500 italic uppercase font-black tracking-widest text-[10px]">
+                                    <TableCell colSpan={4} className="text-center py-12 text-slate-500 italic uppercase font-black tracking-widest text-xs">
                                         No hay flows configurados. Crea uno desde plantillas.
                                     </TableCell>
                                 </TableRow>
@@ -366,19 +366,19 @@ export function LogicToopDashboardClient({ initialData, orgs }: Props) {
                                 <p className="font-bold text-[13px] text-white uppercase italic tracking-tighter leading-none mb-1 truncate">
                                     {exec.flow?.nombre}
                                 </p>
-                                <div className="flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                                <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
                                     <span>#{exec.id.slice(-6)}</span>
                                     <span>•</span>
                                     <span>{new Date(exec.startedAt).toLocaleTimeString()}</span>
                                 </div>
-                                <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase italic opacity-70">
+                                <p className="text-xs font-bold text-slate-400 mt-1 uppercase italic opacity-70">
                                     Target: {(exec.triggerPayload as any)?.nombre || (exec.triggerPayload as any)?.leadId || "N/A"}
                                 </p>
                             </div>
                         </div>
                     ))}
                     {latestExecutions.length === 0 && (
-                        <div className="glass-card p-8 text-center text-slate-500 font-bold uppercase text-[10px] italic tracking-widest border-white/5 border-dashed">
+                        <div className="glass-card p-8 text-center text-slate-500 font-bold uppercase text-xs italic tracking-widest border-white/5 border-dashed">
                             Esperando actividad...
                         </div>
                     )}

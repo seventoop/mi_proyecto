@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { generateReservaPDF } from "@/lib/pdf-generator";
-import { requireAuth, handleApiGuardError } from "@/lib/guards";
+import { requireAuth, requireReservaPermission, handleApiGuardError } from "@/lib/guards";
 
 // ─── GET /api/reservas/[id]/documento — Generate & download PDF ───
 export async function GET(
@@ -38,14 +38,8 @@ export async function GET(
             return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
         }
 
-        // Authorization: Admin, Project Owner, or Seller
-        const isAdmin = user.role === "ADMIN";
-        const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
-        const isSeller = reserva.vendedorId === user.id;
-
-        if (!isAdmin && !isOwner && !isSeller) {
-            return NextResponse.json({ error: "No autorizado para descargar este documento" }, { status: 403 });
-        }
+        // Security: Use canonical guard for consistent bypass and tenant isolation
+        await requireReservaPermission(params.id);
 
         const pdfBuffer = await generateReservaPDF({
             reservaId: reserva.id,

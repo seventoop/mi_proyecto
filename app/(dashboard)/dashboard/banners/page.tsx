@@ -118,7 +118,7 @@ export default function BannersPage() {
                                 </div>
                                 <div className="absolute top-3 right-3">
                                     <span className={cn(
-                                        "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md",
+                                        "px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md",
                                         banner.estado === "APROBADO" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
                                             banner.estado === "PENDIENTE" ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" :
                                                 banner.estado === "PAUSADO" ? "bg-slate-500/20 text-slate-300 border border-slate-500/30" :

@@ -2,6 +2,8 @@ import { getUsers } from "@/lib/actions/user-actions";
 import UsersTable from "./users-table";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function AdminUsersPage({
     searchParams
@@ -17,10 +19,7 @@ export default async function AdminUsersPage({
 
     return (
         <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Gestión de Usuarios</h1>
-                <p className="text-slate-500 text-sm">Administra roles, accesos y estados de cuenta.</p>
-            </div>
+            <ModuleHelp content={MODULE_HELP_CONTENT.adminUsers} />
 
             <Suspense fallback={
                 <div className="flex items-center justify-center py-20">

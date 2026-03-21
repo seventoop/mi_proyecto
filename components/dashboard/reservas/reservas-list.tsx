@@ -101,7 +101,7 @@ export default function ReservasList({ reservas, userRole }: ReservasListProps) 
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={cn(
-                                            "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
+                                            "px-2 py-1 rounded-full text-xs font-bold uppercase",
                                             reserva.estado === "ACTIVA" && "bg-orange-100 text-orange-600",
                                             reserva.estado === "CANCELADA" && "bg-red-100 text-red-600",
                                             reserva.estado === "CONCRETADA" && "bg-green-100 text-green-600"

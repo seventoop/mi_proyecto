@@ -65,7 +65,7 @@ export default function UnitLocationInfo({ form, updateForm }: UnitLocationInfoP
                             </g>
                         ))}
                     </svg>
-                    <p className="absolute bottom-2 left-3 text-[10px] text-slate-400">
+                    <p className="absolute bottom-2 left-3 text-xs text-slate-400">
                         Haz clic en un lote para seleccionar su ubicación
                     </p>
                 </div>

@@ -130,6 +130,7 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
                 <MasterplanViewer
                     proyectoId={project.id}
                     modo="public"
+                    canEdit={false}
                 />
             </div>
         </div>

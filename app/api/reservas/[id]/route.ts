@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 import { requireAuth, requireRole, handleApiGuardError } from "@/lib/guards";
+import { getProjectAccess, ProjectPermission } from "@/lib/project-access";
 
 // ─── GET /api/reservas/[id] — Single reservation detail ───
 export async function GET(
@@ -26,6 +27,7 @@ export async function GET(
                                                 nombre: true,
                                                 ubicacion: true,
                                                 creadoPorId: true,
+                                                orgId: true,
                                             },
                                         },
                                     },
@@ -57,12 +59,18 @@ export async function GET(
             return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
         }
 
-        // Authorization Check
-        const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
-        const isSeller = reserva.vendedorId === user.id;
-        const isAdmin = user.role === "ADMIN";
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
-        if (!isAdmin && !isOwner && !isSeller) {
+        // Resolve access context — handles org boundary + legacy creadoPorId fallback.
+        // Throws AuthError(404) if project not found or user outside org.
+        const proyectoId = reserva.unidad.manzana.etapa.proyecto.id;
+        const ctx = await getProjectAccess(user, proyectoId);
+
+        const isSeller = reserva.vendedorId === user.id;
+        // Global metrics access implies visibility over all reservas on the project
+        const hasGlobalAccess = ctx.can(ProjectPermission.VER_METRICAS_GLOBALES);
+
+        if (!isAdmin && !hasGlobalAccess && !isSeller) {
             return NextResponse.json({ error: "No autorizado para ver esta reserva" }, { status: 403 });
         }
 
@@ -95,16 +103,22 @@ export async function PUT(
             return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
         }
 
-        const isAdmin = user.role === "ADMIN";
-        const isOwner = reserva.unidad.manzana.etapa.proyecto.creadoPorId === user.id;
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+
+        // Resolve access context — handles org boundary + legacy creadoPorId fallback.
+        const proyectoId = reserva.unidad.manzana.etapa.proyecto.id;
+        const ctx = await getProjectAccess(user, proyectoId);
+
         const isSeller = reserva.vendedorId === user.id;
+        // EDITAR_PROYECTO: OWNER-level — manages financial/date operations on reservas
+        const canEdit = ctx.can(ProjectPermission.EDITAR_PROYECTO);
 
         let updated;
         const pusher = getPusherServer();
 
         switch (action) {
             case "registrarPago": {
-                if (!isAdmin && !isOwner) {
+                if (!isAdmin && !canEdit) {
                     return NextResponse.json({ error: "No autorizado para registrar pagos" }, { status: 403 });
                 }
                 updated = await prisma.reserva.update({
@@ -114,11 +128,20 @@ export async function PUT(
                         montoSena: data.montoSena || reserva.montoSena,
                     },
                 });
+                await prisma.auditLog.create({
+                    data: {
+                        userId: user.id,
+                        action: "RESERVA_PAGO_REGISTRADO",
+                        entity: "Reserva",
+                        entityId: params.id,
+                        details: JSON.stringify({ actor: user.role, montoSena: data.montoSena ?? reserva.montoSena }),
+                    },
+                });
                 break;
             }
 
             case "extender": {
-                if (!isAdmin && !isOwner) {
+                if (!isAdmin && !canEdit) {
                     return NextResponse.json({ error: "No autorizado para extender reservas" }, { status: 403 });
                 }
                 if (!data.nuevaFechaVencimiento) {
@@ -130,11 +153,20 @@ export async function PUT(
                         fechaVencimiento: new Date(data.nuevaFechaVencimiento),
                     },
                 });
+                await prisma.auditLog.create({
+                    data: {
+                        userId: user.id,
+                        action: "RESERVA_EXTENDIDA",
+                        entity: "Reserva",
+                        entityId: params.id,
+                        details: JSON.stringify({ actor: user.role, nuevaFechaVencimiento: data.nuevaFechaVencimiento }),
+                    },
+                });
                 break;
             }
 
             case "cancelar": {
-                if (!isAdmin && !isOwner && !isSeller) {
+                if (!isAdmin && !canEdit && !isSeller) {
                     return NextResponse.json({ error: "No autorizado para cancelar esta reserva" }, { status: 403 });
                 }
                 updated = await prisma.$transaction(async (tx) => {
@@ -199,6 +231,22 @@ export async function PUT(
                             estadoAnterior: "RESERVADO",
                             estadoNuevo: "VENDIDO",
                             motivo: `Reserva convertida a venta por Admin`,
+                        },
+                    });
+
+                    // Explicit audit trail for admin bypass — who, when, what changed
+                    await tx.auditLog.create({
+                        data: {
+                            userId: user.id,
+                            action: "ADMIN_RESERVA_CONVERTIDA_VENTA",
+                            entity: "Reserva",
+                            entityId: params.id,
+                            details: JSON.stringify({
+                                adminId: user.id,
+                                unidadId: reserva.unidadId,
+                                estadoAnterior: "ACTIVA",
+                                estadoNuevo: "CONVERTIDA",
+                            }),
                         },
                     });
 

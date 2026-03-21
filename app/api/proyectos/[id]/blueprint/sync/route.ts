@@ -1,7 +1,6 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireAnyRole, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
 
 interface SyncPath {
     internalId?: number;
@@ -19,12 +18,9 @@ export async function POST(
     request: Request,
     { params }: { params: { id: string } }
 ) {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     try {
+        await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
+        await requireProjectOwnership(params.id);
         const body = await request.json();
         const { paths, svgContent } = body as { paths: SyncPath[]; svgContent: string };
 
@@ -32,14 +28,8 @@ export async function POST(
             return NextResponse.json({ error: "paths array is required" }, { status: 400 });
         }
 
-        const isAdmin = (session.user as any).role === "ADMIN";
-
-        // 1. Fetch project — admins can access all, developers only their own
-        const project = await prisma.proyecto.findFirst({
-            where: {
-                id: params.id,
-                ...(isAdmin ? {} : { creadoPorId: session.user.id }),
-            },
+        const project = await prisma.proyecto.findUnique({
+            where: { id: params.id },
             select: {
                 overlayBounds: true,
                 etapas: {
@@ -182,7 +172,6 @@ export async function POST(
             updated,
         });
     } catch (error) {
-        console.error("Error syncing blueprint:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return handleApiGuardError(error);
     }
 }

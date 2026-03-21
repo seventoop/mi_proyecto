@@ -168,7 +168,7 @@ export default function ProjectDocsTab({ proyectoId, docs, docStatus, userRole =
                                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
                                         {doc.tipo.replace("PLANO_", "").replace(/_/g, " ")}
                                     </p>
-                                    <a href={doc.archivoUrl} target="_blank" rel="noreferrer" className="text-[10px] text-brand-500 font-bold hover:underline flex items-center gap-1">
+                                    <a href={doc.archivoUrl} target="_blank" rel="noreferrer" className="text-xs text-brand-500 font-bold hover:underline flex items-center gap-1">
                                         <Download className="w-3 h-3" /> VER / DESCARGAR
                                     </a>
                                 </div>
@@ -193,7 +193,7 @@ function DocumentCard({ label, description, existingDoc, loading, onUpload, isAd
                     <FileText className="w-6 h-6" />
                 </div>
                 {existingDoc && (
-                    <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">ENVIADO</span>
+                    <span className="text-xs font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">ENVIADO</span>
                 )}
             </div>
 

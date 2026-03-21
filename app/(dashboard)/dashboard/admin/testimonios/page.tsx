@@ -5,6 +5,8 @@ import { CheckCircle, XCircle, Trash2, Star, MessageSquareQuote, Building, User 
 import { getTestimoniosAdmin, updateTestimonioStatus, deleteTestimonio } from "@/lib/actions/testimonios";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default function AdminTestimoniosPage() {
     const [testimonios, setTestimonios] = useState<any[]>([]);
@@ -50,87 +52,82 @@ export default function AdminTestimoniosPage() {
         : testimonios.filter(t => t.estado === filter);
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto min-h-screen space-y-8">
+        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                        Moderación de Testimonios
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">
-                        Revisa y aprueba las opiniones de los usuarios para mostrarlas en la web.
-                    </p>
-                </div>
-
-                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                    {["PENDIENTE", "APROBADO", "RECHAZADO", "TODOS"].map((f) => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            className={cn(
-                                "px-4 py-2 rounded-lg text-sm font-bold transition-all",
-                                filter === f
-                                    ? "bg-white dark:bg-slate-700 text-brand-600 dark:text-white shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
-                            )}
-                        >
-                            {f}
-                        </button>
-                    ))}
+                <div className="flex-1">
+                    <ModuleHelp content={MODULE_HELP_CONTENT.adminTestimonios} />
                 </div>
             </div>
 
+            <div className="flex gap-2 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] p-1.5 rounded-xl w-fit overflow-x-auto">
+                {["PENDIENTE", "APROBADO", "RECHAZADO", "TODOS"].map((f) => (
+                    <button
+                        key={f}
+                        onClick={() => setFilter(f)}
+                        className={cn(
+                            "px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
+                            filter === f
+                                ? "bg-white/[0.06] text-white"
+                                : "text-slate-500 hover:text-white"
+                        )}
+                    >
+                        {f}
+                    </button>
+                ))}
+            </div>
+
             {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[1, 2, 3].map(i => <div key={i} className="h-48 rounded-3xl bg-slate-100 dark:bg-slate-800/50 animate-pulse" />)}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-48 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />)}
                 </div>
             ) : filteredTestimonios.length === 0 ? (
-                <div className="text-center py-20 bg-slate-50 dark:bg-slate-900/30 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800">
-                    <MessageSquareQuote className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500">No hay testimonios en esta categoría.</p>
+                <div className="text-center py-20 bg-white dark:bg-[#0A0A0C] border border-white/[0.06] rounded-3xl shadow-sm">
+                    <MessageSquareQuote className="w-12 h-12 text-white/[0.06] mx-auto mb-4" />
+                    <p className="text-[12px] font-black uppercase tracking-widest text-slate-500">No hay testimonios en esta categoría.</p>
                 </div>
             ) : (
                 <div className="masonry-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredTestimonios.map((t) => (
-                        <div key={t.id} className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group flex flex-col h-full">
+                        <div key={t.id} className="bg-white dark:bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl p-6 transition-all group flex flex-col h-full shadow-sm">
                             {/* Header */}
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center gap-3">
                                     <div className={cn(
-                                        "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold",
+                                        "w-10 h-10 rounded-full flex items-center justify-center text-white",
                                         t.autorTipo === "EMPRESA" ? "bg-indigo-500" : "bg-brand-500"
                                     )}>
-                                        {t.autorTipo === "EMPRESA" ? <Building className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                                        {t.autorTipo === "EMPRESA" ? <Building className="w-4 h-4" /> : <User className="w-4 h-4" />}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-slate-900 dark:text-white leading-tight">{t.autorNombre}</h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{t.autorTipo.toLowerCase()}</p>
+                                        <h3 className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">{t.autorNombre}</h3>
+                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{t.autorTipo}</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-0.5">
                                     {[...Array(5)].map((_, i) => (
-                                        <Star key={i} className={cn("w-3 h-3", i < (t.rating || 5) ? "fill-amber-400 text-amber-400" : "text-slate-200 dark:text-slate-700")} />
+                                        <Star key={i} className={cn("w-3 h-3", i < (t.rating || 5) ? "fill-amber-500 text-amber-500" : "text-white/[0.06]")} />
                                     ))}
                                 </div>
                             </div>
 
                             {/* Content */}
                             <div className="flex-1 mb-6 relative">
-                                <MessageSquareQuote className="absolute -top-2 -left-2 w-6 h-6 text-brand-100 dark:text-brand-900/30 -z-10" />
-                                <p className="text-slate-600 dark:text-slate-300 text-sm italic leading-relaxed">"{t.texto}"</p>
+                                <MessageSquareQuote className="absolute -top-2 -left-2 w-6 h-6 text-brand-500/[0.08] -z-10" />
+                                <p className="text-slate-400 text-[12px] font-medium leading-relaxed italic z-10 relative">"{t.texto}"</p>
                                 {t.proyecto && (
-                                    <div className="mt-3 inline-block px-2 py-1 bg-slate-50 dark:bg-slate-800 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                                        Proy: {t.proyecto.nombre}
+                                    <div className="mt-4 inline-block px-2.5 py-1 bg-white/[0.04] rounded-md text-xs font-black text-brand-500 uppercase tracking-widest">
+                                        PROYECTO: {t.proyecto.nombre}
                                     </div>
                                 )}
                             </div>
 
                             {/* Actions */}
-                            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
                                 <span className={cn(
-                                    "text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider",
-                                    t.estado === "APROBADO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" :
-                                        t.estado === "RECHAZADO" ? "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400" :
-                                            "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"
+                                    "text-xs font-black px-2 py-0.5 rounded-md uppercase tracking-widest",
+                                    t.estado === "APROBADO" ? "bg-emerald-500/10 text-emerald-500" :
+                                        t.estado === "RECHAZADO" ? "bg-rose-500/10 text-rose-500" :
+                                            "bg-amber-500/10 text-amber-500"
                                 )}>
                                     {t.estado}
                                 </span>
@@ -139,30 +136,30 @@ export default function AdminTestimoniosPage() {
                                     {t.estado === "PENDIENTE" && (
                                         <>
                                             <button onClick={() => handleStatusChange(t.id, "APROBADO")} title="Aprobar"
-                                                className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg">
+                                                className="p-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 rounded-lg transition-colors">
                                                 <CheckCircle className="w-4 h-4" />
                                             </button>
                                             <button onClick={() => handleStatusChange(t.id, "RECHAZADO")} title="Rechazar"
-                                                className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg">
+                                                className="p-1.5 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded-lg transition-colors">
                                                 <XCircle className="w-4 h-4" />
                                             </button>
                                         </>
                                     )}
                                     {t.estado === "RECHAZADO" && (
                                         <button onClick={() => handleStatusChange(t.id, "APROBADO")} title="Aprobar"
-                                            className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg">
+                                            className="p-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 rounded-lg transition-colors">
                                             <CheckCircle className="w-4 h-4" />
                                         </button>
                                     )}
                                     {t.estado === "APROBADO" && (
                                         <button onClick={() => handleStatusChange(t.id, "PENDIENTE")} title="Pausar/Revisar"
-                                            className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg">
+                                            className="p-1.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 rounded-lg transition-colors">
                                             <XCircle className="w-4 h-4" />
                                         </button>
                                     )}
-                                    <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
+                                    <div className="w-px h-4 bg-white/[0.06] mx-1" />
                                     <button onClick={() => handleDelete(t.id)} title="Eliminar"
-                                        className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg">
+                                        className="p-1.5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 rounded-lg transition-colors">
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>

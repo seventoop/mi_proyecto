@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 interface BlogPost {
     id: string;
@@ -67,30 +69,25 @@ export default function AdminBlogPage() {
         : posts.filter(p => p.status === filter);
 
     return (
-        <div className="space-y-8 pb-12">
+        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-black tracking-tighter uppercase italic">
-                        Moderación <span className="text-brand-500 underline decoration-4">Blog</span>
-                    </h1>
-                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">
-                        Control de Contenido y Noticias de la Plataforma
-                    </p>
+                <div className="flex-1">
+                    <ModuleHelp content={MODULE_HELP_CONTENT.adminBlog} />
                 </div>
-                <Button className="bg-brand-600 hover:bg-brand-700 font-bold italic uppercase tracking-tighter">
-                    <Plus className="w-4 h-4 mr-2" /> Nuevo Post
-                </Button>
+                <button className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-xs uppercase font-black tracking-widest text-white transition-all shadow-lg shadow-brand-500/20">
+                    <Plus className="w-4 h-4" /> Nuevo Post
+                </button>
             </div>
 
-            <div className="flex gap-2 bg-white/5 p-1 rounded-2xl w-fit border border-white/10">
+            <div className="flex gap-2 bg-[#0A0A0C] border border-white/[0.06] p-1.5 rounded-xl w-fit">
                 {["TODOS", "PENDIENTE", "APROBADO", "BORRADOR"].map((f) => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
                         className={cn(
-                            "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                            "px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
                             filter === f
-                                ? "bg-white text-brand-600 shadow-xl"
+                                ? "bg-white/[0.06] text-white"
                                 : "text-slate-500 hover:text-white"
                         )}
                     >
@@ -101,11 +98,11 @@ export default function AdminBlogPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {loading ? (
-                    [1, 2, 3].map(i => <div key={i} className="h-64 rounded-3xl bg-white/5 animate-pulse border border-white/10" />)
+                    [1, 2, 3].map(i => <div key={i} className="h-64 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />)
                 ) : filteredPosts.map((post) => (
-                    <div key={post.id} className="glass-card group flex flex-col h-full overflow-hidden border-white/10 hover:border-brand-500/30 transition-all">
+                    <div key={post.id} className="bg-[#0A0A0C] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl group flex flex-col h-full overflow-hidden transition-all shadow-sm">
                         {/* Image Placeholder or Actual */}
-                        <div className="aspect-video bg-white/5 relative overflow-hidden">
+                        <div className="aspect-video bg-white/[0.02] relative overflow-hidden">
                             {post.imagen ? (
                                 <Image
                                     src={post.imagen}
@@ -115,14 +112,14 @@ export default function AdminBlogPage() {
                                 />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center">
-                                    <FileText className="w-12 h-12 text-white/10" />
+                                    <FileText className="w-12 h-12 text-white/[0.06]" />
                                 </div>
                             )}
                             <div className="absolute top-3 right-3">
                                 <Badge className={cn(
-                                    "text-[10px] font-black uppercase italic tracking-tighter border-none",
-                                    post.status === "APROBADO" ? "bg-emerald-500 text-white" :
-                                        post.status === "PENDIENTE" ? "bg-amber-500 text-black" : "bg-slate-500 text-white"
+                                    "text-xs font-black uppercase tracking-widest border-none px-2 py-0.5 rounded-md",
+                                    post.status === "APROBADO" ? "bg-emerald-500/10 text-emerald-500" :
+                                        post.status === "PENDIENTE" ? "bg-amber-500/10 text-amber-500" : "bg-slate-500/10 text-slate-400"
                                 )}>
                                     {post.status}
                                 </Badge>
@@ -132,25 +129,25 @@ export default function AdminBlogPage() {
                         <div className="p-5 flex-1 flex flex-col">
                             <div className="flex items-center gap-2 mb-3">
                                 <Tag className="w-3 h-3 text-brand-500" />
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">
                                     {post.tags?.[0] || "General"}
                                 </span>
                             </div>
 
-                            <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight mb-2 group-hover:text-brand-500 transition-colors uppercase italic tracking-tighter">
+                            <h3 className="text-[14px] font-black text-slate-900 dark:text-white leading-tight mb-2 group-hover:text-brand-500 transition-colors uppercase tracking-tight">
                                 {post.titulo}
                             </h3>
 
-                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4 font-medium italic">
+                            <p className="text-[12px] text-slate-500 dark:text-slate-400 line-clamp-2 mb-4 font-medium">
                                 {post.contenido.replace(/<[^>]*>/g, '').substring(0, 100)}...
                             </p>
 
-                            <div className="mt-auto flex items-center justify-between pt-4 border-t border-white/5">
+                            <div className="mt-auto flex items-center justify-between pt-4 border-t border-white/[0.06]">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-brand-500/20 flex items-center justify-center">
+                                    <div className="w-6 h-6 rounded-full bg-brand-500/10 flex items-center justify-center">
                                         <User className="w-3 h-3 text-brand-500" />
                                     </div>
-                                    <span className="text-[10px] font-bold text-slate-400">
+                                    <span className="text-xs font-black tracking-widest uppercase text-slate-400">
                                         {post.autor?.nombre}
                                     </span>
                                 </div>
@@ -159,17 +156,17 @@ export default function AdminBlogPage() {
                                     {post.status === "PENDIENTE" && (
                                         <button
                                             onClick={() => handleStatusChange(post.id, "APROBADO")}
-                                            className="p-2 hover:bg-emerald-500/10 text-emerald-500 rounded-lg transition-colors"
+                                            className="p-1.5 hover:bg-emerald-500/10 text-emerald-500 rounded-lg transition-colors"
                                         >
                                             <CheckCircle className="w-4 h-4" />
                                         </button>
                                     )}
-                                    <button className="p-2 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors">
+                                    <button className="p-1.5 hover:bg-white/[0.06] text-slate-400 hover:text-white rounded-lg transition-colors">
                                         <Edit3 className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(post.id)}
-                                        className="p-2 hover:bg-rose-500/10 text-rose-500 rounded-lg transition-colors"
+                                        className="p-1.5 hover:bg-rose-500/10 text-rose-500 rounded-lg transition-colors"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>

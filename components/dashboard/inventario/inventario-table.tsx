@@ -25,6 +25,7 @@ interface Unidad {
     manzana: {
         etapa: {
             proyecto: {
+                id: string;
                 nombre: string;
             };
         };
@@ -100,7 +101,7 @@ export default function InventarioTable({ data }: InventarioTableProps) {
                             </TableCell>
                             <TableCell className="text-right">
                                 <Button variant="ghost" size="sm" asChild>
-                                    <Link href={`/dashboard/proyectos/${"TODO-FIX-ID"}`}> {/* TODO: Need project ID here */}
+                                    <Link href={`/dashboard/proyectos/${unidad.manzana.etapa.proyecto.id}`}>
                                         <ArrowRight className="w-4 h-4" />
                                     </Link>
                                 </Button>

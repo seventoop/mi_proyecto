@@ -6,18 +6,36 @@ import { AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { KycDemoStatusCard } from "@/components/dashboard/kyc-demo-status-card";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function ProyectosPage() {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id;
+    const userRole = (session?.user as any)?.role;
+    const orgId = (session?.user as any)?.orgId as string | undefined;
 
     if (!userId) {
         redirect("/login");
     }
 
+    // Scope: ADMIN sees all. Others see projects where they have an active relation OR
+    // are the legacy creator (creadoPorId). Both conditions stay within the org boundary.
+    const proyectosWhere = (userRole === "ADMIN" || userRole === "SUPERADMIN")
+        ? {}
+        : {
+            orgId: orgId ?? "___NO_ORG___",
+            OR: [
+                // Relation-based: any active ProyectoUsuario row for this user
+                { usuariosRelaciones: { some: { userId, estadoRelacion: "ACTIVA" as const } } },
+                // Legacy fallback: projects created by this user with no relation row yet
+                { creadoPorId: userId },
+            ],
+        };
+
     // Fetch developer-specific projects from DB
     const proyectos = await prisma.proyecto.findMany({
-        where: { creadoPorId: userId },
+        where: proyectosWhere,
         include: {
             etapas: {
                 include: {
@@ -68,7 +86,8 @@ export default async function ProyectosPage() {
     const kycStatus = user?.kycStatus;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in p-6 max-w-[1600px] mx-auto">
+            <ModuleHelp content={MODULE_HELP_CONTENT.proyectos} />
             <KycDemoStatusCard
                 kycStatus={(kycStatus as any) || "PENDIENTE"}
                 demoEndsAt={user?.demoEndsAt || null}

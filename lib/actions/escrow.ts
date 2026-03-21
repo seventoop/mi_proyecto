@@ -2,7 +2,8 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireAnyRole, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireAnyRole, handleGuardError } from "@/lib/guards";
+import { getProjectAccess, assertPermission, ProjectPermission } from "@/lib/project-access";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 import { createNotification } from "./notifications";
@@ -28,15 +29,9 @@ export async function crearHito(input: unknown) {
         }
         const data = parsed.data;
 
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: data.proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        // Relation-based gate — legacy creadoPorId fallback inside getProjectAccess
+        const ctx = await getProjectAccess(user, data.proyectoId);
+        assertPermission(ctx, ProjectPermission.EDITAR_PROYECTO);
 
         // Validar que la suma de porcentajes no supere 100%
         const hitosExistentes = await prisma.escrowMilestone.findMany({
@@ -75,13 +70,14 @@ export async function completarHito(id: string, evidenciaUrl?: string) {
 
         const hitoData = await prisma.escrowMilestone.findUnique({
             where: { id },
-            include: { proyecto: { select: { creadoPorId: true, nombre: true } } }
+            include: { proyecto: { select: { nombre: true } } }
         });
 
         if (!hitoData) return { success: false, error: "Hito no encontrado" };
-        if (user.role !== "ADMIN" && hitoData.proyecto.creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+
+        // Relation-based gate — legacy creadoPorId fallback inside getProjectAccess
+        const ctx = await getProjectAccess(user, hitoData.proyectoId);
+        assertPermission(ctx, ProjectPermission.EDITAR_PROYECTO);
         const hito = await prisma.escrowMilestone.update({
             where: { id },
             data: {
@@ -169,17 +165,9 @@ export async function getHitosProyecto(proyectoId: string) {
 
         const user = await requireAuth();
 
-        const proyecto = await prisma.proyecto.findUnique({
-            where: { id: proyectoId },
-            select: { creadoPorId: true }
-        });
-
-        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
-
-        // SECURITY: Only Admin or Owner
-        if (user.role !== "ADMIN" && proyecto.creadoPorId !== user.id) {
-            return { success: false, error: "No autorizado" };
-        }
+        // Relation-based gate — legacy creadoPorId fallback inside getProjectAccess
+        const ctx = await getProjectAccess(user, proyectoId);
+        assertPermission(ctx, ProjectPermission.EDITAR_PROYECTO);
         const hitos = await prisma.escrowMilestone.findMany({
             where: { proyectoId },
             orderBy: { createdAt: "asc" }

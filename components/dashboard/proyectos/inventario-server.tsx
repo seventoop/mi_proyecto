@@ -61,7 +61,7 @@ export default async function InventarioServer({ proyectoId }: InventarioServerP
                                 <td className="px-5 py-3 text-sm text-slate-500">{u.manzana.nombre}</td>
                                 <td className="px-5 py-3 text-sm font-semibold text-slate-700 dark:text-white">${u.precio?.toLocaleString()}</td>
                                 <td className="px-5 py-3">
-                                    <span className={cn("text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg", estadoBadge[u.estado])}>
+                                    <span className={cn("text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-lg", estadoBadge[u.estado])}>
                                         {u.estado}
                                     </span>
                                 </td>

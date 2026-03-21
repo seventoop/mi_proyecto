@@ -37,7 +37,7 @@ export function SuspendProjectDialog({ projectId, projectTitle, currentStatus, t
             const res = await updateProyectoStatus(projectId, nextStatus);
 
             if (!res.success) {
-                throw new Error(res.error || "Error al actualizar el estado del proyecto");
+                throw new Error('error' in res ? res.error : "Error al actualizar el estado del proyecto");
             }
 
             toast.success(isSuspended ? "Proyecto reactivado correctamente" : "Proyecto suspendido correctamente");

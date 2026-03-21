@@ -5,6 +5,8 @@ import prisma from "@/lib/db";
 import Link from "next/link";
 import { Home, MapPin, Calendar, FileText, Eye, MapIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import ModuleHelp from "@/components/dashboard/module-help";
+import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 
 export default async function ClienteDashboardPage() {
     const session = await getServerSession(authOptions);
@@ -37,15 +39,12 @@ export default async function ClienteDashboardPage() {
     const reservadas = misUnidades.filter(u => u.estado === "RESERVADA").length;
 
     return (
-        <div className="p-8 space-y-8 max-w-7xl mx-auto">
+        <div className="p-6 max-w-7xl mx-auto space-y-8 animate-fade-in">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-                    Mis Propiedades
-                </h1>
-                <p className="text-slate-600 dark:text-slate-400">
-                    Administra tus unidades adquiridas y reservadas
-                </p>
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div className="flex-1">
+                    <ModuleHelp content={MODULE_HELP_CONTENT.clientePropiedades} />
+                </div>
             </div>
 
             {/* Stats */}
@@ -56,11 +55,11 @@ export default async function ClienteDashboardPage() {
                     { label: "Reservadas", value: reservadas, icon: Calendar, color: "text-amber-500" },
                     { label: "Inversión Total", value: formatCurrency(totalInversion), icon: Home, color: "text-slate-700 dark:text-white" },
                 ].map((stat) => (
-                    <div key={stat.label} className="glass-card p-6">
+                    <div key={stat.label} className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6">
                         <div className="flex items-center justify-between mb-4">
                             <stat.icon className={`w-8 h-8 ${stat.color}`} />
                         </div>
-                        <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                        <p className={`text-2xl font-semibold ${stat.color}`}>{stat.value}</p>
                         <p className="text-sm text-slate-500 mt-1">{stat.label}</p>
                     </div>
                 ))}
@@ -68,7 +67,7 @@ export default async function ClienteDashboardPage() {
 
             {/* Properties List */}
             {misUnidades.length === 0 ? (
-                <div className="glass-card p-12 text-center">
+                <div className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-12 text-center border-dashed">
                     <Home className="w-16 h-16 text-slate-400 mx-auto mb-4" />
                     <h3 className="text-xl font-bold text-slate-700 dark:text-white mb-2">
                         Aún no tienes propiedades
@@ -88,7 +87,7 @@ export default async function ClienteDashboardPage() {
                     {misUnidades.map((unidad) => {
                         const proyecto = unidad.manzana.etapa.proyecto;
                         return (
-                            <div key={unidad.id} className="glass-card p-6 group hover:border-brand-500/50 transition-all">
+                            <div key={unidad.id} className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6 group hover:border-white/[0.12] hover:bg-white/[0.02] transition-colors ease-[cubic-bezier(0.16,1,0.3,1)] duration-300">
                                 {/* Project Header */}
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex-1">

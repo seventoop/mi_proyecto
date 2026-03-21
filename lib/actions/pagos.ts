@@ -2,7 +2,8 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
+import { requireAuth, requireRole, handleGuardError } from "@/lib/guards";
+import { getProjectAccess, ProjectPermission } from "@/lib/project-access";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
 
@@ -66,15 +67,17 @@ export async function createPayment(input: unknown) {
 
         const user = await requireAuth();
 
+        // Allow: admin, self-service (user registering own payment), or OWNER-level relation.
+        // getProjectAccess handles legacy creadoPorId fallback internally.
         if (user.role !== "ADMIN" && user.id !== data.usuarioId) {
-            const proyecto = await prisma.proyecto.findUnique({ where: { id: data.proyectoId }, select: { creadoPorId: true } });
-            if (proyecto?.creadoPorId !== user.id) {
+            const ctx = await getProjectAccess(user, data.proyectoId);
+            if (!ctx.can(ProjectPermission.EDITAR_PROYECTO)) {
                 return { success: false, error: "No autorizado para registrar este pago" };
             }
         }
 
         await prisma.$transaction(async (tx) => {
-            await tx.pago.create({
+            const pago = await tx.pago.create({
                 data: {
                     proyectoId: data.proyectoId,
                     usuarioId: data.usuarioId,
@@ -91,6 +94,22 @@ export async function createPayment(input: unknown) {
             await tx.proyecto.update({
                 where: { id: data.proyectoId },
                 data: { estado: "PENDIENTE_PAGO" }
+            });
+
+            // ─── TAREA 10: Audit Log ───
+            await tx.auditLog.create({
+                data: {
+                    userId: user.id,
+                    action: "CREATE_PAYMENT",
+                    entity: "PAGO",
+                    entityId: pago.id as string,
+                    details: JSON.stringify({
+                        monto: data.monto,
+                        proyectoId: data.proyectoId,
+                        metodo: data.metodo,
+                        tipo: "PROJECT_ACTIVATION"
+                    })
+                }
             });
         });
 

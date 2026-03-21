@@ -64,7 +64,7 @@ export default function AdminOrgSelector({
                     <h1 className="text-4xl font-black tracking-tighter uppercase italic text-slate-900 dark:text-white mb-3">
                         {title}
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">
+                    <p className="text-slate-500 dark:text-slate-400 font-bold uppercase text-xs tracking-[0.2em]">
                         {description}
                     </p>
                     
@@ -91,7 +91,7 @@ export default function AdminOrgSelector({
                     {loading ? (
                         <div className="flex flex-col items-center py-12 gap-4">
                             <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Sincronizando nodos...</p>
+                            <p className="text-xs font-black uppercase text-slate-500 tracking-widest">Sincronizando nodos...</p>
                         </div>
                     ) : filteredOrgs.length > 0 ? (
                         filteredOrgs.map((org) => (
