@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import ProyectoForm from "@/components/dashboard/proyectos/proyecto-form";
 import { ArrowLeft, ShieldAlert, Activity, ArrowRight, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -60,7 +61,7 @@ export default function NewProyectoDeveloperPage() {
                 update();
             } else {
                 // If it really failed (e.g. they ALREADY used their 48h and it expired)
-                alert(res.error || "No se pudo iniciar el modo creación");
+                toast.error(res.error || "No se pudo iniciar el modo creación");
                 setIsActivating(false);
             }
         } catch (error) {

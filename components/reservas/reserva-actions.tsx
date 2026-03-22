@@ -7,6 +7,7 @@ import {
     FileDown, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface ReservaActionsProps {
     reservaId: string;
@@ -37,10 +38,10 @@ export default function ReservaActions({ reservaId, estado, estadoPago, onAction
                 setShowCancelar(false);
             } else {
                 const err = await res.json();
-                alert(err.error || "Error al ejecutar la acción");
+                toast.error(err.error || "Error al ejecutar la acción");
             }
         } catch {
-            alert("Error de conexión");
+            toast.error("Error de conexión");
         } finally {
             setLoading(null);
         }
@@ -60,7 +61,7 @@ export default function ReservaActions({ reservaId, estado, estadoPago, onAction
                 URL.revokeObjectURL(url);
             }
         } catch {
-            alert("Error al descargar el documento");
+            toast.error("Error al descargar el documento");
         } finally {
             setLoading(null);
         }

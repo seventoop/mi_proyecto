@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Upload, FileText, CheckCircle, AlertCircle, Clock, ShieldCheck, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadKYCDoc } from "@/lib/actions/kyc";
+import { toast } from "sonner";
 
 // Mock types for user session - in real app use useSession()
 const useMockSession = () => ({

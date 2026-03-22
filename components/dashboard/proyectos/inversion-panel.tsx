@@ -6,6 +6,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { crearInversion } from "@/lib/actions/inversiones";
 import { crearHito, completarHito, liberarFondosHito } from "@/lib/actions/escrow";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface InversionPanelProps {
     proyectoId: string;

@@ -69,8 +69,8 @@ export default function Tour360TabWrapper({
     };
 
     const handleSaveTour = async (scenes: Scene[]) => {
-        if (!tourName) return alert("El nombre es obligatorio");
-        if (scenes.length === 0) return alert("Debes agregar al menos una escena");
+        if (!tourName) { toast.error("El nombre del tour es obligatorio"); return; }
+        if (scenes.length === 0) { toast.error("Debes agregar al menos una escena"); return; }
 
         setIsSaving(true);
 

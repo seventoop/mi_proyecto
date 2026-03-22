@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import {
     DollarSign, CheckCircle, XCircle, Clock, FileText,
     Search, Filter, ChevronLeft, ChevronRight, ExternalLink
@@ -46,8 +47,8 @@ export default function AdminPagosPage() {
     const handleStatusChange = async (id: string, status: "APROBADO" | "RECHAZADO") => {
         if (!confirm(`¿Confirmar ${status} este pago?`)) return;
         const res = await updatePaymentStatusAdmin(id, status);
-        if (res.success) fetchPagos();
-        else alert("Error al actualizar");
+        if (res.success) { toast.success("Estado actualizado correctamente"); fetchPagos(); }
+        else toast.error("Error al actualizar");
     };
 
     return (

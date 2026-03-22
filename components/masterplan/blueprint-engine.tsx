@@ -9,6 +9,7 @@ import {
     Search, X, Check, LayoutList, HelpCircle, ChevronDown, ChevronUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { useMasterplanStore } from "@/lib/masterplan-store";
 import { parseBlueprintSVG, parseBlueprintDXF, ExtractedPath } from "@/lib/blueprint-utils";
 
@@ -263,7 +264,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
             const isSvg = content.trim().toLowerCase().startsWith("<svg") || content.includes("<svg");
             const isBin = /[\x00-\x08\x0E-\x1F\x80-\xFF]/.test(content.slice(0, 1000));
             if (isBin && !isSvg) {
-                alert("El archivo parece binario (.DWG). Exportalo a DXF ASCII o SVG.");
+                toast.error("El archivo parece binario (.DWG). Exportalo a DXF ASCII o SVG.");
                 setProcessing(false); return;
             }
             if (isSvg) {
@@ -284,7 +285,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                         setStats({ pathsFound: result.paths.length, labeled: result.paths.filter(p => p.lotNumber).length });
                         if (result.paths.filter(p => p.lotNumber).length > 0) setShowTable(true);
                     } catch (err: any) {
-                        alert(`Error al procesar DXF: ${err.message ?? "Formato no reconocido"}.\nExportá como "DXF ASCII" desde AutoCAD.`);
+                        toast.error(`Error al procesar DXF: ${err.message ?? "Formato no reconocido"}. Exportá como "DXF ASCII" desde AutoCAD.`);
                     }
                     setProcessing(false);
                 }, 800);
@@ -332,13 +333,13 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
             });
             if (res.ok) {
                 const data = await res.json();
-                alert(`Plano sincronizado con éxito.\n${data.created ?? 0} unidades creadas, ${data.updated ?? 0} actualizadas.`);
+                toast.success(`Plano sincronizado con éxito — ${data.created ?? 0} unidades creadas, ${data.updated ?? 0} actualizadas.`);
             } else {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.error || "Error del servidor");
             }
         } catch (e: any) {
-            alert(`Error al sincronizar: ${e.message}`);
+            toast.error(`Error al sincronizar: ${e.message}`);
         } finally {
             setProcessing(false);
         }

@@ -6,6 +6,7 @@ import { createPayment, updatePaymentStatusAdmin } from "@/lib/actions/pagos";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 interface ProjectPaymentsTabProps {
     proyectoId: string;
@@ -24,10 +25,10 @@ export default function ProjectPaymentsTab({ proyectoId, pagos, userRole = "DESA
     const [comprobanteUrl, setComprobanteUrl] = useState("");
 
     const handleUploadPayment = async () => {
-        if (!monto || !comprobanteUrl) return alert("Completa todos los campos");
+        if (!monto || !comprobanteUrl) { toast.error("Completa todos los campos"); return; }
 
         const usuarioId = (session?.user as any)?.id;
-        if (!usuarioId) return alert("Debes iniciar sesión");
+        if (!usuarioId) { toast.error("Debes iniciar sesión"); return; }
 
         setLoading(true);
         const res = await createPayment({
@@ -41,10 +42,10 @@ export default function ProjectPaymentsTab({ proyectoId, pagos, userRole = "DESA
         if (res.success) {
             setMonto("");
             setComprobanteUrl("");
-            alert("Pago registrado correctamente. Esperando verificación.");
+            toast.success("Pago registrado correctamente. Esperando verificación.");
             router.refresh();
         } else {
-            alert("Error al registrar pago: " + (res.error || "Desconocido"));
+            toast.error("Error al registrar pago: " + (res.error || "Desconocido"));
         }
         setLoading(false);
     };

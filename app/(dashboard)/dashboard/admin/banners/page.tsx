@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Plus, Play, Eye, PauseCircle, CheckCircle, XCircle, Image as ImageIcon, Archive, Send, Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import BannerEditor from "@/components/dashboard/banners/banner-editor";
@@ -84,7 +85,7 @@ export default function AdminBannersPage() {
     const handlePublish = async (id: string) => {
         const res = await publishBanner(id);
         if (res.success) fetchBanners();
-        else alert(res.error || "Error al publicar");
+        else toast.error(res.error || "Error al publicar");
     };
 
     const handleRejectSubmit = async () => {
@@ -95,29 +96,29 @@ export default function AdminBannersPage() {
             setRejectReason("");
             fetchBanners();
         } else {
-            alert(res.error || "Error al rechazar");
+            toast.error(res.error || "Error al rechazar");
         }
     };
 
     const handlePause = async (id: string) => {
         const res = await pauseBanner(id);
-        if (res.success) fetchBanners();
-        else alert(res.error || "Error al pausar");
+        if (res.success) { toast.success("Banner pausado"); fetchBanners(); }
+        else toast.error(res.error || "Error al pausar");
     };
 
     const handleArchive = async (id: string) => {
         if (confirm("¿Archivar este banner?")) {
             const res = await archiveBanner(id);
-            if (res.success) fetchBanners();
-            else alert(res.error || "Error al archivar");
+            if (res.success) { toast.success("Banner archivado"); fetchBanners(); }
+            else toast.error(res.error || "Error al archivar");
         }
     };
 
     const handleDelete = async (id: string) => {
         if (confirm("¿Eliminar definitivamente este banner?")) {
             const res = await deleteBanner(id);
-            if (res.success) fetchBanners();
-            else alert(res.error || "Error al eliminar");
+            if (res.success) { toast.success("Banner eliminado"); fetchBanners(); }
+            else toast.error(res.error || "Error al eliminar");
         }
     };
 

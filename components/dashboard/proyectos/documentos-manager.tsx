@@ -29,7 +29,7 @@ export default function DocumentosManager({ proyectoId, documentos, userRole }: 
     const [form, setForm] = useState({ titulo: "", tipo: "PLANO", descripcion: "" });
 
     const handleUpload = async () => {
-        if (!file || !form.titulo) return alert("Completa los campos obligatorios");
+        if (!file || !form.titulo) { toast.error("Completa los campos obligatorios"); return; }
 
         setLoading(true);
         try {
@@ -56,10 +56,10 @@ export default function DocumentosManager({ proyectoId, documentos, userRole }: 
                 setForm({ titulo: "", tipo: "PLANO", descripcion: "" });
                 router.refresh();
             } else {
-                alert(result.error);
+                toast.error(result.error);
             }
         } catch (e: any) {
-            alert(e.message);
+            toast.error(e.message);
         } finally {
             setLoading(false);
         }

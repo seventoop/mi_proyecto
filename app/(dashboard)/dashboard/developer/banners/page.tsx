@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Plus, Image as ImageIcon, Clock, CheckCircle, XCircle, AlertCircle, Eye, Trash2 } from "lucide-react";
 import Image from "next/image";
 import BannerEditor from "@/components/dashboard/banners/banner-editor";
@@ -99,13 +100,14 @@ export default function DeveloperBannersPage() {
                 
                 console.log("Respuesta de la API:", res);
                 if (res.success) {
+                    toast.success("Anuncio eliminado");
                     fetchBanners();
                 } else {
-                    alert(res.error || "Error al eliminar el anuncio");
+                    toast.error(res.error || "Error al eliminar el anuncio");
                 }
             } catch (err) {
                 console.error("Excepción al llamar API DELETE:", err);
-                alert("Error de conexión o de servidor al eliminar.");
+                toast.error("Error de conexión o de servidor al eliminar.");
             }
         }
     };

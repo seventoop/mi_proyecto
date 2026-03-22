@@ -13,6 +13,7 @@ import {
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const createTaskSchema = z.object({
     titulo: z.string().min(1, "El título es obligatorio"),
@@ -54,7 +55,7 @@ export default function NewTaskModal({ children }: { children: React.ReactNode }
             router.refresh();
         } catch (error) {
             console.error(error);
-            alert("Error al crear la tarea");
+            toast.error("Error al crear la tarea");
         }
     };
 

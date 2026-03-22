@@ -44,6 +44,7 @@ import { cookies } from "next/headers";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { i18n, type Locale } from "@/lib/i18n/config";
 import Script from "next/script";
+import { Toaster } from "sonner";
 
 export default async function RootLayout({
   children,
@@ -77,6 +78,7 @@ export default async function RootLayout({
         <LanguageProvider initialLocale={locale} initialDictionary={dictionary}>
           <Providers>{children}</Providers>
         </LanguageProvider>
+        <Toaster richColors position="top-right" closeButton />
       </body>
     </html>
   );

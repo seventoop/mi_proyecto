@@ -113,7 +113,7 @@ export default function UnidadesManager({ manzanaId, unidades, compact = false }
         try {
             const result = await updateUnidadEstado(id, estado);
             if (result.success) router.refresh();
-            else alert(result.error);
+            else toast.error(result.error);
         } finally {
             setLoading(false);
         }
