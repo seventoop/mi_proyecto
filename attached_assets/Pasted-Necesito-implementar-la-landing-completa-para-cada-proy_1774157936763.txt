@@ -1,0 +1,291 @@
+Necesito implementar la landing completa para cada proyecto en Seventoop según los requerimientos funcionales. Esta landing debe ser una herramienta comercial completa orientada a conversión.
+
+---
+
+## 1. BANNER PRINCIPAL (Hero Section)
+
+Debe incluir:
+- Nombre del proyecto (grande, destacado)
+- Imagen representativa del proyecto (de las cargadas en el sistema)
+- Propuesta de valor / descripción corta
+
+**Accesos rápidos (botones/CTAs visibles):**
+- Ver Master Plan
+- Ver Ubicación en Mapa
+- Tour 360°
+- Reservar Lote
+- Simulador de Pagos
+
+Diseño: Full viewport, impactante, con animaciones de entrada.
+
+---
+
+## 2. MASTER PLAN INTERACTIVO
+
+Sección con el plano del proyecto donde el usuario pueda:
+
+**Visualización:**
+- Ver todos los lotes del desarrollo
+- Estados identificados por COLOR:
+  - 🟢 Verde = Disponible
+  - 🟡 Amarillo = Reservado
+  - 🔴 Rojo = Vendido
+  - ⚫ Gris = No disponible
+
+**Interacción:**
+- Hover en lote → mostrar info rápida (número, m², precio)
+- Click en lote → abrir modal/panel lateral con:
+  - Ubicación dentro del desarrollo
+  - Medidas exactas (frente x fondo)
+  - Superficie en m²
+  - Precio
+  - Características especiales
+  - Botón "RESERVAR ESTE LOTE"
+
+**Controles:**
+- Zoom in/out
+- Filtros por estado
+- Leyenda de colores visible
+- Buscador de lote por número
+
+---
+
+## 3. INTEGRACIÓN CON GOOGLE MAPS (Plano Superpuesto)
+
+Crear una vista que combine Google Maps con el plano del proyecto:
+
+**Funcionalidades:**
+- Mostrar el terreno real en Google Maps
+- Superponer el plano/master plan sobre el mapa
+- Ver lotes con estados por color (igual que el master plan)
+- Entender ubicación real de cada lote dentro del terreno
+- Click en lote → mismo detalle que en master plan
+- Posibilidad de reservar desde esta vista
+
+**Controles:**
+- Toggle para mostrar/ocultar plano superpuesto
+- Ajustar opacidad del plano
+- Vista satélite / mapa
+
+---
+
+## 4. LINK DIRECTO DE UBICACIÓN (¡IMPORTANTE!)
+
+**Al crear el proyecto en el dashboard:**
+- Generar automáticamente un link de Google Maps basado en las coordenadas
+- Guardar ese link en la base de datos del proyecto
+
+**En la landing:**
+- Mostrar botón visible: "📍 Ver Ubicación" o "🚗 Cómo Llegar"
+- Al hacer click → abrir Google Maps directamente con la ubicación exacta
+- Debe funcionar en móvil (abrir app de Maps) y desktop (abrir web)
+
+**Formato del link:**
+https://www.google.com/maps?q=LATITUD,LONGITUD
+
+o para navegación:
+https://www.google.com/maps/dir/?api=1&destination=LATITUD,LONGITUD
+
+---
+
+## 5. TOUR VIRTUAL 360°
+
+Sección inmersiva con tour 360:
+
+**Funcionalidades:**
+- Recorrer el lugar virtualmente
+- Mirar en todas las direcciones (drag/touch)
+- Ver entorno y contexto real
+- Superposición del plano con lotes identificados por color
+- Hotspots clickeables en los lotes
+- Click en lote desde el tour → ver detalle y opción de reservar
+
+**Si no hay tour 360 cargado:**
+- Mostrar galería de imágenes interactiva como fallback
+- O sección de fotos/videos del proyecto
+
+---
+
+## 6. SIMULADOR DE PAGOS
+
+Crear calculadora interactiva donde el usuario arme su propuesta:
+
+**Inputs del usuario:**
+- Anticipo (USD) - slider o input numérico
+- Cuota mensual deseada (USD) - slider o input numérico
+
+**El sistema calcula y muestra:**
+- Cantidad de cuotas resultantes
+- Plazo total (meses/años)
+- Total financiado
+- Interés aplicado (%)
+- Monto total a pagar
+- Comparativa: precio contado vs financiado
+
+**Configuración (desde dashboard del desarrollador):**
+- Tasa de interés configurable por proyecto
+- Anticipo mínimo requerido
+- Cuota mínima
+- Plazo máximo
+- Condiciones especiales
+
+**Visualización:**
+- Gráfico de torta o barra mostrando distribución (anticipo vs cuotas)
+- Timeline visual del plan de pagos
+- Resultado claro y fácil de entender
+
+---
+
+## 7. ENVÍO DE PROPUESTA
+
+Después de simular, el usuario puede enviar su propuesta:
+
+**Botón:** "📩 Enviar Mi Propuesta"
+
+**Formulario que se abre:**
+- Nombre completo
+- Email
+- Teléfono
+- Lote de interés (si seleccionó alguno)
+- Comentarios adicionales (opcional)
+
+**La propuesta incluye:**
+- Datos del interesado
+- Proyecto
+- Lote (si aplica)
+- Anticipo propuesto
+- Cuota propuesta
+- Plazo calculado
+- Interés aplicado
+- Fecha/hora de envío
+
+**Confirmación:**
+- Mensaje de éxito al usuario
+- Email de confirmación (si es posible)
+- Número de referencia de la propuesta
+
+---
+
+## 8. NOTIFICACIONES EN PANEL INTERNO
+
+Las propuestas deben llegar al panel de:
+- Desarrollador del proyecto
+- Vendedor asignado (si hay)
+
+**En el panel deben ver:**
+- Lista de propuestas recibidas
+- Filtros: por proyecto, por estado, por fecha
+- Detalle completo de cada propuesta:
+  - Datos del cliente
+  - Proyecto y lote
+  - Plan propuesto (anticipo, cuotas, plazo)
+  - Estado de la propuesta
+  - Fecha de recepción
+- Notificación visual (badge) de nuevas propuestas
+- Notificación por email (opcional)
+
+---
+
+## 9. EVALUACIÓN DE PROPUESTAS
+
+El desarrollador/vendedor puede:
+
+**Acciones:**
+- ✅ ACEPTAR propuesta
+- ❌ RECHAZAR propuesta (con motivo)
+- 💬 CONTRAOFERTAR (a futuro) - proponer plan alternativo
+
+**Al aceptar:**
+- Cambiar estado del lote a "Reservado"
+- Notificar al cliente
+- Generar siguiente paso (documentación, seña, etc.)
+
+**Al rechazar:**
+- Registrar motivo
+- Notificar al cliente con explicación
+- Lote sigue disponible
+
+---
+
+## 10. DOBLE ESQUEMA COMERCIAL
+
+### A. Plan Fijo del Proyecto (configurado por desarrollador)
+En el dashboard, el desarrollador configura:
+- Anticipo mínimo requerido (ej: 30%)
+- Cantidad de cuotas disponibles (ej: 12, 24, 36, 48)
+- Tasa de interés por plazo
+- Condiciones especiales
+- Descuento por pago contado
+
+### B. Propuesta Personalizada del Cliente
+El cliente puede:
+- Usar el simulador para armar SU plan
+- Proponer anticipo y cuota diferente al plan fijo
+- Enviar para evaluación
+
+**En la landing mostrar ambas opciones:**
+1. "Plan de Financiación Oficial" (el del desarrollador)
+2. "Armá tu Propia Propuesta" (simulador)
+
+---
+
+## 11. VALIDACIONES NECESARIAS
+
+Verificar que exista en el sistema:
+
+**En el dashboard del desarrollador:**
+- [ ] Configuración de planes de pago
+- [ ] Configuración de intereses
+- [ ] Configuración de condiciones
+- [ ] Generación automática del link de ubicación (Google Maps)
+
+**En la landing:**
+- [ ] Visualización del plan oficial
+- [ ] Simulador editable funcionando
+- [ ] Envío de propuesta
+- [ ] Botón "Ver Ubicación" / "Cómo Llegar" que abra Google Maps
+
+**En el panel interno:**
+- [ ] Recepción de propuestas
+- [ ] Gestión de propuestas (aceptar/rechazar)
+
+---
+
+## 12. DISEÑO Y UX
+
+**La landing debe ser:**
+- Visual e impactante
+- Interactiva (animaciones, hover effects, transiciones)
+- Comercial (orientada a conversión)
+- Mobile-first (perfecta en celulares)
+- Rápida (lazy loading, optimización)
+
+**Colores consistentes con Seventoop:**
+- Fondo oscuro
+- Acentos en naranja
+- Textos claros y legibles
+
+**Animaciones:**
+- Scroll reveal en secciones
+- Counters animados para números
+- Transiciones suaves
+- Feedback visual en interacciones
+
+---
+
+## RESUMEN EJECUTIVO:
+
+La landing de cada proyecto debe permitir:
+1. ✅ Ver el proyecto completo (banner, fotos, info)
+2. ✅ Explorar master plan interactivo con lotes
+3. ✅ Ver ubicación real en Google Maps + plano superpuesto
+4. ✅ Abrir ubicación directa en Google Maps (botón "Cómo Llegar")
+5. ✅ Recorrer tour 360° interactivo
+6. ✅ Elegir y reservar lote
+7. ✅ Simular plan de pago personalizado
+8. ✅ Enviar propuesta comercial
+9. ✅ Generar oportunidades reales de venta
+
+---
+
+¡Hagamos de esta landing una máquina de conversión! 🚀
