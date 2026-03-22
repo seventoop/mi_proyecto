@@ -299,7 +299,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
         const ext = getFileExtension(uploadedFile.name);
         if (!ALLOWED_EXTENSIONS.includes(ext)) {
-            toast.error(`Formato no soportado (${ext}). Usá DWG, DXF, SVG, PDF, AI, JPG o PNG.`);
+            toast.error(`Formato no soportado (${ext}). Usá DWG, DXF, SVG, PDF, AI, EPS, JPG o PNG.`);
             return;
         }
 
@@ -433,7 +433,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
             const isSvg = content.trim().toLowerCase().startsWith("<svg") || content.includes("<svg");
             const isBin = /[\x00-\x08\x0E-\x1F\x80-\xFF]/.test(content.slice(0, 1000));
             if (isBin && !isSvg) {
-                toast.error("El archivo parece ser binario. Renombralo con extensión .dwg y volvé a subirlo, o exportalo como DXF ASCII / SVG.");
+                toast.error("El archivo parece ser binario. Exportalo como DXF ASCII, SVG o PDF desde tu programa CAD.");
                 setProcessing(false); return;
             }
             if (isSvg) {
@@ -600,7 +600,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     <div className="bg-brand-500/10 p-1.5 rounded-lg shrink-0"><FileCode className="w-4 h-4 text-brand-500" /></div>
                     <div className="min-w-0">
                         <h3 className="font-bold text-sm leading-none">Procesador de Planos AI</h3>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-tight mt-0.5">DWG · DXF · SVG · PDF · AI · JPG · PNG</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-tight mt-0.5">DWG · DXF · SVG · PDF · AI · EPS · JPG · PNG</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -787,7 +787,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
                                 <div className="flex items-center gap-2">
                                     <button
-                                        onClick={handleClear}
+                                        onClick={(e) => { e.stopPropagation(); handleClear(); setTimeout(() => fileInputRef.current?.click(), 50); }}
                                         className="flex-1 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow transition-all flex items-center justify-center gap-2"
                                     >
                                         <Upload className="w-4 h-4" />
@@ -810,7 +810,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                             <p className={cn("text-base font-semibold", isDragging ? "text-brand-500" : "text-slate-400")}>
                                 {isDragging ? "Soltá para cargar el plano" : "Hacé clic o arrastrá tu plano aquí"}
                             </p>
-                            <p className="text-xs text-slate-400">DWG, DXF, SVG, PDF, AI, JPG, PNG · Máximo 5 MB (imágenes) / 50 MB (vectores)</p>
+                            <p className="text-xs text-slate-400">DWG, DXF, SVG, PDF, AI, EPS, JPG, PNG · Máximo 5 MB (imágenes) / 50 MB (vectores)</p>
                         </div>
                     ) : (
                         <TransformWrapper initialScale={1} minScale={0.05} maxScale={30} centerOnInit wheel={{ step: 0.1 }}>
