@@ -60,7 +60,8 @@ export default function ProjectsFilter({ projects }: ProjectsFilterProps) {
             }
             if (selectedTypes.length > 0 && !selectedTypes.includes(p.tipo || "")) return false;
             if (selectedStatuses.length > 0 && !selectedStatuses.includes(p.estado || "")) return false;
-            if (priceRange[1] > 0 && p.minPrice) {
+            if (priceRange[1] > 0) {
+                if (!p.minPrice) return false;
                 if (p.minPrice < priceRange[0] || p.minPrice > priceRange[1]) return false;
             }
             return true;

@@ -40,8 +40,9 @@ async function getProjects() {
         return projects.map((p) => {
             const allUnits = p.etapas.flatMap((e) => e.manzanas.flatMap((m) => m.unidades));
             const availableUnits = allUnits.filter((u) => u.estado === "DISPONIBLE");
-            const pricesUSD = allUnits.filter((u) => u.precio && u.precio > 0).map((u) => u.precio!);
-            const surfaces = allUnits.filter((u) => u.superficie && u.superficie > 0).map((u) => u.superficie!);
+            const pricedUnits = availableUnits.filter((u) => u.precio && Number(u.precio) > 0);
+            const prices = pricedUnits.map((u) => Number(u.precio!));
+            const surfaces = allUnits.filter((u) => u.superficie && Number(u.superficie) > 0).map((u) => Number(u.superficie!));
 
             return {
                 id: p.id,
@@ -58,9 +59,9 @@ async function getProjects() {
                 precioM2Mercado: p.precioM2Mercado ? Number(p.precioM2Mercado) : null,
                 totalUnits: allUnits.length,
                 availableUnits: availableUnits.length,
-                minPrice: pricesUSD.length > 0 ? Math.min(...pricesUSD) : null,
-                maxPrice: pricesUSD.length > 0 ? Math.max(...pricesUSD) : null,
-                avgPrice: pricesUSD.length > 0 ? Math.round(pricesUSD.reduce((a, b) => a + b, 0) / pricesUSD.length) : null,
+                minPrice: prices.length > 0 ? Math.min(...prices) : null,
+                maxPrice: prices.length > 0 ? Math.max(...prices) : null,
+                avgPrice: prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null,
                 minSurface: surfaces.length > 0 ? Math.min(...surfaces) : null,
                 maxSurface: surfaces.length > 0 ? Math.max(...surfaces) : null,
                 currency: allUnits.find((u) => u.moneda)?.moneda || "USD",
