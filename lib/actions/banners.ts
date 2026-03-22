@@ -184,6 +184,26 @@ export async function getBannersLanding(
             take: MAX_PUBLISHED_PER_CONTEXT,
         });
 
+        if (
+            context === BANNER_CONTEXT.ORG_LANDING &&
+            !orgId &&
+            banners.length === 0
+        ) {
+            const fallbackOrgBanners = await prisma.banner.findMany({
+                where: {
+                    estado: BANNER_ESTADOS.PUBLISHED,
+                    context: BANNER_CONTEXT.ORG_LANDING,
+                },
+                select: baseSelect,
+                orderBy,
+                take: MAX_PUBLISHED_PER_CONTEXT,
+            });
+
+            if (fallbackOrgBanners.length > 0) {
+                return { success: true, data: fallbackOrgBanners };
+            }
+        }
+
         return { success: true, data: banners };
     } catch (error) {
         console.error("[getBannersLanding]", error);
