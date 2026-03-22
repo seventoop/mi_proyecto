@@ -1,0 +1,30 @@
+From e581cc5cd93a9a91dca46b60d7e680b7845f2239 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Juan=20Ignacio=20Ascenzi=20M=C3=A1rquez?=
+ <45984755-juanascenzi@users.noreply.replit.com>
+Date: Fri, 20 Mar 2026 06:20:17 +0000
+Subject: [PATCH] =?UTF-8?q?fix:=20logo=20translate-y=205px=20=E2=86=92=207?=
+ =?UTF-8?q?.5px?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ components/public/navbar.tsx | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/components/public/navbar.tsx b/components/public/navbar.tsx
+index b613b1d..7408deb 100644
+--- a/components/public/navbar.tsx
++++ b/components/public/navbar.tsx
+@@ -222,7 +222,7 @@ export default function Navbar() {
+                         width={140}
+                         height={40}
+                         priority
+-                        className="h-auto w-[120px] object-contain sm:w-[140px] translate-y-[7.5px]"
++                        className="h-auto w-[120px] object-contain sm:w-[140px] translate-y-[7.5px]"
+                     />
+                 </Link>
+ 
+-- 
+2.50.1
+
