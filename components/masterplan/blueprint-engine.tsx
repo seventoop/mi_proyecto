@@ -251,10 +251,37 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     };
 
     // ─── File upload ──────────────────────────────────────────────────────────
-    const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".svg", ".dxf", ".pdf"];
+    const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".svg", ".dxf", ".pdf", ".dwg", ".ai", ".eps"];
     const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"];
+    const CAD_BINARY_EXTENSIONS = [".dwg", ".ai", ".eps"];
     const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
     const MAX_VECTOR_SIZE = 50 * 1024 * 1024;
+
+    const DWG_VERSIONS: Record<string, string> = {
+        AC1032: "AutoCAD 2018–2024",
+        AC1027: "AutoCAD 2013–2017",
+        AC1024: "AutoCAD 2010–2012",
+        AC1021: "AutoCAD 2007–2009",
+        AC1018: "AutoCAD 2004–2006",
+        AC1015: "AutoCAD 2000–2002",
+        AC1014: "AutoCAD R14",
+        AC1012: "AutoCAD R13",
+        AC1009: "AutoCAD R11/R12",
+    };
+
+    const [dwgInfo, setDwgInfo] = useState<{ version: string; versionLabel: string; fileName: string; ext: string } | null>(null);
+
+    const detectDwgVersion = (buffer: ArrayBuffer): { code: string; label: string } | null => {
+        try {
+            const header = new Uint8Array(buffer, 0, Math.min(6, buffer.byteLength));
+            const magic = String.fromCharCode(...header);
+            for (const [code, label] of Object.entries(DWG_VERSIONS)) {
+                if (magic.startsWith(code)) return { code, label };
+            }
+            if (magic.startsWith("AC")) return { code: magic.slice(0, 6).replace(/\0/g, ""), label: "versión desconocida" };
+        } catch {}
+        return null;
+    };
 
     const getFileExtension = (name: string) => {
         const ext = name.toLowerCase().slice(name.lastIndexOf("."));
@@ -272,7 +299,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
         const ext = getFileExtension(uploadedFile.name);
         if (!ALLOWED_EXTENSIONS.includes(ext)) {
-            toast.error(`Formato no soportado (${ext}). Usá JPG, PNG, PDF, SVG o DXF.`);
+            toast.error(`Formato no soportado (${ext}). Usá DWG, DXF, SVG, PDF, AI, JPG o PNG.`);
             return;
         }
 
@@ -289,6 +316,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
         setFile(uploadedFile); setProcessing(true); setSvgContent(null);
         setStats(null); setExtractedPaths([]); setLotRecords([]);
         setActiveLotNumber(null); setIsImageBased(false); setUploadPreview(null);
+        setDwgInfo(null);
 
         if (isImage) {
             const reader = new FileReader();
@@ -363,6 +391,38 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
             return;
         }
 
+        if (CAD_BINARY_EXTENSIONS.includes(ext)) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const buffer = event.target?.result as ArrayBuffer;
+                const extUpper = ext.replace(".", "").toUpperCase();
+
+                if (ext === ".dwg") {
+                    const ver = detectDwgVersion(buffer);
+                    setDwgInfo({
+                        version: ver?.code ?? "desconocido",
+                        versionLabel: ver?.label ?? "versión no detectada",
+                        fileName: uploadedFile.name,
+                        ext: extUpper,
+                    });
+                } else {
+                    setDwgInfo({
+                        version: "",
+                        versionLabel: extUpper === "AI" ? "Adobe Illustrator" : "Encapsulated PostScript",
+                        fileName: uploadedFile.name,
+                        ext: extUpper,
+                    });
+                }
+                setProcessing(false);
+            };
+            reader.onerror = () => {
+                toast.error("Error al leer el archivo. Intentá de nuevo.");
+                setProcessing(false); setFile(null);
+            };
+            reader.readAsArrayBuffer(uploadedFile);
+            return;
+        }
+
         const reader = new FileReader();
         reader.onerror = () => {
             toast.error("Error al leer el archivo. Intentá de nuevo.");
@@ -373,7 +433,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
             const isSvg = content.trim().toLowerCase().startsWith("<svg") || content.includes("<svg");
             const isBin = /[\x00-\x08\x0E-\x1F\x80-\xFF]/.test(content.slice(0, 1000));
             if (isBin && !isSvg) {
-                toast.error("El archivo parece binario (.DWG). Exportalo a DXF ASCII o SVG.");
+                toast.error("El archivo parece ser binario. Renombralo con extensión .dwg y volvé a subirlo, o exportalo como DXF ASCII / SVG.");
                 setProcessing(false); return;
             }
             if (isSvg) {
@@ -424,7 +484,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
         setFile(null); setSvgContent(null); setStats(null); setExtractedPaths([]);
         setLotRecords([]); setIsDXF(false); setViewMode("analysis");
         setActiveLotNumber(null); setShowTable(false); setLoadedFromDB(false);
-        setIsImageBased(false); setUploadPreview(null);
+        setIsImageBased(false); setUploadPreview(null); setDwgInfo(null);
         setTooltip({ visible: false, lot: "", area: "", x: 0, y: 0 });
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
@@ -540,11 +600,11 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     <div className="bg-brand-500/10 p-1.5 rounded-lg shrink-0"><FileCode className="w-4 h-4 text-brand-500" /></div>
                     <div className="min-w-0">
                         <h3 className="font-bold text-sm leading-none">Procesador de Planos AI</h3>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-tight mt-0.5">JPG · PNG · PDF · DXF · SVG</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-tight mt-0.5">DWG · DXF · SVG · PDF · AI · JPG · PNG</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    <input ref={fileInputRef} type="file" className="hidden" accept=".svg,.dxf,.jpg,.jpeg,.png,.pdf" onChange={handleFileUpload} />
+                    <input ref={fileInputRef} type="file" className="hidden" accept=".svg,.dxf,.dwg,.jpg,.jpeg,.png,.pdf,.ai,.eps" onChange={handleFileUpload} />
 
                     {/* View mode toggle */}
                     {svgContent && (
@@ -576,7 +636,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     )}
 
                     {/* Upload / Clear */}
-                    {svgContent ? (
+                    {svgContent || dwgInfo ? (
                         <button onClick={handleClear} className="cursor-pointer bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
                             <Trash2 className="w-3 h-3" />Eliminar
                         </button>
@@ -671,7 +731,78 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                         <style>{`.blueprint-render { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; } .blueprint-render svg { max-width: 100%; max-height: 100%; width: auto; height: auto; }`}</style>
                     )}
 
-                    {!svgContent ? (
+                    {!svgContent && dwgInfo ? (
+                        <div className="absolute inset-0 flex items-center justify-center p-6 pointer-events-none select-none">
+                            <div className="max-w-lg w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-6 pointer-events-auto">
+                                <div className="flex items-start gap-4 mb-4">
+                                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                                        <AlertTriangle className="w-6 h-6 text-amber-500" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="font-bold text-base text-slate-800 dark:text-white">
+                                            Archivo .{dwgInfo.ext} detectado
+                                        </h3>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                            {dwgInfo.fileName}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {dwgInfo.ext === "DWG" && dwgInfo.version && (
+                                    <div className="mb-4 flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
+                                        <FileCode className="w-4 h-4 text-blue-500 shrink-0" />
+                                        <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                                            Versión: {dwgInfo.version} — {dwgInfo.versionLabel}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 mb-4 border border-slate-100 dark:border-slate-700/50">
+                                    <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">
+                                        {dwgInfo.ext === "DWG"
+                                            ? "El formato DWG es binario y no puede procesarse directamente en el navegador. Para usar tu plano, exportalo desde AutoCAD:"
+                                            : `El formato ${dwgInfo.ext} no puede procesarse directamente. Exportá el archivo desde ${dwgInfo.versionLabel}:`}
+                                    </p>
+                                    <ol className="text-sm text-slate-600 dark:text-slate-400 space-y-2 list-none">
+                                        <li className="flex items-start gap-2">
+                                            <span className="w-5 h-5 rounded-full bg-brand-500 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                                            <span>{dwgInfo.ext === "DWG"
+                                                ? <>Abrí el .DWG en <strong>AutoCAD</strong> (o similar)</>
+                                                : <>Abrí el .{dwgInfo.ext} en <strong>{dwgInfo.versionLabel}</strong></>
+                                            }</span>
+                                        </li>
+                                        <li className="flex items-start gap-2">
+                                            <span className="w-5 h-5 rounded-full bg-brand-500 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                                            <span>{dwgInfo.ext === "DWG"
+                                                ? <>Guardá como <strong>DXF (ASCII)</strong> o exportá a <strong>SVG / PDF</strong></>
+                                                : <>Exportá como <strong>SVG</strong> o <strong>PDF</strong></>
+                                            }</span>
+                                        </li>
+                                        <li className="flex items-start gap-2">
+                                            <span className="w-5 h-5 rounded-full bg-brand-500 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                                            <span>Subí el archivo exportado acá</span>
+                                        </li>
+                                    </ol>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleClear}
+                                        className="flex-1 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Upload className="w-4 h-4" />
+                                        Subir archivo exportado
+                                    </button>
+                                </div>
+
+                                {dwgInfo.ext === "DWG" && (
+                                    <p className="text-[10px] text-slate-400 mt-3 text-center">
+                                        Tip: En AutoCAD usá <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">SAVEAS</code> → DXF R2018 ASCII, o <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">EXPORTPDF</code>
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    ) : !svgContent ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none select-none">
                             <div className={cn("w-20 h-20 rounded-full flex items-center justify-center shadow-sm transition-colors", isDragging ? "bg-brand-500/20" : "bg-white dark:bg-slate-900")}>
                                 <Upload className={cn("w-9 h-9 transition-colors", isDragging ? "text-brand-500" : "text-slate-300")} />
@@ -679,7 +810,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                             <p className={cn("text-base font-semibold", isDragging ? "text-brand-500" : "text-slate-400")}>
                                 {isDragging ? "Soltá para cargar el plano" : "Hacé clic o arrastrá tu plano aquí"}
                             </p>
-                            <p className="text-xs text-slate-400">JPG, PNG, PDF, DXF, SVG · Máximo 5 MB (imágenes) / 50 MB (vectores)</p>
+                            <p className="text-xs text-slate-400">DWG, DXF, SVG, PDF, AI, JPG, PNG · Máximo 5 MB (imágenes) / 50 MB (vectores)</p>
                         </div>
                     ) : (
                         <TransformWrapper initialScale={1} minScale={0.05} maxScale={30} centerOnInit wheel={{ step: 0.1 }}>
