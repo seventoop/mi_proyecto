@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Search, SlidersHorizontal, ArrowDownUp } from "lucide-react";
+import { Search } from "lucide-react";
 import { Proyecto } from "@prisma/client";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import ProjectCard from "./project-card";
 import { useLanguage } from "@/components/providers/language-provider";
 
@@ -20,6 +20,31 @@ export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps)
     const [filterType, setFilterType] = useState<string>("TODOS");
     const [filterStatus, setFilterStatus] = useState<string>("TODOS");
 
+    const typeOptions = [
+        "TODOS",
+        ...Array.from(new Set(initialProjects.map((p) => p.tipo).filter((value): value is string => Boolean(value))))
+    ];
+    const statusOptions = [
+        "TODOS",
+        ...Array.from(new Set(initialProjects.map((p) => p.estado).filter((value): value is string => Boolean(value))))
+    ];
+
+    const typeLabels: Record<string, string> = {
+        TODOS: t.projects.filter.typeAll,
+        URBANIZACION: t.projects.filter.typeUrbanization,
+        EDIFICIO: t.projects.filter.typeBuilding,
+    };
+
+    const statusLabels: Record<string, string> = {
+        TODOS: t.projects.filter.statusAll,
+        PLANIFICACION: t.projects.filter.statusPlanning,
+        EN_DESARROLLO: t.projects.filter.statusDeveloping,
+        ENTREGADO: t.projects.filter.statusDelivered,
+        EN_VENTA: "En venta",
+        ACTIVO: "Activo",
+        PUBLICADO: "Publicado",
+    };
+
     // Derived state
     const filteredProjects = initialProjects.filter((p) => {
         const matchSearch = p.nombre.toLowerCase().includes(search.toLowerCase()) ||
@@ -28,6 +53,8 @@ export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps)
         const matchStatus = filterStatus === "TODOS" || p.estado === filterStatus;
         return matchSearch && matchType && matchStatus;
     });
+
+    const projectsLabel = filteredProjects.length === 1 ? "proyecto encontrado" : "proyectos encontrados";
 
     return (
         <div className="space-y-8">
@@ -52,9 +79,11 @@ export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps)
                         onChange={(e) => setFilterType(e.target.value)}
                         className="w-full px-4 py-2.5 rounded-xl bg-black/20 border border-white/10 text-white focus:outline-none focus:border-brand-500/50 appearance-none cursor-pointer"
                     >
-                        <option value="TODOS">{t.projects.filter.typeAll}</option>
-                        <option value="URBANIZACION">{t.projects.filter.typeUrbanization}</option>
-                        <option value="EDIFICIO">{t.projects.filter.typeBuilding}</option>
+                        {typeOptions.map((type) => (
+                            <option key={type} value={type}>
+                                {typeLabels[type] || type.replaceAll("_", " ")}
+                            </option>
+                        ))}
                     </select>
                 </div>
 
@@ -65,12 +94,27 @@ export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps)
                         onChange={(e) => setFilterStatus(e.target.value)}
                         className="w-full px-4 py-2.5 rounded-xl bg-black/20 border border-white/10 text-white focus:outline-none focus:border-brand-500/50 appearance-none cursor-pointer"
                     >
-                        <option value="TODOS">{t.projects.filter.statusAll}</option>
-                        <option value="PLANIFICACION">{t.projects.filter.statusPlanning}</option>
-                        <option value="EN_DESARROLLO">{t.projects.filter.statusDeveloping}</option>
-                        <option value="ENTREGADO">{t.projects.filter.statusDelivered}</option>
+                        {statusOptions.map((status) => (
+                            <option key={status} value={status}>
+                                {statusLabels[status] || status.replaceAll("_", " ")}
+                            </option>
+                        ))}
                     </select>
                 </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+                <p className="text-sm text-slate-400">
+                    <span className="font-black text-white">{filteredProjects.length}</span> {projectsLabel}
+                </p>
+                {(search || filterType !== "TODOS" || filterStatus !== "TODOS") && (
+                    <button
+                        onClick={() => { setSearch(""); setFilterType("TODOS"); setFilterStatus("TODOS"); }}
+                        className="text-sm font-semibold text-brand-400 hover:text-brand-300 transition-colors"
+                    >
+                        {t.projects.filter.clearFilters}
+                    </button>
+                )}
             </div>
 
             {/* Results Grid */}
