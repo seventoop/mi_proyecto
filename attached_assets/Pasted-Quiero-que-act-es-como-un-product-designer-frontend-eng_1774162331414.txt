@@ -1,0 +1,199 @@
+Quiero que actúes como un product designer + frontend engineer + architect con foco extremo en UX/UI visual, claridad de navegación y experiencia premium.
+Necesito que mejores la plataforma priorizando lo visual por encima de la lógica compleja. La idea es que primero quede excelente en experiencia, estructura y edición visual, y después afinaremos reglas de negocio.
+
+Contexto del producto
+
+Estamos trabajando en una plataforma inmobiliaria / desarrollista donde existen:
+
+un home / landing page
+una sección de marketplace, que ahora pasa a llamarse Proyectos
+un dashboard
+un masterplan
+un sistema de fotos 360
+vistas para usuarios normales y para usuarios con permisos de edición (admin / desarrollador / editores)
+Regla principal
+
+La prioridad número uno es la calidad visual, la sensación de producto premium, la claridad de uso y una experiencia moderna.
+No quiero que te bloquees por lógica compleja, coordenadas exactas, cálculos perfectos o automatizaciones sofisticadas.
+Si algo visualmente puede resolverse primero con una configuración manual, hacelo así.
+
+Objetivo general
+
+Quiero una barrida fuerte sobre toda la experiencia visual del lado público y del dashboard, especialmente en:
+
+Home / landing
+listado de Proyectos
+filtros avanzados
+mapa interactivo
+masterplan
+navegación entre escenas 360
+herramientas visuales de edición para administradores
+1) PROYECTOS (antes marketplace) – rehacer la experiencia con foco visual
+
+Quiero rediseñar la sección Proyectos para que sea mucho más potente, visual y filtrable.
+
+Debe incluir:
+vista de cards / listado atractiva
+vista con mapa donde estén marcados todos los proyectos
+posibilidad de filtrar por:
+zona
+precio mínimo / máximo con slider tipo “desde – hasta”
+área o superficie
+estado del proyecto
+etapa / proceso
+si se puede invertir o no
+calificación
+antigüedad de la cuenta del vendedor
+cantidad de valoraciones o señales de confianza
+y dejar preparado el sistema para sumar muchos más filtros fácilmente
+Sobre el mapa
+
+Quiero que el mapa sea una parte protagonista de la experiencia, no un agregado menor.
+
+Filtros geográficos ideales
+
+Explorá una UX que permita filtrar por área dibujando:
+
+círculo
+polígono
+pincel / dibujo libre si tiene sentido visualmente
+
+Aunque internamente al principio sea simple, visualmente tiene que sentirse potente y moderna.
+
+Dentro de cada proyecto
+
+Quiero que el usuario pueda entrar a cada proyecto y ver también información del vendedor / desarrollador:
+
+perfil
+reputación
+antigüedad
+señales de confianza
+otros datos relevantes
+2) DASHBOARD Y EXPERIENCIA GENERAL
+
+Quiero que revises el dashboard y las pantallas clave con criterio de producto premium.
+
+Prioridades visuales:
+mejor jerarquía visual
+mejor uso del espacio
+componentes más limpios
+consistencia entre vistas públicas y privadas
+sensación moderna, inmobiliaria premium, confiable y ordenada
+menos “herramienta improvisada”, más “software serio de alto nivel”
+3) TOUR 360 – navegación entre escenas y edición manual visual
+
+Quiero potenciar mucho el sistema 360.
+
+Necesidad principal
+
+Dentro de una foto 360, los usuarios editores (admin / desarrollador / quienes puedan editar) deben poder:
+
+agregar puntos que lleven a otras fotos 360
+ubicar esos puntos manualmente a gusto dentro de la imagen
+conectar escenas entre sí sin depender de lógica compleja real de coordenadas, altura o posición física exacta
+
+No importa si no es un sistema recorrible perfecto en términos geográficos.
+Lo importante es que visualmente funcione bien y que la navegación entre escenas sea intuitiva.
+
+Para usuarios no editores
+
+Quiero que, cuando entren al 360:
+
+puedan pasar de una foto a otra mediante hotspots
+sientan que recorren el proyecto de manera fluida
+la navegación sea clara y visualmente atractiva
+Además
+
+Quiero poder agregar elementos dibujados dentro o vinculados al 360 para representar cosas como:
+
+calles
+canchas
+clubhouse
+rotondas
+piletas
+otras áreas comunes
+
+No hace falta que todo sea georreferenciado con exactitud.
+Puede ser una solución visual/manual si eso acelera el producto.
+
+4) RELACIÓN ENTRE MASTERPLAN Y 360
+
+Quiero que desde el sistema 360, para usuarios con permisos de edición, se pueda seleccionar un punto del mapa y asociarlo como “desde acá se ve esta foto”.
+
+Idea UX
+En el mapa aparece un icono tipo cámara
+ese punto se configura manualmente
+no necesito cálculo real de orientación, altura o coordenadas precisas
+solo necesito poder decir: esta escena 360 corresponde aproximadamente a este punto del mapa
+
+Y desde otra escena también poder enlazar otras escenas visualmente.
+
+La regla es:
+configuración manual, clara y poderosa, sin sobrecomplicar la lógica.
+
+5) MASTERPLAN – hover, selección y tarjeta de lote
+
+El plano mejoró, pero todavía hay cosas visuales por pulir.
+
+Quiero que empieces a implementar una UX donde:
+
+al pasar el cursor sobre un lote, haya efecto hover
+se destaque claramente el lote
+se vea mejor el número o identificación del lote
+al hacer click, se abra una tarjeta lateral o modal con la información del lote
+
+Importante:
+
+quiero este efecto similar al de los pasos 2, 3 y 4 donde ya hay cierta interacción visual
+pero aplicado ahora mejor sobre la experiencia final, no solo dentro de edición
+sin meter esto dentro de las fotos 360: esto pertenece más al plano / masterplan
+6) Enfoque de implementación
+
+No quiero que intentes resolver todo de una sola vez de forma caótica.
+Quiero que trabajes con esta lógica:
+
+Fase 1 – impacto visual rápido
+rediseño visual de Proyectos
+nuevos filtros visuales
+mapa con proyectos marcados
+estructura preparada para filtros avanzados
+Fase 2 – masterplan más interactivo
+hover de lotes
+click en lote
+tarjeta lateral
+mejor legibilidad visual
+Fase 3 – 360 navegable entre escenas
+hotspots manuales entre escenas
+editor visual para ubicar puntos
+navegación fluida para usuarios finales
+Fase 4 – relación mapa ↔ escenas 360
+selección manual del punto cámara en mapa
+asociación visual entre escena y ubicación
+Fase 5 – pulido visual integral
+consistencia general
+dashboard
+detalles UI/UX
+estados vacíos
+loaders
+microinteracciones
+Lo que necesito de vos
+Analizá la base actual.
+Detectá qué se puede mejorar ya mismo sin romper lo existente.
+Proponé una arquitectura de componentes clara y escalable.
+Implementá primero lo de mayor impacto visual.
+Dejame un resumen final con:
+qué hiciste
+qué falta
+próximos pasos recomendados
+riesgos o dependencias
+Criterio de decisión
+
+Ante cualquier duda, priorizá:
+
+experiencia visual
+claridad de uso
+escalabilidad visual
+configuración manual simple
+después la lógica compleja
+
+No te frenes por perfección técnica si una solución manual bien diseñada permite avanzar más rápido.

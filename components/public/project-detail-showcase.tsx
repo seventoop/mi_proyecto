@@ -673,86 +673,48 @@ export default function ProjectDetailShowcase({ project }: { project: ShowcaseDa
                             description="La experiencia publica incorpora el viewer real del masterplan, con colores por estado, zoom, filtros y detalle de lotes sin sacar al usuario del flujo comercial."
                         />
 
-                        <div className="mt-14 grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
-                            <Reveal className="rounded-[32px] border border-white/10 bg-white/5 p-7">
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <div className="rounded-[24px] border border-emerald-400/20 bg-emerald-500/8 p-5">
-                                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300">Disponible</p>
-                                        <p className="mt-3 text-3xl font-black text-white">{project.stats.availableUnits}</p>
+                        {/* Stats strip — horizontal, compacta, encima del plano */}
+                        <Reveal className="mt-10">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/8 px-5 py-3.5">
+                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400" />
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Disponible</p>
+                                        <p className="text-2xl font-black leading-tight text-white">{project.stats.availableUnits}</p>
                                     </div>
-                                    <div className="rounded-[24px] border border-amber-400/20 bg-amber-500/8 p-5">
-                                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">Reservado</p>
-                                        <p className="mt-3 text-3xl font-black text-white">{project.stats.reservedUnits}</p>
+                                </div>
+                                <div className="flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/8 px-5 py-3.5">
+                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400" />
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Reservado</p>
+                                        <p className="text-2xl font-black leading-tight text-white">{project.stats.reservedUnits}</p>
                                     </div>
-                                    <div className="rounded-[24px] border border-rose-400/20 bg-rose-500/8 p-5">
-                                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-rose-200">Vendido</p>
-                                        <p className="mt-3 text-3xl font-black text-white">{project.stats.soldUnits}</p>
+                                </div>
+                                <div className="flex items-center gap-3 rounded-2xl border border-rose-400/20 bg-rose-500/8 px-5 py-3.5">
+                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-400" />
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-300">Vendido</p>
+                                        <p className="text-2xl font-black leading-tight text-white">{project.stats.soldUnits}</p>
                                     </div>
-                                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-                                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-300">Ticket medio</p>
-                                        <p className="mt-3 text-2xl font-black text-white">
+                                </div>
+                                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5">
+                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400" />
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Ticket medio</p>
+                                        <p className="text-xl font-black leading-tight text-white">
                                             {project.stats.avgTicket ? formatCurrency(project.stats.avgTicket, "USD") : "N/D"}
                                         </p>
                                     </div>
                                 </div>
+                            </div>
+                        </Reveal>
 
-                                <div className="mt-7 rounded-[28px] border border-white/10 bg-black/20 p-6">
-                                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-300">Leyenda</p>
-                                    <div className="mt-4 grid gap-3 text-sm text-slate-200">
-                                        {[
-                                            ["Disponible", "bg-emerald-400"],
-                                            ["Reservado", "bg-amber-400"],
-                                            ["Vendido", "bg-rose-400"],
-                                            ["No disponible", "bg-slate-400"],
-                                        ].map(([label, dot]) => (
-                                            <div key={label} className="flex items-center gap-3">
-                                                <span className={cn("h-3 w-3 rounded-full", dot)} />
-                                                <span>{label}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {project.inventoryPreview.length > 0 && (
-                                    <div className="mt-7 space-y-3">
-                                        <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-300">Lotes destacados</p>
-                                        {project.inventoryPreview.map((unit) => (
-                                            <div
-                                                key={unit.id}
-                                                className="flex items-start justify-between rounded-[24px] border border-white/8 bg-black/20 px-5 py-4"
-                                            >
-                                                <div>
-                                                    <p className="text-lg font-black text-white">Lote {unit.numero}</p>
-                                                    <p className="mt-1 text-sm text-slate-300">
-                                                        {unit.superficie ? `${unit.superficie} m2` : "Superficie por confirmar"}
-                                                        {unit.frente && unit.fondo ? ` · ${unit.frente} x ${unit.fondo} m` : ""}
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <span
-                                                        className={cn(
-                                                            "inline-flex rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em]",
-                                                            statusClasses[unit.estado] || statusClasses.BLOQUEADO
-                                                        )}
-                                                    >
-                                                        {statusLabels[unit.estado] || unit.estado}
-                                                    </span>
-                                                    <p className="mt-3 text-sm font-bold text-white">
-                                                        {unit.precio ? formatCurrency(unit.precio, unit.moneda) : "Consultar precio"}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </Reveal>
-
-                            <Reveal className="overflow-hidden rounded-[36px] border border-white/10 bg-[#030611] shadow-[0_30px_100px_rgba(0,0,0,0.3)]">
-                                <div className="h-[720px]">
-                                    <MasterplanViewer proyectoId={project.id} modo="public" canEdit={false} />
-                                </div>
-                            </Reveal>
-                        </div>
+                        {/* Masterplan viewer — ancho completo, protagonista */}
+                        <Reveal className="mt-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#030611] shadow-[0_40px_120px_rgba(0,0,0,0.4)]">
+                            <div className="h-[680px]">
+                                <MasterplanViewer proyectoId={project.id} modo="public" canEdit={false} />
+                            </div>
+                        </Reveal>
                     </div>
                 </section>
             )}
