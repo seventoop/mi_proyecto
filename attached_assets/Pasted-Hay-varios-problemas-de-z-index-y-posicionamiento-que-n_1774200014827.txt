@@ -1,0 +1,68 @@
+Hay varios problemas de z-index y posicionamiento que necesitan arreglarse urgente:
+
+---
+
+## PROBLEMA 1: NAVBAR DEBE ESTAR POR ENCIMA DE TODO
+
+El navbar se pisa con el mapa, los botones y las tarjetas. El navbar SIEMPRE debe estar por encima de absolutamente todo.
+
+**Solución:**
+- Navbar debe tener z-index: 9999 (o el máximo)
+- Nada en la página debe poder taparlo
+- Verificar en: masterplan, plano solo, galería, toda la landing
+```css
+.navbar {
+  z-index: 9999 !important;
+  position: fixed; /* o sticky */
+}
+```
+
+---
+
+## PROBLEMA 2: BOTÓN CERRAR DEL PANEL DE LOTE TAPADO
+
+Cuando selecciono un lote, la ventanita que abre tiene el botón de cerrar (X) tapado por algo.
+
+**Solución:**
+- Revisar el z-index del panel lateral
+- El botón X debe estar siempre visible y clickeable
+- El panel debe estar por debajo del navbar pero por encima del mapa
+- Sugerencia: panel z-index: 5000, navbar z-index: 9999
+
+---
+
+## PROBLEMA 3: PLANO/MAPA CARGADO A LA DERECHA
+
+El plano aparece descentrado (cargado a la derecha). Cuando hago zoom out y lo muevo al centro, vuelve a su posición original.
+
+**Solución:**
+- Al cargar el mapa, debe centrarse automáticamente en el CENTRO de los lotes
+- Calcular el bounding box de todos los lotes y centrar ahí
+- El zoom inicial debe mostrar TODOS los lotes visibles
+- No debe haber offset hacia ningún lado
+```javascript
+// Pseudocódigo
+const bounds = calcularBoundsDeLotsLotes(lotes);
+map.fitBounds(bounds, { padding: 50 });
+```
+
+---
+
+## PROBLEMA 4: PRIORIDAD DE VISUALIZACIÓN
+
+Siempre la prioridad es VER EL LOTE. Cuando el usuario está viendo un lote:
+- El lote seleccionado debe estar centrado en la vista
+- No debe quedar tapado por el panel lateral
+- Ajustar el mapa para que el lote quede visible (no detrás del panel)
+
+**Solución:**
+Al seleccionar un lote:
+```javascript
+// Centrar el mapa en el lote seleccionado
+// Pero offset un poco a la izquierda para que no quede detrás del panel
+map.panTo(lote.centro, { offset: [-150, 0] }); // offset para compensar panel
+```
+
+---
+
+## JERARQUÍA DE Z-INDEX (de mayor a menor):

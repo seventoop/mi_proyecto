@@ -217,7 +217,7 @@ export default function Navbar() {
     return (
         <header
             className={cn(
-                "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ease-in-out",
+                "fixed top-0 left-0 right-0 z-[9999] w-full transition-all duration-300 ease-in-out",
                 "border-b border-border/40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85",
                 "dark:border-white/10 dark:bg-[#1A1A2E]/95 dark:supports-[backdrop-filter]:bg-[#1A1A2E]/85",
                 scrolled ? "py-1 shadow-md" : "py-2 shadow-sm"
@@ -389,7 +389,7 @@ export default function Navbar() {
             <div
                 id="mobile-menu"
                 className={cn(
-                    "fixed inset-0 z-40 transition-all duration-300 lg:hidden",
+                    "fixed inset-0 z-[9998] transition-all duration-300 lg:hidden",
                     "top-[calc(3.5rem+1px)] sm:top-[calc(4rem+1px)]",
                     mobileMenuOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
                 )}

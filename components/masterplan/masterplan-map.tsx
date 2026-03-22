@@ -89,6 +89,7 @@ export default function MasterplanMap({
     const [blueprintLoaded, setBlueprintLoaded] = useState(false);
     const mapRef = useRef<HTMLDivElement>(null);
     const leafletMapRef = useRef<any>(null);
+    const leafletLibRef = useRef<any>(null);
     const polygonsRef = useRef<Map<string, any>>(new Map());
     const prevUnitsRef = useRef<MasterplanUnit[]>([]);
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
@@ -134,6 +135,7 @@ export default function MasterplanMap({
 
     const svgBlobUrlRef = useRef<string | null>(null);
     const [isLoadingPlan, setIsLoadingPlan] = useState(false);
+    const initialFitDoneRef = useRef(false);
 
     // Reset selection state when entering Paso 4 (prevent bleedover from Paso 3)
     useEffect(() => {
@@ -214,6 +216,7 @@ export default function MasterplanMap({
             }
 
             const L = (await import("leaflet")).default;
+            leafletLibRef.current = L;
 
             if (isCanceled) return;
 
@@ -519,10 +522,44 @@ export default function MasterplanMap({
             });
         };
 
-        drawPolygons();
+        drawPolygons().then(() => {
+            if (!initialFitDoneRef.current && leafletMapRef.current && polygonsRef.current.size > 0) {
+                initialFitDoneRef.current = true;
+                setTimeout(() => {
+                    const L = leafletLibRef.current;
+                    if (!L || !leafletMapRef.current) return;
+                    const bounds = L.latLngBounds([]);
+                    polygonsRef.current.forEach((layer, key) => {
+                        if (key.startsWith("label-")) return;
+                        try { bounds.extend(layer.getBounds()); } catch {}
+                    });
+                    if (bounds.isValid()) {
+                        leafletMapRef.current.fitBounds(bounds, { padding: [50, 50], animate: false });
+                    }
+                }, 200);
+            }
+        });
     // overlayConfig y svgViewBox son parte del cálculo de coordenadas
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isMapReady, units, filteredIds, selectedUnitId, overlayConfig, svgViewBox, tours360]);
+
+    // ─── Pan to selected lot with offset for side panel ─────────────────────────
+    useEffect(() => {
+        if (!selectedUnitId || !leafletMapRef.current) return;
+        const polygon = polygonsRef.current.get(selectedUnitId);
+        if (!polygon) return;
+        const map = leafletMapRef.current;
+        try {
+            const lotCenter = polygon.getBounds().getCenter();
+            const panelWidthPx = 340;
+            const containerPoint = map.latLngToContainerPoint(lotCenter);
+            const offsetPoint = containerPoint.subtract([panelWidthPx / 2, 0]);
+            const offsetLatLng = map.containerPointToLatLng(offsetPoint);
+            const shift = { lat: lotCenter.lat - offsetLatLng.lat, lng: lotCenter.lng - offsetLatLng.lng };
+            map.panTo([lotCenter.lat + shift.lat, lotCenter.lng + shift.lng], { animate: true, duration: 0.5 });
+        } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedUnitId]);
 
     // ─── Camera markers for Tour 360° — drawn separately after polygons ──────
     useEffect(() => {
@@ -774,7 +811,31 @@ export default function MasterplanMap({
     // Zoom controls
     const handleZoomIn = () => leafletMapRef.current?.zoomIn();
     const handleZoomOut = () => leafletMapRef.current?.zoomOut();
-    const handleResetView = () => leafletMapRef.current?.setView([centerLat, centerLng], mapZoom);
+
+    const computePolygonBounds = useCallback(() => {
+        if (polygonsRef.current.size === 0) return null;
+        const L = leafletLibRef.current;
+        if (!L) return null;
+        const bounds = L.latLngBounds([]);
+        polygonsRef.current.forEach((layer, key) => {
+            if (key.startsWith("label-")) return;
+            try {
+                bounds.extend(layer.getBounds());
+            } catch {}
+        });
+        return bounds.isValid() ? bounds : null;
+    }, []);
+
+    const handleResetView = useCallback(() => {
+        const map = leafletMapRef.current;
+        if (!map) return;
+        const allBounds = computePolygonBounds();
+        if (allBounds) {
+            map.flyToBounds(allBounds, { padding: [50, 50], animate: true, duration: 0.8 });
+        } else {
+            map.setView([centerLat, centerLng], mapZoom);
+        }
+    }, [centerLat, centerLng, mapZoom, computePolygonBounds]);
 
     // Save current overlay config (bounds + rotation) from the toolbar
     const handleSavePlan = useCallback(async () => {
