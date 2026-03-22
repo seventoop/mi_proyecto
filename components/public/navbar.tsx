@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Menu, X, ChevronDown, Globe, Check } from "lucide-react";
+import { Menu, X, ChevronDown, Globe, Check, LayoutDashboard, LogOut } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
@@ -49,6 +49,20 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const HEADER_OFFSET = 96;
+
+const ROLE_LABELS: Record<string, { label: string; color: string }> = {
+    SUPERADMIN:   { label: "Super Admin",   color: "text-rose-500" },
+    ADMIN:        { label: "Admin",          color: "text-rose-400" },
+    DESARROLLADOR:{ label: "Desarrollador", color: "text-violet-400" },
+    VENDEDOR:     { label: "Vendedor",       color: "text-blue-400" },
+    INVERSOR:     { label: "Inversor",       color: "text-amber-400" },
+    CLIENTE:      { label: "Cliente",        color: "text-emerald-400" },
+};
+
+function getInitials(name?: string | null): string {
+    if (!name) return "?";
+    return name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
+}
 
 export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
@@ -283,31 +297,69 @@ export default function Navbar() {
                         <ThemeToggle />
                     </div>
 
-                    <div className="hidden lg:block">
-                        {session?.user ? (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold text-foreground transition-colors hover:bg-brand-orange/5 hover:text-brand-orange">
-                                    {session.user.name || "Usuario"}
-                                    <ChevronDown className="h-4 w-4" />
-                                </DropdownMenuTrigger>
-
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="w-52 p-1.5 bg-white dark:bg-[#1e1e2e] border border-slate-200 dark:border-white/10 shadow-xl shadow-black/10 dark:shadow-black/40 rounded-xl"
-                                >
-                                    <DropdownMenuItem asChild className="cursor-pointer font-semibold rounded-lg px-3 py-2.5 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10">
-                                        <Link href="/dashboard">{t.common.dashboard}</Link>
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem
-                                        onClick={() => signOut()}
-                                        className="cursor-pointer font-semibold rounded-lg px-3 py-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 focus:bg-rose-50 dark:focus:bg-rose-500/10 focus:text-rose-500"
+                    <div className="hidden lg:flex items-center gap-2">
+                        {session?.user ? (() => {
+                            const roleCode = (session.user as any)?.role as string | undefined;
+                            const roleInfo = roleCode ? ROLE_LABELS[roleCode] : undefined;
+                            const initials = getInitials(session.user.name);
+                            return (
+                                <>
+                                    {/* Mi Panel — always visible button */}
+                                    <Link
+                                        href="/dashboard"
+                                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-bold bg-brand-orange/10 text-brand-orange border border-brand-orange/20 hover:bg-brand-orange hover:text-white transition-all"
                                     >
-                                        {t.common.logout}
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        ) : (
+                                        <LayoutDashboard className="h-3.5 w-3.5" />
+                                        Mi Panel
+                                    </Link>
+
+                                    {/* User avatar + name + role dropdown */}
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-foreground/5 outline-none group">
+                                            <div className="w-8 h-8 rounded-full bg-brand-orange flex items-center justify-center text-white text-xs font-black shrink-0">
+                                                {initials}
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="text-[13px] font-semibold text-foreground leading-none">
+                                                    {session.user.name?.split(" ")[0] || "Usuario"}
+                                                </p>
+                                                {roleInfo && (
+                                                    <p className={cn("text-[10px] font-bold leading-none mt-0.5", roleInfo.color)}>
+                                                        {roleInfo.label}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <ChevronDown className="h-3.5 w-3.5 text-foreground/40 group-hover:text-foreground/70 transition-colors" />
+                                        </DropdownMenuTrigger>
+
+                                        <DropdownMenuContent
+                                            align="end"
+                                            className="w-52 p-1.5"
+                                        >
+                                            <div className="px-3 py-2 border-b border-slate-100 dark:border-white/[0.06] mb-1">
+                                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{session.user.name}</p>
+                                                {roleInfo && (
+                                                    <p className={cn("text-[10px] font-bold mt-0.5", roleInfo.color)}>{roleInfo.label}</p>
+                                                )}
+                                            </div>
+                                            <DropdownMenuItem asChild>
+                                                <Link href="/dashboard" className="flex items-center gap-2 cursor-pointer">
+                                                    <LayoutDashboard className="h-4 w-4 text-brand-orange" />
+                                                    {t.common.dashboard}
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                onClick={() => signOut()}
+                                                className="flex items-center gap-2 cursor-pointer text-rose-500 focus:text-rose-500 focus:bg-rose-50 dark:focus:bg-rose-500/10"
+                                            >
+                                                <LogOut className="h-4 w-4" />
+                                                {t.common.logout}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </>
+                            );
+                        })() : (
                             <Link
                                 href="/login"
                                 className="inline-flex min-w-[100px] items-center justify-center rounded-full bg-brand-orange px-6 py-2 text-[13px] font-bold text-white transition-all hover:scale-[1.03] hover:bg-brand-orangeDark active:scale-95"
@@ -434,35 +486,48 @@ export default function Navbar() {
                     </div>
 
                     <div className="mx-6 border-t border-border/30 px-6 pb-6 pt-2">
-                        {session?.user ? (
-                            <div className="space-y-3 pt-4">
-                                <div className="px-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                                    {t.common.hello},{" "}
-                                    <span className="text-foreground">
-                                        {session.user.name || "Usuario"}
-                                    </span>
+                        {session?.user ? (() => {
+                            const roleCode = (session.user as any)?.role as string | undefined;
+                            const roleInfo = roleCode ? ROLE_LABELS[roleCode] : undefined;
+                            const initials = getInitials(session.user.name);
+                            return (
+                                <div className="space-y-3 pt-4">
+                                    <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-foreground/5">
+                                        <div className="w-10 h-10 rounded-full bg-brand-orange flex items-center justify-center text-white text-sm font-black shrink-0">
+                                            {initials}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-foreground leading-none">
+                                                {session.user.name || "Usuario"}
+                                            </p>
+                                            {roleInfo && (
+                                                <p className={cn("text-xs font-bold mt-0.5", roleInfo.color)}>
+                                                    {roleInfo.label}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <Link
+                                        href="/dashboard"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="flex items-center justify-center gap-2 w-full rounded-xl bg-brand-orange py-3.5 text-center text-base font-bold text-white transition-all active:scale-[0.98]"
+                                    >
+                                        <LayoutDashboard className="h-4 w-4" />
+                                        {t.common.dashboard}
+                                    </Link>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => { signOut(); setMobileMenuOpen(false); }}
+                                        className="flex items-center justify-center gap-2 w-full rounded-xl py-3 text-center font-semibold text-destructive transition-all hover:bg-destructive/5"
+                                    >
+                                        <LogOut className="h-4 w-4" />
+                                        {t.common.logout}
+                                    </button>
                                 </div>
-
-                                <Link
-                                    href="/dashboard"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className="block w-full rounded-xl bg-brand-orange py-4 text-center text-base font-bold text-white transition-all active:scale-[0.98]"
-                                >
-                                    {t.common.dashboard}
-                                </Link>
-
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        signOut();
-                                        setMobileMenuOpen(false);
-                                    }}
-                                    className="block w-full rounded-xl py-3 text-center font-semibold text-destructive transition-all hover:bg-destructive/5"
-                                >
-                                    {t.common.logout}
-                                </button>
-                            </div>
-                        ) : (
+                            );
+                        })() : (
                             <Link
                                 href="/login"
                                 onClick={() => setMobileMenuOpen(false)}
