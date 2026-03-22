@@ -24,13 +24,13 @@ export async function POST(
         const body = await request.json();
         const { paths, svgContent } = body as { paths: SyncPath[]; svgContent: string };
 
-        if (!paths || !Array.isArray(paths)) {
+        if (!paths || !Array.isArray(paths) || paths.length === 0) {
             if (svgContent) {
                 await prisma.proyecto.update({
                     where: { id: params.id },
                     data: { masterplanSVG: svgContent },
                 });
-                return NextResponse.json({ success: true, message: "Masterplan guardado (imagen).", created: 0, updated: 0 });
+                return NextResponse.json({ success: true, message: "Masterplan guardado.", created: 0, updated: 0 });
             }
             return NextResponse.json({ error: "paths array is required" }, { status: 400 });
         }

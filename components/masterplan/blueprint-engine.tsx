@@ -296,15 +296,34 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                 const dataUrl = event.target?.result as string;
                 const img = new window.Image();
                 img.onload = () => {
-                    const sizeMB = (uploadedFile.size / (1024 * 1024)).toFixed(1);
-                    setUploadPreview({ dataUrl, name: uploadedFile.name, sizeMB, width: img.width, height: img.height });
+                    const MAX_DIM = 8000;
+                    let w = img.width, h = img.height;
+                    if (w > MAX_DIM || h > MAX_DIM) {
+                        const scale = MAX_DIM / Math.max(w, h);
+                        w = Math.round(w * scale);
+                        h = Math.round(h * scale);
+                        const canvas = document.createElement("canvas");
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext("2d")!;
+                        ctx.drawImage(img, 0, 0, w, h);
+                        const resizedUrl = canvas.toDataURL("image/jpeg", 0.85);
+                        const sizeMB = (resizedUrl.length / (1024 * 1024)).toFixed(1);
+                        setUploadPreview({ dataUrl: resizedUrl, name: uploadedFile.name, sizeMB, width: w, height: h });
+                    } else {
+                        const sizeMB = (uploadedFile.size / (1024 * 1024)).toFixed(1);
+                        setUploadPreview({ dataUrl, name: uploadedFile.name, sizeMB, width: w, height: h });
+                    }
                     setProcessing(false);
                 };
                 img.onerror = () => {
                     toast.error("No se pudo leer la imagen. Verificá que el archivo no esté corrupto.");
-                    setProcessing(false);
+                    setProcessing(false); setFile(null);
                 };
                 img.src = dataUrl;
+            };
+            reader.onerror = () => {
+                toast.error("Error al leer el archivo. Intentá de nuevo.");
+                setProcessing(false); setFile(null);
             };
             reader.readAsDataURL(uploadedFile);
             return;
@@ -319,25 +338,36 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
                     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                     const page = await pdf.getPage(1);
-                    const viewport = page.getViewport({ scale: 2 });
+                    const baseViewport = page.getViewport({ scale: 1 });
+                    const MAX_PDF_DIM = 4000;
+                    const pdfScale = Math.min(2, MAX_PDF_DIM / Math.max(baseViewport.width, baseViewport.height));
+                    const viewport = page.getViewport({ scale: pdfScale });
                     const canvas = document.createElement("canvas");
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
                     const ctx = canvas.getContext("2d")!;
                     await page.render({ canvasContext: ctx, viewport }).promise;
-                    const dataUrl = canvas.toDataURL("image/png");
-                    const sizeMB = (uploadedFile.size / (1024 * 1024)).toFixed(1);
+                    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+                    const sizeMB = (dataUrl.length / (1024 * 1024)).toFixed(1);
                     setUploadPreview({ dataUrl, name: uploadedFile.name, sizeMB, width: viewport.width, height: viewport.height });
                 } catch (err: any) {
                     toast.error(`Error al procesar PDF: ${err.message ?? "Formato no reconocido"}. Probá subiéndolo como imagen JPG/PNG.`);
                 }
                 setProcessing(false);
             };
+            reader.onerror = () => {
+                toast.error("Error al leer el archivo PDF. Intentá de nuevo.");
+                setProcessing(false); setFile(null);
+            };
             reader.readAsArrayBuffer(uploadedFile);
             return;
         }
 
         const reader = new FileReader();
+        reader.onerror = () => {
+            toast.error("Error al leer el archivo. Intentá de nuevo.");
+            setProcessing(false); setFile(null);
+        };
         reader.onload = (event) => {
             const content = event.target?.result as string;
             const isSvg = content.trim().toLowerCase().startsWith("<svg") || content.includes("<svg");
