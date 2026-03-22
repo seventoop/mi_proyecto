@@ -494,9 +494,13 @@ async function main() {
     console.log(`✅ Villa del Lago: 30 lotes creados (Lago + Parque + Interior)`);
 
     // ─── 11. Barrio Capinota ───
-    await prisma.proyecto.upsert({
+    const capinota = await prisma.proyecto.upsert({
         where: { slug: "barrio-capinota" },
-        update: { orgId: org.id, creadoPorId: admin.id, visibilityStatus: "PUBLICADO" },
+        update: {
+            orgId: org.id, creadoPorId: admin.id, visibilityStatus: "PUBLICADO",
+            precioM2Inversor: 40, precioM2Mercado: 55,
+            mapCenterLat: -17.4506, mapCenterLng: -66.2774, mapZoom: 16,
+        } as any,
         create: {
             nombre: "Barrio Capinota",
             slug: "barrio-capinota",
@@ -507,14 +511,95 @@ async function main() {
             tipo: "URBANIZACION",
             invertible: false,
             imagenPortada: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=800&auto=format&fit=crop",
-            mapCenterLat: -34.6037,
-            mapCenterLng: -58.3816,
+            mapCenterLat: -17.4506,
+            mapCenterLng: -66.2774,
             mapZoom: 16,
+            precioM2Inversor: 40,
+            precioM2Mercado: 55,
             orgId: org.id,
             creadoPorId: admin.id,
         } as any,
     });
-    console.log(`✅ Barrio Capinota: proyecto creado`);
+
+    const existCapinota = await prisma.etapa.findFirst({ where: { proyectoId: capinota.id } });
+    if (!existCapinota) {
+        const etapaCap = await prisma.etapa.create({
+            data: { proyectoId: capinota.id, nombre: "Etapa 1", orden: 1, estado: "EN_CURSO" }
+        });
+        const lotesCapA = Array.from({ length: 10 }, (_, i) => {
+            const estados = ["DISPONIBLE","DISPONIBLE","DISPONIBLE","DISPONIBLE","DISPONIBLE","DISPONIBLE","DISPONIBLE","RESERVADA","VENDIDA","VENDIDA"];
+            return { numero: `A-${String(i+1).padStart(2,"0")}`, tipo: "LOTE", superficie: 300 + i*20, frente: 10 + (i%3), fondo: 28, precio: 15000 + i*2000, estado: estados[i], moneda: "USD", esEsquina: i === 0 || i === 9 };
+        });
+        const lotesCapB = Array.from({ length: 10 }, (_, i) => {
+            const estados = ["DISPONIBLE","DISPONIBLE","DISPONIBLE","DISPONIBLE","RESERVADA","RESERVADA","VENDIDA","DISPONIBLE","DISPONIBLE","DISPONIBLE"];
+            return { numero: `B-${String(i+1).padStart(2,"0")}`, tipo: "LOTE", superficie: 310 + i*18, frente: 10 + (i%3), fondo: 29, precio: 16000 + i*1800, estado: estados[i], moneda: "USD", esEsquina: i === 0 || i === 9 };
+        });
+        await prisma.manzana.create({ data: { etapaId: etapaCap.id, nombre: "Manzana A", unidades: { create: lotesCapA as any } } });
+        await prisma.manzana.create({ data: { etapaId: etapaCap.id, nombre: "Manzana B", unidades: { create: lotesCapB as any } } });
+    }
+    console.log(`✅ Barrio Capinota: proyecto + 20 lotes creados`);
+
+    // ─── 12. Imágenes de galería para todos los proyectos ───
+    type GaleriaItem = { url: string; categoria: string; esPrincipal: boolean; orden: number };
+    const galeriasPorSlug: { slug: string; imgs: GaleriaItem[] }[] = [
+        { slug: "barrio-los-alamos", imgs: [
+            { url: "https://images.unsplash.com/photo-1448630360428-65456885c650?w=1200&q=80", categoria: "RENDER",      esPrincipal: true,  orden: 1 },
+            { url: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 2 },
+            { url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 3 },
+            { url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 4 },
+            { url: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 5 },
+        ]},
+        { slug: "reserva-geodevia", imgs: [
+            { url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&q=80", categoria: "RENDER",      esPrincipal: true,  orden: 1 },
+            { url: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 2 },
+            { url: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 3 },
+            { url: "https://images.unsplash.com/photo-1458668383970-8ddd3927deed?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 4 },
+            { url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 5 },
+            { url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80", categoria: "MASTERPLAN",  esPrincipal: false, orden: 6 },
+        ]},
+        { slug: "barrio-las-casuarinas", imgs: [
+            { url: "https://images.unsplash.com/photo-1448630360428-65456885c650?w=1200&q=80", categoria: "RENDER",      esPrincipal: true,  orden: 1 },
+            { url: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 2 },
+            { url: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 3 },
+            { url: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 4 },
+        ]},
+        { slug: "loteo-san-martin-mendoza", imgs: [
+            { url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&q=80", categoria: "RENDER",      esPrincipal: true,  orden: 1 },
+            { url: "https://images.unsplash.com/photo-1448630360428-65456885c650?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 2 },
+            { url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 3 },
+            { url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 4 },
+        ]},
+        { slug: "chacras-del-norte-santa-fe", imgs: [
+            { url: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=1200&q=80", categoria: "RENDER",      esPrincipal: true,  orden: 1 },
+            { url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 2 },
+            { url: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 3 },
+            { url: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 4 },
+            { url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 5 },
+        ]},
+        { slug: "villa-del-lago-buenos-aires", imgs: [
+            { url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80", categoria: "RENDER",      esPrincipal: true,  orden: 1 },
+            { url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 2 },
+            { url: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 3 },
+            { url: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=1200&q=80", categoria: "INTERIOR",    esPrincipal: false, orden: 4 },
+            { url: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 5 },
+            { url: "https://images.unsplash.com/photo-1458668383970-8ddd3927deed?w=1200&q=80", categoria: "MASTERPLAN",  esPrincipal: false, orden: 6 },
+        ]},
+        { slug: "barrio-capinota", imgs: [
+            { url: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80", categoria: "RENDER",      esPrincipal: true,  orden: 1 },
+            { url: "https://images.unsplash.com/photo-1448630360428-65456885c650?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 2 },
+            { url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&q=80", categoria: "EXTERIOR",    esPrincipal: false, orden: 3 },
+            { url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 4 },
+            { url: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=1200&q=80", categoria: "AVANCE_OBRA", esPrincipal: false, orden: 5 },
+        ]},
+    ];
+
+    for (const g of galeriasPorSlug) {
+        const p = await prisma.proyecto.findUnique({ where: { slug: g.slug }, select: { id: true } });
+        if (!p) continue;
+        await prisma.proyectoImagen.deleteMany({ where: { proyectoId: p.id } });
+        await prisma.proyectoImagen.createMany({ data: g.imgs.map(img => ({ ...img, proyectoId: p.id })) });
+    }
+    console.log(`✅ Galería: imágenes cargadas para los 7 proyectos`);
 
     // ─── 12. Default CRM Pipeline Stages ───
     await prisma.pipelineEtapa.deleteMany({ where: { orgId: org.id } });
