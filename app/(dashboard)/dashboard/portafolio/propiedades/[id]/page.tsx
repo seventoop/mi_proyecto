@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { ChevronLeft, Home, MapPin, Building2, Maximize2, FileText, File, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { projectPathSegment } from "@/lib/project-slug";
 
 interface Props { params: { id: string } }
 
@@ -21,7 +22,7 @@ export default async function PortafolioPropiedadDetallePage({ params }: Props) 
     const unidad = await prisma.unidad.findUnique({
         where: { id: params.id },
         include: {
-            manzana: { include: { etapa: { include: { proyecto: { select: { id: true, nombre: true, ubicacion: true, imagenPortada: true } } } } } }
+            manzana: { include: { etapa: { include: { proyecto: { select: { id: true, slug: true, nombre: true, ubicacion: true, imagenPortada: true } } } } } }
         }
     });
 
@@ -29,6 +30,7 @@ export default async function PortafolioPropiedadDetallePage({ params }: Props) 
     if (role !== "ADMIN" && role !== "SUPERADMIN" && unidad.responsableId !== userId) redirect("/dashboard/portafolio");
 
     const proyecto = unidad.manzana.etapa.proyecto;
+    const projectSegment = projectPathSegment(proyecto);
     const etapa = unidad.manzana.etapa;
     const manzana = unidad.manzana;
 
@@ -134,7 +136,7 @@ export default async function PortafolioPropiedadDetallePage({ params }: Props) 
                     </div>
                     <div className="glass-card p-6 space-y-3">
                         <h2 className="text-lg font-bold text-slate-900 dark:text-white">Acciones</h2>
-                        <Link href={`/dashboard/proyectos/${proyecto.id}?tab=masterplan&highlight=${unidad.id}`}
+                        <Link href={`/dashboard/proyectos/${projectSegment}?tab=masterplan&highlight=${unidad.id}`}
                             className="flex items-center gap-2 w-full px-4 py-3 rounded-xl bg-brand-500/10 text-brand-500 font-semibold text-sm hover:bg-brand-500/20 transition-colors">
                             <Maximize2 className="w-4 h-4" /> Ver en Masterplan
                         </Link>

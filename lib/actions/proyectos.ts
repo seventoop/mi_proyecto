@@ -7,6 +7,7 @@ import { z } from "zod";
 import { idSchema, slugSchema } from "@/lib/validations";
 import { audit } from "@/lib/actions/audit";
 import { flagsFromEstado } from "@/lib/project-access";
+import { slugifyProjectName } from "@/lib/project-slug";
 
 // ─── Scemas ───
 
@@ -213,7 +214,7 @@ export async function createProyecto(input: unknown) {
             demoExpiresAt = isDemo && userRecord?.demoEndsAt ? new Date(userRecord.demoEndsAt) : null;
         }
 
-        const slug = data.slug || data.nombre.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+        const slug = data.slug ? slugifyProjectName(data.slug) : slugifyProjectName(data.nombre);
 
         const existing = await prisma.proyecto.findUnique({ where: { slug } });
         if (existing) {
@@ -308,9 +309,32 @@ export async function updateProyecto(id: string, input: unknown) {
         }
         const data = parsed.data;
 
+        const nextSlug = data.slug
+            ? slugifyProjectName(data.slug)
+            : data.nombre
+            ? slugifyProjectName(data.nombre)
+            : undefined;
+
+        if (nextSlug) {
+            const existing = await prisma.proyecto.findFirst({
+                where: {
+                    slug: nextSlug,
+                    id: { not: id },
+                },
+                select: { id: true },
+            });
+
+            if (existing) {
+                return { success: false, error: "Ya existe un proyecto con ese slug" };
+            }
+        }
+
         const updated = await prisma.proyecto.update({
             where: { id },
-            data
+            data: {
+                ...data,
+                ...(nextSlug ? { slug: nextSlug } : {}),
+            }
         });
 
         await audit({

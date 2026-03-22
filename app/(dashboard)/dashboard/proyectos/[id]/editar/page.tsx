@@ -3,20 +3,21 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import ProyectoForm from "@/components/dashboard/proyectos/proyecto-form";
+import { slugifyProjectName } from "@/lib/project-slug";
 
 // This page fetches the project client-side and shows the edit modal.
 // On close it redirects back to the project detail.
 export default function EditarProyectoPage() {
     const router = useRouter();
     const params = useParams();
-    const id = params.id as string;
+    const idOrSlug = params.id as string;
 
     const [proyecto, setProyecto] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
     useEffect(() => {
-        fetch(`/api/developments/${id}`)
+        fetch(`/api/developments/${idOrSlug}`)
             .then((r) => {
                 if (!r.ok) throw new Error("No se pudo cargar el proyecto.");
                 return r.json();
@@ -31,10 +32,11 @@ export default function EditarProyectoPage() {
             })
             .catch(() => setError("Error de conexión."))
             .finally(() => setLoading(false));
-    }, [id]);
+    }, [idOrSlug]);
 
     const handleClose = () => {
-        router.push(`/dashboard/proyectos/${id}`);
+        const segment = proyecto?.slug || (proyecto?.nombre ? slugifyProjectName(proyecto.nombre) : idOrSlug);
+        router.push(`/dashboard/proyectos/${segment}`);
     };
 
     if (loading) {

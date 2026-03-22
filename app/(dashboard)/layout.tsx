@@ -5,6 +5,8 @@ import Header from "@/components/dashboard/header";
 import DashboardContainer from "@/components/dashboard/dashboard-container";
 import SessionSyncHandler from "@/components/dashboard/session-sync-handler";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
     children,
 }: {

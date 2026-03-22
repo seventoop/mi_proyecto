@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import Link from "next/link";
 import { MapPin, ArrowRight, Building2, Eye } from "lucide-react";
+import { projectPathSegment } from "@/lib/project-slug";
 
 export default async function MasterplanIndexPage() {
     const session = await getServerSession(authOptions);
@@ -45,7 +46,10 @@ export default async function MasterplanIndexPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {projects.map((project) => (
+                {projects.map((project) => {
+                    const segment = projectPathSegment(project);
+
+                    return (
                     <div
                         key={project.id}
                         className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-brand-500/50 transition-all hover:shadow-lg"
@@ -97,14 +101,14 @@ export default async function MasterplanIndexPage() {
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <Link
-                                        href={`/dashboard/proyectos/${project.id}?tab=masterplan`}
+                                        href={`/dashboard/proyectos/${segment}?tab=masterplan`}
                                         className="flex items-center justify-center rounded-xl bg-brand-500/10 px-4 py-2.5 text-sm font-bold text-brand-600 hover:bg-brand-500/20 dark:text-brand-400 dark:hover:bg-brand-400/10 transition-all active:scale-95"
                                     >
                                         <MapPin className="mr-2 h-4 w-4" />
                                         Masterplan
                                     </Link>
                                     <Link
-                                        href={`/dashboard/proyectos/${project.id}?tab=tour360`}
+                                        href={`/dashboard/proyectos/${segment}?tab=tour360`}
                                         className="flex items-center justify-center rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95"
                                     >
                                         <Eye className="mr-2 h-4 w-4" />
@@ -114,7 +118,8 @@ export default async function MasterplanIndexPage() {
                             </div>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
 
                 {projects.length === 0 && (
                     <div className="col-span-full py-16 text-center bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
