@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -11,6 +11,8 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { toggleFavorito } from "@/lib/actions/investor-actions";
 import { toast } from "sonner";
 import { useTransition } from "react";
+
+const PAGE_SIZE = 12;
 
 const TIPOS: { value: string; label: string }[] = [
     { value: "TODOS", label: "Todos los tipos" },
@@ -186,6 +188,10 @@ export default function MarketplaceExplorer({
     const [estado, setEstado] = useState("TODOS");
     const [sort, setSort] = useState("recent");
     const [showFilters, setShowFilters] = useState(false);
+    const [page, setPage] = useState(1);
+
+    // Reset to page 1 whenever filters/search/sort change
+    useEffect(() => { setPage(1); }, [search, tipo, estado, sort]);
 
     const filtered = useMemo(() => {
         let list = [...proyectos];
@@ -212,7 +218,15 @@ export default function MarketplaceExplorer({
     }, [proyectos, search, tipo, estado, sort]);
 
     const activeFilters = (tipo !== "TODOS" ? 1 : 0) + (estado !== "TODOS" ? 1 : 0);
-    const clearAll = () => { setTipo("TODOS"); setEstado("TODOS"); setSearch(""); };
+    const clearAll = () => { setTipo("TODOS"); setEstado("TODOS"); setSearch(""); setPage(1); };
+
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+    const goToPage = (p: number) => {
+        setPage(Math.min(Math.max(1, p), totalPages));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
 
     const showFavorite = ["INVERSOR", "ADMIN", "SUPERADMIN", "CLIENTE"].includes(userRole);
 
@@ -337,11 +351,58 @@ export default function MarketplaceExplorer({
                     </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                    {filtered.map(p => (
-                        <ProjectCard key={p.id} proyecto={p} showFavorite={showFavorite} />
-                    ))}
-                </div>
+                <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        {paginated.map(p => (
+                            <ProjectCard key={p.id} proyecto={p} showFavorite={showFavorite} />
+                        ))}
+                    </div>
+
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 pt-4">
+                            <button
+                                onClick={() => goToPage(page - 1)}
+                                disabled={page === 1}
+                                className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 flex items-center justify-center text-sm font-bold hover:border-brand-400 hover:text-brand-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ‹
+                            </button>
+
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => {
+                                const isVisible = p === 1 || p === totalPages || Math.abs(p - page) <= 1;
+                                const showEllipsis = !isVisible && (p === 2 || p === totalPages - 1);
+                                if (showEllipsis) return <span key={p} className="text-slate-400 text-sm px-1">…</span>;
+                                if (!isVisible) return null;
+                                return (
+                                    <button
+                                        key={p}
+                                        onClick={() => goToPage(p)}
+                                        className={cn(
+                                            "w-9 h-9 rounded-xl border text-sm font-bold transition-colors",
+                                            p === page
+                                                ? "bg-brand-500 border-brand-500 text-white shadow-lg shadow-brand-500/20"
+                                                : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-brand-400 hover:text-brand-500"
+                                        )}
+                                    >
+                                        {p}
+                                    </button>
+                                );
+                            })}
+
+                            <button
+                                onClick={() => goToPage(page + 1)}
+                                disabled={page === totalPages}
+                                className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 flex items-center justify-center text-sm font-bold hover:border-brand-400 hover:text-brand-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ›
+                            </button>
+
+                            <span className="ml-2 text-xs text-slate-400">
+                                Página {page} de {totalPages}
+                            </span>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

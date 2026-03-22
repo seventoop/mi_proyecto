@@ -697,10 +697,10 @@ export async function getMyProyectos() {
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
         const proyectos = await prisma.proyecto.findMany({
-            where: isAdmin ? { deletedAt: null } : { orgId: user.orgId ?? undefined, deletedAt: null },
+            where: { deletedAt: null },
             select: { id: true, nombre: true },
             orderBy: { nombre: "asc" },
-            take: 200,
+            take: 500,
         });
 
         return { success: true, data: proyectos };

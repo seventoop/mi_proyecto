@@ -110,7 +110,7 @@ const inversorNavItems = [
     { label: "Mis Propiedades", href: "/dashboard/portafolio/propiedades", icon: Home },
     { label: "Mis Inversiones", href: "/dashboard/portafolio/inversiones", icon: ArrowUpCircle },
     { section: "Explorar" },
-    { label: "Marketplace", href: "/dashboard/portafolio/marketplace", icon: Building2 },
+    { label: "Proyectos", href: "/dashboard/portafolio/marketplace", icon: Building2 },
     { label: "Wallet", href: "/dashboard/portafolio/wallet", icon: CreditCard },
     { label: "Favoritos", href: "/dashboard/portafolio/favoritos", icon: BookmarkCheck },
     { section: "Cuenta" },

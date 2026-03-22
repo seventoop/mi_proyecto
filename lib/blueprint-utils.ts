@@ -349,7 +349,6 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
     const svg = `<svg viewBox="${vMinX} ${viewbox.minY - padding} ${width + padding * 2} ${vHeight}" xmlns="http://www.w3.org/2000/svg">
 ${pathElements.join("\n")}
 ${textElements.join("\n")}
-${labelElements.join("\n")}
 </svg>`;
 
     // ─── Assign internalIds in reading order (top-left → right → down) ───────

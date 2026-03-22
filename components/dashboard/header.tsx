@@ -48,6 +48,9 @@ export default function Header() {
             // Re-case known modules for visual fidelity
             if (label.toLowerCase() === "dashboard") label = "Dashboard";
             if (label.toLowerCase() === "crm") label = "CRM";
+            if (label.toLowerCase() === "marketplace") label = "Proyectos";
+            if (label.toLowerCase() === "kyc") label = "KYC";
+            if (label.toLowerCase() === "portafolio") label = "Portafolio";
             
             paths.push({ label, href: current });
         }
