@@ -1,6 +1,9 @@
 import { MetadataRoute } from 'next';
 import prisma from '@/lib/db';
 
+export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXTAUTH_URL || 'https://seventoop.com';
 
@@ -21,12 +24,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic routes: Proyectos (Public ones only if we had an isPublic flag, usually all are public for SEO)
   try {
     const proyectos = await prisma.proyecto.findMany({
-      select: { id: true, updatedAt: true },
-      where: { estado: 'ACTIVO' } // Assuming ACTIVO means public
+      select: { id: true, slug: true, updatedAt: true },
+      where: {
+        deletedAt: null,
+        visibilityStatus: 'PUBLICADO',
+      },
+      orderBy: { updatedAt: 'desc' },
     });
 
     const proyectoRoutes = proyectos.map((p) => ({
-      url: `${baseUrl}/proyectos/${p.id}`,
+      url: `${baseUrl}/proyectos/${p.slug || p.id}`,
       lastModified: p.updatedAt,
       changeFrequency: 'weekly' as const,
       priority: 0.6,
