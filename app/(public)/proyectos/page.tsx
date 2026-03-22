@@ -1,11 +1,9 @@
 import { Metadata } from "next";
 import { db } from "@/lib/db";
 import ProjectsFilter from "@/components/public/projects-filter";
-import { Building2, ArrowRight } from "lucide-react";
-import Link from "next/link";
 
 export const metadata: Metadata = {
-    title: "Desarrollos | SevenToop — Infraestructura para Lanzamientos Inmobiliarios",
+    title: "Proyectos | SevenToop — Infraestructura para Lanzamientos Inmobiliarios",
     description:
         "Explorá los desarrollos verificados publicados en SevenToop. Masterplan interactivo, tours 360°, reservas y acceso anticipado para cada proyecto.",
 };
@@ -15,79 +13,91 @@ async function getProjects() {
         const projects = await db.proyecto.findMany({
             where: {
                 deletedAt: null,
-                visibilityStatus: { notIn: ["BORRADOR", "DRAFT"] },
-                estado: { notIn: ["BORRADOR", "DRAFT", "ELIMINADO", "DESACTIVADO", "INACTIVO"] },
+                visibilityStatus: "PUBLICADO",
             },
             orderBy: { createdAt: "desc" },
+            include: {
+                etapas: {
+                    include: {
+                        manzanas: {
+                            include: {
+                                unidades: {
+                                    select: {
+                                        id: true,
+                                        precio: true,
+                                        moneda: true,
+                                        superficie: true,
+                                        estado: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         });
 
-        const projectsWithPrices = await Promise.all(
-            projects.map(async (p) => ({
-                ...p,
-                _count: { unidades: 0 },
-                unidades: [],
-            }))
-        );
+        return projects.map((p) => {
+            const allUnits = p.etapas.flatMap((e) => e.manzanas.flatMap((m) => m.unidades));
+            const availableUnits = allUnits.filter((u) => u.estado === "DISPONIBLE");
+            const pricesUSD = allUnits.filter((u) => u.precio && u.precio > 0).map((u) => u.precio!);
+            const surfaces = allUnits.filter((u) => u.superficie && u.superficie > 0).map((u) => u.superficie!);
 
-        return projectsWithPrices;
+            return {
+                id: p.id,
+                nombre: p.nombre,
+                slug: p.slug,
+                descripcion: p.descripcion,
+                ubicacion: p.ubicacion,
+                estado: p.estado,
+                tipo: p.tipo,
+                imagenPortada: p.imagenPortada,
+                mapCenterLat: p.mapCenterLat,
+                mapCenterLng: p.mapCenterLng,
+                invertible: p.invertible,
+                precioM2Mercado: p.precioM2Mercado ? Number(p.precioM2Mercado) : null,
+                totalUnits: allUnits.length,
+                availableUnits: availableUnits.length,
+                minPrice: pricesUSD.length > 0 ? Math.min(...pricesUSD) : null,
+                maxPrice: pricesUSD.length > 0 ? Math.max(...pricesUSD) : null,
+                avgPrice: pricesUSD.length > 0 ? Math.round(pricesUSD.reduce((a, b) => a + b, 0) / pricesUSD.length) : null,
+                minSurface: surfaces.length > 0 ? Math.min(...surfaces) : null,
+                maxSurface: surfaces.length > 0 ? Math.max(...surfaces) : null,
+                currency: allUnits.find((u) => u.moneda)?.moneda || "USD",
+            };
+        });
     } catch (error) {
         return [];
     }
 }
 
+export type ProjectListItem = Awaited<ReturnType<typeof getProjects>>[number];
+
 export default async function ProjectsPage() {
     const projects = await getProjects();
 
     return (
-        <div className="bg-white dark:bg-black min-h-screen pt-24 pb-12">
+        <div className="bg-[#060a19] min-h-screen pt-24 pb-12">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                {/* Header */}
-                <div className="mb-16 text-center max-w-3xl mx-auto space-y-6">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-orange/10 border border-brand-orange/20 shadow-lg">
-                        <Building2 className="w-4 h-4 text-brand-orange" />
-                        <span className="bg-gradient-to-r from-brand-orange to-brand-orangeDark bg-clip-text text-transparent font-black uppercase text-xs tracking-widest">
-                            Desarrollos Verificados
+                <div className="mb-12 text-center max-w-3xl mx-auto space-y-5">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">
+                            {projects.length} proyectos activos
                         </span>
                     </div>
-                    <h1 className="text-4xl md:text-6xl font-black text-foreground tracking-tight leading-[1.1]">
-                        Proyectos en{" "}
-                        <span className="bg-gradient-to-r from-brand-orange to-brand-yellow bg-clip-text text-transparent">
-                            SevenToop
+                    <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight leading-[1.1]">
+                        Explorá{" "}
+                        <span className="bg-gradient-to-r from-brand-orange to-amber-400 bg-clip-text text-transparent">
+                            Proyectos
                         </span>
                     </h1>
-                    <p className="text-foreground/60 text-lg leading-relaxed">
-                        Cada desarrollo publicado cuenta con masterplan interactivo, tours 360°,
-                        ficha técnica verificada y acceso desde la comunidad.
+                    <p className="text-slate-400 text-lg leading-relaxed">
+                        Desarrollos verificados con masterplan interactivo, tours 360° y ficha técnica completa.
                     </p>
                 </div>
 
-                {/* Filter & Grid */}
-                <ProjectsFilter initialProjects={projects} />
-
-                {/* CTA discreto */}
-                <div className="mt-20 mb-8 max-w-4xl mx-auto rounded-3xl bg-gradient-to-br from-brand-orange/10 via-brand-orange/5 to-transparent border border-brand-orange/20 p-10 md:p-14 text-center space-y-6">
-                    <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tight">
-                        ¿Tenés un desarrollo para lanzar?
-                    </h2>
-                    <p className="text-foreground/60 text-base leading-relaxed max-w-xl mx-auto">
-                        Publicá tu proyecto con infraestructura profesional, visibilidad desde el día uno y comunidad activa.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
-                        <Link
-                            href="/contacto"
-                            className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-brand-orange hover:bg-brand-orangeDark text-white rounded-2xl font-black transition-all shadow-lg shadow-brand-orange/20 hover:scale-[1.02] active:scale-95"
-                        >
-                            Soy Desarrollador
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </Link>
-                        <Link
-                            href="/#comunidad"
-                            className="inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-brand-orange/20 text-brand-orange hover:bg-brand-orange hover:text-white rounded-2xl font-black transition-all active:scale-95"
-                        >
-                            Unirme a la Comunidad
-                        </Link>
-                    </div>
-                </div>
+                <ProjectsFilter projects={projects} />
             </div>
         </div>
     );

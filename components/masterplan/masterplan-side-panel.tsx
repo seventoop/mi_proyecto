@@ -96,43 +96,62 @@ export default function MasterplanSidePanel({ unit, modo, canEdit, onClose }: Si
                 className="absolute top-0 right-0 bottom-0 w-[340px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-700 z-30 flex flex-col shadow-2xl"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center gap-3">
-                        <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm"
-                            style={{ backgroundColor: STATUS_COLORS[unit.estado] }}
-                        >
-                            {modo === "admin" && internalId != null ? `#${internalId}` : (unit.numero.split("-")[1] || unit.numero)}
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-slate-800 dark:text-white">Lote {unit.numero}</h3>
-                            <span
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase"
-                                style={{ backgroundColor: `${STATUS_COLORS[unit.estado]}15`, color: STATUS_COLORS[unit.estado] }}
+                <div className="relative overflow-hidden">
+                    <div className="absolute inset-0 opacity-15" style={{ background: `linear-gradient(135deg, ${STATUS_COLORS[unit.estado]}, transparent 60%)` }} />
+                    <div className="relative flex items-center justify-between p-5">
+                        <div className="flex items-center gap-3.5">
+                            <div
+                                className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white text-base shadow-lg"
+                                style={{ backgroundColor: STATUS_COLORS[unit.estado] }}
                             >
-                                {STATUS_LABELS[unit.estado]}
-                            </span>
+                                {modo === "admin" && internalId != null ? `#${internalId}` : (unit.numero.split("-")[1] || unit.numero)}
+                            </div>
+                            <div>
+                                <h3 className="font-black text-lg text-slate-800 dark:text-white leading-tight">Lote {unit.numero}</h3>
+                                <span
+                                    className="inline-flex items-center gap-1.5 mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
+                                    style={{ backgroundColor: `${STATUS_COLORS[unit.estado]}18`, color: STATUS_COLORS[unit.estado] }}
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[unit.estado] }} />
+                                    {STATUS_LABELS[unit.estado]}
+                                </span>
+                            </div>
                         </div>
+                        <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <X className="w-4 h-4 text-slate-400" />
+                        </button>
                     </div>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                        <X className="w-4 h-4 text-slate-400" />
-                    </button>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                    {/* Price hero (public mode) */}
+                    {modo === "public" && unit.precio && (
+                        <div className="rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/60 dark:to-slate-800/30 p-5 text-center border border-slate-200/50 dark:border-slate-700/50">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Precio</p>
+                            <p className="text-3xl font-black text-slate-800 dark:text-white">{formatCurrency(unit.precio, unit.moneda)}</p>
+                            {unit.superficie && (
+                                <p className="text-xs text-slate-400 mt-1">
+                                    {formatCurrency(Math.round(unit.precio / unit.superficie), unit.moneda)}/m²
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     {/* Quick stats */}
                     <div className="grid grid-cols-2 gap-2.5">
                         {[
                             { label: "Superficie", value: unit.superficie ? `${unit.superficie} m²` : "—", icon: Maximize2 },
-                            { label: "Precio", value: unit.precio ? formatCurrency(unit.precio) : "—", icon: Bookmark },
+                            ...(!unit.precio || modo === "admin" ? [{ label: "Precio", value: unit.precio ? formatCurrency(unit.precio) : "—", icon: Bookmark }] : []),
                             { label: "Etapa", value: unit.etapaNombre, icon: MapPin },
                             { label: "Manzana", value: unit.manzanaNombre, icon: MapPin },
+                            ...(unit.frente ? [{ label: "Frente", value: `${unit.frente} m`, icon: Maximize2 }] : []),
+                            ...(unit.fondo ? [{ label: "Fondo", value: `${unit.fondo} m`, icon: Maximize2 }] : []),
                         ].map((s) => (
-                            <div key={s.label} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                            <div key={s.label} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/30">
                                 <div className="flex items-center gap-1.5 mb-0.5">
                                     <s.icon className="w-3 h-3 text-slate-400" />
-                                    <span className="text-[10px] text-slate-400">{s.label}</span>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">{s.label}</span>
                                 </div>
                                 <p className="text-sm font-bold text-slate-700 dark:text-white">{s.value}</p>
                             </div>

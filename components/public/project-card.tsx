@@ -1,88 +1,84 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, MapPin, TrendingUp } from "lucide-react";
-import { Proyecto } from "@prisma/client";
-import { useLanguage } from "@/components/providers/language-provider";
+import { ArrowUpRight, MapPin, Layers } from "lucide-react";
+import type { ProjectListItem } from "@/app/(public)/proyectos/page";
 
-interface ProjectCardProps {
-    project: Proyecto & {
-        unidades?: { precio: number; moneda: string }[];
-    };
-}
+const TYPE_LABELS: Record<string, string> = {
+    URBANIZACION: "Urbanización",
+    BARRIO_PRIVADO: "Barrio Privado",
+    BARRIO_CERRADO: "Barrio Cerrado",
+    EDIFICIO: "Edificio",
+    CONDOMINIO: "Condominio",
+    LOTEO: "Loteo",
+    CHACRA: "Chacra",
+    COUNTRY: "Country",
+};
 
-export default function ProjectCard({ project }: ProjectCardProps) {
-    const { dictionary: t } = useLanguage();
-    const minPrice = project.unidades?.length
-        ? Math.min(...project.unidades.map((u) => u.precio))
-        : 0;
-    const currency = project.unidades?.[0]?.moneda || "USD";
-    const unitCount = project.unidades?.length || 0;
-
+export default function ProjectCard({ project }: { project: ProjectListItem }) {
     return (
         <Link
             href={`/proyectos/${project.slug || project.id}`}
-            className="group block relative rounded-[2rem] overflow-hidden bg-white dark:bg-black border border-slate-200 dark:border-white/5 hover:border-brand-orange/50 transition-all duration-500 hover:shadow-2xl hover:shadow-brand-orange/10 h-full flex flex-col"
+            className="group block rounded-2xl overflow-hidden bg-white/[0.03] border border-white/8 hover:border-brand-orange/30 transition-all duration-400 hover:bg-white/[0.05] h-full"
         >
-            {/* Image */}
-            <div className="aspect-[4/3] overflow-hidden relative">
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
+            <div className="aspect-[16/10] overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-t from-[#060a19] via-transparent to-transparent z-10" />
                 <img
-                    src={project.imagenPortada || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop"}
+                    src={project.imagenPortada || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=800&auto=format&fit=crop"}
                     alt={project.nombre}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-                <div className="absolute top-4 left-4 z-20 flex flex-wrap gap-2">
-                    <span className="px-3 py-1.5 rounded-xl backdrop-blur-md bg-brand-orange text-[10px] font-bold text-white border border-white/20 uppercase tracking-widest shadow-lg">
-                        {project.tipo === "URBANIZACION" ? t.search.typeUrbanization :
-                         project.tipo === "BARRIO_PRIVADO" ? t.search.typePrivateNeighborhood :
-                         project.tipo === "EDIFICIO" ? t.search.typeBuilding :
-                         project.tipo === "CONDOMINIO" ? t.search.typeCondo :
-                         project.tipo}
-                    </span>
-                    {project.estado === "EN_DESARROLLO" && (
-                        <span className="px-3 py-1.5 rounded-xl backdrop-blur-md bg-brand-yellow text-[10px] font-bold text-brand-black uppercase tracking-widest shadow-lg flex items-center gap-1">
-                            <TrendingUp className="w-3 h-3" />
-                            {t.projects.card.launch}
+                <div className="absolute top-3 left-3 z-20 flex gap-2">
+                    {project.tipo && (
+                        <span className="px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider border border-white/10">
+                            {TYPE_LABELS[project.tipo] || project.tipo}
                         </span>
+                    )}
+                    {project.invertible && (
+                        <span className="px-2.5 py-1 rounded-lg bg-emerald-500/80 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider">
+                            Invertible
+                        </span>
+                    )}
+                </div>
+                <div className="absolute bottom-3 left-3 right-3 z-20">
+                    <h3 className="text-lg font-black text-white leading-tight group-hover:text-brand-orange transition-colors duration-300">
+                        {project.nombre}
+                    </h3>
+                    {project.ubicacion && (
+                        <p className="text-xs text-slate-300/80 flex items-center gap-1 mt-1">
+                            <MapPin className="w-3 h-3 text-brand-orange/80" />
+                            {project.ubicacion}
+                        </p>
                     )}
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="p-6 flex-1 flex flex-col">
-                <h3 className="text-xl font-black text-brand-gray dark:text-brand-surface mb-2 group-hover:text-brand-orange transition-colors line-clamp-1">
-                    {project.nombre}
-                </h3>
-                <p className="text-sm text-brand-muted flex items-center gap-1.5 mb-4">
-                    <MapPin className="w-3.5 h-3.5 text-brand-orange" />
-                    {project.ubicacion || t.projects.card.locationPending}
-                </p>
+            <div className="p-4 space-y-3">
+                {project.descripcion && (
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                        {project.descripcion}
+                    </p>
+                )}
 
-                <p className="text-sm text-foreground/60 line-clamp-2 mb-6 flex-1 leading-relaxed">
-                    {project.descripcion || t.projects.card.defaultDescription}
-                </p>
-
-                <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-4">
-                    <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center gap-4">
                         <div>
-                            <span className="text-2xl font-black text-brand-orange leading-none block">{unitCount}</span>
-                            <span className="text-[10px] text-brand-muted uppercase font-bold tracking-wider">{t.projects.card.available}</span>
+                            <p className="text-lg font-black text-white leading-none">{project.availableUnits}</p>
+                            <p className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">disponibles</p>
                         </div>
-                        {minPrice > 0 && (
-                            <div className="text-right">
-                                <span className="text-[10px] text-brand-muted uppercase font-bold tracking-wider block">{t.projects.card.from}</span>
-                                <span className="text-xl font-black text-brand-gray dark:text-brand-surface">
-                                    {minPrice.toLocaleString()} {currency}
-                                </span>
+                        {project.minPrice && (
+                            <div className="pl-4 border-l border-white/10">
+                                <p className="text-sm font-bold text-slate-200 leading-none">
+                                    ${project.minPrice.toLocaleString()}
+                                </p>
+                                <p className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">
+                                    desde · {project.currency}
+                                </p>
                             </div>
                         )}
                     </div>
-                    <div className="flex items-center justify-between pt-2">
-                        <span className="text-xs font-bold text-brand-orange uppercase tracking-widest">{t.projects.card.viewProject}</span>
-                        <div className="w-10 h-10 rounded-full bg-brand-orange flex items-center justify-center text-white transition-all shadow-lg shadow-brand-orange/20 group-hover:bg-brand-orangeDark">
-                            <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
-                        </div>
+                    <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-brand-orange group-hover:border-brand-orange transition-all">
+                        <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-white transition-colors" />
                     </div>
                 </div>
             </div>

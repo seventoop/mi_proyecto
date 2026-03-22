@@ -195,14 +195,14 @@ const UnitPolygon = memo(function UnitPolygon({
     }
 
     const fillColor = STATUS_COLORS[unit.estado] || "#94a3b8";
-    const opacity = isFiltered ? (isHovered ? 0.85 : 0.55) : 0.12;
-    // strokeWidth is in SVG user units; vectorEffect="non-scaling-stroke" keeps
-    // the rendered width constant in screen pixels at any zoom level.
-    const strokeWidth = isSelected ? 1.5 : isComparing ? 1.2 : isHovered ? 1.0 : 0.5;
-    const strokeColor = isSelected ? "#fff" : isComparing ? "#6366f1" : isHovered ? "#fff" : "rgba(255,255,255,0.35)";
+    const opacity = isFiltered
+        ? (isSelected ? 0.95 : isHovered ? 0.92 : 0.65)
+        : 0.10;
+    const strokeWidth = isSelected ? 2.0 : isComparing ? 1.5 : isHovered ? 1.5 : 0.4;
+    const strokeColor = isSelected ? "#fff" : isComparing ? "#6366f1" : isHovered ? "#fff" : "rgba(255,255,255,0.25)";
     const labelText = internalId != null ? String(internalId) : (unit.numero.split("-")[1] || unit.numero);
-    // Sanitize unit.id for use as an XML ID (UUIDs contain hyphens — replace with underscores)
     const clipId = `lp_${unit.id.replace(/[^a-zA-Z0-9]/g, "_")}`;
+    const filterId = `glow_${clipId}`;
 
     return (
         <g
@@ -219,6 +219,11 @@ const UnitPolygon = memo(function UnitPolygon({
                 <clipPath id={clipId}>
                     <path d={path} />
                 </clipPath>
+                {(isHovered || isSelected) && (
+                    <filter id={filterId}>
+                        <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor={fillColor} floodOpacity="0.6" />
+                    </filter>
+                )}
             </defs>
             <path
                 d={path}
@@ -227,7 +232,8 @@ const UnitPolygon = memo(function UnitPolygon({
                 stroke={strokeColor}
                 strokeWidth={strokeWidth}
                 vectorEffect="non-scaling-stroke"
-                style={{ transition: "fill-opacity 0.2s, stroke 0.2s, fill 0.3s" }}
+                filter={(isHovered || isSelected) ? `url(#${filterId})` : undefined}
+                style={{ transition: "fill-opacity 0.15s, stroke 0.15s, fill 0.2s, stroke-width 0.15s" }}
             />
             {isFiltered && (showLabels || isSelected || isHovered) && computedCx !== undefined && computedCy !== undefined && (
                 <text
@@ -236,11 +242,11 @@ const UnitPolygon = memo(function UnitPolygon({
                     textAnchor="middle"
                     dominantBaseline="middle"
                     fontSize={fontSize}
-                    fontWeight="700"
+                    fontWeight="800"
                     fill="#fff"
-                    fillOpacity={1}
-                    stroke="rgba(0,0,0,0.65)"
-                    strokeWidth={fontSize * 0.05}
+                    fillOpacity={isHovered || isSelected ? 1 : 0.85}
+                    stroke="rgba(0,0,0,0.7)"
+                    strokeWidth={fontSize * 0.06}
                     paintOrder="stroke"
                     clipPath={`url(#${clipId})`}
                     className="pointer-events-none select-none"
@@ -279,7 +285,7 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
     const filteredIds = useMemo(() => new Set(filteredUnits.map((u) => u.id)), [filteredUnits]);
 
     // Only show lot-number labels when zoomed in enough (avoids wall-of-numbers at overview zoom)
-    const showLabels = zoom >= 0.8;
+    const showLabels = zoom >= 0.45;
 
     const [loading, setLoading] = useState(true);
     const [tooltip, setTooltip] = useState<TooltipData | null>(null);
