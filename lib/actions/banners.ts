@@ -335,13 +335,14 @@ export async function submitBannerForApproval(id: string) {
             return { success: false, error: "El banner debe tener un archivo de media antes de enviarse." };
         }
 
-        if (![BANNER_ESTADOS.DRAFT, BANNER_ESTADOS.REJECTED].includes(existing.estado as any)) {
-            return { success: false, error: `No se puede enviar un banner en estado "${existing.estado}".` };
-        }
-
-        // Admin puede auto-publicar
+        // Admin puede publicar desde cualquier estado (incluso re-publicar un PUBLISHED editado)
         if (isAdmin) {
             return publishBanner(id);
+        }
+
+        // No-admin solo puede enviar desde DRAFT o REJECTED
+        if (![BANNER_ESTADOS.DRAFT, BANNER_ESTADOS.REJECTED].includes(existing.estado as any)) {
+            return { success: false, error: `No se puede enviar un banner en estado "${existing.estado}".` };
         }
 
         await prisma.banner.update({
