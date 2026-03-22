@@ -110,14 +110,14 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                 if (!res.ok) return;
                 const data = await res.json();
 
-                if (!data.masterplanSVG || !data.unidades?.length) return;
+                if (!data.masterplanSVG) return;
 
                 // Restore SVG
                 setSvgContent(data.masterplanSVG);
                 setIsDXF(false);
 
-                // Reconstruct extractedPaths from units stored in DB
-                const paths: ExtractedPath[] = (data.unidades as any[])
+                // Try to reconstruct extractedPaths from units that have coordenadasMasterplan
+                let paths: ExtractedPath[] = ((data.unidades as any[]) ?? [])
                     .filter((u) => u.coordenadasMasterplan)
                     .map((u, idx) => {
                         try {
@@ -136,25 +136,43 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     })
                     .filter(Boolean) as ExtractedPath[];
 
+                // If no units have coordenadasMasterplan yet, parse the SVG directly
+                // so that the Sincronizar button has paths to work with.
+                if (paths.length === 0 && data.masterplanSVG) {
+                    const svgPaths = parseBlueprintSVG(data.masterplanSVG);
+                    if (svgPaths.length > 0) {
+                        paths = svgPaths;
+                    }
+                }
+
                 setExtractedPaths(paths);
 
-                // Reconstruct lotRecords
-                const records: LotRecord[] = (data.unidades as any[])
-                    .filter((u) => u.numero && u.coordenadasMasterplan)
-                    .map((u, idx) => {
-                        let coordsData: any = {};
-                        try { coordsData = JSON.parse(u.coordenadasMasterplan); } catch {}
-                        return {
-                            pathId: `db-${u.id}`,
-                            lotNumber: u.numero,
-                            areaSqm: u.superficie ?? 0,
-                            frente: u.frente != null ? String(u.frente) : "",
-                            fondo: u.fondo != null ? String(u.fondo) : "",
-                            estado: normalizeEstado(u.estado),
-                            precio: u.precio != null ? String(u.precio) : "",
-                            observaciones: "",
-                        } as LotRecord;
-                    });
+                // Build lotRecords — prefer DB units if available, otherwise use parsed paths
+                let records: LotRecord[] = [];
+                const unitsWithCoords = ((data.unidades as any[]) ?? []).filter((u) => u.coordenadasMasterplan);
+                if (unitsWithCoords.length > 0) {
+                    records = unitsWithCoords.map((u) => ({
+                        pathId: `db-${u.id}`,
+                        lotNumber: u.numero,
+                        areaSqm: u.superficie ?? 0,
+                        frente: u.frente != null ? String(u.frente) : "",
+                        fondo: u.fondo != null ? String(u.fondo) : "",
+                        estado: normalizeEstado(u.estado),
+                        precio: u.precio != null ? String(u.precio) : "",
+                        observaciones: "",
+                    } as LotRecord));
+                } else {
+                    records = paths
+                        .filter((p) => p.lotNumber)
+                        .map((p) => ({
+                            pathId: p.id,
+                            lotNumber: p.lotNumber!,
+                            areaSqm: p.areaSqm ?? 0,
+                            frente: "", fondo: "",
+                            estado: "DISPONIBLE" as LotEstado,
+                            precio: "", observaciones: "",
+                        }));
+                }
 
                 setLotRecords(records);
                 setStats({

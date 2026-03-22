@@ -67,7 +67,7 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     try {
-        const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+        const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR", "VENDEDOR"]);
 
         // Resolve project for tenant check
         const project = await prisma.proyecto.findUnique({
@@ -79,7 +79,7 @@ export async function POST(
             return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
         }
 
-        // Tenant boundary check (even for ADMINs if they are organization-scoped in the future)
+        // Tenant boundary: non-privileged users can only edit their own org's projects
         if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
             if (!user.orgId || !project.orgId || project.orgId !== user.orgId) {
                 return NextResponse.json({ error: "No autorizado" }, { status: 403 });
