@@ -446,6 +446,7 @@ export default function MasterplanMap({
                 // Click handler
                 polygon.on("click", () => {
                     setSelectedUnitId(selectedUnitId === unit.id ? null : unit.id);
+                    setActivePanel(null);
                 });
 
                 // Context menu for comparison
@@ -1004,7 +1005,7 @@ export default function MasterplanMap({
                                 proyectoId={proyectoId}
                                 map={leafletMapRef.current}
                                 isOpen={activePanel === "infraestructura"}
-                                onOpenChange={(open) => setActivePanel(open ? "infraestructura" : null)}
+                                onOpenChange={(open) => { setActivePanel(open ? "infraestructura" : null); if (open) setSelectedUnitId(null); }}
                             />
                         )}
 
@@ -1019,7 +1020,7 @@ export default function MasterplanMap({
                                 overlayRotation={overlayConfig?.rotation ?? 0}
                                 svgViewBox={svgViewBox}
                                 isOpen={activePanel === "imagenes"}
-                                onOpenChange={(open) => setActivePanel(open ? "imagenes" : null)}
+                                onOpenChange={(open) => { setActivePanel(open ? "imagenes" : null); if (open) setSelectedUnitId(null); }}
                             />
                         )}
                     </div>
