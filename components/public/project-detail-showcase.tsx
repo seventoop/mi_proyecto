@@ -22,6 +22,7 @@ import {
     LayoutDashboard,
     Layers3,
     LocateFixed,
+    Search,
     MapPin,
     MessageCircle,
     PlayCircle,
@@ -33,8 +34,11 @@ import {
     Wallet,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import dynamic from "next/dynamic";
 import MasterplanViewer from "@/components/masterplan/masterplan-viewer";
 import ContactForm from "@/components/public/contact-form";
+
+const MasterplanMap = dynamic(() => import("@/components/masterplan/masterplan-map"), { ssr: false });
 
 type ProjectStat = {
     label: string;
@@ -120,6 +124,9 @@ type ShowcaseData = {
     mapCenterLng: number | null;
     mapZoom: number | null;
     masterplanAvailable: boolean;
+    overlayUrl: string | null;
+    overlayBounds: [[number, number], [number, number]] | null;
+    overlayRotation: number;
     leadCaptureEnabled: boolean;
     reservationEnabled: boolean;
     documentationStatus: string;
@@ -312,6 +319,239 @@ function StickyProjectNav({ sections }: { sections: SectionItem[] }) {
     );
 }
 
+function StatusStatsStrip({ stats, visible }: { stats: ShowcaseData["stats"]; visible: boolean }) {
+    if (!visible) return null;
+    return (
+        <section className="bg-[#060a19] pt-20 pb-0">
+            <div className="mx-auto max-w-7xl px-4 md:px-6">
+                <Reveal>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/8 px-5 py-3.5">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400" />
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Disponible</p>
+                                <p className="text-2xl font-black leading-tight text-white">{stats.availableUnits}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/8 px-5 py-3.5">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400" />
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Reservado</p>
+                                <p className="text-2xl font-black leading-tight text-white">{stats.reservedUnits}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 rounded-2xl border border-rose-400/20 bg-rose-500/8 px-5 py-3.5">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-400" />
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-300">Vendido</p>
+                                <p className="text-2xl font-black leading-tight text-white">{stats.soldUnits}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400" />
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Ticket medio</p>
+                                <p className="text-xl font-black leading-tight text-white">
+                                    {stats.avgTicket ? formatCurrency(stats.avgTicket, "USD") : "N/D"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </Reveal>
+            </div>
+        </section>
+    );
+}
+
+const LOT_STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+    DISPONIBLE: { bg: "bg-emerald-500/15", text: "text-emerald-300", dot: "bg-emerald-400" },
+    RESERVADA: { bg: "bg-amber-500/15", text: "text-amber-200", dot: "bg-amber-400" },
+    VENDIDA: { bg: "bg-rose-500/15", text: "text-rose-200", dot: "bg-rose-400" },
+    BLOQUEADO: { bg: "bg-slate-500/15", text: "text-slate-300", dot: "bg-slate-400" },
+    SUSPENDIDO: { bg: "bg-slate-500/15", text: "text-slate-300", dot: "bg-slate-400" },
+};
+
+const LOT_STATUS_LABELS: Record<string, string> = {
+    DISPONIBLE: "Disponible",
+    RESERVADA: "Reservado",
+    VENDIDA: "Vendido",
+    BLOQUEADO: "No disponible",
+    SUSPENDIDO: "Suspendido",
+};
+
+function LotListingSection({ project }: { project: ShowcaseData }) {
+    const [sortBy, setSortBy] = useState<"numero" | "superficie" | "precio" | "estado">("numero");
+    const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+    const [filterEstado, setFilterEstado] = useState<string>("TODOS");
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const allLots = project.inventoryPreview;
+    if (allLots.length === 0 && project.stats.totalUnits === 0) return null;
+
+    const filteredLots = allLots
+        .filter((lot) => {
+            if (filterEstado !== "TODOS" && lot.estado !== filterEstado) return false;
+            if (searchQuery && !lot.numero.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            return true;
+        })
+        .sort((a, b) => {
+            const dir = sortDir === "asc" ? 1 : -1;
+            switch (sortBy) {
+                case "superficie":
+                    return ((a.superficie || 0) - (b.superficie || 0)) * dir;
+                case "precio":
+                    return ((a.precio || 0) - (b.precio || 0)) * dir;
+                case "estado":
+                    return a.estado.localeCompare(b.estado) * dir;
+                default:
+                    return a.numero.localeCompare(b.numero, undefined, { numeric: true }) * dir;
+            }
+        });
+
+    const handleSort = (field: typeof sortBy) => {
+        if (sortBy === field) {
+            setSortDir(sortDir === "asc" ? "desc" : "asc");
+        } else {
+            setSortBy(field);
+            setSortDir("asc");
+        }
+    };
+
+    const SortIcon = ({ field }: { field: typeof sortBy }) => (
+        <span className="ml-1 text-[10px]">
+            {sortBy === field ? (sortDir === "asc" ? "▲" : "▼") : ""}
+        </span>
+    );
+
+    return (
+        <section id="lotes" className="bg-[#060a19] py-24">
+            <div className="mx-auto max-w-7xl px-4 md:px-6">
+                <SectionHeader
+                    eyebrow="Listado de lotes"
+                    title="Toda la disponibilidad en detalle."
+                    description="Explore cada lote con su superficie, dimensiones, precio y estado actualizado en tiempo real."
+                />
+
+                <Reveal className="mt-10">
+                    <div className="mb-6 flex flex-wrap items-center gap-3">
+                        <div className="relative flex-1 min-w-[200px]">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                            <input
+                                type="text"
+                                placeholder="Buscar por numero de lote..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 focus:border-brand-orange/40 focus:outline-none focus:ring-1 focus:ring-brand-orange/20"
+                            />
+                        </div>
+                        <select
+                            value={filterEstado}
+                            onChange={(e) => setFilterEstado(e.target.value)}
+                            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-orange/40 focus:outline-none"
+                        >
+                            <option value="TODOS">Todos los estados</option>
+                            <option value="DISPONIBLE">Disponible</option>
+                            <option value="RESERVADA">Reservado</option>
+                            <option value="VENDIDA">Vendido</option>
+                        </select>
+                    </div>
+                </Reveal>
+
+                <Reveal className="overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.03]">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-white/10 bg-white/5">
+                                    <th className="cursor-pointer px-5 py-4 text-left text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-white" onClick={() => handleSort("numero")}>
+                                        Lote <SortIcon field="numero" />
+                                    </th>
+                                    <th className="cursor-pointer px-5 py-4 text-left text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-white" onClick={() => handleSort("superficie")}>
+                                        Superficie <SortIcon field="superficie" />
+                                    </th>
+                                    <th className="hidden px-5 py-4 text-left text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 sm:table-cell">
+                                        Dimensiones
+                                    </th>
+                                    <th className="cursor-pointer px-5 py-4 text-left text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-white" onClick={() => handleSort("precio")}>
+                                        Precio <SortIcon field="precio" />
+                                    </th>
+                                    <th className="hidden px-5 py-4 text-left text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 sm:table-cell">
+                                        Precio/m²
+                                    </th>
+                                    <th className="cursor-pointer px-5 py-4 text-left text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-white" onClick={() => handleSort("estado")}>
+                                        Estado <SortIcon field="estado" />
+                                    </th>
+                                    <th className="hidden px-5 py-4 text-left text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 lg:table-cell">
+                                        Detalles
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredLots.map((lot, i) => {
+                                    const statusStyle = LOT_STATUS_COLORS[lot.estado] || LOT_STATUS_COLORS.BLOQUEADO;
+                                    const pricePerM2 = lot.precio && lot.superficie ? Math.round(lot.precio / lot.superficie) : null;
+                                    const dims = lot.frente && lot.fondo ? `${lot.frente} x ${lot.fondo} m` : "—";
+                                    return (
+                                        <tr
+                                            key={lot.id}
+                                            className={cn(
+                                                "border-b border-white/5 transition hover:bg-white/5",
+                                                i % 2 === 0 ? "bg-transparent" : "bg-white/[0.02]"
+                                            )}
+                                        >
+                                            <td className="px-5 py-4 font-bold text-white">{lot.numero}</td>
+                                            <td className="px-5 py-4 text-slate-300">
+                                                {lot.superficie ? `${lot.superficie} m²` : "—"}
+                                            </td>
+                                            <td className="hidden px-5 py-4 text-slate-300 sm:table-cell">{dims}</td>
+                                            <td className="px-5 py-4 font-semibold text-white">
+                                                {lot.precio ? formatCurrency(lot.precio, lot.moneda || "USD") : "Consultar"}
+                                            </td>
+                                            <td className="hidden px-5 py-4 text-slate-400 sm:table-cell">
+                                                {pricePerM2 ? `${formatCurrency(pricePerM2, lot.moneda || "USD")}/m²` : "—"}
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold", statusStyle.bg, statusStyle.text)}>
+                                                    <span className={cn("h-1.5 w-1.5 rounded-full", statusStyle.dot)} />
+                                                    {LOT_STATUS_LABELS[lot.estado] || lot.estado}
+                                                </span>
+                                            </td>
+                                            <td className="hidden px-5 py-4 lg:table-cell">
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {lot.esEsquina && (
+                                                        <span className="rounded-md bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-300">Esquina</span>
+                                                    )}
+                                                    {lot.orientacion && (
+                                                        <span className="rounded-md bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-300">{lot.orientacion}</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {filteredLots.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="px-5 py-12 text-center text-sm text-slate-500">
+                                            No se encontraron lotes con los filtros seleccionados.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    {project.stats.totalUnits > allLots.length && (
+                        <div className="border-t border-white/10 px-5 py-4 text-center text-sm text-slate-400">
+                            Mostrando {allLots.length} de {project.stats.totalUnits} lotes.
+                            <a href="#masterplan" className="ml-2 font-bold text-brand-orange transition hover:text-brand-orange/80">
+                                Ver todos en el masterplan
+                            </a>
+                        </div>
+                    )}
+                </Reveal>
+            </div>
+        </section>
+    );
+}
+
 type ShowcaseMode = "public" | "dashboard";
 
 type DashboardContext = {
@@ -355,10 +595,16 @@ export default function ProjectDetailShowcase({
                 },
             ];
 
+    const hasMasterplan = project.masterplanAvailable || project.stats.totalUnits > 0;
+    const hasMapCoords = project.mapCenterLat != null && project.mapCenterLng != null;
+    const showMapMasterplan = hasMasterplan && hasMapCoords && project.overlayBounds != null;
+
     const sections: SectionItem[] = [
         galleryImages.length > 0 || project.tours.length > 0 ? { id: "galeria", label: "Galeria" } : null,
-        project.masterplanAvailable || project.stats.totalUnits > 0 ? { id: "masterplan", label: "Masterplan" } : null,
-        project.mapCenterLat != null && project.mapCenterLng != null ? { id: "ubicacion", label: "Ubicacion" } : null,
+        showMapMasterplan ? { id: "masterplan-mapa", label: "Masterplan" } : null,
+        hasMasterplan ? { id: "masterplan", label: showMapMasterplan ? "Plano" : "Masterplan" } : null,
+        hasMasterplan ? { id: "lotes", label: "Lotes" } : null,
+        hasMapCoords ? { id: "ubicacion", label: "Ubicacion" } : null,
         project.stages.length > 0 ? { id: "etapas", label: "Etapas" } : null,
         project.documents.length > 0 ? { id: "documentacion", label: "Legal" } : null,
         !isDashboard ? { id: "contacto", label: "Contacto" } : null,
@@ -767,59 +1013,76 @@ export default function ProjectDetailShowcase({
                 </div>
             </section>
 
-            {(project.masterplanAvailable || project.stats.totalUnits > 0) && (
-                <section id="masterplan" className="bg-[#060a19] py-24">
+            <StatusStatsStrip stats={project.stats} visible={hasMasterplan} />
+
+            {showMapMasterplan && (
+                <section id="masterplan-mapa" className="bg-[#060a19] py-24">
                     <div className="mx-auto max-w-7xl px-4 md:px-6">
                         <SectionHeader
                             eyebrow="Masterplan interactivo"
-                            title="Inventario vivo dentro de la misma landing."
-                            description="La experiencia publica incorpora el viewer real del masterplan, con colores por estado, zoom, filtros y detalle de lotes sin sacar al usuario del flujo comercial."
+                            title="El loteo sobre el mapa real."
+                            description="Plano del desarrollo superpuesto sobre la ubicacion real. Haga click en cualquier lote para ver su informacion, superficie, precio y estado."
                         />
-
-                        {/* Stats strip — horizontal, compacta, encima del plano */}
-                        <Reveal className="mt-10">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/8 px-5 py-3.5">
-                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400" />
-                                    <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Disponible</p>
-                                        <p className="text-2xl font-black leading-tight text-white">{project.stats.availableUnits}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/8 px-5 py-3.5">
-                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400" />
-                                    <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Reservado</p>
-                                        <p className="text-2xl font-black leading-tight text-white">{project.stats.reservedUnits}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 rounded-2xl border border-rose-400/20 bg-rose-500/8 px-5 py-3.5">
-                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-400" />
-                                    <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-300">Vendido</p>
-                                        <p className="text-2xl font-black leading-tight text-white">{project.stats.soldUnits}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5">
-                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400" />
-                                    <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Ticket medio</p>
-                                        <p className="text-xl font-black leading-tight text-white">
-                                            {project.stats.avgTicket ? formatCurrency(project.stats.avgTicket, "USD") : "N/D"}
-                                        </p>
-                                    </div>
-                                </div>
+                        <Reveal className="mt-8 overflow-hidden rounded-[28px] border border-white/10 bg-[#030611] shadow-[0_40px_120px_rgba(0,0,0,0.4)]">
+                            <div className="h-[680px]">
+                                <MasterplanMap
+                                    proyectoId={project.id}
+                                    modo="public"
+                                    overlayImageUrl={project.overlayUrl || undefined}
+                                    centerLat={project.mapCenterLat || undefined}
+                                    centerLng={project.mapCenterLng || undefined}
+                                    mapZoom={project.mapZoom || undefined}
+                                    initialOverlayConfig={project.overlayBounds ? {
+                                        bounds: project.overlayBounds,
+                                        rotation: project.overlayRotation,
+                                        imageUrl: project.overlayUrl,
+                                        opacity: 0.8,
+                                    } : null}
+                                />
                             </div>
                         </Reveal>
+                        <Reveal className="mt-6">
+                            <div className="flex flex-wrap items-center gap-6 rounded-2xl border border-white/10 bg-white/5 px-6 py-4">
+                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Leyenda:</p>
+                                {[
+                                    { color: "bg-emerald-500", label: "Disponible" },
+                                    { color: "bg-amber-500", label: "Reservado" },
+                                    { color: "bg-rose-500", label: "Vendido" },
+                                    { color: "bg-slate-500", label: "No disponible" },
+                                ].map((item) => (
+                                    <div key={item.label} className="flex items-center gap-2">
+                                        <span className={cn("h-3 w-3 rounded-sm", item.color)} />
+                                        <span className="text-xs font-medium text-slate-300">{item.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </Reveal>
+                    </div>
+                </section>
+            )}
 
-                        {/* Masterplan viewer — ancho completo, protagonista */}
-                        <Reveal className="mt-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#030611] shadow-[0_40px_120px_rgba(0,0,0,0.4)]">
+            {hasMasterplan && (
+                <section id="masterplan" className="bg-[#050816] py-24">
+                    <div className="mx-auto max-w-7xl px-4 md:px-6">
+                        <SectionHeader
+                            eyebrow={showMapMasterplan ? "Plano del loteo" : "Masterplan interactivo"}
+                            title={showMapMasterplan ? "Vista limpia del diseno del loteo." : "Inventario vivo dentro de la misma landing."}
+                            description={showMapMasterplan
+                                ? "El plano sin el mapa de fondo, ideal para ver el diseno del desarrollo completo. Click en cualquier lote para ver su informacion."
+                                : "Viewer real del masterplan con colores por estado, zoom, filtros y detalle de lotes."
+                            }
+                        />
+                        <Reveal className="mt-8 overflow-hidden rounded-[28px] border border-white/10 bg-[#030611] shadow-[0_40px_120px_rgba(0,0,0,0.4)]">
                             <div className="h-[680px]">
                                 <MasterplanViewer proyectoId={project.id} modo="public" canEdit={false} />
                             </div>
                         </Reveal>
                     </div>
                 </section>
+            )}
+
+            {hasMasterplan && (
+                <LotListingSection project={project} />
             )}
 
             {googleMapsUrl && (

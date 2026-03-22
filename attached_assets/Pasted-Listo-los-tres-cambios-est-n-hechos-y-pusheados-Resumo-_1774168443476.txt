@@ -1,0 +1,161 @@
+Listo, los tres cambios están hechos y pusheados. Resumo lo que se corrigió:
+
+
+
+
+
+Galería — espacio vacío: Cuando hay 3 miniaturas en la grilla, la última ahora ocupa el ancho completo para que no quede un hueco. También se agregó un botón "Ver todas las imágenes (N)" cuando hay más de 4 fotos para que se pueda acceder a todas.
+
+
+
+Lightbox — flechas de navegación: Ahora al abrir una imagen aparecen flechas izquierda/derecha para pasar de una foto a la siguiente (circular, vuelve al principio). También se agregó un contador "1/6" en la parte inferior y la posibilidad de cerrar haciendo clic fuera de la imagen.
+
+
+
+Masterplan interactivo: Revisé los datos y la sección del masterplan sí está presente en la página — Villa del Lago tiene 30 unidades con SVG mapeado. La sección aparece debajo de la galería cuando scrolleás. El botón "EXPLORAR MASTERPLAN" en el hero enlaza directamente a esa sección. Si no lo estás viendo, puede ser que necesites scrollear más abajo en la página, o si lo ves desde el dashboard, asegurate de que la página cargue completamente.
+
+¿Podés confirmar si bajando en la página ves la sección del masterplan interactivo con los lotes en colores?
+
+
+
+En la landing pública del proyecto no se ve toda la información que cargamos en el dashboard. Necesito que se muestre todo, separado en secciones claras.
+
+---
+
+## ESTRUCTURA QUE NECESITO (en orden de scroll):
+
+### SECCIÓN 1: MASTERPLAN INTERACTIVO (Google Maps + Plano)
+
+Esta es la vista principal con:
+
+- Mapa de Google Maps de fondo
+
+- Plano/imagen del masterplan SUPERPUESTO sobre el mapa
+
+- Lotes dibujados con colores según estado:
+
+  - 🟢 Verde = Disponible
+
+  - 🟡 Amarillo = Reservado
+
+  - 🔴 Rojo = Vendido
+
+  - ⚫ Gris = No disponible
+
+- Click en lote → mostrar info (número, medidas, precio)
+
+- Controles de zoom
+
+- Leyenda de colores
+
+- Ubicación real del terreno visible
+
+Esto es lo que se carga en los PASOS 3-4-5 del dashboard.
+
+---
+
+### SECCIÓN 2: PLANO SOLO (sin mapa)
+
+Debajo del masterplan, mostrar:
+
+- Solo la imagen del plano/masterplan (sin Google Maps detrás)
+
+- Vista limpia del diseño del loteo
+
+- Mismos colores por estado
+
+- Misma interactividad (click en lotes)
+
+- Opción de ver en pantalla completa
+
+- Opción de descargar imagen
+
+Útil para quienes quieren ver el plano sin distracciones del mapa.
+
+---
+
+### SECCIÓN 3: LISTADO DE LOTES (tabla/grilla)
+
+Debajo del plano, mostrar una tabla o grilla con TODOS los lotes:
+
+| Lote | Manzana | Superficie | Dimensiones | Precio | Estado | Acción |
+
+|------|---------|------------|-------------|--------|--------|--------|
+
+| 1 | A | 320 m² | 10 x 32 m | USD 35,000 | 🟢 Disponible | [Ver] [Reservar] |
+
+| 2 | A | 350 m² | 10 x 35 m | USD 38,500 | 🟡 Reservado | [Ver] |
+
+| 3 | A | 400 m² | 12 x 33 m | USD 44,000 | 🔴 Vendido | [Ver] |
+
+| ... | ... | ... | ... | ... | ... | ... |
+
+**Funcionalidades de la tabla:**
+
+- Ordenar por: número, superficie, precio, estado
+
+- Filtrar por: estado, manzana, rango de precio, rango de superficie
+
+- Búsqueda rápida por número de lote
+
+- Click en fila → misma info que click en el masterplan
+
+- Paginación si hay muchos lotes (o scroll infinito)
+
+- Exportar a Excel (botón)
+
+**Información de cada lote:**
+
+- Número de lote
+
+- Manzana
+
+- Superficie (m²)
+
+- Dimensiones (frente x fondo)
+
+- Precio (USD)
+
+- Precio por m²
+
+- Estado (disponible/reservado/vendido)
+
+- Orientación (si está cargada)
+
+- Características especiales (esquina, vista, etc.)
+
+- Botón reservar (si está disponible)
+
+---
+
+## RESUMEN VISUAL:
+
+┌─────────────────────────────────────────────────┐ │ HERO │ │ (imagen, nombre, ubicación) │ └─────────────────────────────────────────────────┘ ↓ scroll ┌─────────────────────────────────────────────────┐ │ MASTERPLAN INTERACTIVO │ │ (Google Maps + Plano superpuesto) │ │ Lotes con colores, clickeables │ └─────────────────────────────────────────────────┘ ↓ scroll ┌─────────────────────────────────────────────────┐ │ PLANO SOLO │ │ (imagen del plano sin mapa detrás) │ │ Vista limpia, descargable │ └─────────────────────────────────────────────────┘ ↓ scroll ┌─────────────────────────────────────────────────┐ │ LISTADO DE LOTES │ │ Tabla con todos los lotes, filtros, ordenar │ │ Superficie, precio, estado, acciones │ └─────────────────────────────────────────────────┘ ↓ scroll ┌─────────────────────────────────────────────────┐ │ UBICACIÓN / CONTACTO / ETC │ └─────────────────────────────────────────────────┘
+
+
+---
+
+## DATOS A MOSTRAR:
+
+Toda la información viene de lo que el desarrollador carga en el dashboard:
+- Paso 2: Imagen del plano
+- Paso 3: Coordenadas, bounds, posición en mapa
+- Paso 4: Lotes dibujados con polígonos
+- Paso 5: Info de cada lote (medidas, precios, estados)
+
+Si algún dato no está cargado, mostrar placeholder o sección vacía con mensaje "Información próximamente".
+
+---
+
+## PRIORIDAD:
+
+1. 🔴 Que se VEA el masterplan con Google Maps + plano superpuesto
+2. 🔴 Que los lotes tengan colores según estado
+3. 🟠 Plano solo debajo
+4. 🟠 Listado/tabla de lotes
+5. 🟢 Filtros y ordenamiento
+
+---
+
+Empezá por hacer que el masterplan (Maps + plano) se vea correctamente, que es lo más urgente. Después agregamos las otras secciones.
+

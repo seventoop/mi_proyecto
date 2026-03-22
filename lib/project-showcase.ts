@@ -18,6 +18,9 @@ export type ProjectShowcaseData = {
     mapCenterLng: number | null;
     mapZoom: number | null;
     masterplanAvailable: boolean;
+    overlayUrl: string | null;
+    overlayBounds: [[number, number], [number, number]] | null;
+    overlayRotation: number;
     leadCaptureEnabled: boolean;
     reservationEnabled: boolean;
     documentationStatus: string;
@@ -303,7 +306,6 @@ export async function getProjectShowcasePayload(options: {
             if (aAvailable !== bAvailable) return aAvailable - bAvailable;
             return (a.precio || 0) - (b.precio || 0);
         })
-        .slice(0, 4)
         .map((unit) => ({
             id: unit.id,
             numero: unit.numero,
@@ -333,6 +335,12 @@ export async function getProjectShowcasePayload(options: {
             mapCenterLng: project.mapCenterLng,
             mapZoom: project.mapZoom,
             masterplanAvailable: Boolean(project.masterplanSVG) || totalUnits > 0,
+            overlayUrl: project.overlayUrl || null,
+            overlayBounds: (() => {
+                if (!project.overlayBounds) return null;
+                try { return JSON.parse(project.overlayBounds); } catch { return null; }
+            })(),
+            overlayRotation: project.overlayRotation || 0,
             leadCaptureEnabled: Boolean((project as any).puedeCaptarLeads),
             reservationEnabled: Boolean((project as any).puedeReservarse),
             documentationStatus: project.documentacionEstado,

@@ -18,7 +18,7 @@ import MasterplanFilters from "./masterplan-filters";
 import MasterplanComparator from "./masterplan-comparator";
 import OverlayEditor, { OverlayConfig } from "./overlay-editor";
 import Tour360Viewer from "./tour360-viewer";
-import { getProjectBlueprintData } from "@/lib/actions/unidades";
+import { getProjectBlueprintData, getPublicProjectBlueprintData } from "@/lib/actions/unidades";
 
 const InfraestructuraTool = dynamic(() => import("./infraestructura-tool"), { ssr: false });
 const ImagenesMapaTool = dynamic(() => import("./imagenes-mapa-tool"), { ssr: false });
@@ -60,6 +60,7 @@ interface MasterplanMapProps {
     centerLng?: number;
     mapZoom?: number;
     tours360?: Tour360Marker[];
+    initialOverlayConfig?: OverlayConfig | null;
 }
 
 export default function MasterplanMap({
@@ -71,6 +72,7 @@ export default function MasterplanMap({
     centerLng = -58.3816,
     mapZoom = 15,
     tours360 = [],
+    initialOverlayConfig,
 }: MasterplanMapProps) {
     const {
         units, setUnits,
@@ -143,13 +145,14 @@ export default function MasterplanMap({
     // Fetch blueprint data (units with SVG paths) — same source as Paso 3
     useEffect(() => {
         const fetchBlueprint = async () => {
-            // Fast-path: if caller already provided units, use them
             if (initialUnits && initialUnits.length > 0) {
                 setUnits(initialUnits);
                 setBlueprintLoaded(true);
                 return;
             }
-            const res = await getProjectBlueprintData(proyectoId);
+            const res = modo === "public"
+                ? await getPublicProjectBlueprintData(proyectoId)
+                : await getProjectBlueprintData(proyectoId);
             if (res.success && res.data) {
                 setUnits(res.data as any);
             }
@@ -157,10 +160,19 @@ export default function MasterplanMap({
         };
         fetchBlueprint();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [proyectoId, setUnits]);
+    }, [proyectoId, modo, setUnits]);
 
-    // Load saved overlay config from API
+    // Load saved overlay config from API (admin) or from props (public)
     useEffect(() => {
+        if (modo === "public" && initialOverlayConfig) {
+            setOverlayConfig(initialOverlayConfig);
+            setIsLoadingOverlay(false);
+            return;
+        }
+        if (modo === "public") {
+            setIsLoadingOverlay(false);
+            return;
+        }
         const loadOverlay = async () => {
             setIsLoadingOverlay(true);
             try {
@@ -168,7 +180,6 @@ export default function MasterplanMap({
                 if (res.ok) {
                     const data = await res.json();
                     if (data.config) {
-                        // Blob URLs expire between sessions — strip them (bounds are kept for polygon geo-transform)
                         const cfg = data.config;
                         const imageUrl = cfg.imageUrl && !cfg.imageUrl.startsWith("blob:") ? cfg.imageUrl : null;
                         setOverlayConfig({ ...cfg, imageUrl });
@@ -181,7 +192,7 @@ export default function MasterplanMap({
             }
         };
         loadOverlay();
-    }, [proyectoId]);
+    }, [proyectoId, modo, initialOverlayConfig]);
 
     // Note: the overlay IMAGE is not auto-loaded on mount.
     // overlayConfig.bounds is used for polygon geo-transformation only.
