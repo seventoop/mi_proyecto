@@ -78,6 +78,7 @@ export interface Scene {
     floatingLabels?: FloatingLabel[];
     isDefault?: boolean;
     order?: number;
+    category?: string;
     masterplanOverlay?: MasterplanOverlay;
 }
 
@@ -89,6 +90,7 @@ interface TourViewerProps {
     className?: string;
     onSceneChange?: (sceneId: string) => void;
     proyectoId?: string;
+    proyectoSlug?: string;
     proyectoNombre?: string;
     showShare?: boolean;
     showSceneStrip?: boolean;
@@ -319,6 +321,7 @@ export default function TourViewer({
     className,
     onSceneChange,
     proyectoId,
+    proyectoSlug,
     proyectoNombre,
     showShare = true,
     showSceneStrip = true,
@@ -582,8 +585,9 @@ export default function TourViewer({
     };
 
     // ─── Share ───
-    const shareUrl = typeof window !== "undefined"
-        ? `${window.location.origin}/proyectos/${proyectoId}/tour360${currentSceneId ? `?scene=${currentSceneId}` : ""}`
+    const projectPathSegment = proyectoSlug || proyectoId;
+    const shareUrl = typeof window !== "undefined" && projectPathSegment
+        ? `${window.location.origin}/proyectos/${projectPathSegment}/tour360${currentSceneId ? `?scene=${currentSceneId}` : ""}`
         : "";
 
     const handleCopyLink = () => {
@@ -627,14 +631,27 @@ export default function TourViewer({
             <PanoramicOverlay
                 viewer={viewerInstance.current}
                 viewerRef={viewerRef}
-                currentScene={currentScene || null}
+                currentScene={
+                    showOverlays && currentScene
+                        ? currentScene
+                        : currentScene
+                            ? {
+                                ...currentScene,
+                                polygons: [],
+                                floatingLabels: [],
+                                masterplanOverlay: currentScene.masterplanOverlay
+                                    ? { ...currentScene.masterplanOverlay, isVisible: false }
+                                    : undefined,
+                            }
+                            : null
+                }
                 viewerReady={viewerReady}
                 onPolygonClick={onPolygonClick}
             />
 
             {/* ─── Radar / Compass ─── */}
             {showRadar && viewerReady && (
-                <div className="absolute top-20 left-4 z-20 flex flex-col items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute top-20 left-4 z-20 flex flex-col items-center opacity-100 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100">
                     <div className="relative w-20 h-20 rounded-full bg-slate-900/40 backdrop-blur-md border border-white/20 shadow-2xl overflow-hidden">
                         <div className="absolute inset-0 flex items-center justify-center opacity-20">
                             <div className="w-[80%] h-[80%] border border-dashed border-white rounded-full" />
@@ -655,7 +672,7 @@ export default function TourViewer({
 
             {/* ─── Top bar ─── */}
             {showControls && isLoaded && (
-                <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between opacity-100 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100">
                     {/* Scene title */}
                     <div className="bg-slate-900/80 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10">
                         <span className="text-sm font-semibold text-white">
@@ -780,7 +797,7 @@ export default function TourViewer({
 
             {/* ─── Bottom controls ─── */}
             {showControls && isLoaded && (
-                <div className="absolute bottom-0 inset-x-0 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute bottom-0 inset-x-0 z-10 opacity-100 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100">
                     {/* Scene strip */}
                     {showSceneStrip && scenes.length > 1 && (
                         <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto">
