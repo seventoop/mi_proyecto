@@ -1,18 +1,26 @@
-import { getProyectos } from "@/lib/actions/proyectos";
-import ProjectsListClient from "@/components/dashboard/proyectos/projects-list-client";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/lib/auth";
 
 export default async function ProyectosPage() {
-    const res = await getProyectos({ pageSize: 50 }); // Fetch a larger initial batch for the client-side list
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role as string | undefined;
 
-    if (!res.success) {
-        return <div className="p-10 text-center text-rose-500">Error al cargar proyectos</div>;
+    if (!session?.user) {
+        redirect("/login");
     }
 
-    return (
-        <ProjectsListClient
-            projects={res.data || []}
-            metadata={res.metadata}
-        />
-    );
-}
+    if (role === "ADMIN" || role === "SUPERADMIN") {
+        redirect("/dashboard/admin/proyectos");
+    }
 
+    if (role === "DESARROLLADOR" || role === "VENDEDOR") {
+        redirect("/dashboard/developer/proyectos");
+    }
+
+    if (role === "CLIENTE" || role === "INVERSOR") {
+        redirect("/dashboard/portafolio/marketplace");
+    }
+
+    redirect("/proyectos");
+}

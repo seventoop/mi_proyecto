@@ -63,7 +63,11 @@ export default async function ProyectosPage() {
     return (
         <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-fade-in">
             <ModuleHelp content={MODULE_HELP_CONTENT.adminProyectos} />
-            <ProjectsListClient projects={processedProyectos} />
+            <ProjectsListClient
+                projects={processedProyectos}
+                projectBasePath="/dashboard/proyectos"
+                managementBasePath="/dashboard/admin/proyectos"
+            />
         </div>
     );
 }

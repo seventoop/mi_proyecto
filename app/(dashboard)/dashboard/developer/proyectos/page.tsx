@@ -95,6 +95,8 @@ export default async function ProyectosPage() {
             />
             <ProjectsListClient
                 projects={processedProyectos}
+                projectBasePath="/dashboard/proyectos"
+                managementBasePath="/dashboard/developer/proyectos"
                 newProjectPath={
                     (kycStatus === "VERIFICADO" || !user || !(user as any).demoUsed || ((user as any)?.demoEndsAt && new Date((user as any).demoEndsAt) > new Date()))
                         ? "/dashboard/developer/proyectos/new"

@@ -1,0 +1,84 @@
+Fecha: 2026-03-22
+Commit asociado al inicio: 52ff024 (base sincronizada de juani-dev2)
+Commit final: pendiente al momento de redactar este log
+
+Revision realizada
+- Se revisaron las rutas y componentes de Proyectos para dashboard publico/interno:
+  - app/(dashboard)/dashboard/admin/proyectos/page.tsx
+  - app/(dashboard)/dashboard/developer/proyectos/page.tsx
+  - app/(dashboard)/dashboard/proyectos/page.tsx
+  - app/(dashboard)/dashboard/proyectos/[id]/page.tsx
+  - app/(public)/proyectos/[slug]/page.tsx
+  - components/dashboard/proyectos/projects-list-client.tsx
+  - components/public/project-detail-showcase.tsx
+  - lib/project-access/get-project-access.ts
+
+Comportamiento encontrado por rol
+- ADMIN:
+  - Ve listado completo en /dashboard/admin/proyectos.
+  - La tarjeta llevaba a gestion tecnica, sin separar bien ver vs editar.
+  - Tiene acceso a la vista publica real solo por fuera del flujo principal.
+- DESARROLLADOR:
+  - Ve /dashboard/developer/proyectos con proyectos propios o relacionados.
+  - Al entrar, cae en una pantalla de gestion por tabs/pasos.
+  - No habia una entrada principal basada en la visualizacion publica.
+- VENDEDOR:
+  - Comparte redireccion de middleware con developer.
+  - No tenia una experiencia diferenciada de ver primero y editar despues.
+  - La edicion contextual no estaba montada sobre la vista publica.
+- CLIENTE:
+  - No usa /dashboard/proyectos como flujo principal.
+  - Su acceso a proyectos vive en marketplace publico/portafolio y propiedades.
+  - La experiencia de consumo existe, pero separada del dashboard interno.
+- INVERSOR:
+  - Igual que cliente, entra por /dashboard/portafolio/marketplace.
+  - Tiene experiencia de consumo, no de edicion.
+
+Problemas detectados
+- Se mezclaba la gestion tecnica con la experiencia de visualizacion del proyecto.
+- Las tarjetas internas no distinguian con claridad "ver proyecto" de "editar/configurar".
+- La vista publica del proyecto no era la pantalla principal para roles internos.
+- Faltaba una capa de edicion contextual sobre la propia experiencia comercial.
+- /dashboard/proyectos era ambiguo y no redirigia segun rol hacia el listado correcto.
+
+Cambios aplicados
+- Se creo una capa compartida de datos de showcase:
+  - lib/project-showcase.ts
+- Se simplifico la ruta publica del proyecto para reutilizar esa capa:
+  - app/(public)/proyectos/[slug]/page.tsx
+- Se reemplazo el detalle generico interno por un workspace orientado a "ver primero":
+  - app/(dashboard)/dashboard/proyectos/[id]/page.tsx
+- Se creo un contenedor de trabajo sobre la vista publica:
+  - components/dashboard/proyectos/project-public-workspace.tsx
+- Se actualizaron las tarjetas/listados para separar acciones:
+  - Ver proyecto
+  - Editar pasos
+  - components/dashboard/proyectos/projects-list-client.tsx
+- Se ajustaron los listados admin/developer para pasar rutas correctas de visualizacion y configuracion:
+  - app/(dashboard)/dashboard/admin/proyectos/page.tsx
+  - app/(dashboard)/dashboard/developer/proyectos/page.tsx
+- Se convirtio /dashboard/proyectos en redireccion inteligente por rol:
+  - admin/superadmin -> /dashboard/admin/proyectos
+  - desarrollador/vendedor -> /dashboard/developer/proyectos
+  - cliente/inversor -> /dashboard/portafolio/marketplace
+
+Decisiones tomadas
+- La visualizacion publica del proyecto pasa a ser la experiencia principal de consumo.
+- La configuracion estructurada por pasos se mantiene en las rutas existentes de admin/developer.
+- La edicion contextual se implementa como una capa lateral activable, solo visible para quien tiene permiso de editar proyecto.
+- En esta fase, la edicion contextual cubre:
+  - nombre
+  - ubicacion
+  - descripcion
+  - estado
+  - tipo
+  - portada
+  - galeria
+  - coordenadas base del mapa
+- No se mezclan herramientas internas con la vista del cliente: el toolbar de trabajo solo aparece para roles con permisos.
+
+Validacion
+- Se ejecuto npm run typecheck.
+- El proyecto arrastra multiples errores de tipado previos, ajenos a esta tarea, ligados a desajustes entre codigo y schema Prisma actual.
+- Se corrigio el ruido propio introducido en lib/project-showcase.ts.
+- Queda pendiente una validacion integral del repo una vez saneados esos errores historicos.
