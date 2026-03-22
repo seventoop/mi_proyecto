@@ -17,7 +17,7 @@ import {
 import MasterplanSidePanel from "./masterplan-side-panel";
 import MasterplanFilters from "./masterplan-filters";
 import MasterplanComparator from "./masterplan-comparator";
-import { getProjectBlueprintData } from "@/lib/actions/unidades";
+import { getProjectBlueprintData, getPublicProjectBlueprintData } from "@/lib/actions/unidades";
 import { getPusherClient, CHANNELS, EVENTS } from "@/lib/pusher";
 
 // ─── Zoom wiring component (must live inside TransformWrapper to use useControls) ───
@@ -321,14 +321,16 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
     useEffect(() => {
         const fetchProjectUnits = async () => {
             setLoading(true);
-            const res = await getProjectBlueprintData(proyectoId);
+            const res = modo === "public"
+                ? await getPublicProjectBlueprintData(proyectoId)
+                : await getProjectBlueprintData(proyectoId);
             if (res.success && res.data) {
                 setUnits(res.data as any);
             }
             setLoading(false);
         };
         fetchProjectUnits();
-    }, [proyectoId, setUnits]);
+    }, [proyectoId, modo, setUnits]);
 
     // 2. Implementation of Real-time sync via Pusher
     useEffect(() => {

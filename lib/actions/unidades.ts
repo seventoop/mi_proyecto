@@ -208,6 +208,59 @@ export async function getProjectBlueprintData(proyectoId: string) {
     }
 }
 
+export async function getPublicProjectBlueprintData(proyectoId: string) {
+    try {
+        const idParsed = idSchema.safeParse(proyectoId);
+        if (!idParsed.success) return { success: false, error: "ID de proyecto inválido" };
+
+        const proyecto = await prisma.proyecto.findUnique({
+            where: { id: proyectoId, deletedAt: null },
+            select: { visibilityStatus: true },
+        });
+        if (!proyecto || proyecto.visibilityStatus !== "PUBLICADO") {
+            return { success: false, error: "Proyecto no encontrado" };
+        }
+
+        const unidades = await prisma.unidad.findMany({
+            where: {
+                manzana: {
+                    etapa: { proyectoId }
+                }
+            },
+            select: {
+                id: true,
+                numero: true,
+                superficie: true,
+                frente: true,
+                fondo: true,
+                precio: true,
+                moneda: true,
+                estado: true,
+                esEsquina: true,
+                orientacion: true,
+                tipo: true,
+                tour360Url: true,
+                coordenadasMasterplan: true,
+                manzana: {
+                    select: {
+                        id: true,
+                        nombre: true,
+                        etapa: {
+                            select: { id: true, nombre: true }
+                        }
+                    }
+                }
+            },
+            orderBy: { createdAt: "asc" }
+        });
+
+        return { success: true, data: unidades };
+    } catch (error) {
+        console.error("Error fetching public blueprint data:", error);
+        return { success: false, error: "Error al obtener datos del masterplan" };
+    }
+}
+
 // ─── Mutations ───
 
 export async function createUnidad(input: unknown) {
