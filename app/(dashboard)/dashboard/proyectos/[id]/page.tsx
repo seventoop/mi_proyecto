@@ -82,7 +82,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role || "INVITADO";
 
-    const viewMode = searchParams.mode !== "editar" ? "vista" : "editar";
+    let viewMode = searchParams.mode === "editar" ? "editar" : "vista";
 
     const proyecto = await prisma.proyecto.findUnique({
         where: { id: params.id },
@@ -164,6 +164,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 </Link>
             </div>
         );
+    }
+
+    const canEdit = userRole === "ADMIN" || userRole === "DESARROLLADOR" || proyecto.creadoPorId === userId;
+
+    if (viewMode === "editar" && !canEdit) {
+        viewMode = "vista";
     }
 
     if (viewMode === "vista") {
@@ -563,7 +569,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                 return (
                                     <Link
                                         key={step.id}
-                                        href={`?tab=${step.id}`}
+                                        href={`?mode=editar&tab=${step.id}`}
                                         className={cn(
                                             "flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold whitespace-nowrap transition-all duration-150 flex-1 justify-center",
                                             isActive
@@ -798,7 +804,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                             <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
                                                 Subí el plano DXF en el{" "}
                                                 <Link
-                                                    href="?tab=blueprint"
+                                                    href="?mode=editar&tab=blueprint"
                                                     className="underline font-bold"
                                                 >
                                                     Paso 2 — Plano del Proyecto
@@ -826,7 +832,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                             <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
                                                 Todavía no hay unidades registradas. Cargá el plano DXF en el{" "}
-                                                <Link href="?tab=blueprint" className="text-brand-500 font-semibold underline underline-offset-2">
+                                                <Link href="?mode=editar&tab=blueprint" className="text-brand-500 font-semibold underline underline-offset-2">
                                                     Paso 2
                                                 </Link>{" "}
                                                 y sincronizá para generar el inventario automáticamente.
@@ -872,7 +878,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/5 border border-amber-500/20 rounded-xl text-xs text-amber-600 dark:text-amber-400">
                                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                                         Primero creá los lotes en el{" "}
-                                        <Link href="?tab=masterplan" className="underline font-bold">
+                                        <Link href="?mode=editar&tab=masterplan" className="underline font-bold">
                                             Paso 3 — Masterplan
                                         </Link>{" "}
                                         para verlos en el mapa.
@@ -1150,7 +1156,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     <div className="flex items-center justify-between mt-8 pt-6 pb-4 px-1 border-t border-slate-200 dark:border-slate-800">
                         {prevStep ? (
                             <Link
-                                href={`?tab=${prevStep.id}`}
+                                href={`?mode=editar&tab=${prevStep.id}`}
                                 className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-500 transition-colors"
                                 title={`Ir al Paso ${prevStep.num}: ${prevStep.label}`}
                             >
@@ -1162,7 +1168,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         )}
                         {nextStep ? (
                             <Link
-                                href={`?tab=${nextStep.id}`}
+                                href={`?mode=editar&tab=${nextStep.id}`}
                                 className="flex items-center gap-2 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 px-6 py-3 rounded-xl transition-colors shadow-md shadow-brand-500/20 mr-1"
                                 title={`Ir al Paso ${nextStep.num}: ${nextStep.label}`}
                             >

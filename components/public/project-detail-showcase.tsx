@@ -519,13 +519,15 @@ export default function ProjectDetailShowcase({
                                     <PlayCircle className="h-4 w-4" />
                                 </Link>
                             )}
-                            <a
-                                href="#contacto"
-                                className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-black/20 px-7 py-4 text-sm font-bold uppercase tracking-[0.2em] text-white backdrop-blur-md transition hover:border-brand-orange/40 hover:bg-brand-orange/10"
-                            >
-                                Solicitar informacion
-                                <MessageCircle className="h-4 w-4" />
-                            </a>
+                            {!isDashboard && (
+                                <a
+                                    href="#contacto"
+                                    className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-black/20 px-7 py-4 text-sm font-bold uppercase tracking-[0.2em] text-white backdrop-blur-md transition hover:border-brand-orange/40 hover:bg-brand-orange/10"
+                                >
+                                    Solicitar informacion
+                                    <MessageCircle className="h-4 w-4" />
+                                </a>
+                            )}
                         </div>
                     </motion.div>
 
