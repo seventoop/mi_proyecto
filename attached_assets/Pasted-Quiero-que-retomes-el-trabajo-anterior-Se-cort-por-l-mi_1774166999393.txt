@@ -1,0 +1,139 @@
+Quiero que retomes el trabajo anterior. Se cortó por límite de créditos, así que necesito que primero verifiques en qué estado quedó todo antes de seguir.
+
+Paso 1: entender el estado actual (muy importante)
+
+Antes de hacer cualquier cambio:
+
+revisá qué partes del prompt anterior ya llegaste a implementar
+detectá:
+qué quedó completo
+qué quedó a medias
+qué no llegaste a hacer
+
+No empieces de cero sin revisar.
+
+Contexto del trabajo que estabas haciendo
+
+Estábamos trabajando en un punto crítico del producto:
+
+👉 la experiencia de visualización del proyecto para el usuario final (cliente/inversor)
+👉 y la separación clara entre visualización y edición
+
+Objetivo principal
+
+Lograr que:
+
+1. La visualización del proyecto sea la experiencia principal
+
+Cuando alguien entra a:
+
+/proyectos/[slug]
+
+Debe ver:
+
+una experiencia visual
+inmersiva
+clara
+orientada a mostrar el proyecto y los lotes
+
+Esto aplica para TODOS los roles:
+
+cliente
+inversor
+vendedor
+desarrollador
+admin
+2. Separar claramente visualización vs edición
+Visualización
+es la vista principal
+no debe parecer backoffice
+no debe mezclar pasos ni configuración
+Edición
+accesible solo para roles con permisos
+mediante:
+botón “Editar proyecto”
+o “Configurar”
+o similar
+lleva al flujo de pasos (1–5)
+3. Modo edición contextual (clave)
+
+Además, los roles con permisos deben poder:
+
+👉 entrar al proyecto como lo ve el cliente
+👉 y desde ahí activar un modo edición
+
+Ese modo debe permitir:
+
+editar textos
+cambiar imágenes
+agregar/quitar imágenes
+reorganizar módulos/bloques
+ajustar secciones (tipo cards, deals, info, etc.)
+
+Sin tener que ir siempre a los pasos.
+
+Qué tenías que hacer (resumen del trabajo)
+revisar comportamiento por rol
+asegurar que el listado de proyectos funcione bien
+separar correctamente:
+ver proyecto
+editar proyecto
+mejorar la vista pública
+preparar o implementar edición contextual
+Paso 2: continuar el trabajo
+
+Una vez que identifiques el estado:
+
+NO rehagas lo que ya está bien
+continuá desde lo que falta
+corregí lo que haya quedado inconsistente
+Prioridades ahora
+Prioridad 1
+
+Asegurar que al entrar a un proyecto:
+
+se vea la visualización pública (no edición)
+Prioridad 2
+
+Agregar/clarificar acceso a edición:
+
+botón claro para ir a pasos
+Prioridad 3
+
+Empezar o completar modo edición contextual dentro de la vista pública
+
+Reglas importantes
+no romper lo que ya funciona
+no mezclar visualización con pasos
+no complicar con lógica innecesaria
+priorizar UX clara
+Si algo quedó a medias
+
+Si detectás que:
+
+hay componentes incompletos
+hay lógica a medio implementar
+hay UI inconsistente
+
+👉 terminá esas partes antes de seguir agregando cosas nuevas
+
+Documentación
+
+Actualizar o generar archivo .txt en:
+
+/docs/dev-logs/
+
+Incluyendo:
+
+estado en el que encontraste el sistema
+qué partes estaban hechas
+qué partes faltaban
+qué corregiste
+qué continuaste
+
+No hacer PR ni merge automático.
+
+Importante
+
+No empieces de cero.
+Primero entendé el estado actual y después continuá.

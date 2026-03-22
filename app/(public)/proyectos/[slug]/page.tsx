@@ -1,5 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import ProjectDetailShowcase from "@/components/public/project-detail-showcase";
 
@@ -346,5 +348,20 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         })),
     };
 
-    return <ProjectDetailShowcase project={showcaseData} />;
+    const session = await getServerSession(authOptions);
+    const userRole = (session?.user as any)?.role || null;
+    const userId = session?.user?.id || null;
+    const canEditProject = userRole === "ADMIN" || userRole === "DESARROLLADOR" || (userId && project.creadoPorId === userId);
+
+    return (
+        <ProjectDetailShowcase
+            project={showcaseData}
+            mode="public"
+            authContext={canEditProject ? {
+                projectId: project.id,
+                userRole: userRole!,
+                canEdit: true,
+            } : undefined}
+        />
+    );
 }

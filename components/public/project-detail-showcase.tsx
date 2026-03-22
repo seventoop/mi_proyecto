@@ -12,9 +12,12 @@ import {
     Building2,
     ChevronDown,
     Clock3,
+    Edit3,
     ExternalLink,
+    Eye,
     FileText,
     ImageIcon,
+    LayoutDashboard,
     Layers3,
     LocateFixed,
     MapPin,
@@ -313,19 +316,29 @@ type DashboardContext = {
     projectId: string;
     userRole: string;
     visibilityStatus: string;
+    canEdit: boolean;
     backUrl?: string;
+};
+
+type AuthContext = {
+    projectId: string;
+    userRole: string;
+    canEdit: boolean;
 };
 
 export default function ProjectDetailShowcase({
     project,
     mode = "public",
     dashboardContext,
+    authContext,
 }: {
     project: ShowcaseData;
     mode?: ShowcaseMode;
     dashboardContext?: DashboardContext;
+    authContext?: AuthContext;
 }) {
     const isDashboard = mode === "dashboard";
+    const [editMode, setEditMode] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
     const galleryImages =
@@ -433,7 +446,7 @@ export default function ProjectDetailShowcase({
                             <ArrowLeft className="h-4 w-4" />
                             Volver a proyectos
                         </Link>
-                        {(dashboardContext.userRole === "ADMIN" || dashboardContext.userRole === "DESARROLLADOR") && (
+                        {dashboardContext.canEdit && (
                             <Link
                                 href={`/dashboard/proyectos/${dashboardContext.projectId}?mode=editar`}
                                 className="pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-brand-orange px-6 py-3 text-sm font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-brand-orange/30 transition hover:bg-[#ff8b1f] hover:shadow-brand-orange/50 hover:scale-[1.02] active:scale-[0.98]"
@@ -444,6 +457,26 @@ export default function ProjectDetailShowcase({
                         )}
                     </div>
                 </>
+            )}
+            {!isDashboard && authContext?.canEdit && (
+                <div className="pointer-events-none fixed right-0 top-20 z-50 p-4">
+                    <div className="pointer-events-auto flex flex-col gap-2">
+                        <Link
+                            href={`/dashboard/proyectos/${authContext.projectId}?mode=editar`}
+                            className="flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/80 px-4 py-2.5 text-xs font-bold text-white shadow-2xl shadow-black/40 backdrop-blur-xl transition hover:bg-slate-900/90 hover:border-white/25"
+                        >
+                            <Settings className="h-3.5 w-3.5" />
+                            Configurar
+                        </Link>
+                        <Link
+                            href={`/dashboard/proyectos/${authContext.projectId}`}
+                            className="flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/80 px-4 py-2.5 text-xs font-bold text-white shadow-2xl shadow-black/40 backdrop-blur-xl transition hover:bg-slate-900/90 hover:border-white/25"
+                        >
+                            <LayoutDashboard className="h-3.5 w-3.5" />
+                            Dashboard
+                        </Link>
+                    </div>
+                </div>
             )}
             <StickyProjectNav sections={sections} />
 

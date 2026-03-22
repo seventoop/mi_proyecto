@@ -1,0 +1,135 @@
+============================================================
+DEV LOG — View/Edit Separation
+Date: 2026-03-22
+Branch: juani-dev2
+============================================================
+
+ESTADO AL INICIAR
+-----------------
+El sistema tenia una separacion parcial entre vista publica
+y dashboard de edicion:
+
+- /proyectos/[slug]       → Vista publica (ProjectDetailShowcase)
+  Solo mostraba proyectos con visibilityStatus: "PUBLICADO"
+  Sin diferencias por rol — todos veian lo mismo
+
+- /dashboard/proyectos/[id] → Editor (wizard 7 pasos)
+  Acceso solo para ADMIN o creador del proyecto
+  Mostraba directamente el wizard, sin vista previa
+
+PROBLEMA: al entrar a un proyecto desde el dashboard, el usuario
+veia el wizard de edicion (pasos 1-7) en vez de una vista del
+proyecto. No habia forma de "ver el proyecto como lo ve el cliente"
+desde el panel de administracion.
+
+QUE SE IMPLEMENTO
+-----------------
+
+1. DASHBOARD PROJECT PAGE — VISTA POR DEFECTO (commits 8fe845f, 0c1d2c2)
+
+   Archivo: app/(dashboard)/dashboard/proyectos/[id]/page.tsx
+
+   - Se agrego soporte para query param ?mode=editar|vista
+   - Por defecto (sin param o mode=vista), muestra ProjectDetailShowcase
+   - mode=editar muestra el wizard de 7 pasos existente
+   - Se extendio la query Prisma para incluir:
+     imagenes, infraestructuras, testimonios, proyecto_archivos,
+     organization (necesarios para el showcase)
+   - Se construye el objeto ShowcaseData completo desde server side
+   - Autorizacion server-side: si el usuario no tiene permisos de
+     edicion y pasa ?mode=editar, se fuerza mode=vista
+
+2. SHOWCASE COMPONENT — MODO DASHBOARD (commits 8fe845f, 0c1d2c2, actual)
+
+   Archivo: components/public/project-detail-showcase.tsx
+
+   - Se agrego prop mode: "public" | "dashboard"
+   - Se agrego prop dashboardContext con:
+     projectId, userRole, visibilityStatus, canEdit, backUrl
+   - Se agrego prop authContext para usuarios autorizados en ruta publica
+
+   Comportamiento en modo dashboard:
+   - Floating "Configurar proyecto" button (solo si canEdit=true)
+   - Floating "Volver a proyectos" button
+   - Banner sticky de "Proyecto no publicado" si visibilityStatus != PUBLICADO
+   - Sin seccion de contacto (formulario de leads)
+   - Sin seccion de proyectos relacionados
+   - Padding inferior para no tapar contenido con botones flotantes
+   - Sin boton "Solicitar informacion" en el hero
+
+3. EDITOR — PRESERVAR MODO EN NAVEGACION (commit 0c1d2c2)
+
+   Archivo: app/(dashboard)/dashboard/proyectos/[id]/page.tsx
+
+   - Todos los links internos del wizard (tabs de pasos, prev/next,
+     links cruzados como "Paso 2 — Blueprint") ahora incluyen
+     mode=editar en el query string
+   - Esto evita que al navegar entre pasos se caiga al modo vista
+
+4. TOOLBAR ADMIN EN RUTA PUBLICA (commit actual)
+
+   Archivos:
+   - app/(public)/proyectos/[slug]/page.tsx
+   - components/public/project-detail-showcase.tsx
+
+   - La ruta publica ahora verifica la sesion del usuario
+   - Si el usuario logueado es ADMIN, DESARROLLADOR, o creador del
+     proyecto, se pasa authContext al showcase
+   - El showcase muestra un toolbar flotante (esquina superior derecha)
+     con dos botones:
+     - "Configurar" → /dashboard/proyectos/[id]?mode=editar
+     - "Dashboard" → /dashboard/proyectos/[id] (vista showcase en dashboard)
+   - Estos botones solo aparecen para usuarios autorizados
+   - Los visitantes publicos no ven ningun toolbar
+
+5. ROLES Y PERMISOS
+
+   canEdit se calcula como:
+   - userRole === "ADMIN"
+   - userRole === "DESARROLLADOR"
+   - proyecto.creadoPorId === userId
+
+   Esto aplica tanto en el dashboard como en la ruta publica.
+
+QUE QUEDO PENDIENTE
+--------------------
+
+1. EDICION CONTEXTUAL IN-PLACE
+   La funcionalidad de editar textos/imagenes/secciones directamente
+   desde la vista del proyecto (sin ir al wizard) no esta implementada.
+   Es una funcionalidad compleja que requiere:
+   - API routes para updates parciales (texto, imagenes, orden de secciones)
+   - Componentes editables in-place (ContentEditable wrappers)
+   - Estado de "modo edicion" en el cliente
+   - Persistencia de cambios en tiempo real
+   Prioridad: Fase 2
+
+2. RUTAS ADMIN/DEVELOPER ALTERNATIVAS
+   Las rutas /dashboard/admin/proyectos/[id] y
+   /dashboard/developer/proyectos/[id] siguen usando sus propios
+   layouts de edicion. No fueron migradas al nuevo patron vista/edicion.
+   Pueden coexistir pero no comparten la experiencia unificada.
+   Prioridad: Fase futura
+
+3. LISTADO DE PROYECTOS EN DASHBOARD
+   El listado en /dashboard/proyectos sigue linkeando a
+   /dashboard/proyectos/[id] que ahora muestra la vista showcase.
+   El boton "Gestionar" lleva al mismo lugar. Podria agregarse
+   un acceso directo al wizard (link a ?mode=editar) desde la
+   tarjeta del proyecto en el listado.
+   Prioridad: Baja
+
+ARCHIVOS MODIFICADOS
+--------------------
+- app/(dashboard)/dashboard/proyectos/[id]/page.tsx
+- app/(public)/proyectos/[slug]/page.tsx
+- components/public/project-detail-showcase.tsx
+
+NOTAS TECNICAS
+--------------
+- typescript.ignoreBuildErrors: true en next.config (preexistente)
+- Se usan muchos casts (as any) en el data builder del dashboard
+  porque el tipo retornado por Prisma con include complejo no tiene
+  tipado estatico completo. Funciona correctamente en runtime.
+- El showcase component ahora tiene 1165+ lineas. Considerar
+  refactorizacion en sub-componentes en una fase futura.

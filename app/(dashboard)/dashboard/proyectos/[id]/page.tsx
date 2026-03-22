@@ -326,6 +326,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     projectId: proyecto.id,
                     userRole,
                     visibilityStatus: (proyecto as any).visibilityStatus || "BORRADOR",
+                    canEdit,
                     backUrl: "/dashboard/proyectos",
                 }}
             />
