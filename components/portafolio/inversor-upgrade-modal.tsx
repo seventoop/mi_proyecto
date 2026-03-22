@@ -44,14 +44,6 @@ const PERFILES_RIESGO = [
     }
 ];
 
-const INGRESOS_OPTIONS = [
-    "Menos de $500,000 ARS",
-    "$500,000 - $1,500,000 ARS",
-    "$1,500,000 - $5,000,000 ARS",
-    "Más de $5,000,000 ARS",
-    "Prefiero no indicarlo",
-];
-
 const PATRIMONIO_OPTIONS = [
     "Menos de $5,000,000 ARS",
     "$5,000,000 - $20,000,000 ARS",
@@ -71,7 +63,6 @@ export default function InversorUpgradeModal({ onClose, onSuccess }: Props) {
     const [nacionalidad, setNacionalidad] = useState("");
     const [ocupacion, setOcupacion] = useState("");
     const [perfilRiesgo, setPerfilRiesgo] = useState("");
-    const [ingresosEstimados, setIngresosEstimados] = useState("");
     const [patrimonioEstimado, setPatrimonioEstimado] = useState("");
     const [dniFrente, setDniFrente] = useState("");
     const [dniDorso, setDniDorso] = useState("");
@@ -87,12 +78,12 @@ export default function InversorUpgradeModal({ onClose, onSuccess }: Props) {
     const allPoliticas = Object.values(politicas).every(Boolean);
 
     const canGoNext = useCallback(() => {
-        if (step === 1) return nombreCompleto && fechaNacimiento && nacionalidad && ocupacion && perfilRiesgo && ingresosEstimados && patrimonioEstimado;
+        if (step === 1) return nombreCompleto && fechaNacimiento && nacionalidad && ocupacion && perfilRiesgo && patrimonioEstimado;
         if (step === 2) return dniFrente || pasaporteUrl;
         if (step === 3) return !!selfieUrl;
         if (step === 4) return allPoliticas;
         return false;
-    }, [step, nombreCompleto, fechaNacimiento, nacionalidad, ocupacion, perfilRiesgo, ingresosEstimados, patrimonioEstimado, dniFrente, pasaporteUrl, selfieUrl, allPoliticas]);
+    }, [step, nombreCompleto, fechaNacimiento, nacionalidad, ocupacion, perfilRiesgo, patrimonioEstimado, dniFrente, pasaporteUrl, selfieUrl, allPoliticas]);
 
     const handleSubmit = async () => {
         if (!canGoNext()) return;
@@ -103,7 +94,6 @@ export default function InversorUpgradeModal({ onClose, onSuccess }: Props) {
                 fechaNacimiento,
                 nacionalidad,
                 ocupacion,
-                ingresosEstimados,
                 patrimonioEstimado,
                 perfilRiesgo,
                 dniFrente: dniFrente || undefined,
@@ -246,29 +236,16 @@ export default function InversorUpgradeModal({ onClose, onSuccess }: Props) {
                                             </button>
                                         ))}
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-slate-300 mb-2">Ingresos Estimados (mensuales)</label>
-                                            <select
-                                                value={ingresosEstimados}
-                                                onChange={(e) => setIngresosEstimados(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                                            >
-                                                <option value="">Seleccionar...</option>
-                                                {INGRESOS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-slate-300 mb-2">Patrimonio Estimado</label>
-                                            <select
-                                                value={patrimonioEstimado}
-                                                onChange={(e) => setPatrimonioEstimado(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                                            >
-                                                <option value="">Seleccionar...</option>
-                                                {PATRIMONIO_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                                            </select>
-                                        </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-300 mb-2">Patrimonio Estimado</label>
+                                        <select
+                                            value={patrimonioEstimado}
+                                            onChange={(e) => setPatrimonioEstimado(e.target.value)}
+                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            {PATRIMONIO_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                                        </select>
                                     </div>
                                 </div>
                             </div>
