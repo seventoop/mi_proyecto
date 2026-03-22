@@ -75,6 +75,7 @@ export default function InvestorProjectCard({ proyecto, showFavorite = true }: P
                             src={proyecto.imagenPortada}
                             alt={proyecto.nombre}
                             fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/60 to-transparent" />

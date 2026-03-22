@@ -17,6 +17,7 @@ import { BANNER_ESTADOS, BANNER_CONTENT_LIMITS, MAX_PUBLISHED_PER_CONTEXT } from
 type ProyectoOption = { id: string; nombre: string };
 type ProyectoImagen = { id: string; url: string; categoria: string; esPrincipal: boolean };
 type MediaSource = "upload" | "galeria" | "url";
+type CropState = { zoom: number; x: number; y: number };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -303,6 +304,58 @@ function OptionList({ items, onSelect }: { items: string[]; onSelect: (v: string
     );
 }
 
+function getPreviewMediaStyle(form: any) {
+    if (form.tipo === "VIDEO") return undefined;
+    return {
+        transform: `scale(${form.cropZoom ?? 1})`,
+        transformOrigin: `${form.cropX ?? 50}% ${form.cropY ?? 50}%`,
+    };
+}
+
+async function loadImageElement(src: string): Promise<HTMLImageElement> {
+    return await new Promise((resolve, reject) => {
+        const image = new window.Image();
+        image.crossOrigin = "anonymous";
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("No se pudo cargar la imagen para recortarla."));
+        image.src = src;
+    });
+}
+
+async function renderCroppedImageFile(source: File | string, crop: CropState): Promise<File> {
+    const sourceUrl = typeof source === "string" ? source : URL.createObjectURL(source);
+    try {
+        const image = await loadImageElement(sourceUrl);
+        const canvas = document.createElement("canvas");
+        canvas.width = 1600;
+        canvas.height = 900;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("No se pudo preparar el canvas del editor.");
+
+        const scale = Math.max(canvas.width / image.width, canvas.height / image.height) * crop.zoom;
+        const drawWidth = image.width * scale;
+        const drawHeight = image.height * scale;
+        const maxOffsetX = Math.max(drawWidth - canvas.width, 0);
+        const maxOffsetY = Math.max(drawHeight - canvas.height, 0);
+        const offsetX = -(maxOffsetX * (crop.x / 100));
+        const offsetY = -(maxOffsetY * (crop.y / 100));
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+        if (!blob) throw new Error("No se pudo generar la imagen recortada.");
+
+        const baseName = typeof source === "string" ? "banner-crop" : source.name.replace(/\.[^.]+$/, "");
+        return new File([blob], `${baseName}-crop.jpg`, { type: "image/jpeg" });
+    } finally {
+        if (typeof source !== "string") {
+            URL.revokeObjectURL(sourceUrl);
+        }
+    }
+}
+
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
 function BannerPreview({ form }: { form: any }) {
@@ -334,6 +387,7 @@ function BannerPreview({ form }: { form: any }) {
                         src={previewSrc}
                         alt="Preview"
                         className="w-full h-full object-cover"
+                        style={getPreviewMediaStyle(form)}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                     />
                 )
@@ -441,6 +495,9 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
         fechaFin: banner?.fechaFin ? new Date(banner.fechaFin).toISOString().split("T")[0] : "",
         prioridad: banner?.prioridad?.toString() || "0",
         _localPreview: "" as string,
+        cropZoom: 1,
+        cropX: 50,
+        cropY: 50,
     });
 
     const set = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
@@ -479,11 +536,31 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
     }, []);
 
     const uploadMedia = async (): Promise<string | null> => {
-        if (!file) return form.mediaUrl || null;
+        if (!file && !form.mediaUrl) return null;
         setUploading(true);
         try {
+            let fileToUpload = file;
+            const shouldCropImage =
+                form.tipo === "IMAGEN" &&
+                ((form.cropZoom ?? 1) !== 1 || (form.cropX ?? 50) !== 50 || (form.cropY ?? 50) !== 50);
+
+            if (shouldCropImage) {
+                try {
+                    fileToUpload = await renderCroppedImageFile(file || form.mediaUrl, {
+                        zoom: form.cropZoom,
+                        x: form.cropX,
+                        y: form.cropY,
+                    });
+                } catch (error: any) {
+                    setErrors({ media: error?.message || "No se pudo aplicar el recorte a la imagen." });
+                    return null;
+                }
+            }
+
+            if (!fileToUpload) return form.mediaUrl || null;
+
             const fd = new FormData();
-            fd.append("file", file);
+            fd.append("file", fileToUpload);
             if (form.projectId) fd.append("projectId", form.projectId);
             const res = await fetch("/api/upload", { method: "POST", body: fd });
             const data = await res.json();
@@ -713,6 +790,13 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                                     </div>
                                 </div>
                             </div>
+
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 p-4">
+                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Guia editorial</p>
+                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                    El badge y el CTA ya no quedan en 4 palabras. Ahora aceptan hasta 60 caracteres, aunque conviene mantenerlos cortos para no romper el layout.
+                                </p>
+                            </div>
                         </div>
                     )}
 
@@ -859,6 +943,96 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                             )}
 
                             {/* ── Source: Galería del proyecto ── */}
+                            {form.tipo === "IMAGEN" && (form._localPreview || form.mediaUrl) && (
+                                <div className="space-y-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Editor de encuadre</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                Solo visible en el panel. Ajusta zoom y foco antes de guardar o publicar.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                set("cropZoom", 1);
+                                                set("cropX", 50);
+                                                set("cropY", 50);
+                                            }}
+                                            className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 transition-colors hover:bg-white dark:hover:bg-slate-800"
+                                        >
+                                            Resetear encuadre
+                                        </button>
+                                    </div>
+
+                                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
+                                        <div className="overflow-hidden rounded-2xl bg-black shadow-xl">
+                                            <div className="relative aspect-video">
+                                                <img
+                                                    src={form._localPreview || form.mediaUrl}
+                                                    alt="Preview de encuadre"
+                                                    className="h-full w-full object-cover"
+                                                    style={getPreviewMediaStyle(form)}
+                                                />
+                                                <div className="pointer-events-none absolute inset-0 border border-white/15" />
+                                                <div className="pointer-events-none absolute inset-6 rounded-[28px] border border-white/35" />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <div className="mb-1.5 flex items-center justify-between">
+                                                    <label className={labelClass}>Zoom</label>
+                                                    <span className="text-xs text-slate-400">{Math.round((form.cropZoom ?? 1) * 100)}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="1"
+                                                    max="2.4"
+                                                    step="0.01"
+                                                    value={form.cropZoom}
+                                                    onChange={(e) => set("cropZoom", Number(e.target.value))}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                            <div>
+                                                <div className="mb-1.5 flex items-center justify-between">
+                                                    <label className={labelClass}>Foco horizontal</label>
+                                                    <span className="text-xs text-slate-400">{form.cropX}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="100"
+                                                    step="1"
+                                                    value={form.cropX}
+                                                    onChange={(e) => set("cropX", Number(e.target.value))}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                            <div>
+                                                <div className="mb-1.5 flex items-center justify-between">
+                                                    <label className={labelClass}>Foco vertical</label>
+                                                    <span className="text-xs text-slate-400">{form.cropY}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="100"
+                                                    step="1"
+                                                    value={form.cropY}
+                                                    onChange={(e) => set("cropY", Number(e.target.value))}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                Al guardar o publicar, la imagen se exporta con este recorte en formato 16:9.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {mediaSource === "galeria" && form.context === "PROJECT_LANDING" && form.projectId && (
                                 <div>
                                     {galeriaLoading ? (

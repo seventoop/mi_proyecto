@@ -176,6 +176,7 @@ export default function VendedorBannersPage() {
                                             src={banner.mediaUrl}
                                             alt={banner.titulo}
                                             fill
+                                            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
                                             className="object-cover"
                                         />
                                     )}
