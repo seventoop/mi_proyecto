@@ -1,0 +1,58 @@
+Hay un problema en el flujo de "Convertirme en Inversor", específicamente en el Paso 2 - Documentación de Identidad.
+
+---
+
+### PROBLEMA ACTUAL:
+
+Cuando el usuario sube archivos en las secciones de:
+- DNI Argentino (frente y dorso)
+- Pasaporte vigente
+
+El sistema acepta CUALQUIER imagen/archivo y lo marca como válido (verde con checkmark), sin ninguna verificación. Pude cargar un banner random y lo aceptó como si fuera un DNI válido.
+
+---
+
+### LO QUE NECESITO:
+
+Implementar validaciones para estos uploads:
+
+#### Opción A - Validación con IA/OCR (ideal):
+- Verificar que la imagen contenga efectivamente un documento de identidad
+- Detectar si es DNI argentino (frente/dorso) o pasaporte
+- Extraer y validar datos básicos (nombre, número de documento, fecha de vencimiento)
+- Rechazar imágenes que claramente no son documentos (banners, fotos random, etc.)
+
+#### Opción B - Validación básica (mínimo necesario):
+- NO marcar como "válido/verde" automáticamente al subir
+- Mostrar estado "Pendiente de verificación" o "Cargado - En revisión"
+- Validar formato y tamaño de imagen
+- Validar que la imagen tenga características mínimas de un documento (dimensiones, proporción, etc.)
+- Dejar la validación final para revisión manual/admin
+
+#### Opción C - Validación intermedia:
+- Usar algún servicio de verificación de identidad (si ya hay alguno integrado)
+- O implementar validaciones básicas de imagen + marcar para revisión manual
+
+---
+
+### ESTADOS SUGERIDOS PARA LOS DOCUMENTOS:
+
+En vez de solo "válido" (verde), manejar estados como:
+- 📤 "Cargado" (gris/neutro) - Archivo subido, pendiente de verificación
+- ⏳ "En revisión" (amarillo/naranja) - Siendo verificado
+- ✅ "Verificado" (verde) - Documento válido confirmado
+- ❌ "Rechazado" (rojo) - Documento inválido, con mensaje del motivo
+
+---
+
+### MENSAJES DE ERROR CLAROS:
+
+Si se rechaza un documento, mostrar por qué:
+- "La imagen no parece ser un documento de identidad"
+- "El documento está vencido"
+- "La imagen está borrosa o ilegible"
+- "Formato de archivo no soportado"
+
+---
+
+¿Qué opción podemos implementar? ¿Hay algún servicio de verificación de identidad ya integrado en el proyecto que podamos usar?
