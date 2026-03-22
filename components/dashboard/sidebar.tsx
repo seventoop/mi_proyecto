@@ -198,6 +198,25 @@ export default function Sidebar() {
                         )}
                     </Link>
 
+                    {/* Back to public site */}
+                    <Link
+                        href="/"
+                        className={cn(
+                            "flex items-center gap-2 rounded-xl transition-all duration-150 group/home",
+                            "bg-white/[0.04] hover:bg-brand-500/15 border border-white/[0.06] hover:border-brand-500/30",
+                            sidebarOpen
+                                ? "w-full px-3 py-2"
+                                : "w-9 h-9 justify-center"
+                        )}
+                    >
+                        <Home className="w-4 h-4 text-white/50 group-hover/home:text-brand-400 transition-colors shrink-0" />
+                        {sidebarOpen && (
+                            <span className="text-xs font-semibold text-white/50 group-hover/home:text-brand-400 transition-colors whitespace-nowrap">
+                                Ir al sitio
+                            </span>
+                        )}
+                    </Link>
+
                     {sidebarOpen && planData && (
                         <div className="w-full animate-in fade-in duration-500 flex flex-col gap-3">
                             <div className="flex items-center justify-between px-1">
