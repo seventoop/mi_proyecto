@@ -6,7 +6,8 @@ import {
     Upload, FileCode, Layers, RefreshCw,
     Trash2, FileText, ZoomIn, ZoomOut, Maximize2, Minimize2,
     RotateCcw, ScanSearch, Map, Ruler, Download,
-    Search, X, Check, LayoutList, HelpCircle, ChevronDown, ChevronUp
+    Search, X, Check, LayoutList, HelpCircle, ChevronDown, ChevronUp,
+    Image as ImageIcon, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -82,6 +83,8 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
     const [loadedFromDB, setLoadedFromDB] = useState(false);
     const [showSummary, setShowSummary] = useState(false);
+    const [isImageBased, setIsImageBased] = useState(false);
+    const [uploadPreview, setUploadPreview] = useState<{ dataUrl: string; name: string; sizeMB: string; width: number; height: number } | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -113,7 +116,9 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
                 if (!data.masterplanSVG) return;
 
-                // Restore SVG
+                const hasEmbeddedImage = data.masterplanSVG.includes("<image") && data.masterplanSVG.includes("data:image");
+                setIsImageBased(hasEmbeddedImage);
+
                 setSvgContent(data.masterplanSVG);
                 setIsDXF(false);
 
@@ -246,6 +251,16 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     };
 
     // ─── File upload ──────────────────────────────────────────────────────────
+    const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".svg", ".dxf", ".pdf"];
+    const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"];
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+    const MAX_VECTOR_SIZE = 50 * 1024 * 1024;
+
+    const getFileExtension = (name: string) => {
+        const ext = name.toLowerCase().slice(name.lastIndexOf("."));
+        return ext;
+    };
+
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault(); setIsDragging(false);
         handleFileUpload({ target: { files: e.dataTransfer.files } } as React.ChangeEvent<HTMLInputElement>);
@@ -254,9 +269,73 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const uploadedFile = e.target.files?.[0];
         if (!uploadedFile) return;
+
+        const ext = getFileExtension(uploadedFile.name);
+        if (!ALLOWED_EXTENSIONS.includes(ext)) {
+            toast.error(`Formato no soportado (${ext}). Usá JPG, PNG, PDF, SVG o DXF.`);
+            return;
+        }
+
+        const isImage = IMAGE_EXTENSIONS.includes(ext);
+        const isPDF = ext === ".pdf";
+        const maxSize = isImage || isPDF ? MAX_IMAGE_SIZE : MAX_VECTOR_SIZE;
+
+        if (uploadedFile.size > maxSize) {
+            const limitMB = Math.round(maxSize / (1024 * 1024));
+            toast.error(`El archivo excede el límite de ${limitMB} MB. Reducí el tamaño e intentá de nuevo.`);
+            return;
+        }
+
         setFile(uploadedFile); setProcessing(true); setSvgContent(null);
         setStats(null); setExtractedPaths([]); setLotRecords([]);
-        setActiveLotNumber(null);
+        setActiveLotNumber(null); setIsImageBased(false); setUploadPreview(null);
+
+        if (isImage) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const dataUrl = event.target?.result as string;
+                const img = new window.Image();
+                img.onload = () => {
+                    const sizeMB = (uploadedFile.size / (1024 * 1024)).toFixed(1);
+                    setUploadPreview({ dataUrl, name: uploadedFile.name, sizeMB, width: img.width, height: img.height });
+                    setProcessing(false);
+                };
+                img.onerror = () => {
+                    toast.error("No se pudo leer la imagen. Verificá que el archivo no esté corrupto.");
+                    setProcessing(false);
+                };
+                img.src = dataUrl;
+            };
+            reader.readAsDataURL(uploadedFile);
+            return;
+        }
+
+        if (isPDF) {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const arrayBuffer = event.target?.result as ArrayBuffer;
+                    const pdfjsLib = await import("pdfjs-dist");
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    const page = await pdf.getPage(1);
+                    const viewport = page.getViewport({ scale: 2 });
+                    const canvas = document.createElement("canvas");
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    const ctx = canvas.getContext("2d")!;
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    const dataUrl = canvas.toDataURL("image/png");
+                    const sizeMB = (uploadedFile.size / (1024 * 1024)).toFixed(1);
+                    setUploadPreview({ dataUrl, name: uploadedFile.name, sizeMB, width: viewport.width, height: viewport.height });
+                } catch (err: any) {
+                    toast.error(`Error al procesar PDF: ${err.message ?? "Formato no reconocido"}. Probá subiéndolo como imagen JPG/PNG.`);
+                }
+                setProcessing(false);
+            };
+            reader.readAsArrayBuffer(uploadedFile);
+            return;
+        }
 
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -294,16 +373,34 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
         reader.readAsText(uploadedFile);
     };
 
+    const confirmImageUpload = () => {
+        if (!uploadPreview) return;
+        const { dataUrl, width, height } = uploadPreview;
+        const svgWrapper = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><image href="${dataUrl}" width="${width}" height="${height}"/></svg>`;
+        setSvgContent(svgWrapper);
+        setIsImageBased(true);
+        setUploadPreview(null);
+        setStats({ pathsFound: 0, labeled: 0 });
+        toast.success("Imagen cargada como masterplan. Podés sincronizar para guardarla.");
+    };
+
+    const cancelImageUpload = () => {
+        setUploadPreview(null);
+        setFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
     const handleClear = () => {
         setFile(null); setSvgContent(null); setStats(null); setExtractedPaths([]);
         setLotRecords([]); setIsDXF(false); setViewMode("analysis");
         setActiveLotNumber(null); setShowTable(false); setLoadedFromDB(false);
+        setIsImageBased(false); setUploadPreview(null);
         setTooltip({ visible: false, lot: "", area: "", x: 0, y: 0 });
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const handleSync = async () => {
-        if (!svgContent || extractedPaths.length === 0) return;
+        if (!svgContent) return;
         setProcessing(true);
         try {
             // Build quick lookup: pathId → lot management data
@@ -413,11 +510,11 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     <div className="bg-brand-500/10 p-1.5 rounded-lg shrink-0"><FileCode className="w-4 h-4 text-brand-500" /></div>
                     <div className="min-w-0">
                         <h3 className="font-bold text-sm leading-none">Procesador de Planos AI</h3>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-tight mt-0.5">Análisis DXF/SVG</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-tight mt-0.5">JPG · PNG · PDF · DXF · SVG</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    <input ref={fileInputRef} type="file" className="hidden" accept=".svg,.dxf" onChange={handleFileUpload} />
+                    <input ref={fileInputRef} type="file" className="hidden" accept=".svg,.dxf,.jpg,.jpeg,.png,.pdf" onChange={handleFileUpload} />
 
                     {/* View mode toggle */}
                     {svgContent && (
@@ -455,7 +552,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                         </button>
                     ) : (
                         <button onClick={() => fileInputRef.current?.click()} className="cursor-pointer bg-brand-500 hover:bg-brand-600 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow transition-all flex items-center gap-1.5">
-                            <Upload className="w-3 h-3" />Subir DXF/SVG
+                            <Upload className="w-3 h-3" />Subir plano
                         </button>
                     )}
 
@@ -494,7 +591,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                         </button>
                         <div className="absolute right-0 top-9 w-64 bg-slate-900 text-white text-[10px] rounded-xl p-3 shadow-2xl border border-slate-700 leading-relaxed z-50 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
                             <p className="font-bold mb-1 text-slate-200">Formatos soportados</p>
-                            <p className="text-slate-400 mb-2">DXF (AutoCAD, QGIS, Civil 3D) y SVG · Máx 50 MB</p>
+                            <p className="text-slate-400 mb-2">JPG, PNG, PDF (imagen, máx 5 MB) — DXF, SVG (interactivo, máx 50 MB)</p>
                             <p className="font-bold mb-1 text-slate-200">El sistema detecta</p>
                             <p className="text-slate-400 mb-2">LWPOLYLINE, LINE, ARC, CIRCLE, TEXT y MTEXT</p>
                             <p className="font-bold mb-1 text-slate-200">Factor de escala</p>
@@ -552,7 +649,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                             <p className={cn("text-base font-semibold", isDragging ? "text-brand-500" : "text-slate-400")}>
                                 {isDragging ? "Soltá para cargar el plano" : "Hacé clic o arrastrá tu plano aquí"}
                             </p>
-                            <p className="text-xs text-slate-400">Formatos: DXF, SVG · Máximo 50 MB</p>
+                            <p className="text-xs text-slate-400">JPG, PNG, PDF, DXF, SVG · Máximo 5 MB (imágenes) / 50 MB (vectores)</p>
                         </div>
                     ) : (
                         <TransformWrapper initialScale={1} minScale={0.05} maxScale={30} centerOnInit wheel={{ step: 0.1 }}>
@@ -570,10 +667,11 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                             {/* Top-left badges */}
                             <div className="absolute top-3 left-3 z-10 flex gap-2 pointer-events-none">
                                 <div className="text-[9px] font-mono text-slate-400 bg-black/40 backdrop-blur-sm px-2 py-1 rounded border border-white/10 flex items-center gap-1">
-                                    <Layers className="w-2.5 h-2.5" />{isDXF ? "DXF Processed" : "SVG Mapping"}
+                                    {isImageBased ? <><ImageIcon className="w-2.5 h-2.5" />Imagen Masterplan</> : <><Layers className="w-2.5 h-2.5" />{isDXF ? "DXF Processed" : "SVG Mapping"}</>}
                                 </div>
                                 {isDXF && <div className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 backdrop-blur-sm px-2 py-1 rounded border border-emerald-500/20">ASCII DXF</div>}
-                                {stats && <div className="text-[9px] font-mono text-blue-400 bg-blue-500/10 backdrop-blur-sm px-2 py-1 rounded border border-blue-500/20">{stats.pathsFound} polígonos · {stats.labeled} lotes</div>}
+                                {isImageBased && <div className="text-[9px] font-mono text-amber-400 bg-amber-500/10 backdrop-blur-sm px-2 py-1 rounded border border-amber-500/20 flex items-center gap-1"><AlertTriangle className="w-2.5 h-2.5" />Solo visual — usá DXF/SVG para lotes interactivos</div>}
+                                {stats && !isImageBased && <div className="text-[9px] font-mono text-blue-400 bg-blue-500/10 backdrop-blur-sm px-2 py-1 rounded border border-blue-500/20">{stats.pathsFound} polígonos · {stats.labeled} lotes</div>}
                             </div>
 
                             {/* Status legend */}
@@ -599,6 +697,48 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                                 <div className="text-center">
                                     <p className="font-bold text-sm">Escaneando Geometrías...</p>
                                     <p className="text-[10px] text-slate-500">Leyendo lotes, etiquetas y calculando áreas</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {uploadPreview && (
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-6">
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-xl w-full overflow-hidden">
+                                <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+                                    <h4 className="font-bold text-sm flex items-center gap-2">
+                                        <ImageIcon className="w-4 h-4 text-brand-500" />
+                                        Vista previa del plano
+                                    </h4>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">
+                                        {uploadPreview.name} — {uploadPreview.sizeMB} MB — {uploadPreview.width}×{uploadPreview.height}px
+                                    </p>
+                                </div>
+                                <div className="relative bg-slate-100 dark:bg-slate-950 flex items-center justify-center max-h-[350px] overflow-hidden">
+                                    <img
+                                        src={uploadPreview.dataUrl}
+                                        alt="Vista previa"
+                                        className="max-w-full max-h-[350px] object-contain"
+                                    />
+                                </div>
+                                <div className="p-4 flex flex-col gap-3">
+                                    <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-500/10 rounded-lg p-2.5 border border-amber-200 dark:border-amber-500/20">
+                                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Plano como imagen</p>
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-400/80 mt-0.5">
+                                                La imagen se usará como fondo visual del masterplan. Para detectar lotes interactivos automáticamente, subí un archivo DXF o SVG.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 justify-end">
+                                        <button onClick={cancelImageUpload} className="cursor-pointer px-4 py-2 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                            Cancelar
+                                        </button>
+                                        <button onClick={confirmImageUpload} className="cursor-pointer bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-brand-500/20 transition-all flex items-center gap-1.5">
+                                            <Check className="w-3 h-3" />Confirmar y usar
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
