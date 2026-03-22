@@ -626,8 +626,8 @@ export default function MasterplanMap({
                 fillOpacity: 0.04, dashArray: "6 4", interactive: false,
             }).addTo(map);
 
-            // 2. Image overlay (if imageUrl is a real URL, not a temporary blob)
-            if (imageUrl && !imageUrl.startsWith("blob:")) {
+            // 2. Image overlay – blob URLs are valid during the session, so show them too
+            if (imageUrl) {
                 imageLayer = L.imageOverlay(imageUrl, bounds, { opacity: 0.75, interactive: false });
                 imageLayer.addTo(map);
                 imageLayer.on("load", () => {

@@ -116,6 +116,13 @@ const STREETS: Record<string, { label: string; x1: number; y1: number; x2: numbe
     "villa-del-lago-buenos-aires":[{ label: "Calle Los Lagos",  x1: 60, y1: 470, x2: 620, y2: 470 }, { label: "Av. del Parque",   x1: 330, y1: 80, x2: 330, y2: 470 }],
 };
 
+const PORTADAS: Record<string, string> = {
+    "barrio-las-casuarinas":      "https://images.unsplash.com/photo-1448630360428-65456885c650?w=800&q=80",
+    "loteo-san-martin-mendoza":   "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&q=80",
+    "chacras-del-norte-santa-fe": "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&q=80",
+    "villa-del-lago-buenos-aires":"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&q=80",
+};
+
 const IMAGES: Record<string, { url: string; titulo: string }[]> = {
     "barrio-las-casuarinas": [
         { url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1600&auto=format&fit=crop", titulo: "Vista aérea Norte" },
@@ -171,6 +178,13 @@ async function main() {
 
         const streets = STREETS[p.slug!] ?? [];
         const { svg, lotCoords, totalW, totalH } = generateBlueprintSVG(p.nombre, allManzanas, streets);
+
+        // ── STEP 1 extra: imagenPortada ───────────────────────────────────────
+        const portada = PORTADAS[p.slug!];
+        if (portada) {
+            await prisma.proyecto.update({ where: { id: p.id }, data: { imagenPortada: portada } });
+            console.log(`  ✓ imagenPortada — ${portada.slice(0, 60)}...`);
+        }
 
         // ── STEP 2a: Save masterplanSVG ───────────────────────────────────────
         await prisma.proyecto.update({ where: { id: p.id }, data: { masterplanSVG: svg } });
