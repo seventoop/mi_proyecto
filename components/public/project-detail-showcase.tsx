@@ -11,6 +11,8 @@ import {
     BadgeCheck,
     Building2,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     Clock3,
     Edit3,
     ExternalLink,
@@ -712,36 +714,53 @@ export default function ProjectDetailShowcase({
                             </Reveal>
 
                             <div className="grid grid-cols-2 gap-4">
-                                {galleryImages.slice(0, 4).map((image, index) => (
-                                    <Reveal
-                                        key={image.id}
-                                        delay={0.06 * index}
-                                        className={cn(
-                                            "group relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5",
-                                            index === 0 && "col-span-2"
-                                        )}
-                                    >
+                                {(() => {
+                                    const thumbs = galleryImages.slice(0, 4);
+                                    const needsFill = thumbs.length === 3;
+                                    return thumbs.map((image, index) => (
+                                        <Reveal
+                                            key={image.id}
+                                            delay={0.06 * index}
+                                            className={cn(
+                                                "group relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5",
+                                                index === 0 && "col-span-2",
+                                                needsFill && index === 2 && "col-span-2"
+                                            )}
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={() => setLightboxIndex(index)}
+                                                className="relative block h-full min-h-[180px] w-full"
+                                            >
+                                                <Image
+                                                    src={image.url}
+                                                    alt={`${project.nombre} ${index + 1}`}
+                                                    fill
+                                                    sizes="(max-width: 768px) 100vw, 33vw"
+                                                    className="object-cover transition duration-500 group-hover:scale-105"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                                                <div className="absolute inset-x-0 bottom-0 p-5 text-left">
+                                                    <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-brand-orange">
+                                                        {image.categoria}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        </Reveal>
+                                    ));
+                                })()}
+                                {galleryImages.length > 4 && (
+                                    <Reveal delay={0.24} className="col-span-2">
                                         <button
                                             type="button"
-                                            onClick={() => setLightboxIndex(index)}
-                                            className="relative block h-full min-h-[180px] w-full"
+                                            onClick={() => setLightboxIndex(4)}
+                                            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/10"
                                         >
-                                            <Image
-                                                src={image.url}
-                                                alt={`${project.nombre} ${index + 1}`}
-                                                fill
-                                                sizes="(max-width: 768px) 100vw, 33vw"
-                                                className="object-cover transition duration-500 group-hover:scale-105"
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                                            <div className="absolute inset-x-0 bottom-0 p-5 text-left">
-                                                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-brand-orange">
-                                                    {image.categoria}
-                                                </p>
-                                            </div>
+                                            <ImageIcon className="h-4 w-4" />
+                                            Ver todas las imagenes ({galleryImages.length})
                                         </button>
                                     </Reveal>
-                                ))}
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1160,18 +1179,45 @@ export default function ProjectDetailShowcase({
             {isDashboard && <div className="h-24" />}
 
             {lightboxImage && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/92 p-4 backdrop-blur-md">
+                <div
+                    className="fixed inset-0 z-[120] flex items-center justify-center bg-black/92 p-4 backdrop-blur-md"
+                    onClick={(e) => { if (e.target === e.currentTarget) setLightboxIndex(null); }}
+                >
                     <button
                         type="button"
                         onClick={() => setLightboxIndex(null)}
-                        className="absolute right-6 top-6 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
+                        className="absolute right-6 top-6 z-10 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
                     >
                         Cerrar
                     </button>
+
+                    <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/10 bg-black/60 px-3 py-1.5 text-xs font-bold text-white/70 backdrop-blur-md">
+                        {(lightboxIndex ?? 0) + 1} / {galleryImages.length}
+                    </div>
+
+                    {galleryImages.length > 1 && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setLightboxIndex((lightboxIndex! - 1 + galleryImages.length) % galleryImages.length)}
+                                className="absolute left-4 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/50 text-white backdrop-blur-md transition hover:bg-white/15"
+                            >
+                                <ChevronLeft className="h-6 w-6" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setLightboxIndex((lightboxIndex! + 1) % galleryImages.length)}
+                                className="absolute right-4 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/50 text-white backdrop-blur-md transition hover:bg-white/15"
+                            >
+                                <ChevronRight className="h-6 w-6" />
+                            </button>
+                        </>
+                    )}
+
                     <div className="relative h-[85vh] w-full max-w-6xl overflow-hidden rounded-[32px] border border-white/10">
                         <Image
                             src={lightboxImage.url}
-                            alt={project.nombre}
+                            alt={`${project.nombre} - ${lightboxImage.categoria}`}
                             fill
                             sizes="100vw"
                             className="object-contain"
