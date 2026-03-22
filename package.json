@@ -13,13 +13,13 @@
     "db:migrate:dev": "npx prisma migrate dev",
     "db:migrate:deploy": "npx prisma migrate deploy",
     "db:migrate:status": "npx prisma migrate status",
-    "db:seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
+    "db:seed": "powershell -ExecutionPolicy Bypass -File scripts/seed-projects.ps1",
     "db:studio": "npx prisma studio",
     "postinstall": "prisma generate",
     "security:check": "node scripts/security-check.js"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "powershell -ExecutionPolicy Bypass -File scripts/seed-projects.ps1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
