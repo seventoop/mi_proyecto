@@ -9,11 +9,28 @@ export default withAuth(
         const token = req.nextauth.token;
         const { pathname } = req.nextUrl;
 
+        // /dashboard (exact) → redirect to role-specific sub-route at middleware level
+        // This avoids NEXT_REDIRECT being thrown inside a React Server Component,
+        // which causes the Replit preview iframe to show "artifact encountered an error"
+        if (pathname === "/dashboard") {
+            const role = token?.role as string | undefined;
+            if (role === "ADMIN" || role === "SUPERADMIN") {
+                return NextResponse.redirect(new URL("/dashboard/admin", req.url));
+            } else if (role === "VENDEDOR" || role === "DESARROLLADOR") {
+                return NextResponse.redirect(new URL("/dashboard/developer", req.url));
+            } else if (role === "INVERSOR") {
+                return NextResponse.redirect(new URL("/dashboard/portafolio", req.url));
+            } else if (role === "CLIENTE") {
+                return NextResponse.redirect(new URL("/dashboard/cliente", req.url));
+            }
+            // Unknown role → fall through to login (handled by authorized callback)
+        }
+
         // Admin routes: require ADMIN or SUPERADMIN role
         if (pathname.startsWith("/dashboard/admin")) {
             const role = token?.role as string | undefined;
             if (role !== "ADMIN" && role !== "SUPERADMIN") {
-                return NextResponse.redirect(new URL("/dashboard", req.url));
+                return NextResponse.redirect(new URL("/dashboard/admin", req.url));
             }
         }
 

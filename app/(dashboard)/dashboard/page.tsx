@@ -1,22 +1,8 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
+// Role-based redirect is handled at middleware level (middleware.ts).
+// This page is only reached if middleware lets an authenticated user through
+// without a matching role — redirect to login as a safe fallback.
 export default async function DashboardPage() {
-    const session = await getServerSession(authOptions);
-    const userRole = (session?.user as any)?.role;
-
-    // Redirect based on role
-    if (userRole === "ADMIN") {
-        redirect("/dashboard/admin");
-    } else if (userRole === "VENDEDOR" || userRole === "DESARROLLADOR") {
-        redirect("/dashboard/developer");
-    } else if (userRole === "INVERSOR") {
-        redirect("/dashboard/portafolio");
-    } else if (userRole === "CLIENTE") {
-        redirect("/dashboard/cliente");
-    }
-
-    // Fallback for unauthenticated or unknown roles
     redirect("/login");
 }
