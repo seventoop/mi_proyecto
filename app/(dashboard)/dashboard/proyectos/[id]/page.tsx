@@ -146,7 +146,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     }
 
     const userId = session?.user?.id;
-    if (userRole !== "ADMIN" && proyecto.creadoPorId !== userId) {
+    const canAccess = userRole === "ADMIN" || userRole === "DESARROLLADOR" || proyecto.creadoPorId === userId;
+
+    if (!canAccess) {
         return (
             <div className="p-20 text-center">
                 <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
@@ -166,7 +168,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         );
     }
 
-    const canEdit = userRole === "ADMIN" || userRole === "DESARROLLADOR" || proyecto.creadoPorId === userId;
+    const canEdit = canAccess;
 
     if (viewMode === "editar" && !canEdit) {
         viewMode = "vista";
