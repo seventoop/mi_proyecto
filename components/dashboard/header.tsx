@@ -21,10 +21,12 @@ export default function Header() {
     const userRoleCode = (session?.user as any)?.role || "INVITADO";
 
     const roleLabels: Record<string, string> = {
+        SUPERADMIN: "Super Admin",
         ADMIN: "Admin",
-        VENDEDOR: "Desarrollador",
-        CLIENTE: "Propietario",
+        DESARROLLADOR: "Desarrollador",
+        VENDEDOR: "Vendedor",
         INVERSOR: "Inversor",
+        CLIENTE: "Cliente",
         INVITADO: "Invitado",
     };
     const userRole = roleLabels[userRoleCode] || userRoleCode;
