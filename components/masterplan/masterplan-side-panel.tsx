@@ -93,7 +93,7 @@ export default function MasterplanSidePanel({ unit, modo, canEdit, onClose }: Si
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: 360, opacity: 0 }}
                 transition={{ type: "spring", damping: 28, stiffness: 350 }}
-                className="absolute top-0 right-0 bottom-0 w-[340px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-700 z-30 flex flex-col shadow-2xl"
+                className="absolute top-0 right-0 bottom-0 w-[340px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-700 z-[1100] flex flex-col shadow-2xl"
             >
                 {/* Header */}
                 <div className="relative overflow-hidden">

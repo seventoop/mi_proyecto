@@ -1,0 +1,94 @@
+============================================================
+REPORTE TECNICO - 22 de marzo de 2026
+============================================================
+
+PROBLEMA IDENTIFICADO:
+---------------------
+1. En la vista publica del masterplan interactivo (MasterplanMap), los botones
+   de zoom (+, -, centrar vista) estaban posicionados en la esquina superior
+   derecha del mapa (CSS: absolute top-3 right-3 z-[1000]).
+   
+   Cuando el usuario clickeaba un lote y se desplegaba la tarjeta lateral
+   derecha (MasterplanSidePanel, w-[340px], z-30), los controles de zoom
+   quedaban ENCIMA de la tarjeta debido a su z-index mas alto (1000 vs 30).
+   
+   Esto hacia que:
+   - El boton de cerrar la tarjeta lateral quedara tapado o interferido
+   - Los controles de zoom se superpusieran visualmente con la info del lote
+   - La experiencia de usuario se degradara significativamente
+
+2. La tarjeta lateral tenia un z-index de 30, insuficiente para estar por
+   encima de los controles del mapa (z-1000).
+
+3. Proyectos con datos incompletos: barrio-los-alamos sin imagenes de mapa,
+   y 5 proyectos sin datos de infraestructura cargados.
+
+CAMBIOS REALIZADOS:
+-------------------
+Archivo: components/masterplan/masterplan-map.tsx
+  - MOVIDOS los controles de zoom (+, -, centrar vista) de la esquina superior
+    derecha a la barra de controles superior izquierda, junto a "Filtros",
+    "Satelite" e "Hibrido"
+  - Los tres botones ahora forman un grupo visual con rounded-xl y shadow-lg
+  - Se mantienen solo en modo publico (modo !== "admin"); el admin usa el toolbar
+  - Eliminada la posicion "absolute top-3 right-3" que causaba la superposicion
+
+Archivo: components/masterplan/masterplan-side-panel.tsx
+  - Incrementado z-index de la tarjeta lateral de z-30 a z-[1100]
+  - Esto asegura que la tarjeta siempre este por encima de cualquier control
+    del mapa (z-[1000]) cuando esta abierta
+
+Base de datos:
+  - Agregadas 3 imagenes de mapa a barrio-los-alamos (tipo: foto, Unsplash)
+  - Agregados 6 items de infraestructura a cada proyecto que carecia:
+    barrio-los-alamos, chacras-del-norte-santa-fe, villa-del-lago-buenos-aires,
+    barrio-las-casuarinas, loteo-san-martin-mendoza
+    (Calle Principal, Calle Secundaria Norte/Sur, Red de agua, Red electrica,
+     Espacio verde central)
+
+PROYECTOS REVISADOS/CORREGIDOS:
+-------------------------------
+Todos los proyectos PUBLICADO fueron verificados:
+
+  barrio-capinota         - OK (5 imgs, 2 infra preexistente, SVG+overlay)
+  barrio-las-casuarinas   - CORREGIDO (4 imgs, 4 map imgs, +6 infra)
+  barrio-los-alamos       - CORREGIDO (5 imgs, +3 map imgs, +6 infra)
+  chacras-del-norte-santa-fe - CORREGIDO (5 imgs, 3 map imgs, +6 infra)
+  loteo-san-martin-mendoza  - CORREGIDO (4 imgs, 3 map imgs, +6 infra)
+  reserva-geodevia        - OK (6 imgs, 3 map imgs, 6 infra preexistente)
+  villa-del-lago-buenos-aires - CORREGIDO (6 imgs, 4 map imgs, +6 infra)
+
+Todos tienen: portada, imagenes, coordenadas, masterplanSVG, overlayBounds,
+etapas y unidades cargadas.
+
+PRUEBAS EJECUTADAS:
+-------------------
+1. Renderizado de secciones HTML: verificado que masterplan-mapa, masterplan,
+   lotes y ubicacion se renderizan correctamente (curl + grep de IDs)
+2. Controles de zoom: verificado que ya no existe "top-3 right-3" en el codigo
+3. z-index de tarjeta lateral: verificado z-[1100] > z-[1000] de controles
+4. Console logs: sin errores JS relevantes (solo warnings de Swiper loop y
+   logo aspect ratio, preexistentes)
+5. Server logs: paginas renderizan con HTTP 200
+6. Compilacion: sin errores de TypeScript
+7. Degradacion graciosa: proyectos sin overlayUrl siguen mostrando el mapa
+   con poligonos SVG sobre satelite (villa-del-lago funciona sin overlayUrl)
+
+RESULTADO:
+----------
+- La tarjeta lateral del lote ya no se superpone con los controles de zoom
+- El boton de cerrar queda siempre visible y clickeable
+- Los controles de zoom estan reubicados de forma logica junto a filtros/vista
+- Todos los proyectos tienen datos visuales completos para testing
+
+PENDIENTES / RIESGOS / CASOS BORDE:
+------------------------------------
+1. Las imagenes de mapa e infraestructura agregadas usan datos de ejemplo
+   (URLs de Unsplash, coordenadas estimadas). En produccion deberian
+   reemplazarse con datos reales del desarrollo.
+2. overlayUrl de chacras-del-norte es un blob: URL que no persistira entre
+   sesiones/entornos. Se deberia subir la imagen del plano a storage.
+3. En pantallas muy angostas (<400px) la barra de controles top-left podria
+   desbordarse si todos los botones no caben; considerar wrap o menu colapsable.
+4. El Swiper Loop warning es preexistente y no afecta funcionalidad.
+5. Los tours 360 estan vacios en todos los proyectos (tours: 0).

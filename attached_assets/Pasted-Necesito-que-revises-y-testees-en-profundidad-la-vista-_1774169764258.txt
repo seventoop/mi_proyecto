@@ -1,0 +1,59 @@
+Necesito que revises y testees en profundidad la vista del proyecto en esta URL local:
+
+http://localhost:5000/proyectos/villa-del-lago
+
+Contexto actual:
+- Ya se ve primero el loteo sobre el mapa real, y eso está bien.
+- El problema visible ahora es de layout/UX en el mapa: cuando hago click en cualquier lote y se despliega la tarjeta lateral derecha, el botón para cerrar esa tarjeta queda tapado o interferido por los controles flotantes del mapa.
+- Específicamente, los botones de zoom +, zoom -, y centrar vista están ubicados de forma que se superponen con la tarjeta derecha.
+
+Quiero que trabajes sobre esto con foco en testing visual y funcional.
+
+Objetivos de esta tarea:
+1. Resolver la superposición entre la tarjeta lateral derecha y los controles del mapa.
+   - Tomá los tres botones: zoom +, zoom -, y centrar vista.
+   - Reubicálos a la derecha del bloque donde hoy están los controles/filtros visibles dentro del mapa, junto a la zona de “Filtros”, “Satélite” e “Híbrido”.
+   - La nueva ubicación debe evitar cualquier choque visual o funcional con la tarjeta lateral del lote.
+   - Validá que el botón de cerrar la tarjeta quede siempre visible, clickeable y sin interferencias.
+
+2. Revisar la visualización de calles y fotos del proyecto.
+   - Si en “Villa del Lago” no se están viendo calles o fotos, asumí que faltan datos cargados.
+   - Cargá la información faltante para que este proyecto se vea completo.
+   - Además, revisá todos los proyectos del sistema y asegurate de que, si no tienen cargadas calles, fotos u otros datos visuales necesarios para verse completos, se los cargue.
+   - El objetivo es poder entrar a cualquier proyecto y verlo “bien cargado”, completo y testeable visualmente.
+
+3. Testing exhaustivo.
+   - Testeá a fondo la experiencia completa en desktop y, si aplica, responsive.
+   - Verificá:
+     - apertura de lotes
+     - cierre de tarjeta lateral
+     - interacción con zoom
+     - centrar vista
+     - filtros
+     - cambio entre satélite e híbrido
+     - visibilidad del loteo sobre el mapa real
+     - visualización de calles
+     - visualización de fotos
+     - consistencia entre proyectos
+   - Buscá bugs visuales, solapamientos, offsets, z-index incorrectos, controles inaccesibles, datos faltantes y estados rotos.
+   - No te quedes solo con este proyecto: recorré todos los casos hasta el fondo.
+
+Criterios de aceptación:
+- La tarjeta lateral derecha no debe tapar ni ser tapada por controles del mapa.
+- El botón de cerrar debe quedar limpio, visible y usable.
+- Los controles de zoom y centrar vista deben quedar reubicados de manera lógica y prolija.
+- “Villa del Lago” debe verse completo con sus calles/fotos si corresponde.
+- Todos los proyectos deben quedar con la mayor carga visual posible para poder inspeccionarlos y testearlos.
+- Debe quedar validado que cualquier proyecto del sistema puede abrirse y verse correctamente cargado.
+
+Importante:
+- Priorizá la experiencia visual y la usabilidad real.
+- Hacé los cambios directamente.
+- No hagas PR ni merge automático.
+- Generá un archivo .txt de reporte técnico en /docs/dev-logs/ con fecha y commit asociado, explicando:
+  - qué problema encontraste
+  - qué cambios hiciste
+  - qué proyectos corregiste o completaste con datos
+  - qué pruebas ejecutaste
+  - qué resultado obtuviste
+  - qué pendientes, riesgos o casos borde quedan

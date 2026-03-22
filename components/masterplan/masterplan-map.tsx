@@ -1054,7 +1054,7 @@ export default function MasterplanMap({
                 )}
 
                 {/* Map top-left floating controls */}
-                <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2">
+                <div className="absolute top-3 left-3 z-[1000] flex flex-wrap items-center gap-2">
                     <button
                         onClick={() => setShowFilters(!showFilters)}
                         className={cn(
@@ -1092,22 +1092,22 @@ export default function MasterplanMap({
                             Híbrido
                         </button>
                     </div>
-                </div>
 
-                {/* Zoom controls — public mode only; admin uses toolbar */}
-                {modo !== "admin" && (
-                    <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-1">
-                        <button onClick={handleZoomIn} title="Acercar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
-                            <ZoomIn className="w-4 h-4" />
-                        </button>
-                        <button onClick={handleZoomOut} title="Alejar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
-                            <ZoomOut className="w-4 h-4" />
-                        </button>
-                        <button onClick={handleResetView} title="Centrar vista" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
-                            <Crosshair className="w-4 h-4" />
-                        </button>
-                    </div>
-                )}
+                    {/* Zoom + center controls — inline with filters to avoid overlap with side panel */}
+                    {modo !== "admin" && (
+                        <div className="flex items-center gap-1 rounded-xl overflow-hidden shadow-lg">
+                            <button onClick={handleZoomIn} title="Acercar" className="w-9 h-9 bg-white/90 dark:bg-slate-800/90 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+                                <ZoomIn className="w-4 h-4" />
+                            </button>
+                            <button onClick={handleZoomOut} title="Alejar" className="w-9 h-9 bg-white/90 dark:bg-slate-800/90 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+                                <ZoomOut className="w-4 h-4" />
+                            </button>
+                            <button onClick={handleResetView} title="Centrar vista" className="w-9 h-9 bg-white/90 dark:bg-slate-800/90 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
+                                <Crosshair className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
+                </div>
 
                 {/* Hint: no overlay bounds configured yet — lotes can't be positioned */}
                 {blueprintLoaded && units.length > 0 && !overlayConfig?.bounds && modo === "admin" && (
