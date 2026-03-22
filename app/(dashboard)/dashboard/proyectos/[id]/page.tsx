@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import BlueprintEngine from "@/components/masterplan/blueprint-engine";
+import ProjectDetailShowcase from "@/components/public/project-detail-showcase";
 import {
     ArrowLeft, MapPin, FileText, BarChart3, Layers, Home,
     Globe, DollarSign, Archive, AlertCircle, LayoutDashboard,
@@ -61,7 +62,7 @@ const ResizableContainer = dynamic(
 
 interface PageProps {
     params: { id: string };
-    searchParams: { tab?: string };
+    searchParams: { tab?: string; mode?: string };
 }
 
 export default async function ProyectoDetailPage({ params, searchParams }: PageProps) {
@@ -81,9 +82,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role || "INVITADO";
 
+    const viewMode = searchParams.mode !== "editar" ? "vista" : "editar";
+
     const proyecto = await prisma.proyecto.findUnique({
         where: { id: params.id },
         include: {
+            organization: { select: { nombre: true } },
             etapas: {
                 include: {
                     manzanas: {
@@ -94,11 +98,35 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             },
             pagos: true,
             documentacion: true,
+            imagenes: {
+                orderBy: [{ esPrincipal: "desc" }, { orden: "asc" }],
+                select: { id: true, url: true, categoria: true, esPrincipal: true },
+            },
+            infraestructuras: {
+                where: { visible: true },
+                orderBy: [{ orden: "asc" }, { nombre: "asc" }],
+                select: {
+                    id: true, nombre: true, categoria: true, tipo: true,
+                    estado: true, porcentajeAvance: true, descripcion: true,
+                },
+            },
+            proyecto_archivos: {
+                where: { visiblePublicamente: true },
+                orderBy: { createdAt: "desc" },
+                select: { id: true, nombre: true, tipo: true, url: true },
+            },
+            testimonios: {
+                where: { estado: "APROBADO" },
+                orderBy: [{ destacado: "desc" }, { createdAt: "desc" }],
+                select: {
+                    id: true, autorNombre: true, autorTipo: true,
+                    texto: true, rating: true, mediaUrl: true,
+                },
+            },
             tours: {
                 include: {
                     scenes: {
                         orderBy: { order: "asc" },
-                        take: 1,
                     },
                 },
             },
@@ -135,6 +163,166 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     Volver a mis proyectos
                 </Link>
             </div>
+        );
+    }
+
+    if (viewMode === "vista") {
+        const fallbackImage = "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop";
+
+        const toNumber = (v: unknown): number | null => {
+            if (v == null) return null;
+            const n = Number(v);
+            return Number.isFinite(n) ? n : null;
+        };
+        const getMinPositive = (vals: Array<number | null | undefined>): number | null => {
+            const f = vals.filter((v): v is number => typeof v === "number" && v > 0);
+            return f.length ? Math.min(...f) : null;
+        };
+        const getMaxPositive = (vals: Array<number | null | undefined>): number | null => {
+            const f = vals.filter((v): v is number => typeof v === "number" && v > 0);
+            return f.length ? Math.max(...f) : null;
+        };
+
+        const principalImage =
+            proyecto.imagenes?.find((i: any) => i.esPrincipal)?.url ||
+            (proyecto as any).imagenPortada ||
+            fallbackImage;
+
+        const units = proyecto.etapas.flatMap((stage: any) =>
+            stage.manzanas.flatMap((block: any) =>
+                block.unidades.map((unit: any) => ({
+                    ...unit,
+                    superficie: toNumber(unit.superficie),
+                    precio: toNumber(unit.precio),
+                }))
+            )
+        );
+
+        const totalUnits = units.length;
+        const availableUnits = units.filter((u: any) => u.estado === "DISPONIBLE").length;
+        const reservedUnits = units.filter((u: any) => u.estado === "RESERVADA").length;
+        const soldUnits = units.filter((u: any) => u.estado === "VENDIDA").length;
+        const soldPct = totalUnits > 0 ? Math.round((soldUnits / totalUnits) * 100) : 0;
+
+        const positivePrices = units.map((u: any) => u.precio);
+        const positiveSurfaces = units.map((u: any) => u.superficie);
+        const validPrices = positivePrices.filter((v: any): v is number => typeof v === "number" && v > 0);
+        const avgTicket = validPrices.length > 0
+            ? Math.round(validPrices.reduce((s: number, v: number) => s + v, 0) / validPrices.length)
+            : null;
+
+        const inventoryPreview = [...units]
+            .sort((a: any, b: any) => {
+                const aA = a.estado === "DISPONIBLE" ? 0 : 1;
+                const bA = b.estado === "DISPONIBLE" ? 0 : 1;
+                if (aA !== bA) return aA - bA;
+                return (a.precio || 0) - (b.precio || 0);
+            })
+            .slice(0, 4)
+            .map((u: any) => ({
+                id: u.id,
+                numero: u.numero,
+                estado: u.estado,
+                superficie: u.superficie,
+                precio: u.precio,
+                moneda: u.moneda,
+                frente: toNumber(u.frente),
+                fondo: toNumber(u.fondo),
+                esEsquina: u.esEsquina,
+                orientacion: u.orientacion,
+            }));
+
+        const showcaseData = {
+            id: proyecto.id,
+            slug: (proyecto as any).slug || proyecto.id,
+            nombre: proyecto.nombre,
+            descripcion: proyecto.descripcion,
+            ubicacion: proyecto.ubicacion,
+            tipo: proyecto.tipo,
+            estado: proyecto.estado,
+            imageUrl: principalImage,
+            imageAlt: proyecto.nombre,
+            imageCount: proyecto.imagenes?.length || 0,
+            mapCenterLat: proyecto.mapCenterLat,
+            mapCenterLng: proyecto.mapCenterLng,
+            mapZoom: proyecto.mapZoom,
+            masterplanAvailable: Boolean((proyecto as any).masterplanSVG) || totalUnits > 0,
+            leadCaptureEnabled: (proyecto as any).puedeCaptarLeads ?? false,
+            reservationEnabled: (proyecto as any).puedeReservarse ?? false,
+            documentationStatus: (proyecto as any).documentacionEstado || "PENDIENTE",
+            organizationName: (proyecto as any).organization?.nombre || null,
+            stats: {
+                totalUnits,
+                availableUnits,
+                reservedUnits,
+                soldUnits,
+                soldPct,
+                avgTicket,
+                minPrice: getMinPositive(positivePrices) ?? toNumber((proyecto as any).precioM2Mercado),
+                maxPrice: getMaxPositive(positivePrices),
+                minSurface: getMinPositive(positiveSurfaces),
+                maxSurface: getMaxPositive(positiveSurfaces),
+            },
+            inventoryPreview,
+            images: proyecto.imagenes || [],
+            tours: (proyecto.tours || []).map((tour: any) => ({
+                id: tour.id,
+                nombre: tour.nombre,
+                sceneCount: tour.scenes?.length || 0,
+                previewImages: (tour.scenes || [])
+                    .map((s: any) => s.thumbnailUrl || s.imageUrl)
+                    .filter(Boolean)
+                    .slice(0, 4),
+            })),
+            infrastructures: proyecto.infraestructuras || [],
+            stages: proyecto.etapas.map((stage: any) => ({
+                id: stage.id,
+                nombre: stage.nombre,
+                estado: stage.estado,
+                orden: stage.orden,
+                unitCount: stage.manzanas.reduce((s: number, b: any) => s + b.unidades.length, 0),
+                availableCount: stage.manzanas.reduce(
+                    (s: number, b: any) => s + b.unidades.filter((u: any) => u.estado === "DISPONIBLE").length, 0
+                ),
+            })),
+            documents: [
+                ...(proyecto.documentacion || []).map((d: any) => ({
+                    id: d.id,
+                    title: d.tipo,
+                    url: d.archivoUrl,
+                    type: d.tipo,
+                    source: "documentacion",
+                })),
+                ...(proyecto.proyecto_archivos || []).map((f: any) => ({
+                    id: f.id,
+                    title: f.nombre,
+                    url: f.url,
+                    type: f.tipo,
+                    source: "archivo",
+                })),
+            ],
+            testimonials: (proyecto.testimonios || []).map((t: any) => ({
+                id: t.id,
+                author: t.autorNombre,
+                role: t.autorTipo,
+                text: t.texto,
+                rating: t.rating || 5,
+                mediaUrl: t.mediaUrl,
+            })),
+            relatedProjects: [],
+        };
+
+        return (
+            <ProjectDetailShowcase
+                project={showcaseData}
+                mode="dashboard"
+                dashboardContext={{
+                    projectId: proyecto.id,
+                    userRole,
+                    visibilityStatus: (proyecto as any).visibilityStatus || "BORRADOR",
+                    backUrl: "/dashboard/proyectos",
+                }}
+            />
         );
     }
 

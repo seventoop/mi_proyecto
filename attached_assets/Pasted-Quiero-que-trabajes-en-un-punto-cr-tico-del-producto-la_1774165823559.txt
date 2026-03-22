@@ -1,0 +1,217 @@
+Quiero que trabajes en un punto crítico del producto:
+👉 la experiencia de visualización de proyectos para el usuario final (cliente/inversor)
+y la separación clara entre modo edición y modo visualización.
+
+Problema actual
+
+Hoy tenemos un problema importante:
+
+Cuando entro como admin / desarrollador / vendedor, voy a “Proyectos”
+Entro a un proyecto
+Y automáticamente caigo en una experiencia pensada para editar (pasos 1–5)
+
+❌ Esto está mal desde producto.
+
+Porque:
+
+mezcla vista interna con vista cliente
+rompe la experiencia real de cómo se ve el proyecto
+no permite validar fácilmente lo que ve el usuario final
+Objetivo principal
+1. Separar completamente dos modos
+A. Modo VISUALIZACIÓN (default para TODOS los roles)
+
+Esto es lo que ve:
+
+cliente
+inversor
+admin
+desarrollador
+vendedor
+
+👉 TODOS deben ver lo mismo por defecto cuando entran a un proyecto.
+
+Esta es la experiencia principal del producto.
+
+B. Modo EDICIÓN (solo roles habilitados)
+
+Los roles con permisos deben tener acceso a editar, pero:
+
+NO debe ser la vista por defecto
+NO debe interferir con la experiencia visual
+Solución esperada
+
+Dentro de la vista de proyecto:
+
+agregar un botón claro:
+“Editar proyecto”
+o “Configurar proyecto”
+o “Editar pasos”
+
+Este botón:
+
+solo visible para roles con permisos
+lleva al flujo de pasos (1–5)
+NO reemplaza la vista principal
+Regla clave
+
+👉 La URL /proyectos/[slug] debe ser SIEMPRE una experiencia de visualización, no de edición.
+
+2. Experiencia visual: tiene que ser una bomba
+
+Cuando un usuario entra a un proyecto, quiero algo:
+
+muy visual
+inmersivo
+rápido de entender
+orientado a “ver el lote”
+que cargue imágenes fuerte y rápido
+
+Tiene que sentirse como un producto premium inmobiliario.
+
+3. Sistema de imágenes (muy importante)
+
+Quiero unificar todo en una experiencia clara:
+
+Tipos de contenido:
+fotos normales (celular / cámara)
+panorámicas
+fotos 360
+imágenes aéreas
+cualquier imagen cargada
+Comportamiento esperado
+A. Vista principal
+mostrar contenido visual fuerte apenas entra
+priorizar imágenes sobre texto
+B. Miniaturas
+si hay múltiples imágenes:
+mostrar miniaturas
+diferenciar visualmente:
+360
+panorámicas
+normales (si se puede)
+click → abre esa vista
+C. Galería unificada
+todas las imágenes deben estar accesibles en una galería
+no separar “360 por un lado y fotos por otro”
+todo forma parte del mismo sistema visual
+4. Interacción dentro de imágenes (clave)
+
+Dentro de imágenes (especialmente 360 o panorámicas):
+
+Quiero que se pueda ver:
+lotes
+calles
+polígonos
+amenities (plazas, canchas, rotondas, etc.)
+referencias visuales
+Para usuarios NO editores (cliente/inversor):
+hover sobre lote:
+resalta
+muestra info básica
+click:
+abre tarjeta
+muestra:
+estado
+precio
+disponibilidad
+datos relevantes
+Importante
+
+No hace falta precisión perfecta.
+
+👉 Prioridad: que se vea bien, se entienda y funcione.
+
+5. Relación imagen ↔ proyecto
+
+Las imágenes NO pueden ser algo aislado.
+
+Quiero que:
+
+el usuario entienda dónde está parado
+pueda relacionar lo que ve con el plano
+pueda identificar lotes desde la imagen
+6. Infraestructura del proyecto
+
+Agregar una sección clara (visual, no aburrida) con:
+
+infraestructura del proyecto
+servicios
+amenities
+
+Ejemplo:
+
+agua
+luz
+calles internas
+espacios comunes
+etc.
+
+Esto puede ser:
+
+lista visual
+íconos
+tarjetas
+7. Consistencia total
+
+Esto es MUY importante:
+
+👉 No importa el rol (admin, vendedor, desarrollador, inversor, cliente)
+
+SIEMPRE que:
+
+entren a “Proyectos”
+vean el listado
+hagan click en un proyecto
+
+👉 tienen que ver la MISMA experiencia visual.
+
+La edición es secundaria y separada.
+
+8. Forma de implementación
+
+No quiero que rompas todo de golpe.
+
+Quiero que trabajes en fases:
+
+Fase 1
+separar modo visualización vs edición
+asegurar que /proyectos/[slug] sea vista cliente
+agregar botón de edición para roles habilitados
+Fase 2
+mejorar experiencia visual (hero + imágenes)
+sistema de galería + miniaturas
+Fase 3
+interacción dentro de imágenes (hover, click, tarjetas)
+overlays básicos visibles
+Fase 4
+mejoras de UX
+infraestructura
+pulido visual
+9. Estilo
+
+Quiero algo:
+
+moderno
+limpio
+muy visual
+tipo real estate premium
+fácil de entender en segundos
+10. Importante
+No te trabes con lógica compleja
+No frenes por precisión técnica
+Si hace falta, resolvé con aproximaciones visuales
+Prioridad absoluta: UX + impacto visual
+11. Documentación
+
+Generar archivo .txt en:
+
+/docs/dev-logs/
+
+Con:
+
+fecha
+cambios realizados
+decisiones tomadas
+
+No hacer PR ni merge automático.

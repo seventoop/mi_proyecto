@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, useInView } from "framer-motion";
 import {
+    AlertCircle,
+    ArrowLeft,
     ArrowRight,
     BadgeCheck,
     Building2,
@@ -18,6 +20,7 @@ import {
     MapPin,
     MessageCircle,
     PlayCircle,
+    Settings,
     ShieldCheck,
     Sparkles,
     Star,
@@ -304,7 +307,25 @@ function StickyProjectNav({ sections }: { sections: SectionItem[] }) {
     );
 }
 
-export default function ProjectDetailShowcase({ project }: { project: ShowcaseData }) {
+type ShowcaseMode = "public" | "dashboard";
+
+type DashboardContext = {
+    projectId: string;
+    userRole: string;
+    visibilityStatus: string;
+    backUrl?: string;
+};
+
+export default function ProjectDetailShowcase({
+    project,
+    mode = "public",
+    dashboardContext,
+}: {
+    project: ShowcaseData;
+    mode?: ShowcaseMode;
+    dashboardContext?: DashboardContext;
+}) {
+    const isDashboard = mode === "dashboard";
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
     const galleryImages =
@@ -325,7 +346,7 @@ export default function ProjectDetailShowcase({ project }: { project: ShowcaseDa
         project.mapCenterLat != null && project.mapCenterLng != null ? { id: "ubicacion", label: "Ubicacion" } : null,
         project.stages.length > 0 ? { id: "etapas", label: "Etapas" } : null,
         project.documents.length > 0 ? { id: "documentacion", label: "Legal" } : null,
-        { id: "contacto", label: "Contacto" },
+        !isDashboard ? { id: "contacto", label: "Contacto" } : null,
     ].filter(Boolean) as SectionItem[];
 
     const quickStats: ProjectStat[] = [
@@ -396,6 +417,34 @@ export default function ProjectDetailShowcase({ project }: { project: ShowcaseDa
 
     return (
         <div className="bg-[#050816] text-white">
+            {isDashboard && dashboardContext && (
+                <>
+                    {dashboardContext.visibilityStatus !== "PUBLICADO" && (
+                        <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500/90 px-4 py-2 text-sm font-bold text-black backdrop-blur">
+                            <AlertCircle className="h-4 w-4" />
+                            Proyecto no publicado — solo visible desde el dashboard
+                        </div>
+                    )}
+                    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-between p-5">
+                        <Link
+                            href={dashboardContext.backUrl || "/dashboard/proyectos"}
+                            className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-white/15 bg-slate-950/80 px-5 py-3 text-sm font-bold text-white shadow-2xl shadow-black/40 backdrop-blur-xl transition hover:bg-slate-900/90 hover:border-white/25"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Volver a proyectos
+                        </Link>
+                        {(dashboardContext.userRole === "ADMIN" || dashboardContext.userRole === "DESARROLLADOR") && (
+                            <Link
+                                href={`/dashboard/proyectos/${dashboardContext.projectId}?mode=editar`}
+                                className="pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-brand-orange px-6 py-3 text-sm font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-brand-orange/30 transition hover:bg-[#ff8b1f] hover:shadow-brand-orange/50 hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                <Settings className="h-4 w-4" />
+                                Configurar proyecto
+                            </Link>
+                        )}
+                    </div>
+                </>
+            )}
             <StickyProjectNav sections={sections} />
 
             <section className="relative isolate min-h-screen overflow-hidden">
@@ -949,7 +998,7 @@ export default function ProjectDetailShowcase({ project }: { project: ShowcaseDa
                 </section>
             )}
 
-            <section id="contacto" className="relative overflow-hidden bg-[#060a19] py-24">
+            {!isDashboard && <section id="contacto" className="relative overflow-hidden bg-[#060a19] py-24">
                 <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,_rgba(255,122,0,0.18),_transparent_56%)]" />
                 <div className="relative mx-auto max-w-7xl px-4 md:px-6">
                     <div className="grid gap-10 xl:grid-cols-[0.92fr_1.08fr]">
@@ -1015,9 +1064,9 @@ export default function ProjectDetailShowcase({ project }: { project: ShowcaseDa
                         </Reveal>
                     </div>
                 </div>
-            </section>
+            </section>}
 
-            {project.relatedProjects.length > 0 && (
+            {!isDashboard && project.relatedProjects.length > 0 && (
                 <section className="bg-[#050816] py-24">
                     <div className="mx-auto max-w-7xl px-4 md:px-6">
                         <SectionHeader
@@ -1072,6 +1121,8 @@ export default function ProjectDetailShowcase({ project }: { project: ShowcaseDa
                     </div>
                 </section>
             )}
+
+            {isDashboard && <div className="h-24" />}
 
             {lightboxImage && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/92 p-4 backdrop-blur-md">
