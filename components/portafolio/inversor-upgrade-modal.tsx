@@ -259,6 +259,13 @@ export default function InversorUpgradeModal({ onClose, onSuccess }: Props) {
                                 <h3 className="text-lg font-bold text-white mb-1">Documentación de Identidad</h3>
                                 <p className="text-sm text-slate-400">Subí tu DNI (frente y dorso) o pasaporte vigente. Archivos JPG, PNG o PDF. Máx. 5MB.</p>
                             </div>
+                            <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-start gap-2.5">
+                                <span className="text-blue-400 mt-0.5 shrink-0">ℹ️</span>
+                                <p className="text-xs text-blue-300/80 leading-relaxed">
+                                    Los documentos que subas quedarán <strong>pendientes de revisión</strong> por nuestro equipo. La verificación puede demorar hasta 48 hs hábiles. No marques un documento como válido hasta recibir confirmación.
+                                </p>
+                            </div>
+
                             <div className="space-y-4">
                                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">DNI argentino</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -266,11 +273,13 @@ export default function InversorUpgradeModal({ onClose, onSuccess }: Props) {
                                         label="DNI Frente"
                                         onUploadComplete={(url) => setDniFrente(url)}
                                         currentFileUrl={dniFrente}
+                                        docMode
                                     />
                                     <FileUploader
                                         label="DNI Dorso"
                                         onUploadComplete={(url) => setDniDorso(url)}
                                         currentFileUrl={dniDorso}
+                                        docMode
                                     />
                                 </div>
                             </div>
@@ -285,6 +294,7 @@ export default function InversorUpgradeModal({ onClose, onSuccess }: Props) {
                                     label="Pasaporte (foto o PDF)"
                                     onUploadComplete={(url) => setPasaporteUrl(url)}
                                     currentFileUrl={pasaporteUrl}
+                                    docMode
                                 />
                             </div>
                         </div>
@@ -310,6 +320,7 @@ export default function InversorUpgradeModal({ onClose, onSuccess }: Props) {
                                 label="Selfie con documento"
                                 onUploadComplete={(url) => setSelfieUrl(url)}
                                 currentFileUrl={selfieUrl}
+                                docMode
                             />
                         </div>
                     )}

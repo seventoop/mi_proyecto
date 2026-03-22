@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { UploadCloud, X, FileText, CheckCircle, Loader2 } from "lucide-react";
+import { UploadCloud, X, FileText, CheckCircle, Loader2, Clock, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -11,10 +11,47 @@ interface FileUploaderProps {
     accept?: string;
     maxSizeMB?: number;
     disabled?: boolean;
-    currentFileUrl?: string; // If already uploaded
+    currentFileUrl?: string;
     children?: React.ReactNode;
     className?: string;
     variant?: "default" | "icon";
+    /**
+     * docMode: when true, uploaded files are shown as "Cargado – En revisión"
+     * (amber/neutral) instead of green "válido". Use for KYC identity documents
+     * that require manual admin review before being considered verified.
+     */
+    docMode?: boolean;
+}
+
+/** Basic client-side doc-like image heuristics (Opción B). */
+async function checkDocumentHeuristics(file: File): Promise<{ ok: boolean; warning?: string }> {
+    if (!file.type.startsWith("image/")) return { ok: true };
+
+    return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+
+            if (w < 200 || h < 150) {
+                return resolve({ ok: false, warning: "La imagen es demasiado pequeña. Usá una foto nítida y a buena resolución." });
+            }
+
+            const ratio = Math.max(w, h) / Math.min(w, h);
+            if (ratio > 4) {
+                return resolve({ ok: false, warning: "Las proporciones no corresponden a un documento. Asegurate de fotografiar el documento completo." });
+            }
+
+            resolve({ ok: true });
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            resolve({ ok: true });
+        };
+        img.src = url;
+    });
 }
 
 export default function FileUploader({
@@ -27,7 +64,8 @@ export default function FileUploader({
     children,
     onRemove,
     className,
-    variant = "default"
+    variant = "default",
+    docMode = false,
 }: FileUploaderProps & { onRemove?: () => void }) {
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -37,16 +75,22 @@ export default function FileUploader({
     const handleFile = async (file: File) => {
         if (!file) return;
 
-        // Validation
         if (file.size > maxSizeMB * 1024 * 1024) {
             toast.error(`El archivo excede los ${maxSizeMB}MB permitidos`);
             return;
         }
 
+        if (docMode) {
+            const { ok, warning } = await checkDocumentHeuristics(file);
+            if (!ok) {
+                toast.error(warning ?? "El archivo no parece ser un documento de identidad válido.");
+                return;
+            }
+        }
+
         setIsUploading(true);
         setFileName(file.name);
 
-        // REAL UPLOAD via /api/upload
         try {
             const formData = new FormData();
             formData.append("file", file);
@@ -60,7 +104,7 @@ export default function FileUploader({
             if (!data.success) throw new Error(data.error);
 
             onUploadComplete(data.url);
-            toast.success("Archivo subido correctamente");
+            toast.success(docMode ? "Documento cargado — quedará pendiente de revisión" : "Archivo subido correctamente");
         } catch (error: any) {
             toast.error(error.message || "Error al subir el archivo");
             setFileName(null);
@@ -83,13 +127,71 @@ export default function FileUploader({
         e.preventDefault();
         setIsDragging(false);
         if (disabled) return;
-
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             handleFile(e.dataTransfer.files[0]);
         }
     };
 
     if (currentFileUrl) {
+        if (docMode) {
+            return (
+                <div className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl animate-in fade-in slide-in-from-top-1">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                            <Clock className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                                <p className="text-sm font-semibold text-amber-300 truncate">
+                                    {fileName || "Documento cargado"}
+                                </p>
+                                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 shrink-0">
+                                    En revisión
+                                </span>
+                            </div>
+                            <a
+                                href={currentFileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-amber-500/70 hover:text-amber-400 hover:underline inline-flex items-center gap-1"
+                            >
+                                Ver documento
+                            </a>
+                        </div>
+                    </div>
+                    {!disabled && (
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="p-2 hover:bg-amber-500/10 rounded-lg text-amber-400 transition-colors text-xs font-medium"
+                                title="Cambiar archivo"
+                            >
+                                Cambiar
+                            </button>
+                            {onRemove && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                                    className="p-2 hover:bg-rose-500/10 rounded-lg text-rose-400 transition-colors"
+                                    title="Eliminar archivo"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept={accept}
+                                onChange={(e) => e.target.files && handleFile(e.target.files[0])}
+                                className="hidden"
+                            />
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
         return (
             <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl animate-in fade-in slide-in-from-top-1">
                 <div className="flex items-center gap-3 overflow-hidden">
@@ -123,10 +225,7 @@ export default function FileUploader({
                         {onRemove && (
                             <button
                                 type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRemove();
-                                }}
+                                onClick={(e) => { e.stopPropagation(); onRemove(); }}
                                 className="p-2 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded-lg text-rose-500 transition-colors"
                                 title="Eliminar archivo"
                             >
