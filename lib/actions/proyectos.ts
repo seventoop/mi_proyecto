@@ -44,8 +44,9 @@ export async function getProyectos(params: {
     try {
         const now = new Date();
         const where: any = {
-            visibilityStatus: 'PUBLICADO',
-            estado: { not: 'SUSPENDIDO' },
+            deletedAt: null,
+            visibilityStatus: { not: 'BORRADOR' },
+            estado: { notIn: ['SUSPENDIDO', 'CANCELADO', 'ELIMINADO'] },
             OR: [
                 { isDemo: false },
                 { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] }
@@ -585,9 +586,9 @@ export async function getProyectosDestacados() {
     try {
         const proyectos = await prisma.proyecto.findMany({
             where: {
-                visibilityStatus: "PUBLICADO",
                 deletedAt: null,
-                estado: { not: "SUSPENDIDO" },
+                visibilityStatus: { not: "BORRADOR" },
+                estado: { notIn: ["SUSPENDIDO", "CANCELADO", "ELIMINADO"] },
             },
             select: {
                 id: true,

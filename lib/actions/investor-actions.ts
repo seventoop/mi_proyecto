@@ -118,9 +118,9 @@ export async function getInvestmentOpportunities() {
             prisma.proyecto.findMany({
                 where: {
                     invertible: true,
-                    estado: { notIn: ['VENDIDO', 'SUSPENDIDO'] },
-                    visibilityStatus: 'PUBLICADO',
                     deletedAt: null,
+                    visibilityStatus: { not: 'BORRADOR' },
+                    estado: { notIn: ['VENDIDO', 'SUSPENDIDO', 'CANCELADO', 'ELIMINADO'] },
                     OR: [
                         { isDemo: false },
                         { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] }
@@ -156,9 +156,9 @@ export async function getAllPublicProjects() {
         const [proyectos, favoritos] = await Promise.all([
             prisma.proyecto.findMany({
                 where: {
-                    estado: { notIn: ["SUSPENDIDO"] },
-                    visibilityStatus: "PUBLICADO",
                     deletedAt: null,
+                    visibilityStatus: { not: "BORRADOR" },
+                    estado: { notIn: ["SUSPENDIDO", "CANCELADO", "ELIMINADO"] },
                     OR: [
                         { isDemo: false },
                         { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] },

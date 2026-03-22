@@ -1,0 +1,87 @@
+⚠️ IMPORTANTE: Estamos trabajando en la rama "juani-dev2". Antes de hacer cambios, hacer pull de la rama para tener todo sincronizado.
+
+---
+
+### PROBLEMA:
+
+En la página de Proyectos (/proyectos) NO se están mostrando todos los proyectos creados en el sistema.
+
+Actualmente veo solo 6 proyectos, pero faltan varios como:
+- Barrio Capinota
+- Y otros que fueron creados por diferentes usuarios/desarrolladores
+
+---
+
+### DIAGNÓSTICO NECESARIO:
+
+1. **Revisar la query/consulta** que trae los proyectos a la página de listado:
+   - ¿Está filtrando por algún estado (publicado/borrador)?
+   - ¿Está filtrando por usuario/desarrollador?
+   - ¿Está filtrando por rol?
+   - ¿Hay algún campo "visible", "activo", "publicado" que esté excluyendo proyectos?
+
+2. **Revisar la base de datos**:
+   - Listar TODOS los proyectos existentes
+   - Verificar sus estados/campos de visibilidad
+   - Identificar cuáles no aparecen y por qué
+
+3. **Revisar permisos**:
+   - ¿Los proyectos creados por otros usuarios/roles se deberían ver públicamente?
+   - ¿Hay lógica de "solo ver mis proyectos" aplicándose donde no debería?
+
+---
+
+### SOLUCIÓN REQUERIDA:
+
+1. **Mostrar TODOS los proyectos** en la página pública de Proyectos, sin importar:
+   - Quién los creó (cualquier desarrollador/usuario)
+   - El rol del creador
+   
+2. **Excluir únicamente** proyectos que estén explícitamente en estado:
+   - "Borrador" (draft)
+   - "Eliminado" (deleted)
+   - "Desactivado" (si existe ese estado)
+
+3. **Los proyectos en estos estados SÍ deben aparecer**:
+   - Planificación
+   - En desarrollo  
+   - Entregado
+   - Publicado
+   - Activo
+
+4. **Actualizar los filtros** de la página para que funcionen correctamente con todos los proyectos
+
+5. **Verificar el conteo**: El número "X proyectos encontrados" debe coincidir con los proyectos realmente mostrados
+
+---
+
+### PASOS A EJECUTAR:
+```bash
+# 1. Primero sincronizar la rama
+git pull origin juani-dev2
+
+# 2. Hacer los cambios necesarios
+
+# 3. Probar que se vean todos los proyectos
+
+# 4. Commit y push
+git add .
+git commit -m "fix: mostrar todos los proyectos públicos en listado"
+git push origin juani-dev2
+```
+
+---
+
+### DESPUÉS DE ARREGLAR:
+
+Confirmar que en la página de Proyectos se ven:
+- Barrio Capinota
+- Villa del Lago
+- Chacras del Norte
+- Loteo San Martín
+- Barrio Las Casuarinas
+- Y TODOS los demás proyectos creados en el sistema
+
+---
+
+Por favor, primero mostrame el diagnóstico de por qué no aparecen todos los proyectos, y luego aplicá la solución.

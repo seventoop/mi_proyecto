@@ -6,8 +6,9 @@ export async function GET() {
     try {
         const proyectos = await prisma.proyecto.findMany({
             where: {
-                visibilityStatus: "PUBLICADO",
-                estado: { not: "SUSPENDIDO" },
+                deletedAt: null,
+                visibilityStatus: { not: "BORRADOR" },
+                estado: { notIn: ["SUSPENDIDO", "CANCELADO", "ELIMINADO"] },
                 OR: [
                     { isDemo: false },
                     {

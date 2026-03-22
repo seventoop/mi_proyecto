@@ -12,15 +12,17 @@ export const metadata: Metadata = {
 
 async function getProjects() {
     try {
+        const now = new Date();
         const projects = await db.proyecto.findMany({
             where: {
-                visibilityStatus: "PUBLICADO",
-                estado: { not: "SUSPENDIDO" },
+                deletedAt: null,
+                visibilityStatus: { not: "BORRADOR" },
+                estado: { notIn: ["SUSPENDIDO", "CANCELADO", "ELIMINADO"] },
                 OR: [
                     { isDemo: false },
                     {
                         isDemo: true,
-                        demoExpiresAt: { gt: new Date() }
+                        demoExpiresAt: { gt: now }
                     }
                 ]
             },
