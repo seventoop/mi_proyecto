@@ -7,6 +7,7 @@ import {
     ChevronRight, Upload, FileText, BarChart3, TrendingUp, Image, Layers, Home, Package, Globe, DollarSign, CalendarClock,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { resolveProjectIdentifier } from "@/lib/project-slug";
 import dynamic from "next/dynamic";
 import InventarioServer from "@/components/dashboard/proyectos/inventario-server";
 import ReservasList from "@/components/dashboard/reservas/reservas-list";
@@ -68,9 +69,14 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role || "INVITADO";
 
+    const resolvedProject = await resolveProjectIdentifier(params.id);
+    if (!resolvedProject) {
+        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
+    }
+
     const [proyectoRaw, statsGrouped] = await Promise.all([
         prisma.proyecto.findUnique({
-            where: { id: params.id },
+            where: { id: resolvedProject.id },
             include: {
                 etapas: {
                     include: {
@@ -107,7 +113,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         }),
         prisma.unidad.groupBy({
             by: ['estado'],
-            where: { manzana: { etapa: { proyectoId: params.id } } },
+            where: { manzana: { etapa: { proyectoId: resolvedProject.id } } },
             _count: true,
             _sum: { precio: true }
         })
@@ -153,7 +159,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     // ... previous code ...
 
     // Fetch reservas if tab is active (or always if lightweight)
-    const reservasRes = await getReservasProyecto(params.id);
+    const reservasRes = await getReservasProyecto(resolvedProject.id);
     const reservasProyecto = reservasRes.success ? (reservasRes.data || []) : [];
 
     const tabs = [
@@ -293,7 +299,6 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         <MasterplanMap
                             proyectoId={proyecto.id}
                             modo="admin"
-                            canEdit={["ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole)}
                             centerLat={proyecto.mapCenterLat || -33.0943}
                             centerLng={proyecto.mapCenterLng || -60.5475}
                         />

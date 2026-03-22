@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import ReservaCountdown from "@/components/reservas/reserva-countdown";
 import ReservaActions from "@/components/reservas/reserva-actions";
 import ReservaHistorial from "@/components/reservas/reserva-historial";
+import { projectPathSegment } from "@/lib/project-slug";
 
 async function getReservaDetail(id: string) {
     const reserva = await prisma.reserva.findUnique({
@@ -19,7 +20,7 @@ async function getReservaDetail(id: string) {
                     manzana: {
                         include: {
                             etapa: {
-                                include: { proyecto: { select: { id: true, nombre: true, ubicacion: true } } }
+                                include: { proyecto: { select: { id: true, slug: true, nombre: true, ubicacion: true } } }
                             }
                         }
                     }
@@ -67,6 +68,7 @@ export default async function ReservaDetallePage({ params }: { params: { id: str
     };
 
     const proyecto = reserva.unidad.manzana.etapa.proyecto;
+    const projectSegment = projectPathSegment(proyecto);
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -131,7 +133,7 @@ export default async function ReservaDetallePage({ params }: { params: { id: str
                                 </span>
                             </div>
                             <Link
-                                href={`/dashboard/proyectos/${proyecto.id}`}
+                                href={`/dashboard/proyectos/${projectSegment}`}
                                 className="flex items-center gap-1.5 text-sm text-brand-500 hover:underline font-medium"
                             >
                                 Ver proyecto <ExternalLink className="w-3.5 h-3.5" />

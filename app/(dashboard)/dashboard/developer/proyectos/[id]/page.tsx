@@ -14,6 +14,7 @@ import { getProjectAccess } from "@/lib/project-access";
 import { getProyectoEstadoLogs } from "@/lib/actions/validation-actions";
 import DeveloperStatusIndicators, { StatusBadge } from "@/components/dashboard/proyectos/developer-status-indicators";
 import ProjectValidationHistory from "@/components/dashboard/proyectos/project-validation-history";
+import { resolveProjectIdentifier } from "@/lib/project-slug";
 
 const ProjectDocsTab = dynamic(() => import("@/components/dashboard/proyectos/project-docs-tab"), { ssr: false });
 const MasterplanMap = dynamic(
@@ -61,10 +62,15 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const session = await getServerSession(authOptions);
     if (!session?.user) return <div className="p-20 text-center">No autorizado</div>;
 
+    const resolvedProject = await resolveProjectIdentifier(params.id);
+    if (!resolvedProject) {
+        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
+    }
+
     // Use centralized access helper
     let context;
     try {
-        context = await getProjectAccess(session.user as any, params.id);
+        context = await getProjectAccess(session.user as any, resolvedProject.id);
     } catch (e) {
         return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
     }
@@ -73,7 +79,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     // Fetch full project data for UI (etapas, pagos, etc)
     const proyecto = await prisma.proyecto.findUnique({
-        where: { id: params.id },
+        where: { id: resolvedProject.id },
         include: {
             etapas: {
                 include: { manzanas: { include: { unidades: true } } },
@@ -97,7 +103,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const userRole = context.user.role;
 
     const validationLogsRes = canSeeHistory 
-        ? await getProyectoEstadoLogs(params.id) 
+        ? await getProyectoEstadoLogs(resolvedProject.id) 
         : { success: false, data: [] };
     const validationLogs = (validationLogsRes.success ? validationLogsRes.data : []) as any[];
 
@@ -273,7 +279,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                 {activeTab === "mapa" && (
                     <ResizableContainer defaultHeight={580} minHeight={400}>
-                        <MasterplanMap proyectoId={proyecto.id} modo="admin" canEdit={["ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole)} />
+                        <MasterplanMap proyectoId={proyecto.id} modo="admin" />
                     </ResizableContainer>
                 )}
 

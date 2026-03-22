@@ -7,6 +7,7 @@ import { Home, MapPin, Calendar, FileText, Eye, MapIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import ModuleHelp from "@/components/dashboard/module-help";
 import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
+import { projectPathSegment } from "@/lib/project-slug";
 
 export default async function ClienteDashboardPage() {
     const session = await getServerSession(authOptions);
@@ -86,6 +87,7 @@ export default async function ClienteDashboardPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {misUnidades.map((unidad) => {
                         const proyecto = unidad.manzana.etapa.proyecto;
+                        const projectSegment = projectPathSegment(proyecto);
                         return (
                             <div key={unidad.id} className="bg-[#0A0A0C] border border-white/[0.06] rounded-2xl p-6 group hover:border-white/[0.12] hover:bg-white/[0.02] transition-colors ease-[cubic-bezier(0.16,1,0.3,1)] duration-300">
                                 {/* Project Header */}
@@ -133,7 +135,7 @@ export default async function ClienteDashboardPage() {
                                 <div className="flex gap-2">
                                     {proyecto.masterplanSVG && (
                                         <Link
-                                            href={`/dashboard/proyectos/${proyecto.id}?tab=masterplan&highlight=${unidad.id}`}
+                                            href={`/dashboard/proyectos/${projectSegment}?tab=masterplan&highlight=${unidad.id}`}
                                             className="flex-1 px-4 py-2 rounded-lg bg-brand-500/10 text-brand-500 font-semibold text-sm hover:bg-brand-500/20 transition-all flex items-center justify-center gap-2"
                                         >
                                             <MapIcon className="w-4 h-4" />

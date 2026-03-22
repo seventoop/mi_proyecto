@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { SuspendProjectDialog } from "./suspend-project-dialog";
+import { projectPathSegment } from "@/lib/project-slug";
 
 const estadoConfig: Record<string, { label: string; class: string }> = {
     PLANIFICACION: { label: "Planificacion", class: "bg-blue-500/10 text-blue-500 border border-blue-500/20" },
@@ -206,8 +207,9 @@ function ProjectCard({
     const vendidas = p.unidades?.vendidas || 0;
     const ocupadas = reservadas + vendidas;
     const pct = total > 0 ? Math.round((ocupadas / total) * 100) : 0;
-    const viewHref = `${projectBasePath}/${p.id}`;
-    const managementHref = managementBasePath ? `${managementBasePath}/${p.id}` : null;
+    const segment = projectPathSegment(p);
+    const viewHref = `${projectBasePath}/${segment}`;
+    const managementHref = managementBasePath ? `${managementBasePath}/${segment}` : null;
 
     return (
         <div className="flex flex-col flex-1 rounded-2xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] overflow-hidden group hover:border-slate-300 dark:hover:border-white/[0.12] hover:bg-slate-50/50 dark:hover:bg-white/[0.03] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
@@ -355,8 +357,9 @@ function TableList({
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {projects.map((p) => {
-                            const viewHref = `${projectBasePath}/${p.id}`;
-                            const managementHref = managementBasePath ? `${managementBasePath}/${p.id}` : null;
+                            const segment = projectPathSegment(p);
+                            const viewHref = `${projectBasePath}/${segment}`;
+                            const managementHref = managementBasePath ? `${managementBasePath}/${segment}` : null;
 
                             return (
                                 <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
