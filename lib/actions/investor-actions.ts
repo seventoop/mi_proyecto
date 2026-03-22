@@ -149,6 +149,44 @@ export async function getInvestmentOpportunities() {
     }
 }
 
+export async function getAllPublicProjects() {
+    try {
+        const authUser = await requireAuth();
+        const now = new Date();
+        const [proyectos, favoritos] = await Promise.all([
+            prisma.proyecto.findMany({
+                where: {
+                    estado: { notIn: ["SUSPENDIDO"] },
+                    visibilityStatus: "PUBLICADO",
+                    deletedAt: null,
+                    OR: [
+                        { isDemo: false },
+                        { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] },
+                    ],
+                },
+                select: {
+                    id: true, nombre: true, slug: true, ubicacion: true,
+                    descripcion: true, imagenPortada: true, tipo: true, estado: true,
+                    precioM2Inversor: true, precioM2Mercado: true,
+                    metaM2Objetivo: true, m2VendidosInversores: true,
+                    invertible: true, isDemo: true,
+                    _count: { select: { etapas: true } },
+                },
+                orderBy: { createdAt: "desc" },
+            }),
+            prisma.favoritoProyecto.findMany({
+                where: { userId: authUser.id },
+                select: { proyectoId: true },
+            }),
+        ]);
+        const favIds = new Set(favoritos.map(f => f.proyectoId));
+        return proyectos.map(p => ({ ...p, isFavorite: favIds.has(p.id) }));
+    } catch (error) {
+        console.error("[getAllPublicProjects]", error);
+        return [];
+    }
+}
+
 export async function toggleFavorito(proyectoId: string) {
     try {
         const authUser = await requireAuth();
