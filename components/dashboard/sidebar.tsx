@@ -115,29 +115,22 @@ const inversorNavItems = [
     { label: "Configuración", href: "/dashboard/portafolio/configuracion", icon: Settings },
 ];
 
-export default function Sidebar() {
+function getNavItems(role: string | null | undefined): any[] {
+    if (role === "ADMIN" || role === "SUPERADMIN") return adminNavItems;
+    if (role === "VENDEDOR" || role === "DESARROLLADOR") return developerNavItems;
+    if (role === "INVERSOR") return inversorNavItems;
+    if (role === "CLIENTE") return clienteNavItems;
+    return [];
+}
+
+export default function Sidebar({ initialRole }: { initialRole?: string | null }) {
     const pathname = usePathname();
     const sidebarOpen = useAppStore((state) => state.sidebarOpen);
     const toggleSidebar = useAppStore((state) => state.toggleSidebar);
-    const { data: session, status: sessionStatus } = useSession();
-    const userRole = (session?.user as any)?.role;
+    const { data: session } = useSession();
+    const userRole = (session?.user as any)?.role ?? initialRole;
 
-    // Select navigation items based on role
-    let navItems: any[] = [];
-    
-    if (sessionStatus === "loading") {
-        navItems = [];
-    } else if (userRole === "ADMIN" || userRole === "SUPERADMIN") {
-        navItems = adminNavItems;
-    } else if (userRole === "VENDEDOR" || userRole === "DESARROLLADOR") {
-        navItems = developerNavItems;
-    } else if (userRole === "INVERSOR") {
-        navItems = inversorNavItems;
-    } else if (userRole === "CLIENTE") {
-        navItems = clienteNavItems;
-    } else {
-        navItems = [];
-    }
+    const navItems = getNavItems(userRole);
 
     const [planData, setPlanData] = useState<any>(null);
 
