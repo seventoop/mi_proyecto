@@ -90,6 +90,7 @@ export default function MasterplanMap({
     const polygonsRef = useRef<Map<string, any>>(new Map());
     const prevUnitsRef = useRef<MasterplanUnit[]>([]);
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
+    const persistentImageOverlayRef = useRef<any>(null);
     const [isMapReady, setIsMapReady] = useState(false);
     const [mapView, setMapView] = useState<"satellite" | "street">("satellite");
     const [tooltip, setTooltip] = useState<{ x: number; y: number; unit: MasterplanUnit } | null>(null);
@@ -571,6 +572,78 @@ export default function MasterplanMap({
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isMapReady, tours360, units, overlayConfig, svgViewBox]);
+
+    // ── Persistent overlay layers (visible when editor is closed) ────────────────
+    // The OverlayEditor manages its own Leaflet layers while open and removes them
+    // on unmount. This effect keeps the image + bounds polygon visible at all times.
+    useEffect(() => {
+        if (!isMapReady || !leafletMapRef.current) return;
+        const map = leafletMapRef.current;
+
+        // Track both a polygon outline and an optional image overlay
+        let imageLayer: any = null;
+        let polygonLayer: any = null;
+
+        const cleanup = () => {
+            if (imageLayer)   { try { map.removeLayer(imageLayer);   } catch {} imageLayer   = null; }
+            if (polygonLayer) { try { map.removeLayer(polygonLayer); } catch {} polygonLayer = null; }
+            persistentImageOverlayRef.current = null;
+        };
+
+        // While the editor is open it owns the layers — remove our copies to avoid conflicts.
+        if (isEditingOverlay) {
+            cleanup();
+            return cleanup;
+        }
+
+        const bounds   = overlayConfig?.bounds;
+        const imageUrl = overlayConfig?.imageUrl;
+        const rotation = overlayConfig?.rotation ?? 0;
+
+        if (!bounds) {
+            cleanup();
+            return cleanup;
+        }
+
+        const setup = async () => {
+            const L = (await import("leaflet")).default;
+
+            // 1. Dashed bounding-box polygon so the user always sees where the plan is
+            const [[swLat, swLng], [neLat, neLng]] = bounds;
+            const cLat = (swLat + neLat) / 2;
+            const cLng = (swLng + neLng) / 2;
+            const rad  = (rotation * Math.PI) / 180;
+            const corners: [number, number][] = ([[swLat, swLng], [swLat, neLng], [neLat, neLng], [neLat, swLng]] as [number, number][])
+                .map(([lat, lng]) => {
+                    const dLat = lat - cLat, dLng = lng - cLng;
+                    return [
+                        cLat + dLat * Math.cos(rad) - dLng * Math.sin(rad),
+                        cLng + dLat * Math.sin(rad) + dLng * Math.cos(rad),
+                    ] as [number, number];
+                });
+            polygonLayer = (L.polygon as any)(corners, {
+                color: "#f97316", weight: 1.5, fillColor: "#f97316",
+                fillOpacity: 0.04, dashArray: "6 4", interactive: false,
+            }).addTo(map);
+
+            // 2. Image overlay (if imageUrl is a real URL, not a temporary blob)
+            if (imageUrl && !imageUrl.startsWith("blob:")) {
+                imageLayer = L.imageOverlay(imageUrl, bounds, { opacity: 0.75, interactive: false });
+                imageLayer.addTo(map);
+                imageLayer.on("load", () => {
+                    const img = imageLayer.getElement();
+                    if (img && rotation !== 0) {
+                        img.style.transformOrigin = "center center";
+                        img.style.transform = (img.style.transform || "").replace(/ rotate\([^)]*\)/g, "") + ` rotate(${rotation}deg)`;
+                    }
+                });
+                persistentImageOverlayRef.current = imageLayer;
+            }
+        };
+
+        setup();
+        return cleanup;
+    }, [isMapReady, isEditingOverlay, overlayConfig?.imageUrl, overlayConfig?.bounds, overlayConfig?.rotation]);
 
     // Real-time preview: update existing Leaflet polygon positions without full redraw
     const updatePolygonPositionsLive = useCallback((
