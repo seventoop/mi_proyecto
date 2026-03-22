@@ -1,0 +1,109 @@
+Necesito diagnosticar por qué la landing de "Barrio Capinota" muestra todo en 0 y no tiene masterplan, tour 360, etc.
+
+---
+
+## PASO 1: DIAGNÓSTICO
+
+Revisá en la base de datos qué tiene cargado el proyecto "Barrio Capinota":
+```sql
+-- Datos del proyecto
+SELECT * FROM proyectos WHERE slug = 'barrio-capinota';
+
+-- Lotes asociados
+SELECT COUNT(*) as total_lotes FROM lotes WHERE proyecto_id = (SELECT id FROM proyectos WHERE slug = 'barrio-capinota');
+
+-- Imágenes/galería
+SELECT COUNT(*) as total_imagenes FROM imagenes WHERE proyecto_id = (SELECT id FROM proyectos WHERE slug = 'barrio-capinota');
+
+-- Tour 360
+SELECT tour_360_url FROM proyectos WHERE slug = 'barrio-capinota';
+
+-- Masterplan/plano
+SELECT masterplan_url, coordenadas FROM proyectos WHERE slug = 'barrio-capinota';
+```
+
+Y decime qué datos tiene y cuáles faltan.
+
+---
+
+## PASO 2: IDENTIFICAR EL PROBLEMA
+
+¿El problema es:
+
+**A) DATOS NO CARGADOS:**
+- El proyecto existe pero no tiene lotes creados
+- No tiene imágenes subidas
+- No tiene coordenadas del masterplan
+- No tiene tour 360 configurado
+- No tiene precios
+
+**B) FUNCIONALIDAD NO DESARROLLADA:**
+- Los componentes de masterplan interactivo no existen
+- El visor de tour 360 no está implementado
+- La galería no está conectada
+
+**C) AMBOS:**
+- Faltan datos Y falta funcionalidad
+
+---
+
+## PASO 3: SEGÚN EL DIAGNÓSTICO
+
+### Si es problema de DATOS (opción A):
+
+Cargar información completa para Barrio Capinota:
+
+**Lotes (crear 20-30 lotes):**
+- Números correlativos
+- Superficies: 300-600 m²
+- Precios: USD 15,000 - USD 40,000
+- Estados variados: 70% disponible, 15% reservado, 15% vendido
+- Coordenadas/polígonos para cada lote
+
+**Imágenes:**
+- Imagen de portada
+- Galería (5-10 fotos)
+- Imagen del masterplan/plano
+
+**Masterplan:**
+- Coordenadas del terreno
+- Imagen del plano para superposición
+- Bounds configurados
+
+**Tour 360 (si existe):**
+- URL del tour
+- O marcar que no tiene
+
+**Precios:**
+- Precio desde (el más bajo)
+- Precio promedio
+
+### Si es problema de FUNCIONALIDAD (opción B):
+
+Implementar los componentes que faltan en la landing:
+- Visor de masterplan interactivo con lotes clickeables
+- Galería de imágenes con lightbox
+- Visor de tour 360 (embed)
+- Conexión de datos reales a la UI
+
+---
+
+## PASO 4: HACER LO MISMO PARA TODOS LOS PROYECTOS
+
+Una vez identificado el problema, aplicar la solución a TODOS los proyectos:
+- Barrio Capinota
+- Reserva Geodevia
+- Barrio Los Álamos
+- Y todos los demás
+
+---
+
+## PREGUNTA CLAVE:
+
+¿Los pasos de creación de proyecto en el dashboard (paso 2, 3, 4, 5 donde se cargan lotes, masterplan, etc.) están guardando correctamente la información en la base de datos?
+
+Porque si el desarrollador carga los datos en el dashboard pero no se guardan bien, ese es el bug a arreglar.
+
+---
+
+Por favor, hacé el diagnóstico y decime qué encontrás.
