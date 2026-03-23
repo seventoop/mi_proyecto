@@ -38,8 +38,9 @@ export default async function InventarioPage({
         proyectoIds = [...relationIds, ...legacyIds].filter((id, i, arr) => arr.indexOf(id) === i);
     }
 
+    const resolvedSearchParams = await searchParams;
     const { data: unidades } = await getAllUnidades({
-        estado: searchParams.estado,
+        estado: resolvedSearchParams.estado,
         proyectoIds,
     });
 

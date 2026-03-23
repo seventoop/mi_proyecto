@@ -6,9 +6,10 @@ import { OrchestratorClient } from "../orchestrator-client";
 export default async function HealthPage({
     searchParams
 }: {
-    searchParams: { orgId?: string }
+    searchParams: Promise<{ orgId?: string }>
 }) {
-    const orgId = searchParams.orgId;
+    const resolvedSearchParams = await searchParams;
+    const orgId = resolvedSearchParams.orgId;
 
     const orgs = await db.organization.findMany({
         select: { id: true, nombre: true },

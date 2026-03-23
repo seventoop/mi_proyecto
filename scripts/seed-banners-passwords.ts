@@ -70,7 +70,7 @@ async function main() {
             where: { email: u.email },
             data: { password: hash },
         });
-        console.log(`  ✓ ${u.label} → ${u.password}`);
+        console.log(`  ✓ ${u.label} password updated`);
     }
 
     // ─── 2. Create banners for each project ───────────────────
