@@ -43,6 +43,6 @@ externalPort = 80
 NEXTAUTH_URL = "https://cb37229e-fc15-4f9e-804d-490db4ef5a87-00-z2dt1tbifb0i.spock.replit.dev"
 
 [deployment]
-run = ["sh", "-c", "npm run dev"]
-deploymentTarget = "cloudrun"
+run = ["sh", "-c", "npm run start"]
+deploymentTarget = "autoscale"
 build = ["sh", "-c", "npm run build"]
