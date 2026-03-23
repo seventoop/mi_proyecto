@@ -434,7 +434,7 @@ export async function crearLeadLanding(data: {
 }): Promise<ActionResponse> {
     try {
         // Rate limiting: 5 submissions per IP per 10 minutes
-        const headersList = headers();
+        const headersList = await headers();
         const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
             || headersList.get("x-real-ip")
             || "unknown";
@@ -510,7 +510,7 @@ export async function crearConsultaContacto(data: {
 }): Promise<ActionResponse> {
     try {
         // Rate limiting: 5 submissions per IP per 10 minutes
-        const headersList = headers();
+        const headersList = await headers();
         const ip = headersList.get("x-forwarded-for")?.split(",")[0].trim()
             || headersList.get("x-real-ip")
             || "unknown";

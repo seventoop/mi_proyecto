@@ -117,7 +117,7 @@ export async function crearSimulacionFinanciacion(data: unknown): Promise<{
     leadId?: string;
 }> {
     // 1. Rate limit
-    const ip = getClientIp(new Request("http://x", { headers: headers() }));
+    const ip = getClientIp(new Request("http://x", { headers: await headers() }));
     const rl = await checkRateLimit(ip, SIMULATION_RATE_LIMIT);
     if (!rl.allowed) {
         return { success: false, error: "Demasiadas solicitudes. Intentá de nuevo en unos minutos." };
