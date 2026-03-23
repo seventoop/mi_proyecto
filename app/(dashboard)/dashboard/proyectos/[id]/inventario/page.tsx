@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import Link from "next/link";
 import {
     ArrowLeft, Search, Filter, Download, Upload, Plus, Edit3,
@@ -56,7 +56,8 @@ const estadoBadge: Record<string, { label: string; class: string }> = {
 const etapas = ["Etapa 1", "Etapa 2", "Etapa 3"];
 const manzanas = ["Mza A", "Mza B", "Mza C", "Mza D", "Mza E", "Mza F"];
 
-export default function InventarioPage({ params }: { params: { id: string } }) {
+export default function InventarioPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const [search, setSearch] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     const [filterEstado, setFilterEstado] = useState<string | null>(null);
