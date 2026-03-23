@@ -1,10 +1,10 @@
 # Seventoop - Real Estate Platform
 
 ## Overview
-Next.js 14 real estate platform with dashboard for managing loteo (subdivisions) projects. Features public showcase pages, masterplan editing (SVG + Google Maps overlay), unit/lot management, 360 tours, lead capture, and admin tools.
+Next.js 15 real estate platform with dashboard for managing loteo (subdivisions) projects. Features public showcase pages, masterplan editing (SVG + Google Maps overlay), unit/lot management, 360 tours, lead capture, and admin tools.
 
 ## Architecture
-- **Framework**: Next.js 14 (App Router) with TypeScript
+- **Framework**: Next.js 15.0.8 (App Router) with TypeScript
 - **Database**: PostgreSQL via Prisma ORM
 - **Auth**: NextAuth (credentials provider)
 - **Styling**: Tailwind CSS + shadcn/ui
@@ -44,6 +44,5 @@ Working on `juani-dev2` — push to `origin juani-dev2`
 ## Build Optimization (Production)
 - Build command: `rm -rf .next && NODE_OPTIONS="--max-old-space-size=4096" npm run build` (clears cache + 4GB heap)
 - `productionBrowserSourceMaps: false` — no source maps in prod to reduce memory
-- `swcMinify: true` — SWC-based minification
 - `optimizePackageImports` includes lucide-react, recharts, @radix-ui/react-icons, framer-motion, date-fns, and @radix-ui components
 - `.env.production` disables Sentry DSN and ignores Sentry API resolution errors during build
