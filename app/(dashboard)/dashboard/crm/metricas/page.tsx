@@ -10,9 +10,10 @@ import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 export default async function MetricasPage({ 
     searchParams 
 }: { 
-    searchParams: { orgId?: string } 
+    searchParams: Promise<{ orgId?: string }>
 }) {
-    const context = await resolveAdminOrgContext(searchParams.orgId);
+    const resolvedSearchParams = await searchParams;
+    const context = await resolveAdminOrgContext(resolvedSearchParams.orgId);
     const { orgId, user, needsSelection, error } = context;
 
     if (needsSelection) {

@@ -9,18 +9,19 @@ import { authOptions } from "@/lib/auth";
 export default async function ReservasPage({
     searchParams
 }: {
-    searchParams: { [key: string]: string | string[] | undefined }
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+    const resolvedSearchParams = await searchParams;
     const session = await getServerSession(authOptions);
     const userId = (session?.user as any)?.id;
     const userRole = (session?.user as any)?.role;
 
-    const page = Number(searchParams?.page) || 1;
-    const search = typeof searchParams?.search === "string" ? searchParams.search : undefined;
-    const estado = typeof searchParams?.estado === "string" ? searchParams.estado : "ACTIVA";
-    const proyecto = typeof searchParams?.proyecto === "string" ? searchParams.proyecto : undefined;
-    const vendedor = typeof searchParams?.vendedor === "string" ? searchParams.vendedor : undefined;
-    const estadoPago = typeof searchParams?.estadoPago === "string" ? searchParams.estadoPago : undefined;
+    const page = Number(resolvedSearchParams?.page) || 1;
+    const search = typeof resolvedSearchParams?.search === "string" ? resolvedSearchParams.search : undefined;
+    const estado = typeof resolvedSearchParams?.estado === "string" ? resolvedSearchParams.estado : "ACTIVA";
+    const proyecto = typeof resolvedSearchParams?.proyecto === "string" ? resolvedSearchParams.proyecto : undefined;
+    const vendedor = typeof resolvedSearchParams?.vendedor === "string" ? resolvedSearchParams.vendedor : undefined;
+    const estadoPago = typeof resolvedSearchParams?.estadoPago === "string" ? resolvedSearchParams.estadoPago : undefined;
 
     // Fetch filters and page data
     const res = await getReservas(page, 10, {

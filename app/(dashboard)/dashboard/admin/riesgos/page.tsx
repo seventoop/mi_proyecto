@@ -14,12 +14,13 @@ import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 export default async function AdminRisksPage({
     searchParams
 }: {
-    searchParams: { level?: string }
+    searchParams: Promise<{ level?: string }>
 }) {
+    const resolvedSearchParams = await searchParams;
     const session = await getServerSession(authOptions);
     if ((session?.user as any)?.role !== "ADMIN") redirect("/dashboard");
 
-    const res = await getUsersRiskData({ level: searchParams.level });
+    const res = await getUsersRiskData({ level: resolvedSearchParams.level });
 
     // Type-safe data extraction
     const users = res.success ? res.data.users : [];

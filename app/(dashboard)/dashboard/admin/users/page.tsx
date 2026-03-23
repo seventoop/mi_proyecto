@@ -8,12 +8,13 @@ import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 export default async function AdminUsersPage({
     searchParams
 }: {
-    searchParams: { [key: string]: string | string[] | undefined }
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-    const page = Number(searchParams?.page) || 1;
-    const search = typeof searchParams?.search === "string" ? searchParams.search : undefined;
-    const role = typeof searchParams?.role === "string" ? searchParams.role : undefined;
-    const kyc = typeof searchParams?.kyc === "string" ? searchParams.kyc : undefined;
+    const resolvedSearchParams = await searchParams;
+    const page = Number(resolvedSearchParams?.page) || 1;
+    const search = typeof resolvedSearchParams?.search === "string" ? resolvedSearchParams.search : undefined;
+    const role = typeof resolvedSearchParams?.role === "string" ? resolvedSearchParams.role : undefined;
+    const kyc = typeof resolvedSearchParams?.kyc === "string" ? resolvedSearchParams.kyc : undefined;
 
     const res = await getUsers(page, 10, search, role, kyc);
 

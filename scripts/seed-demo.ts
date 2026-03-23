@@ -439,7 +439,7 @@ async function main() {
     }
 
     console.log("✅ Seed completed!");
-    console.log(`\n📋 CREDENCIALES DE ACCESO (password: ${PASSWORD})`);
+    console.log(`\n📋 CREDENCIALES DE ACCESO`);
     console.log("- hector.ruiz@demo.seventoop.com      → DESARROLLADOR (org: Desarrollos Los Álamos)");
     console.log("- maria.garcia@demo.seventoop.com     → VENDEDOR       (org: Desarrollos Los Álamos)");
     console.log("- carlos.lopez@demo.seventoop.com     → DESARROLLADOR  (org: Loteos San Martín)");
