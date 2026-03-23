@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid locale" }, { status: 400 });
     }
 
-    cookies().set("NEXT_LOCALE", locale, {
+    (await cookies()).set("NEXT_LOCALE", locale, {
       path: "/",
       maxAge: 31536000, // 1 año
       sameSite: "lax",
