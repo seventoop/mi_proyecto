@@ -26,17 +26,18 @@ const infraestructuraUpdateBodySchema = z.object({
 // GET /api/infraestructura/[id]
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+      const { id } = await params;
     const user = await requireAuth();
 
-    const idParsed = idSchema.safeParse(params.id);
+    const idParsed = idSchema.safeParse(id);
     if (!idParsed.success) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    const item = await prisma.infraestructura.findUnique({ where: { id: params.id } });
+    const item = await prisma.infraestructura.findUnique({ where: { id: id } });
     if (!item) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
     if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
@@ -64,18 +65,19 @@ export async function GET(
 // PUT /api/infraestructura/[id] — full update
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+      const { id } = await params;
     const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "VENDEDOR", "DESARROLLADOR"]);
 
-    const idParsed = idSchema.safeParse(params.id);
+    const idParsed = idSchema.safeParse(id);
     if (!idParsed.success) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
     const existing = await prisma.infraestructura.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       select: { proyectoId: true },
     });
     if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -135,7 +137,7 @@ export async function PUT(
     if (visible !== undefined) updateData.visible = visible;
 
     const item = await prisma.infraestructura.update({
-      where: { id: params.id },
+      where: { id: id },
       data: updateData,
     });
 
@@ -154,18 +156,19 @@ export async function PUT(
 // DELETE /api/infraestructura/[id]
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+      const { id } = await params;
     const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "VENDEDOR", "DESARROLLADOR"]);
 
-    const idParsed = idSchema.safeParse(params.id);
+    const idParsed = idSchema.safeParse(id);
     if (!idParsed.success) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
     const existing = await prisma.infraestructura.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       select: { proyectoId: true },
     });
     if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -180,7 +183,7 @@ export async function DELETE(
       }
     }
 
-    await prisma.infraestructura.delete({ where: { id: params.id } });
+    await prisma.infraestructura.delete({ where: { id: id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return handleApiGuardError(error);

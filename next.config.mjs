@@ -7,11 +7,14 @@ const nextConfig = {
     typescript: {
         ignoreBuildErrors: true,
     },
+    productionBrowserSourceMaps: false,
     experimental: {
         optimizePackageImports: [
             "lucide-react",
             "framer-motion",
             "date-fns",
+            "recharts",
+            "@radix-ui/react-icons",
             "@radix-ui/react-dialog",
             "@radix-ui/react-dropdown-menu",
             "@radix-ui/react-select",

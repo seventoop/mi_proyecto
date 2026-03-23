@@ -4,11 +4,12 @@ import prisma from "@/lib/db";
 // GET /api/developments/[id]
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const proyecto = await prisma.proyecto.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             include: {
                 etapas: {
                     include: {
@@ -51,13 +52,14 @@ export async function GET(
 // PUT /api/developments/[id]
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const body = await request.json();
 
         const proyecto = await prisma.proyecto.update({
-            where: { id: params.id },
+            where: { id: id },
             data: {
                 nombre: body.nombre,
                 descripcion: body.descripcion,
@@ -85,11 +87,12 @@ export async function PUT(
 // DELETE /api/developments/[id]
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         await prisma.proyecto.delete({
-            where: { id: params.id },
+            where: { id: id },
         });
 
         return NextResponse.json({ message: "Proyecto eliminado" });

@@ -6,13 +6,14 @@ import { requireAuth, requireReservaPermission, handleApiGuardError } from "@/li
 // ─── GET /api/reservas/[id]/documento — Generate & download PDF ───
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAuth();
 
         const reserva = await prisma.reserva.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             include: {
                 unidad: {
                     include: {
@@ -39,7 +40,7 @@ export async function GET(
         }
 
         // Security: Use canonical guard for consistent bypass and tenant isolation
-        await requireReservaPermission(params.id);
+        await requireReservaPermission(id);
 
         const pdfBuffer = await generateReservaPDF({
             reservaId: reserva.id,

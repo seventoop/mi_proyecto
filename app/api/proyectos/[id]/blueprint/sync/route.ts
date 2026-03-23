@@ -16,18 +16,19 @@ interface SyncPath {
 
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
-        await requireProjectOwnership(params.id);
+        await requireProjectOwnership(id);
         const body = await request.json();
         const { paths, svgContent } = body as { paths: SyncPath[]; svgContent: string };
 
         if (!paths || !Array.isArray(paths) || paths.length === 0) {
             if (svgContent) {
                 await prisma.proyecto.update({
-                    where: { id: params.id },
+                    where: { id: id },
                     data: { masterplanSVG: svgContent },
                 });
                 return NextResponse.json({ success: true, message: "Masterplan guardado.", created: 0, updated: 0 });
@@ -36,7 +37,7 @@ export async function POST(
         }
 
         const project = await prisma.proyecto.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             select: {
                 overlayBounds: true,
                 etapas: {
@@ -60,7 +61,7 @@ export async function POST(
         if (!firstEtapa) {
             const newEtapa = await prisma.etapa.create({
                 data: {
-                    proyectoId: params.id,
+                    proyectoId: id,
                     nombre: "Etapa 1",
                     orden: 1,
                     estado: "PENDIENTE",
@@ -81,7 +82,7 @@ export async function POST(
 
         // 3. Save updated SVG to project
         await prisma.proyecto.update({
-            where: { id: params.id },
+            where: { id: id },
             data: { masterplanSVG: svgContent },
         });
 

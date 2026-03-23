@@ -4,13 +4,14 @@ import { requireAuth, requireAnyRole, handleApiGuardError } from "@/lib/guards";
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAuth();
 
         const project = await prisma.proyecto.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             select: {
                 orgId: true,
                 overlayUrl: true,
@@ -64,14 +65,15 @@ export async function GET(
 
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR", "VENDEDOR"]);
 
         // Resolve project for tenant check
         const project = await prisma.proyecto.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             select: { orgId: true },
         });
 
@@ -91,7 +93,7 @@ export async function POST(
 
         // Update project with new overlay config
         const updatedProject = await prisma.proyecto.update({
-            where: { id: params.id },
+            where: { id: id },
             data: {
                 overlayUrl: imageUrl,
                 overlayBounds: bounds ? JSON.stringify(bounds) : null,

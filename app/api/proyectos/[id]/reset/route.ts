@@ -11,12 +11,13 @@ import { requireAnyRole, requireProjectOwnership, handleApiGuardError } from "@/
  */
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         // Only ADMIN/SUPERADMIN can reset (as per Task 2 instruction)
         await requireAnyRole(["ADMIN", "SUPERADMIN"]);
-        await requireProjectOwnership(params.id);
+        await requireProjectOwnership(id);
 
         let body: { steps?: Record<string, boolean> };
         try {
@@ -30,9 +31,9 @@ export async function POST(
 
         // ─── PASO 2: Plano DXF ────────────────────────────────────────────────
         if (steps.paso2) {
-            await prisma.etapa.deleteMany({ where: { proyectoId: params.id } });
+            await prisma.etapa.deleteMany({ where: { proyectoId: id } });
             await prisma.proyecto.update({
-                where: { id: params.id },
+                where: { id: id },
                 data: { masterplanSVG: null },
             });
             reset.push("paso2");
@@ -41,7 +42,7 @@ export async function POST(
         // ─── PASO 3: Masterplan / lotes ───────────────────────────────────────
         if (steps.paso3 && !steps.paso2) {
             const etapas = await prisma.etapa.findMany({
-                where: { proyectoId: params.id },
+                where: { proyectoId: id },
                 include: { manzanas: { select: { id: true } } },
             });
 
@@ -78,7 +79,7 @@ export async function POST(
         // ─── PASO 4: Mapa interactivo / overlay ───────────────────────────────
         if (steps.paso4) {
             await prisma.proyecto.update({
-                where: { id: params.id },
+                where: { id: id },
                 data: {
                     overlayUrl: null,
                     overlayBounds: null,
@@ -93,7 +94,7 @@ export async function POST(
 
         // ─── PASO 5: Tour 360° ────────────────────────────────────────────────
         if (steps.paso5) {
-            await prisma.tour360.deleteMany({ where: { proyectoId: params.id } });
+            await prisma.tour360.deleteMany({ where: { proyectoId: id } });
             reset.push("paso5");
         }
 

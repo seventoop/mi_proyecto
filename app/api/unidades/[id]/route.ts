@@ -5,13 +5,14 @@ import { requireAuth, requireAnyRole, handleApiGuardError } from "@/lib/guards";
 // GET /api/unidades/[id]
 export async function GET(
     _request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAuth();
 
         const unidad = await prisma.unidad.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             include: {
                 manzana: {
                     include: {
@@ -61,14 +62,15 @@ export async function GET(
 // PUT /api/unidades/[id]
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "VENDEDOR", "DESARROLLADOR"]);
 
         // Resolve org before mutating — fail-secure tenant boundary.
         const existing = await prisma.unidad.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             select: {
                 manzana: {
                     select: {
@@ -143,7 +145,7 @@ export async function PUT(
         if (body.estado && body.previousEstado && body.estado !== body.previousEstado) {
             await prisma.historialUnidad.create({
                 data: {
-                    unidadId: params.id,
+                    unidadId: id,
                     usuarioId: user.id,
                     estadoAnterior: body.previousEstado,
                     estadoNuevo: body.estado,
@@ -153,7 +155,7 @@ export async function PUT(
         }
 
         const unidad = await prisma.unidad.update({
-            where: { id: params.id },
+            where: { id: id },
             data: {
                 numero: body.numero,
                 tipo: body.tipo,
@@ -193,13 +195,14 @@ export async function PUT(
 // DELETE /api/unidades/[id]
 export async function DELETE(
     _request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
 
         const existing = await prisma.unidad.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             select: {
                 manzana: {
                     select: {
@@ -224,7 +227,7 @@ export async function DELETE(
             }
         }
 
-        await prisma.unidad.delete({ where: { id: params.id } });
+        await prisma.unidad.delete({ where: { id: id } });
         return NextResponse.json({ message: "Unidad eliminada" });
     } catch (error) {
         return handleApiGuardError(error);

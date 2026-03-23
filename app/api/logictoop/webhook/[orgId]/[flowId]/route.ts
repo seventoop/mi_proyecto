@@ -9,7 +9,7 @@ import { handleApiGuardError } from "@/lib/guards";
  */
 export async function POST(
     req: NextRequest,
-    { params }: { params: { orgId: string; flowId: string } }
+    { params }: { params: Promise<{ orgId: string; flowId: string }> }
 ) {
     // @security-waive: PUBLIC - Secured by x-logictoop-secret
     try {
@@ -19,7 +19,7 @@ export async function POST(
             return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 });
         }
 
-        const { orgId, flowId } = params;
+        const { orgId, flowId } = await params;
         const secret = req.headers.get("x-logictoop-secret") || "";
         const payload = await req.json().catch(() => ({}));
 

@@ -40,3 +40,10 @@ Working on `juani-dev2` — push to `origin juani-dev2`
 - `typescript.ignoreBuildErrors: true` in next.config
 - `MasterplanMap` dynamically imported (no SSR) due to Leaflet
 - Overlay config passed server-side through `getProjectShowcasePayload` to avoid auth-protected API calls in public mode
+
+## Build Optimization (Production)
+- Build command: `rm -rf .next && NODE_OPTIONS="--max-old-space-size=4096" npm run build` (clears cache + 4GB heap)
+- `productionBrowserSourceMaps: false` — no source maps in prod to reduce memory
+- `swcMinify: true` — SWC-based minification
+- `optimizePackageImports` includes lucide-react, recharts, @radix-ui/react-icons, framer-motion, date-fns, and @radix-ui components
+- `.env.production` disables Sentry DSN and ignores Sentry API resolution errors during build

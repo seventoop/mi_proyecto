@@ -5,14 +5,15 @@ import { requireAuth, requireAnyRole, handleApiGuardError } from "@/lib/guards";
 // GET /api/proyectos/[id]/imagenes-mapa
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+      const { id } = await params;
     const user = await requireAuth();
 
     if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
       const proyecto = await prisma.proyecto.findUnique({
-        where: { id: params.id },
+        where: { id: id },
         select: { orgId: true },
       });
       if (!proyecto) {
@@ -26,7 +27,7 @@ export async function GET(
     }
 
     const items = await prisma.imagenMapa.findMany({
-      where: { proyectoId: params.id },
+      where: { proyectoId: id },
       orderBy: [{ orden: "asc" }, { createdAt: "asc" }],
       include: { unidad: { select: { id: true, numero: true } } },
     });
@@ -40,14 +41,15 @@ export async function GET(
 // POST /api/proyectos/[id]/imagenes-mapa
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+      const { id } = await params;
     const user = await requireAnyRole(["ADMIN", "VENDEDOR", "DESARROLLADOR"]);
 
     if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
       const proyecto = await prisma.proyecto.findUnique({
-        where: { id: params.id },
+        where: { id: id },
         select: { orgId: true },
       });
       if (!proyecto) {
@@ -67,7 +69,7 @@ export async function POST(
 
     const item = await prisma.imagenMapa.create({
       data: {
-        proyectoId: params.id,
+        proyectoId: id,
         url,
         tipo,
         titulo: titulo || null,

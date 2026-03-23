@@ -12,12 +12,13 @@ const manzanaCreateBodySchema = z.object({
 // POST /api/etapas/[id]/manzanas
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
 
-        const etapaIdParsed = idSchema.safeParse(params.id);
+        const etapaIdParsed = idSchema.safeParse(id);
         if (!etapaIdParsed.success) {
             return NextResponse.json({ error: "ID de etapa inválido" }, { status: 400 });
         }
@@ -35,7 +36,7 @@ export async function POST(
         // Tenant enforcement: etapa → proyecto → orgId
         if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
             const etapa = await prisma.etapa.findUnique({
-                where: { id: params.id },
+                where: { id: id },
                 select: { proyecto: { select: { orgId: true } } },
             });
             if (!etapa) {
@@ -46,7 +47,7 @@ export async function POST(
                 return NextResponse.json({ error: "Etapa no encontrada" }, { status: 404 });
             }
         } else {
-            const etapa = await prisma.etapa.findUnique({ where: { id: params.id }, select: { id: true } });
+            const etapa = await prisma.etapa.findUnique({ where: { id: id }, select: { id: true } });
             if (!etapa) {
                 return NextResponse.json({ error: "Etapa no encontrada" }, { status: 404 });
             }
@@ -54,7 +55,7 @@ export async function POST(
 
         const manzana = await prisma.manzana.create({
             data: {
-                etapaId: params.id,
+                etapaId: id,
                 nombre: data.nombre,
                 coordenadas: data.coordenadas ?? null,
             },

@@ -13,12 +13,13 @@ function hasLeadAccess(sessionUser: any, leadOrgId: string | null): boolean {
 
 import { leadUpdateSchema } from "@/lib/validations";
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const { id } = await params;
         const user = await requireAuth();
 
         const lead = await db.lead.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             include: {
                 oportunidades: true,
                 reservas: true,
@@ -57,13 +58,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const { id } = await params;
         const user = await requireAuth();
 
         // IDOR check: verify the lead belongs to the user's org before mutating
         const existingLead = await db.lead.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             select: { orgId: true },
         });
         if (!existingLead) {
@@ -83,7 +85,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         const updateData: any = { ...validation.data };
 
         const lead = await db.lead.update({
-            where: { id: params.id },
+            where: { id: id },
             data: updateData,
         });
 

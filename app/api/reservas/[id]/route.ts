@@ -7,13 +7,14 @@ import { getProjectAccess, ProjectPermission } from "@/lib/project-access";
 // ─── GET /api/reservas/[id] — Single reservation detail ───
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAuth();
 
         const reserva = await prisma.reserva.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             include: {
                 unidad: {
                     include: {
@@ -83,15 +84,16 @@ export async function GET(
 // ─── PUT /api/reservas/[id] — Update reservation ───
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAuth();
         const body = await req.json();
         const { action, ...data } = body;
 
         const reserva = await prisma.reserva.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             include: {
                 unidad: { include: { manzana: { include: { etapa: { include: { proyecto: true } } } } } },
                 vendedor: { select: { id: true, nombre: true } },
@@ -122,7 +124,7 @@ export async function PUT(
                     return NextResponse.json({ error: "No autorizado para registrar pagos" }, { status: 403 });
                 }
                 updated = await prisma.reserva.update({
-                    where: { id: params.id },
+                    where: { id: id },
                     data: {
                         estadoPago: "PAGADO",
                         montoSena: data.montoSena || reserva.montoSena,
@@ -133,7 +135,7 @@ export async function PUT(
                         userId: user.id,
                         action: "RESERVA_PAGO_REGISTRADO",
                         entity: "Reserva",
-                        entityId: params.id,
+                        entityId: id,
                         details: JSON.stringify({ actor: user.role, montoSena: data.montoSena ?? reserva.montoSena }),
                     },
                 });
@@ -148,7 +150,7 @@ export async function PUT(
                     return NextResponse.json({ error: "nuevaFechaVencimiento es requerida" }, { status: 400 });
                 }
                 updated = await prisma.reserva.update({
-                    where: { id: params.id },
+                    where: { id: id },
                     data: {
                         fechaVencimiento: new Date(data.nuevaFechaVencimiento),
                     },
@@ -158,7 +160,7 @@ export async function PUT(
                         userId: user.id,
                         action: "RESERVA_EXTENDIDA",
                         entity: "Reserva",
-                        entityId: params.id,
+                        entityId: id,
                         details: JSON.stringify({ actor: user.role, nuevaFechaVencimiento: data.nuevaFechaVencimiento }),
                     },
                 });
@@ -171,7 +173,7 @@ export async function PUT(
                 }
                 updated = await prisma.$transaction(async (tx) => {
                     const res = await tx.reserva.update({
-                        where: { id: params.id },
+                        where: { id: id },
                         data: { estado: "CANCELADA" },
                     });
 
@@ -196,7 +198,7 @@ export async function PUT(
                 try {
                     if (pusher) {
                         await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CANCELLED, {
-                            reservaId: params.id,
+                            reservaId: id,
                             unidadId: reserva.unidadId,
                         });
                         await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
@@ -215,7 +217,7 @@ export async function PUT(
                 }
                 updated = await prisma.$transaction(async (tx) => {
                     const res = await tx.reserva.update({
-                        where: { id: params.id },
+                        where: { id: id },
                         data: { estado: "CONVERTIDA" },
                     });
 
@@ -240,7 +242,7 @@ export async function PUT(
                             userId: user.id,
                             action: "ADMIN_RESERVA_CONVERTIDA_VENTA",
                             entity: "Reserva",
-                            entityId: params.id,
+                            entityId: id,
                             details: JSON.stringify({
                                 adminId: user.id,
                                 unidadId: reserva.unidadId,
@@ -256,7 +258,7 @@ export async function PUT(
                 try {
                     if (pusher) {
                         await pusher.trigger(CHANNELS.RESERVAS, EVENTS.RESERVA_CONVERTED, {
-                            reservaId: params.id,
+                            reservaId: id,
                             unidadId: reserva.unidadId,
                         });
                         await pusher.trigger(CHANNELS.UNIDADES, EVENTS.UNIDAD_STATUS_CHANGED, {
@@ -281,13 +283,14 @@ export async function PUT(
 // ─── DELETE /api/reservas/[id] ───
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         await requireRole("ADMIN");
 
         const reserva = await prisma.reserva.findUnique({
-            where: { id: params.id },
+            where: { id: id },
         });
 
         if (!reserva) {
@@ -295,7 +298,7 @@ export async function DELETE(
         }
 
         await prisma.$transaction(async (tx) => {
-            await tx.reserva.delete({ where: { id: params.id } });
+            await tx.reserva.delete({ where: { id: id } });
             if (reserva.estado === "ACTIVA") {
                 await tx.unidad.update({
                     where: { id: reserva.unidadId },

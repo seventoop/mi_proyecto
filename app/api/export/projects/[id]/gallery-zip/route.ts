@@ -6,12 +6,13 @@ import { PassThrough } from "stream";
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        await requireProjectOwnership(params.id);
+        const { id } = await params;
+        await requireProjectOwnership(id);
 
-        const projectId = params.id;
+        const projectId = id;
 
         // Verify project existence
         const proyecto = await prisma.proyecto.findUnique({

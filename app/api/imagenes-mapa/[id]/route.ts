@@ -5,13 +5,14 @@ import prisma from "@/lib/db";
 // PUT /api/imagenes-mapa/[id]
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+      const { id } = await params;
     const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "VENDEDOR", "DESARROLLADOR"]);
 
     const existing = await prisma.imagenMapa.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       select: { proyectoId: true },
     });
     if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -44,7 +45,7 @@ export async function PUT(
     if (planScale !== undefined) updateData.planScale = planScale != null ? Math.max(0.05, Number(planScale)) : 1;
 
     const item = await prisma.imagenMapa.update({
-      where: { id: params.id },
+      where: { id: id },
       data: updateData,
       include: { unidad: { select: { id: true, numero: true } } },
     });
@@ -58,13 +59,14 @@ export async function PUT(
 // DELETE /api/imagenes-mapa/[id]
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+      const { id } = await params;
     const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "VENDEDOR", "DESARROLLADOR"]);
 
     const existing = await prisma.imagenMapa.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       select: { proyectoId: true },
     });
     if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -79,7 +81,7 @@ export async function DELETE(
       }
     }
 
-    await prisma.imagenMapa.delete({ where: { id: params.id } });
+    await prisma.imagenMapa.delete({ where: { id: id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return handleApiGuardError(error);

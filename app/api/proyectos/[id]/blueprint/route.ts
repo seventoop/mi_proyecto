@@ -9,13 +9,14 @@ import { requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
  */
 export async function GET(
     _request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        await requireProjectOwnership(params.id);
+        const { id } = await params;
+        await requireProjectOwnership(id);
 
         const project = await prisma.proyecto.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             select: {
                 masterplanSVG: true,
                 etapas: {
