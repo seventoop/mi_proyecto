@@ -16,11 +16,10 @@ import DeveloperStatusIndicators, { StatusBadge } from "@/components/dashboard/p
 import ProjectValidationHistory from "@/components/dashboard/proyectos/project-validation-history";
 import { resolveProjectIdentifier } from "@/lib/project-slug";
 
-const ProjectDocsTab = dynamic(() => import("@/components/dashboard/proyectos/project-docs-tab"), { ssr: false });
+const ProjectDocsTab = dynamic(() => import("@/components/dashboard/proyectos/project-docs-tab"));
 const MasterplanMap = dynamic(
     () => import("@/components/masterplan/masterplan-map"),
     {
-        ssr: false,
         loading: () => (
             <div className="h-[500px] flex items-center justify-center bg-slate-900 rounded-2xl">
                 <span className="text-slate-400">Cargando mapa...</span>
@@ -32,7 +31,6 @@ const MasterplanMap = dynamic(
 const MasterplanViewer = dynamic(
     () => import("@/components/masterplan/masterplan-viewer"),
     {
-        ssr: false,
         loading: () => (
             <div className="h-[600px] flex items-center justify-center bg-slate-900 rounded-2xl">
                 <span className="text-slate-400">Cargando Masterplan...</span>
@@ -42,12 +40,10 @@ const MasterplanViewer = dynamic(
 );
 
 const Tour360TabWrapper = dynamic(
-    () => import("@/components/dashboard/proyectos/tour360-tab-wrapper"),
-    { ssr: false }
+    () => import("@/components/dashboard/proyectos/tour360-tab-wrapper")
 );
 const ResizableContainer = dynamic(
-    () => import("@/components/ui/resizable-container"),
-    { ssr: false }
+    () => import("@/components/ui/resizable-container")
 );
 
 
