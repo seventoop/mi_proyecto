@@ -117,7 +117,7 @@ export default function InventarioPage({ params }: { params: Promise<{ id: strin
         <div className="space-y-6 animate-fade-in">
             {/* Breadcrumb */}
             <div>
-                <Link href={`/dashboard/proyectos/${params.id}`} className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4">
+                <Link href={`/dashboard/proyectos/${id}`} className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4">
                     <ArrowLeft className="w-4 h-4" />
                     Volver al Proyecto
                 </Link>

@@ -114,7 +114,6 @@ async function main() {
     for (const u of USERS_PASSWORDS) {
         console.log(`  ${u.label}`);
         console.log(`    Email:    ${u.email}`);
-        console.log(`    Password: ${u.password}`);
         console.log("");
     }
     console.log("  Admin (existente)");
