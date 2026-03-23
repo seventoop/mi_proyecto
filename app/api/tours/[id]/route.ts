@@ -8,12 +8,13 @@ const updateTourSchema = z.object({
     escenas: z.array(z.any()).optional(),
 });
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const { id } = await params;
         const user = await requireAuth();
 
         const tour = await db.tour360.findUnique({
-            where: { id: params.id },
+            where: { id },
         });
 
         if (!tour) {
@@ -33,8 +34,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const { id } = await params;
         const body = await request.json();
         const validation = updateTourSchema.safeParse(body);
 
@@ -44,7 +46,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
         // Fetch tour to check project ownership
         const existing = await db.tour360.findUnique({
-            where: { id: params.id },
+            where: { id },
             select: { proyectoId: true },
         });
 
@@ -59,11 +61,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         const tour = await db.$transaction(async (tx) => {
             if (escenas) {
                 // Simplified sync: delete and recreate
-                await tx.tourScene.deleteMany({ where: { tourId: params.id } });
+                await tx.tourScene.deleteMany({ where: { tourId: id } });
             }
 
             return await tx.tour360.update({
-                where: { id: params.id },
+                where: { id },
                 data: {
                     nombre,
                     estado: "PENDIENTE",
@@ -107,11 +109,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const { id } = await params;
         // Fetch tour to check project ownership
         const existing = await db.tour360.findUnique({
-            where: { id: params.id },
+            where: { id },
             select: { proyectoId: true },
         });
 
@@ -122,7 +125,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
         await requireProjectOwnership(existing.proyectoId);
 
         await db.tour360.delete({
-            where: { id: params.id },
+            where: { id },
         });
 
         return NextResponse.json({}, { status: 204 });

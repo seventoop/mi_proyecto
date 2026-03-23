@@ -4,13 +4,14 @@ import { updateOportunidad } from "@/lib/actions/crm-actions";
 
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         await requireAuth();
 
         const body = await request.json();
-        const result = await updateOportunidad(params.id, body);
+        const result = await updateOportunidad(id, body);
 
         if (!result.success) {
             return NextResponse.json({ error: (result as any).error }, { status: 400 });

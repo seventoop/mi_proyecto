@@ -6,14 +6,15 @@ import { runWorkflow } from "@/lib/workflow-engine";
 // POST /api/workflows/[id]/run — manually trigger a workflow run
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } },
+    { params }: { params: Promise<{ id: string }> },
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
         const workflow = await prisma.workflow.findUnique({
-            where: { id: params.id },
+            where: { id },
             select: { id: true, orgId: true, activo: true, nombre: true },
         });
 

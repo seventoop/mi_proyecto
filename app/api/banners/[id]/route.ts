@@ -3,10 +3,10 @@ import { requireAuth } from "@/lib/guards";
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const user = await requireAuth();
-        const id = params.id;
+        const { id } = await params;
 
         if (!id) return NextResponse.json({ success: false, error: "ID faltante" }, { status: 400 });
 

@@ -12,14 +12,15 @@ const patchSchema = z.object({
 // PATCH /api/workflows/[id] — update workflow fields (activo toggle, rename, etc.)
 export async function PATCH(
     request: Request,
-    { params }: { params: { id: string } },
+    { params }: { params: Promise<{ id: string }> },
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
         const workflow = await prisma.workflow.findUnique({
-            where: { id: params.id },
+            where: { id },
             select: { orgId: true },
         });
 
@@ -39,7 +40,7 @@ export async function PATCH(
         }
 
         const updated = await prisma.workflow.update({
-            where: { id: params.id },
+            where: { id },
             data: parsed.data,
         });
 
@@ -54,14 +55,15 @@ export async function PATCH(
 // GET /api/workflows/[id] — get a single workflow with full run history
 export async function GET(
     _request: Request,
-    { params }: { params: { id: string } },
+    { params }: { params: Promise<{ id: string }> },
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
         const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
 
         const workflow = await prisma.workflow.findUnique({
-            where: { id: params.id },
+            where: { id },
             include: {
                 nodos: { orderBy: { orden: "asc" } },
                 runs: {

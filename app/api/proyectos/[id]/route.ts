@@ -9,13 +9,14 @@ import {
 // GET /api/proyectos/[id] — detalle completo
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAuth();
 
         const proyecto = await prisma.proyecto.findUnique({
-            where: { id: params.id },
+            where: { id },
             include: {
                 etapas: {
                     include: {
@@ -100,15 +101,16 @@ export async function GET(
 // PUT /api/proyectos/[id] — actualizar
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        await requireProjectOwnership(params.id);
+        const { id } = await params;
+        await requireProjectOwnership(id);
 
         const body = await request.json();
 
         const proyecto = await prisma.proyecto.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 nombre: body.nombre,
                 descripcion: body.descripcion,
@@ -132,10 +134,11 @@ export async function PUT(
 // PATCH /api/proyectos/[id] — partial update (map location, etc.)
 export async function PATCH(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        await requireProjectOwnership(params.id);
+        const { id } = await params;
+        await requireProjectOwnership(id);
 
         const body = await request.json();
         const data: Record<string, any> = {};
@@ -148,7 +151,7 @@ export async function PATCH(
         }
 
         const proyecto = await prisma.proyecto.update({
-            where: { id: params.id },
+            where: { id },
             data,
         });
         return NextResponse.json({ success: true, proyecto });
@@ -160,11 +163,12 @@ export async function PATCH(
 // DELETE /api/proyectos/[id]
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     // Re-use server action logic for consistency and security
     const { deleteProyecto } = await import("@/lib/actions/proyectos");
-    const result = await deleteProyecto(params.id);
+    const result = await deleteProyecto(id);
 
     if (!result.success) {
         // Safe access to union type without 'as any' 

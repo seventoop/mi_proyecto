@@ -12,18 +12,19 @@ const manzanaUpdateBodySchema = z.object({
 // PUT /api/manzanas/[id]
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
 
-        const idParsed = idSchema.safeParse(params.id);
+        const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) {
             return NextResponse.json({ error: "ID de manzana inválido" }, { status: 400 });
         }
 
         const existing = await prisma.manzana.findUnique({
-            where: { id: params.id },
+            where: { id },
             select: {
                 etapa: {
                     select: { proyecto: { select: { orgId: true } } },
@@ -50,7 +51,7 @@ export async function PUT(
         const data = parsed.data;
 
         const manzana = await prisma.manzana.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 nombre: data.nombre,
                 coordenadas: data.coordenadas,
@@ -65,18 +66,19 @@ export async function PUT(
 // DELETE /api/manzanas/[id]
 export async function DELETE(
     _request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
 
-        const idParsed = idSchema.safeParse(params.id);
+        const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) {
             return NextResponse.json({ error: "ID de manzana inválido" }, { status: 400 });
         }
 
         const existing = await prisma.manzana.findUnique({
-            where: { id: params.id },
+            where: { id },
             select: {
                 etapa: {
                     select: { proyecto: { select: { orgId: true } } },
@@ -92,7 +94,7 @@ export async function DELETE(
             }
         }
 
-        await prisma.manzana.delete({ where: { id: params.id } });
+        await prisma.manzana.delete({ where: { id } });
         return NextResponse.json({ message: "Manzana eliminada" });
     } catch (error) {
         return handleApiGuardError(error);

@@ -4,9 +4,10 @@ import { requireAuth, AuthError } from "@/lib/guards";
 
 export async function PATCH(
     request: Request,
-    { params }: { params: { sceneId: string } }
+    { params }: { params: Promise<{ sceneId: string }> }
 ) {
     try {
+        const { sceneId } = await params;
         await requireAuth();
 
         const body = await request.json();
@@ -17,7 +18,7 @@ export async function PATCH(
         }
 
         const scene = await db.tourScene.update({
-            where: { id: params.sceneId },
+            where: { id: sceneId },
             data: { masterplanOverlay },
             select: { id: true, masterplanOverlay: true },
         });

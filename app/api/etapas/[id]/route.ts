@@ -13,18 +13,19 @@ const etapaUpdateBodySchema = z.object({
 // PUT /api/etapas/[id]
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
 
-        const idParsed = idSchema.safeParse(params.id);
+        const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) {
             return NextResponse.json({ error: "ID de etapa inválido" }, { status: 400 });
         }
 
         const existing = await prisma.etapa.findUnique({
-            where: { id: params.id },
+            where: { id },
             select: { proyectoId: true },
         });
         if (!existing) return NextResponse.json({ error: "Etapa no encontrada" }, { status: 404 });
@@ -50,7 +51,7 @@ export async function PUT(
         const data = parsed.data;
 
         const etapa = await prisma.etapa.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 nombre: data.nombre,
                 orden: data.orden,
@@ -66,18 +67,19 @@ export async function PUT(
 // DELETE /api/etapas/[id]
 export async function DELETE(
     _request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
 
-        const idParsed = idSchema.safeParse(params.id);
+        const idParsed = idSchema.safeParse(id);
         if (!idParsed.success) {
             return NextResponse.json({ error: "ID de etapa inválido" }, { status: 400 });
         }
 
         const existing = await prisma.etapa.findUnique({
-            where: { id: params.id },
+            where: { id },
             select: { proyectoId: true },
         });
         if (!existing) return NextResponse.json({ error: "Etapa no encontrada" }, { status: 404 });
@@ -92,7 +94,7 @@ export async function DELETE(
             }
         }
 
-        await prisma.etapa.delete({ where: { id: params.id } });
+        await prisma.etapa.delete({ where: { id } });
         return NextResponse.json({ message: "Etapa eliminada" });
     } catch (error) {
         return handleApiGuardError(error);
