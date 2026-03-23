@@ -3,14 +3,15 @@ import { LogicToopCanvas } from "../../canvas-components/CanvasClient";
 import { migrateToCanvas } from "@/lib/logictoop/canvas";
 
 interface CanvasPageProps {
-    params: {
+    params: Promise<{
         id: string;
-    }
+    }>
 }
 
 export default async function LogicToopCanvasPage({ params }: CanvasPageProps) {
+    const { id } = await params;
     const [flowResult, nodesResult] = await Promise.all([
-        getFlowById(params.id),
+        getFlowById(id),
         getNodeDefinitions()
     ]);
 

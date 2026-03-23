@@ -5,13 +5,14 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
 interface BuilderPageProps {
-    params: {
+    params: Promise<{
         id: string;
-    }
+    }>
 }
 
 export default async function LogicToopBuilderPage({ params }: BuilderPageProps) {
-    const result = await getFlowById(params.id);
+    const { id } = await params;
+    const result = await getFlowById(id);
 
     if (!result.success || !result.data) {
         return <div className="p-8 text-center uppercase font-black italic">Flow no encontrado</div>;

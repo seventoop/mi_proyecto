@@ -59,8 +59,9 @@ async function getUnit(id: string): Promise<UnitWithRelations | null> {
     return unit as UnitWithRelations | null;
 }
 
-export async function generateMetadata({ params }: { params: { slug: string, id: string } }): Promise<Metadata> {
-    const unit = await getUnit(params.id);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string, id: string }> }): Promise<Metadata> {
+    const { id } = await params;
+    const unit = await getUnit(id);
     const proyecto = unit?.manzana?.etapa?.proyecto;
     if (!unit || !proyecto) return { title: "Unidad no encontrada" };
     return {
@@ -69,8 +70,9 @@ export async function generateMetadata({ params }: { params: { slug: string, id:
     };
 }
 
-export default async function UnitDetailPage({ params }: { params: { slug: string, id: string } }) {
-    const unit = await getUnit(params.id);
+export default async function UnitDetailPage({ params }: { params: Promise<{ slug: string, id: string }> }) {
+    const { id, slug } = await params;
+    const unit = await getUnit(id);
 
     if (!unit) {
         notFound();
@@ -85,7 +87,7 @@ export default async function UnitDetailPage({ params }: { params: { slug: strin
             {/* Header / Breadcrumb */}
             <div className="max-w-7xl mx-auto px-4 mb-8">
                 <Link
-                    href={`/proyectos/${params.slug}/masterplan`}
+                    href={`/proyectos/${slug}/masterplan`}
                     className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-4"
                 >
                     <ArrowLeft className="w-4 h-4" /> Volver al Masterplan
@@ -177,7 +179,7 @@ export default async function UnitDetailPage({ params }: { params: { slug: strin
                     {/* Back to Project */}
                     <div className="pt-8 border-t border-white/10">
                         <Link
-                            href={`/proyectos/${params.slug}`}
+                            href={`/proyectos/${slug}`}
                             className="text-brand-400 hover:text-brand-300 font-medium flex items-center gap-2"
                         >
                             <ArrowLeft className="w-4 h-4" /> Ver más sobre {proyecto?.nombre}

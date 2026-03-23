@@ -116,8 +116,9 @@ export const metadata: Metadata = {
 
 // ─── Page Component ───
 
-export default async function PublicTour360Page({ params }: { params: { slug: string } }) {
-    const project = await getProjectWithTour(params.slug);
+export default async function PublicTour360Page({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = await params;
+    const project = await getProjectWithTour(slug);
 
     // Security: Only published projects are accessible
     if (!project) {
@@ -146,7 +147,7 @@ export default async function PublicTour360Page({ params }: { params: { slug: st
             <div className="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-slate-900 z-50">
                 <div className="flex items-center gap-4">
                     <Link
-                        href={`/proyectos/${params.slug}`}
+                        href={`/proyectos/${slug}`}
                         className="p-2 rounded-lg hover:bg-white/10 text-white transition-colors"
                     >
                         <ArrowLeft className="w-5 h-5" />
@@ -158,7 +159,7 @@ export default async function PublicTour360Page({ params }: { params: { slug: st
                 </div>
                 <div className="flex items-center gap-3">
                     <Link
-                        href={`/proyectos/${params.slug}#contacto`}
+                        href={`/proyectos/${slug}#contacto`}
                         className="px-4 py-2 rounded-lg gradient-brand text-white text-sm font-semibold shadow-glow"
                     >
                         Consultar

@@ -59,17 +59,19 @@ const ResetProjectModal = dynamic(
 
 
 interface PageProps {
-    params: { id: string };
-    searchParams: { tab?: string };
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ tab?: string }>;
 }
 
 export default async function ProyectoDetailPage({ params, searchParams }: PageProps) {
-    const activeTab = searchParams.tab || "info";
+    const { id } = await params;
+    const resolvedSearchParams = await searchParams;
+    const activeTab = resolvedSearchParams.tab || "info";
 
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role || "INVITADO";
 
-    const resolvedProject = await resolveProjectIdentifier(params.id);
+    const resolvedProject = await resolveProjectIdentifier(id);
     if (!resolvedProject) {
         return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
     }
