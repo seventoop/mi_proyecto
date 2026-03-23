@@ -92,7 +92,7 @@ export default function MasterplanMap({
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
     const persistentImageOverlayRef = useRef<any>(null);
     const [isMapReady, setIsMapReady] = useState(false);
-    const [mapView, setMapView] = useState<"satellite" | "street">("satellite");
+    const [mapView, setMapView] = useState<"satellite" | "hybrid">("satellite");
     const [tooltip, setTooltip] = useState<{ x: number; y: number; unit: MasterplanUnit } | null>(null);
 
     // Overlay editor state (bounds only — no image overlay)
@@ -747,7 +747,7 @@ export default function MasterplanMap({
     }, [proyectoId]);
 
     // Switch map view
-    const handleSwitchView = useCallback((view: "satellite" | "street") => {
+    const handleSwitchView = useCallback((view: "satellite" | "hybrid") => {
         const map = leafletMapRef.current;
         if (!map) return;
         const layers = (map as any)._tileLayers;
@@ -1043,7 +1043,7 @@ export default function MasterplanMap({
                 )}
 
                 {/* Map top-left floating controls */}
-                <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2">
+                <div className="absolute top-3 left-3 z-[1000] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2">
                     <button
                         onClick={() => setShowFilters(!showFilters)}
                         className={cn(
@@ -1070,10 +1070,10 @@ export default function MasterplanMap({
                             Satélite
                         </button>
                         <button
-                            onClick={() => handleSwitchView("street")}
+                            onClick={() => handleSwitchView("hybrid")}
                             className={cn(
                                 "px-3 py-2 text-xs font-semibold backdrop-blur-sm transition-all",
-                                mapView === "street"
+                                mapView === "hybrid"
                                     ? "bg-brand-500 text-white"
                                     : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200"
                             )}
@@ -1081,22 +1081,35 @@ export default function MasterplanMap({
                             Híbrido
                         </button>
                     </div>
+                    {modo !== "admin" && (
+                        <>
+                            <div className="h-8 w-px bg-slate-300/70 dark:bg-slate-600/70" />
+                            <div className="flex items-center gap-1 rounded-xl bg-white/90 p-1 shadow-lg backdrop-blur-sm dark:bg-slate-800/90">
+                                <button
+                                    onClick={handleZoomIn}
+                                    title="Acercar"
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-700 transition-all hover:bg-white dark:text-slate-200 dark:hover:bg-slate-700"
+                                >
+                                    <ZoomIn className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={handleZoomOut}
+                                    title="Alejar"
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-700 transition-all hover:bg-white dark:text-slate-200 dark:hover:bg-slate-700"
+                                >
+                                    <ZoomOut className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={handleResetView}
+                                    title="Centrar vista"
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-700 transition-all hover:bg-white dark:text-slate-200 dark:hover:bg-slate-700"
+                                >
+                                    <Crosshair className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
-
-                {/* Zoom controls — public mode only; admin uses toolbar */}
-                {modo !== "admin" && (
-                    <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-1">
-                        <button onClick={handleZoomIn} title="Acercar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
-                            <ZoomIn className="w-4 h-4" />
-                        </button>
-                        <button onClick={handleZoomOut} title="Alejar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
-                            <ZoomOut className="w-4 h-4" />
-                        </button>
-                        <button onClick={handleResetView} title="Centrar vista" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
-                            <Crosshair className="w-4 h-4" />
-                        </button>
-                    </div>
-                )}
 
                 {/* Hint: no overlay bounds configured yet — lotes can't be positioned */}
                 {blueprintLoaded && units.length > 0 && !overlayConfig?.bounds && modo === "admin" && (

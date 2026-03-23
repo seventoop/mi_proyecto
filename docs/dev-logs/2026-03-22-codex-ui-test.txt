@@ -1,0 +1,66 @@
+Fecha: 2026-03-22
+Scope: auditoria y correccion focalizada de la vista publica de proyectos, con prioridad en /proyectos/villa-del-lago
+
+Issues found
+- Los controles publicos de zoom (+, -, centrar) estaban renderizados en un bloque flotante independiente arriba a la derecha del mapa.
+- Ese bloque compartia zona con la tarjeta lateral de detalle del lote y podia tapar o bloquear el boton de cierre.
+- El switch visual de capas del mapa tenia una inconsistencia interna: el estado se llamaba "street" pero el mapa realmente cambiaba a la capa "hybrid".
+- La base local necesitaba revalidacion de datos visuales para que todos los proyectos quedaran consistentes y testeables.
+- El entorno local de Next presento un problema ajeno al fix funcional: cache roto de .next con vendor-chunks faltantes y error EPERM sobre .next\\trace al intentar validar por build.
+
+Fixes applied
+- Se movieron los controles publicos de zoom y centrar al mismo grupo flotante donde ya viven Filtros / Satelite / Hibrido.
+- Se elimino el bloque separado de controles en la esquina superior derecha para evitar cualquier solapamiento con el side panel.
+- Se agrego wrapping al toolbar flotante para sostener mejor el layout en anchos ajustados.
+- Se normalizo la semantica del switch del mapa usando "satellite" y "hybrid" como estados reales.
+
+Files changed
+- components/masterplan/masterplan-map.tsx
+
+Data populated
+- Se ejecuto nuevamente el seed local de proyectos: npm run db:seed
+- Resultado del seed:
+  - 7 proyectos presentes
+  - 21 imagenes publicas en proyecto_imagenes
+  - 21 infraestructuras
+  - 14 documentos
+  - 14 archivos publicos
+  - 136 lotes
+- Proyectos revalidados/poblados:
+  - reserva-geodevia
+  - barrio-los-alamos
+  - barrio-capinota
+  - villa-del-lago
+  - chacras-del-norte
+  - loteo-san-martin
+  - barrio-las-casuarinas
+
+Tests executed
+- Revision de codigo del mapa publico y del side panel para detectar conflicto de layout.
+- Seed local ejecutado con exito: npm run db:seed
+- Verificacion HTTP de la landing publica:
+  - GET http://localhost:5000/proyectos/villa-del-lago -> 200 antes de la inestabilidad de cache de Next
+- Intento de verificacion adicional de rutas publicas y build:
+  - npm run build
+  - lectura de terminal del dev server
+
+Results
+- El conflicto de UI entre controles del mapa y la tarjeta lateral quedo resuelto a nivel de layout y jerarquia visual.
+- Todos los proyectos del entorno local quedaron repoblados con portada, galeria basica, infraestructura, documentos y lotes para testing.
+- La semantica del selector Satelite/Hibrido quedo consistente con la capa realmente aplicada.
+
+Remaining risks / edge cases
+- No pude completar una validacion interactiva full E2E en navegador porque el entorno local presento un fallo de cache de Next ajeno al fix funcional:
+  - Cannot find module './vendor-chunks/@opentelemetry.js'
+  - ENOENT / cache missing vendor-chunks
+  - EPERM sobre .next\\trace al correr build
+- Ese problema parece del entorno de compilacion/cache local, no del componente del mapa corregido.
+- Cuando el entorno de Next quede limpio/estable, conviene revalidar manualmente estos flujos:
+  - abrir proyecto
+  - click en lote
+  - abrir/cerrar side panel
+  - zoom in/out
+  - centrar vista
+  - cambio Satelite/Hibrido
+  - filtros
+  - galeria y assets visuales de cada proyecto
