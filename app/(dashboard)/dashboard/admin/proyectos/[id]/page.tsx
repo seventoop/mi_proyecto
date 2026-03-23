@@ -14,16 +14,15 @@ import ReservasList from "@/components/dashboard/reservas/reservas-list";
 import { getReservasProyecto } from "@/lib/actions/reservas";
 import ProjectStatusBanner from "@/components/dashboard/proyectos/project-status-banner";
 
-const ProjectDocsTab = dynamic(() => import("@/components/dashboard/proyectos/project-docs-tab"), { ssr: false });
-const EtapasManager = dynamic(() => import("@/components/dashboard/proyectos/etapas-manager"), { ssr: false });
-const InversionPanel = dynamic(() => import("@/components/dashboard/proyectos/inversion-panel"), { ssr: false });
-const DocumentosManager = dynamic(() => import("@/components/dashboard/proyectos/documentos-manager"), { ssr: false });
-const PagosManager = dynamic(() => import("@/components/dashboard/proyectos/pagos-manager"), { ssr: false });
+const ProjectDocsTab = dynamic(() => import("@/components/dashboard/proyectos/project-docs-tab"));
+const EtapasManager = dynamic(() => import("@/components/dashboard/proyectos/etapas-manager"));
+const InversionPanel = dynamic(() => import("@/components/dashboard/proyectos/inversion-panel"));
+const DocumentosManager = dynamic(() => import("@/components/dashboard/proyectos/documentos-manager"));
+const PagosManager = dynamic(() => import("@/components/dashboard/proyectos/pagos-manager"));
 
 const MasterplanMap = dynamic(
     () => import("@/components/masterplan/masterplan-map"),
     {
-        ssr: false,
         loading: () => (
             <div className="h-[500px] flex items-center justify-center bg-slate-900 rounded-2xl">
                 <span className="text-slate-400">Cargando mapa...</span>
@@ -35,7 +34,6 @@ const MasterplanMap = dynamic(
 const MasterplanViewer = dynamic(
     () => import("@/components/masterplan/masterplan-viewer"),
     {
-        ssr: false,
         loading: () => (
             <div className="h-[600px] flex items-center justify-center bg-slate-900 rounded-2xl">
                 <span className="text-slate-400">Cargando Masterplan...</span>
@@ -45,16 +43,13 @@ const MasterplanViewer = dynamic(
 );
 
 const Tour360TabWrapper = dynamic(
-    () => import("@/components/dashboard/proyectos/tour360-tab-wrapper"),
-    { ssr: false }
+    () => import("@/components/dashboard/proyectos/tour360-tab-wrapper")
 );
 const ResizableContainer = dynamic(
-    () => import("@/components/ui/resizable-container"),
-    { ssr: false }
+    () => import("@/components/ui/resizable-container")
 );
 const ResetProjectModal = dynamic(
-    () => import("@/components/dashboard/proyectos/reset-project-modal"),
-    { ssr: false }
+    () => import("@/components/dashboard/proyectos/reset-project-modal")
 );
 
 
