@@ -7,7 +7,7 @@ import { getProjectShowcasePayload } from "@/lib/project-showcase";
 import { resolveProjectIdentifier } from "@/lib/project-slug";
 
 interface PageProps {
-    params: { id: string };
+    params: Promise<{ id: string }>;
 }
 
 function getManagementPath(projectIdOrSlug: string, role: string) {
@@ -23,13 +23,14 @@ function getManagementPath(projectIdOrSlug: string, role: string) {
 }
 
 export default async function ProyectoWorkspacePage({ params }: PageProps) {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
         return <div className="p-20 text-center text-white">No autorizado</div>;
     }
 
-    const resolvedProject = await resolveProjectIdentifier(params.id);
+    const resolvedProject = await resolveProjectIdentifier(id);
     if (!resolvedProject) {
         return (
             <div className="p-20 text-center">

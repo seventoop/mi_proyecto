@@ -53,8 +53,9 @@ async function getReservaDetail(id: string) {
     };
 }
 
-export default async function ReservaDetallePage({ params }: { params: { id: string } }) {
-    const reserva: any = await getReservaDetail(params.id);
+export default async function ReservaDetallePage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const reserva: any = await getReservaDetail(id);
 
     if (!reserva) {
         notFound();

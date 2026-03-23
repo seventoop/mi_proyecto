@@ -4,8 +4,9 @@ import { Calendar, User, Tag, ArrowLeft, Share2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-    const res = await getNoticiaBySlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = await params;
+    const res = await getNoticiaBySlug(slug);
     if (!res.success || !res.data) return { title: "Artículo no encontrado" };
     return {
         title: `${res.data.titulo} | Seventoop`,
@@ -13,8 +14,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     };
 }
 
-export default async function BlogPostPage({ params }: { params: { slug: string } }) {
-    const res = await getNoticiaBySlug(params.slug);
+export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = await params;
+    const res = await getNoticiaBySlug(slug);
     if (!res.success || !res.data) notFound();
 
     const post = res.data;

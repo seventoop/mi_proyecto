@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import ProjectDetailShowcase from "@/components/public/project-detail-showcase";
 import { getProjectShowcasePayload } from "@/lib/project-showcase";
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-    const payload = await getProjectShowcasePayload({ slugOrId: params.slug });
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+    const { slug } = await params;
+    const payload = await getProjectShowcasePayload({ slugOrId: slug });
     if (!payload) {
         return { title: "Proyecto no encontrado | Seventoop" };
     }
@@ -26,8 +27,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     };
 }
 
-export default async function ProjectLandingPage({ params }: { params: { slug: string } }) {
-    const payload = await getProjectShowcasePayload({ slugOrId: params.slug });
+export default async function ProjectLandingPage({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = await params;
+    const payload = await getProjectShowcasePayload({ slugOrId: slug });
 
     if (!payload) {
         notFound();

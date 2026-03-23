@@ -473,9 +473,13 @@ export default function TourViewer({
         const currentEstado = (args.unidad as any)?.estado || "DISPONIBLE";
 
         switch (args.type) {
-            case "lot":
-                hotSpotDiv.innerHTML = `<div class="hotspot-lot-marker">${args.text}</div>`;
+            case "lot": {
+                const lotDiv = document.createElement("div");
+                lotDiv.className = "hotspot-lot-marker";
+                lotDiv.textContent = args.text;
+                hotSpotDiv.appendChild(lotDiv);
                 break;
+            }
             case "check": // Dynamic status
             case "sold":
             case "UNIT": // New professional type
@@ -490,7 +494,12 @@ export default function TourViewer({
                 break;
             case "scene":
                 if (args.targetThumbnail) {
-                    hotSpotDiv.innerHTML = `<div class="hotspot-bubble-marker"><img src="${args.targetThumbnail}" /></div>`;
+                    const bubbleDiv = document.createElement("div");
+                    bubbleDiv.className = "hotspot-bubble-marker";
+                    const img = document.createElement("img");
+                    img.src = args.targetThumbnail;
+                    bubbleDiv.appendChild(img);
+                    hotSpotDiv.appendChild(bubbleDiv);
                 } else {
                     hotSpotDiv.innerHTML = `<div class="hotspot-status-marker scene"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></div>`;
                 }
@@ -498,7 +507,7 @@ export default function TourViewer({
             default:
                 hotSpotDiv.classList.add("custom-tooltip");
                 const span = document.createElement("span");
-                span.innerHTML = args.text || (args.unidad?.numero ? `Unidad ${args.unidad.numero}` : "");
+                span.textContent = args.text || (args.unidad?.numero ? `Unidad ${args.unidad.numero}` : "");
                 hotSpotDiv.appendChild(span);
                 break;
         }

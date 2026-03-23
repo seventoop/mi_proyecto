@@ -8,9 +8,10 @@ import { ChevronLeft, Home, MapPin, Building2, Maximize2, FileText, File, CheckC
 import { cn } from "@/lib/utils";
 import { projectPathSegment } from "@/lib/project-slug";
 
-interface Props { params: { id: string } }
+interface Props { params: Promise<{ id: string }> }
 
 export default async function PortafolioPropiedadDetallePage({ params }: Props) {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user) redirect("/login");
 
@@ -20,7 +21,7 @@ export default async function PortafolioPropiedadDetallePage({ params }: Props) 
     if (!["CLIENTE", "INVERSOR", "ADMIN", "SUPERADMIN"].includes(role)) redirect("/dashboard");
 
     const unidad = await prisma.unidad.findUnique({
-        where: { id: params.id },
+        where: { id },
         include: {
             manzana: { include: { etapa: { include: { proyecto: { select: { id: true, slug: true, nombre: true, ubicacion: true, imagenPortada: true } } } } } }
         }
