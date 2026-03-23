@@ -412,7 +412,7 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
     const globalFontSize = Math.min(vbW, vbH) / 80;
 
     const handleExportExcel = async () => {
-        const { utils, writeFile } = await import("xlsx");
+        const ExcelJS = (await import("exceljs")).default;
         const exportData = units.map(u => ({
             Lote: u.numero,
             Estado: u.estado,
@@ -426,10 +426,20 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
             Etapa: (u as any).manzana?.etapa?.nombre || "N/A"
         }));
 
-        const wb = utils.book_new();
-        const ws = utils.json_to_sheet(exportData);
-        utils.book_append_sheet(wb, ws, "Inventario");
-        writeFile(wb, `Inventario-${proyectoId}.xlsx`);
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Inventario");
+        if (exportData.length > 0) {
+            worksheet.columns = Object.keys(exportData[0]).map(key => ({ header: key, key }));
+            exportData.forEach(row => worksheet.addRow(row));
+        }
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Inventario-${proyectoId}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     if (loading) {
