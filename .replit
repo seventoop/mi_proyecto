@@ -41,3 +41,8 @@ externalPort = 80
 
 [userenv.shared]
 NEXTAUTH_URL = "https://cb37229e-fc15-4f9e-804d-490db4ef5a87-00-z2dt1tbifb0i.spock.replit.dev"
+
+[deployment]
+run = ["sh", "-c", "npm run dev"]
+deploymentTarget = "cloudrun"
+build = ["sh", "-c", "npm run build"]
