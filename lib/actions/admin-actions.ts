@@ -16,8 +16,8 @@ export async function getHealthStatus() {
 
     return {
         db,
-        storage: (process.env.AWS_S3_BUCKET || process.env.SUPABASE_URL) ? "HEALTHY" : "NOT_CONFIGURED",
-        pusher: (process.env.PUSHER_APP_ID && process.env.PUSHER_KEY && process.env.PUSHER_SECRET) ? "HEALTHY" : "NOT_CONFIGURED",
+        storage: (process.env.STORAGE_BUCKET && process.env.STORAGE_ACCESS_KEY) ? "HEALTHY" : "NOT_CONFIGURED",
+        pusher: (process.env.PUSHER_APP_ID && process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.PUSHER_SECRET) ? "HEALTHY" : "NOT_CONFIGURED",
         whatsapp: (process.env.WHATSAPP_API_KEY || process.env.META_WEBHOOK_SECRET) ? "HEALTHY" : "NOT_CONFIGURED",
     };
 }
@@ -152,8 +152,8 @@ export async function getAdminDashboardData() {
                 auditLogs,
                 health: {
                     db: dbStatus,
-                    storage: (process.env.AWS_S3_BUCKET || process.env.SUPABASE_URL) ? "HEALTHY" : "NOT_CONFIGURED",
-                    pusher: (process.env.PUSHER_APP_ID && process.env.PUSHER_KEY && process.env.PUSHER_SECRET) ? "CONFIGURED" : "NOT_CONFIGURED",
+                    storage: (process.env.STORAGE_BUCKET && process.env.STORAGE_ACCESS_KEY) ? "HEALTHY" : "NOT_CONFIGURED",
+                    pusher: (process.env.PUSHER_APP_ID && process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.PUSHER_SECRET) ? "CONFIGURED" : "NOT_CONFIGURED",
                     whatsapp: (process.env.WHATSAPP_API_KEY || process.env.META_WEBHOOK_SECRET) ? "CONFIGURED" : "NOT_CONFIGURED",
                 }
             }

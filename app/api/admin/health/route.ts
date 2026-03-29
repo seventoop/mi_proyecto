@@ -19,7 +19,7 @@ export async function GET() {
         const storage = !!(process.env.STORAGE_ACCESS_KEY && process.env.STORAGE_BUCKET);
 
         // Pusher health (check if env vars exist)
-        const pusher = !!(process.env.PUSHER_APP_ID && process.env.PUSHER_KEY && process.env.PUSHER_SECRET);
+        const pusher = !!(process.env.PUSHER_APP_ID && process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.PUSHER_SECRET);
 
         return NextResponse.json({ db, storage, pusher });
     } catch (error) {
