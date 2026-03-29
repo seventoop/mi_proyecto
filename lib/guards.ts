@@ -193,12 +193,12 @@ export async function requireReservaPermission(reservaId: string): Promise<AuthU
 
 /**
  * Validates CRON_SECRET header for cron endpoints.
- * Enforces POST method and x-cron-secret header.
+ * Enforces GET/POST method and Authorization: Bearer <CRON_SECRET> header.
  * Returns true or throws AuthError.
  */
 export function requireCronSecret(request: Request): void {
     // 1. Validate Method
-    if (request.method !== "POST") {
+    if (request.method !== "GET" && request.method !== "POST") {
         throw new AuthError("Método no permitido", 405);
     }
 
@@ -209,8 +209,13 @@ export function requireCronSecret(request: Request): void {
     }
 
     // 3. Validate Header
-    const cronHeader = request.headers.get("x-cron-secret");
-    if (cronHeader !== secret) {
+    const authHeader = request.headers.get("authorization") || "";
+    const xCronHeader = request.headers.get("x-cron-secret") || "";
+    
+    const isBearerValid = authHeader === `Bearer ${secret}`;
+    const isXCronValid = xCronHeader === secret;
+
+    if (!isBearerValid && !isXCronValid) {
         throw new AuthError("No autorizado", 401);
     }
 }

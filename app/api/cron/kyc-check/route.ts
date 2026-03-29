@@ -3,10 +3,13 @@ import prisma from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
     // @security-waive: PUBLIC - handled via CRON_SECRET check
     const authHeader = request.headers.get("authorization");
-    if (authHeader !== "Bearer " + process.env.CRON_SECRET) {
+    const xCronHeader = request.headers.get("x-cron-secret");
+    const secret = process.env.CRON_SECRET;
+
+    if (authHeader !== "Bearer " + secret && xCronHeader !== secret) {
         return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
