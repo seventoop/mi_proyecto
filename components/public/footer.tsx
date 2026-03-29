@@ -30,9 +30,10 @@ export default function Footer() {
                             <Image
                                 src="/logo-navbar.png"
                                 alt="SevenToop"
-                                width={260}
-                                height={90}
+                                width={220}
+                                height={60}
                                 className="object-contain"
+                                style={{ width: 'auto', height: 'auto' }}
                             />
                         </Link>
                     </div>

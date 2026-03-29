@@ -189,6 +189,7 @@ export default function Sidebar() {
                                 width={160}
                                 height={48}
                                 className="object-contain"
+                                style={{ width: 'auto', height: 'auto' }}
                                 priority
                             />
                         ) : (

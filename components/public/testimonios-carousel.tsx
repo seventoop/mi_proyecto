@@ -38,7 +38,7 @@ export default function TestimoniosCarousel() {
             rating: 5,
             estado: 'APROBADO',
             mediaUrl: null,
-            createdAt: new Date(),
+            createdAt: new Date('2024-03-20'),
         },
         {
             id: '2',
@@ -48,7 +48,7 @@ export default function TestimoniosCarousel() {
             rating: 5,
             estado: 'APROBADO',
             mediaUrl: null,
-            createdAt: new Date(),
+            createdAt: new Date('2024-03-20'),
         },
         {
             id: '3',
@@ -58,7 +58,7 @@ export default function TestimoniosCarousel() {
             rating: 4,
             estado: 'APROBADO',
             mediaUrl: null,
-            createdAt: new Date(),
+            createdAt: new Date('2024-03-20'),
         },
         {
             id: '4',
@@ -68,7 +68,7 @@ export default function TestimoniosCarousel() {
             rating: 5,
             estado: 'APROBADO',
             mediaUrl: null,
-            createdAt: new Date(),
+            createdAt: new Date('2024-03-20'),
         },
         {
             id: '5',
@@ -78,7 +78,7 @@ export default function TestimoniosCarousel() {
             rating: 5,
             estado: 'APROBADO',
             mediaUrl: null,
-            createdAt: new Date(),
+            createdAt: new Date('2024-03-20'),
         },
         {
             id: '6',
@@ -88,7 +88,7 @@ export default function TestimoniosCarousel() {
             rating: 4,
             estado: 'APROBADO',
             mediaUrl: null,
-            createdAt: new Date(),
+            createdAt: new Date('2024-03-20'),
         },
     ];
     const displayData = testimonios.length > 0 ? testimonios : fallback;
@@ -102,7 +102,7 @@ export default function TestimoniosCarousel() {
                     effect={'coverflow'}
                     grabCursor={true}
                     centeredSlides={true}
-                    loop={true}
+                    loop={displayData.length > 8}
                     speed={800}
                     autoplay={{
                         delay: 4000,

@@ -219,10 +219,11 @@ export default function Navbar() {
                     <Image
                         src="/logo-navbar.png"
                         alt="SevenToop"
-                        width={140}
-                        height={40}
+                        width={220}
+                        height={60}
                         priority
-                        className="h-auto w-[120px] object-contain sm:w-[140px] translate-y-[7.5px]"
+                        className="object-contain translate-y-[7.5px]"
+                        style={{ width: 'auto', height: 'auto' }}
                     />
                 </Link>
 
