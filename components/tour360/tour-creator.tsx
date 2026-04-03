@@ -30,7 +30,7 @@ import {
     type SceneOverlayCalibration,
 } from "@/lib/tour-overlay";
 
-// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Types ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+// ─── Types ───
 export type HotspotType = "info" | "scene" | "link" | "lot" | "check" | "sold" | "gallery" | "video";
 
 export interface Hotspot {
@@ -170,7 +170,7 @@ function buildSceneImageForm(scene: Scene | null): SceneImageFormState {
     };
 }
 
-// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Hotspot icon options ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+// ─── Hotspot icon options ───
 const HOTSPOT_ICONS: { value: string; label: string; emoji: string }[] = [
     { value: "info", label: "Info", emoji: "ℹ️" },
     { value: "lot", label: "Lote N°", emoji: "📌" },
@@ -590,7 +590,7 @@ export default function TourCreator({
         setTourSaved(false);
     }, [scenes]);
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Upscale Handler ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ─── Upscale Handler ───
     const handleUpscale = async (scene: Scene) => {
         if (!scene.imageUrl) return;
 
@@ -604,7 +604,7 @@ export default function TourCreator({
                 console.log(msg);
             });
 
-            if (!enhancedImageSrc) throw new Error("FallÃƒÆ’Ã‚Â³ el procesamiento de la imagen");
+            if (!enhancedImageSrc) throw new Error("Falló el procesamiento de la imagen");
 
             // Create new scene for the rendered version
             const newScene: Scene = {
@@ -816,7 +816,7 @@ export default function TourCreator({
     }, []);
 
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Project overlay data ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ─── Project overlay data ───
     useEffect(() => {
         const fetchProjectData = async () => {
             try {
@@ -883,7 +883,7 @@ export default function TourCreator({
         fetchProjectData();
     }, [proyectoId]);
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Handle click on panorama to place objects ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ─── Handle click on panorama to place objects ───
     const handleViewerClick = useCallback(
         (e: React.MouseEvent) => {
             if (editorMode === 'view' || !viewerInstance.current || !activeSceneId) return;
@@ -1054,7 +1054,7 @@ export default function TourCreator({
     };
 
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ File upload ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ─── File upload ───
     const uploadFile = async (file: File): Promise<{ url: string; filename: string } | null> => {
         const id = `upload-${Date.now()}-${Math.random()}`;
         setUploads((prev) => [
@@ -1101,7 +1101,7 @@ export default function TourCreator({
     };
 
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ 2:1 Equirectangular Validation ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ─── 2:1 Equirectangular Validation ───
     const validateEquirectangular = (file: File): Promise<{ valid: boolean; width: number; height: number; ratio: number }> => {
         return new Promise((resolve) => {
             const img = new Image();
@@ -1135,10 +1135,10 @@ export default function TourCreator({
                 const result = await validateEquirectangular(file);
                 if (!result.valid) {
                     const proceed = confirm(
-                        `ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â "${file.name}" no tiene proporciÃƒÆ’Ã‚Â³n 2:1 (equirectangular).\n\n` +
-                        `ResoluciÃƒÆ’Ã‚Â³n: ${result.width}ÃƒÆ’Ã¢â‚¬â€${result.height} (ratio ${result.ratio.toFixed(2)}:1)\n` +
-                        `Se recomienda una imagen con proporciÃƒÆ’Ã‚Â³n 2:1 para una experiencia 360Ãƒâ€šÃ‚Â° ÃƒÆ’Ã‚Â³ptima.\n\n` +
-                        `Ãƒâ€šÃ‚Â¿Desea continuar de todas formas?`
+                        `⚠️ "${file.name}" no tiene proporción 2:1 (equirectangular).\n\n` +
+                        `Resolución: ${result.width}×${result.height} (ratio ${result.ratio.toFixed(2)}:1)\n` +
+                        `Se recomienda una imagen con proporción 2:1 para una experiencia 360° óptima.\n\n` +
+                        `¿Desea continuar de todas formas?`
                     );
                     if (!proceed) continue;
                 }
@@ -1195,8 +1195,8 @@ export default function TourCreator({
         handleFilesSelected(e.dataTransfer.files);
     };
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Scene management ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Scene management ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ─── Scene management ───
+    // ─── Scene management ───
     const deleteScene = (sceneId: string) => {
         setScenes((prev) => prev.filter((s) => s.id !== sceneId));
         if (activeSceneId === sceneId) {
@@ -1278,7 +1278,7 @@ export default function TourCreator({
         );
     };
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Save tour ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ─── Save tour ───
     // ─── Save tour ───
     const handleSave = async () => {
         if (scenes.length === 0) return;
@@ -1298,7 +1298,7 @@ export default function TourCreator({
         }
     };
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Delete tour ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ─── Delete tour ───
     const handleDeleteTour = async () => {
         if (!onDelete || !confirm("¿Estás seguro de que querés eliminar este tour completo? Esta acción no se puede deshacer.")) return;
 
@@ -1320,14 +1320,14 @@ export default function TourCreator({
             />
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
 
-            {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Gallery Modal / View ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+            {/* ─── Gallery Modal / View ─── */}
             <AnimatePresence>
                 {/* Gallery Mode implementation could go here as an overlay or separate view */}
             </AnimatePresence>
 
             {/* Main editor layout */}
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 min-h-0">
-                {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Left: Viewer ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+                {/* ─── Left: Viewer ─── */}
                 <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/50 min-h-[400px]">
                     {scenes.length > 0 ? (
                         <>
@@ -1421,21 +1421,21 @@ export default function TourCreator({
                                     >
                                         <div className="flex items-center gap-2 text-sm font-semibold text-brand-400">
                                             {editorMode === 'hotspot' && <><MapPin className="w-4 h-4" /> Colocando Hotspot</>}
-                                            {editorMode === 'polygon' && <><Grid3x3 className="w-4 h-4" /> Dibujando PolÃƒÆ’Ã‚Â­gono ({currentPolygonPoints.length} ptos)</>}
+                                            {editorMode === 'polygon' && <><Grid3x3 className="w-4 h-4" /> Dibujando Polígono ({currentPolygonPoints.length} ptos)</>}
                                             {editorMode === 'label' && <><Pencil className="w-4 h-4" /> Colocando Etiqueta</>}
                                         </div>
 
                                         <div className="text-xs text-slate-400 text-center">
-                                            {editorMode === 'label' && !pendingLandmarkAnchor && "HacÃƒÆ’Ã‚Â© clic en el punto exacto de interÃƒÆ’Ã‚Â©s (el piso o un objeto)."}
-                                            {editorMode === 'label' && pendingLandmarkAnchor && "HacÃƒÆ’Ã‚Â© clic donde querÃƒÆ’Ã‚Â©s que flote la etiqueta de texto."}
-                                            {editorMode !== 'label' && `HacÃƒÆ’Ã‚Â© clic en la imagen para ${editorMode === 'polygon' ? 'agregar un punto' : 'colocar el elemento'}.`}
+                                            {editorMode === 'label' && !pendingLandmarkAnchor && "Hacé clic en el punto exacto de interés (el piso o un objeto)."}
+                                            {editorMode === 'label' && pendingLandmarkAnchor && "Hacé clic donde querés que flote la etiqueta de texto."}
+                                            {editorMode !== 'label' && `Hacé clic en la imagen para ${editorMode === 'polygon' ? 'agregar un punto' : 'colocar el elemento'}.`}
                                         </div>
 
                                         {editorMode === 'polygon' && (
                                             <div className="flex flex-col gap-2 w-full">
                                                 <input
                                                     type="text"
-                                                    placeholder="Lote NÃƒâ€šÃ‚Â° / Texto"
+                                                    placeholder="Lote N° / Texto"
                                                     value={polygonProperties.hoverText}
                                                     onChange={e => setPolygonProperties(prev => ({ ...prev, hoverText: e.target.value }))}
                                                     className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-brand-500"
@@ -1466,14 +1466,14 @@ export default function TourCreator({
                                     <button
                                         onClick={() => setEditorMode(editorMode === 'label' ? 'view' : 'label')}
                                         className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'label' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="UbicaciÃƒÆ’Ã‚Â³n"
+                                        title="Ubicación"
                                     >
                                         <MapPin className="w-6 h-6" />
                                     </button>
                                     <button
                                         onClick={() => setEditorMode(editorMode === 'polygon' ? 'view' : 'polygon')}
                                         className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'polygon' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Dibujar PolÃƒÆ’Ã‚Â­gono"
+                                        title="Dibujar Polígono"
                                     >
                                         <Grid3x3 className="w-6 h-6" />
                                     </button>
@@ -1632,7 +1632,7 @@ export default function TourCreator({
                                             </div>
                                             <h3 className="text-xl font-bold text-white mb-2">Mejorando Imagen con IA</h3>
                                             <p className="text-slate-400 text-sm mb-6">
-                                                Esto puede tomar unos momentos. Estamos aumentando la resoluciÃƒÆ’Ã‚Â³n y reduciendo el ruido.</p>
+                                                Esto puede tomar unos momentos. Estamos aumentando la resolución y reduciendo el ruido.</p>
                                             <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
                                                 <motion.div
                                                     className="h-full bg-gradient-to-r from-brand-500 to-indigo-500"
@@ -1691,7 +1691,7 @@ export default function TourCreator({
                     />
                 </div>
 
-                {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Right: Sidebar ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+                {/* ─── Right: Sidebar ─── */}
                 <div className="flex flex-col bg-black rounded-3xl border border-white/5 overflow-hidden min-h-0 shadow-2xl">
                     {/* Toggle Gallery Button */}
                     <div className="flex items-center justify-between p-4 border-b border-slate-800/50">
@@ -2037,7 +2037,7 @@ export default function TourCreator({
                         )}
                     </div>
 
-                    {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Hotspot Controls ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+                    {/* ─── Hotspot Controls ─── */}
                     {activeScene && (
                         <div className="border-t border-white/5 p-4 space-y-4">
                             <div className="flex items-center justify-between px-1">

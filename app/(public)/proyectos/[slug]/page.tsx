@@ -76,7 +76,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         <div className="bg-background text-foreground selection:bg-brand-500/30 overflow-x-hidden">
 
             {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                HERO â€” Full screen with parallax image
+                HERO — Full screen with parallax image
             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             <section className="relative h-screen min-h-[680px] flex flex-col justify-end overflow-hidden">
                 {/* Parallax background */}
@@ -199,7 +199,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-                    {/* Card 1 â€” Mapa Interactivo */}
+                    {/* Card 1 — Mapa Interactivo */}
                     <Link
                         href={`/proyectos/${params.slug}/masterplan?view=mapa`}
                         className="group relative overflow-hidden rounded-3xl bg-card border border-border shadow-sm hover:border-brand-500/40 transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-brand-500/10 min-h-[320px] flex flex-col justify-between p-8"
@@ -226,7 +226,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                         <div className="absolute inset-0 bg-gradient-to-br from-brand-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                     </Link>
 
-                    {/* Card 2 â€” Masterplan del Proyecto */}
+                    {/* Card 2 — Masterplan del Proyecto */}
                     <Link
                         href={`/proyectos/${params.slug}/masterplan?view=plano`}
                         className="group relative overflow-hidden rounded-3xl bg-card border border-border shadow-sm hover:border-indigo-500/40 transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/10 min-h-[320px] flex flex-col justify-between p-8"
@@ -316,7 +316,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                             {P.descripcion || "El desarrollador está preparando la descripción del proyecto."}
                         </p>
 
-                        {/* Feature grid â€” real data when available, tasteful defaults otherwise */}
+                        {/* Feature grid — real data when available, tasteful defaults otherwise */}
                         <div className="grid grid-cols-2 gap-4">
                             {[
                                 { icon: Trees, label: "Espacios Verdes", text: "Áreas naturales integradas" },

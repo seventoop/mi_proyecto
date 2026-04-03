@@ -27,7 +27,7 @@ const imageUrlSchema = z
 
 const sceneSchema = z.object({
     id: z.string().optional(),
-    title: z.string().min(1, "TÃ­tulo de escena requerido"),
+    title: z.string().min(1, "Título de escena requerido"),
     imageUrl: imageUrlSchema,
     masterplanOverlay: z.any().optional().nullable(),
     isDefault: z.boolean().default(false),
@@ -115,7 +115,7 @@ export async function getPublicTour(tourId: string) {
 
         // Security requirement: Only published projects
         if ((tour as any).proyecto.estado !== "PUBLICADO") {
-            return { success: false, error: "Este tour no estÃƒÆ’Ã‚Â¡ disponible pÃƒÆ’Ã‚Âºblicamente" };
+            return { success: false, error: "Este tour no está disponible públicamente" };
         }
 
         return { success: true, data: tour };
@@ -138,7 +138,7 @@ export async function upsertTour(input: unknown) {
     try {
         const parsed = createTourSchema.partial({ proyectoId: true }).safeParse(input);
         if (!parsed.success) {
-            return { success: false, error: parsed.error.issues[0]?.message || "Datos invÃƒÆ’Ã‚Â¡lidos" };
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
         }
 
         const data = parsed.data as any;
