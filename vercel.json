@@ -1,8 +1,4 @@
 {
-  "crons": [
-    { "path": "/api/cron/kyc-check", "schedule": "*/10 * * * *" },
-    { "path": "/api/cron/check-reservas", "schedule": "0 * * * *" }
-  ],
   "headers": [
     {
       "source": "/(.*)",
