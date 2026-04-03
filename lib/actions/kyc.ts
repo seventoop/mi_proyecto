@@ -7,6 +7,7 @@ import { createNotification } from "./notifications";
 import { audit } from "./audit";
 import { z } from "zod";
 import { idSchema } from "@/lib/validations";
+import { clearDeveloperDemoProjects } from "./kyc-shared";
 
 // ─── Queries ───
 
@@ -76,10 +77,7 @@ export async function updateKYCStatus(userId: string, status: "VERIFICADO" | "RE
             });
 
             if (status === "VERIFICADO") {
-                await tx.proyecto.updateMany({
-                    where: { creadoPorId: userId, isDemo: true },
-                    data: { isDemo: false, demoExpiresAt: null }
-                });
+                await clearDeveloperDemoProjects(tx, userId);
             }
 
             if (status === "RECHAZADO" || status === "VERIFICADO") {

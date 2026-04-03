@@ -36,7 +36,7 @@ export default function Comunidad() {
             {/* Ambient Background */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-orange/5 blur-[150px] rounded-full pointer-events-none" />
 
-            <div className="max-w-7xl mx-auto px-6 relative z-10">
+            <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 xl:px-12 relative z-10">
                 <div className="text-center mb-16 md:mb-20">
                     <span className="text-brand-orange font-bold uppercase tracking-widest text-sm mb-4 block">
                         {t.community.badge}
@@ -49,7 +49,7 @@ export default function Comunidad() {
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto items-stretch">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 xl:gap-10 max-w-[1320px] mx-auto items-stretch">
                     {TIERS.map((tier) => (
                         <div
                             key={tier.name}
@@ -86,7 +86,7 @@ export default function Comunidad() {
                                 </div>
                             </div>
 
-                            <p className="text-muted-foreground mb-8 min-h-[60px] text-sm md:text-base">
+                            <p className="text-muted-foreground mb-8 min-h-[60px] text-base leading-relaxed">
                                 {tier.desc}
                             </p>
 
@@ -97,7 +97,7 @@ export default function Comunidad() {
                                             "w-5 h-5 shrink-0",
                                             tier.highlight ? "text-brand-orange" : "text-blue-500/60"
                                         )} />
-                                        <span className="text-foreground/80 font-medium text-sm md:text-base">
+                                        <span className="text-foreground/85 font-medium text-base leading-relaxed">
                                             {feat}
                                         </span>
                                     </li>

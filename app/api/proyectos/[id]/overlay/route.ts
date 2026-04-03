@@ -2,6 +2,41 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireAuth, requireAnyRole, handleApiGuardError } from "@/lib/guards";
 
+type LatLngTuple = [number, number];
+type QuadCorners = [LatLngTuple, LatLngTuple, LatLngTuple, LatLngTuple];
+
+function parseOverlayBounds(raw: string | null): {
+    bounds: [LatLngTuple, LatLngTuple] | null;
+    corners: QuadCorners | null;
+} {
+    if (!raw) {
+        return { bounds: null, corners: null };
+    }
+
+    try {
+        const parsed = JSON.parse(raw);
+
+        if (
+            Array.isArray(parsed) &&
+            parsed.length === 2 &&
+            Array.isArray(parsed[0]) &&
+            Array.isArray(parsed[1])
+        ) {
+            return { bounds: parsed as [LatLngTuple, LatLngTuple], corners: null };
+        }
+
+        if (parsed && typeof parsed === "object") {
+            const bounds = Array.isArray(parsed.bounds) ? parsed.bounds as [LatLngTuple, LatLngTuple] : null;
+            const corners = Array.isArray(parsed.corners) ? parsed.corners as QuadCorners : null;
+            return { bounds, corners };
+        }
+    } catch (e) {
+        console.error("Error parsing overlay bounds", e);
+    }
+
+    return { bounds: null, corners: null };
+}
+
 export async function GET(
     request: Request,
     { params }: { params: { id: string } }
@@ -33,20 +68,13 @@ export async function GET(
             }
         }
 
-        // Parse JSON bounds if they exist
-        let bounds = null;
-        if (project.overlayBounds) {
-            try {
-                bounds = JSON.parse(project.overlayBounds);
-            } catch (e) {
-                console.error("Error parsing overlay bounds", e);
-            }
-        }
+        const { bounds, corners } = parseOverlayBounds(project.overlayBounds);
 
         return NextResponse.json({
             config: {
                 imageUrl: project.overlayUrl,
                 bounds: bounds,
+                corners,
                 rotation: project.overlayRotation || 0,
                 opacity: 0.8, // Default opacity for editor
                 mapCenter: {
@@ -87,14 +115,16 @@ export async function POST(
         }
 
         const body = await request.json();
-        const { imageUrl, bounds, rotation, mapCenter } = body;
+        const { imageUrl, bounds, corners, rotation, mapCenter } = body;
 
         // Update project with new overlay config
         const updatedProject = await prisma.proyecto.update({
             where: { id: params.id },
             data: {
                 overlayUrl: imageUrl,
-                overlayBounds: bounds ? JSON.stringify(bounds) : null,
+                overlayBounds: bounds
+                    ? JSON.stringify(corners ? { bounds, corners } : bounds)
+                    : null,
                 overlayRotation: rotation,
                 // Optional: update map center/zoom if provided
                 ...(mapCenter && {

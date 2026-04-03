@@ -108,7 +108,7 @@ export default function TestimoniosPage() {
     };
 
     return (
-        <div className="p-6 h-[calc(100vh-64px)] flex flex-col max-w-[1600px] mx-auto overflow-hidden">
+        <div className="p-6 h-[calc(100vh-64px)] flex flex-col overflow-hidden">
             <div className="flex flex-col mb-6">
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Moderación de Testimonios</h1>
                 <p className="text-slate-500 dark:text-slate-400">Revisa y aprueba las reseñas de clientes y desarrolladores.</p>

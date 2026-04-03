@@ -58,17 +58,17 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
 
     if (isSuccess) {
         return (
-            <div className={cn("text-center py-10 bg-brand-orange/10 rounded-2xl border border-brand-orange/20", className)}>
+            <div className={cn("text-center py-10 bg-brand-orange/10 rounded-2xl border border-brand-orange/20 shadow-sm", className)}>
                 <div className="w-16 h-16 bg-brand-orange rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-brand-orange/20">
                     <CheckCircle className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-2">¡Mensaje Enviado!</h3>
-                <p className="text-foreground/50 max-w-xs mx-auto mb-6">
+                <h3 className="text-2xl font-bold text-foreground mb-2">¡Mensaje enviado!</h3>
+                <p className="text-base text-muted-foreground max-w-xs mx-auto mb-6 leading-7">
                     Un asesor se pondrá en contacto contigo a la brevedad.
                 </p>
                 <button
                     onClick={() => setIsSuccess(false)}
-                    className="text-sm font-semibold text-brand-orange hover:text-brand-orangeDark hover:underline"
+                    className="text-base font-semibold text-brand-orange hover:text-brand-orangeDark hover:underline"
                 >
                     Enviar otro mensaje
                 </button>
@@ -79,50 +79,50 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className={cn("space-y-4", className)}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5 ">
-                    <label className="text-sm font-medium text-foreground/60">Nombre completo</label>
+                <div className="space-y-1.5">
+                    <label className="text-[15px] font-semibold text-foreground">Nombre completo</label>
                     <input
                         {...register("nombre")}
                         placeholder="Ej: Juan Pérez"
-                        className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all"
+                        className="w-full px-4 py-3.5 rounded-xl bg-background border border-border text-base text-foreground placeholder:text-base placeholder:text-muted-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all shadow-sm"
                     />
-                    {errors.nombre && <p className="text-xs text-rose-400">{errors.nombre.message}</p>}
+                    {errors.nombre && <p className="text-sm text-rose-500">{errors.nombre.message}</p>}
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground/60">Teléfono</label>
+                    <label className="text-[15px] font-semibold text-foreground">Teléfono</label>
                     <input
                         {...register("telefono")}
                         placeholder="+54 9 11..."
-                        className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all"
+                        className="w-full px-4 py-3.5 rounded-xl bg-background border border-border text-base text-foreground placeholder:text-base placeholder:text-muted-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all shadow-sm"
                     />
-                    {errors.telefono && <p className="text-xs text-rose-400">{errors.telefono.message}</p>}
+                    {errors.telefono && <p className="text-sm text-rose-500">{errors.telefono.message}</p>}
                 </div>
             </div>
 
             <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground/60">Email</label>
+                <label className="text-[15px] font-semibold text-foreground">Email</label>
                 <input
                     {...register("email")}
                     type="email"
                     placeholder="juan@ejemplo.com"
-                    className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all"
+                    className="w-full px-4 py-3.5 rounded-xl bg-background border border-border text-base text-foreground placeholder:text-base placeholder:text-muted-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all shadow-sm"
                 />
-                {errors.email && <p className="text-xs text-rose-400">{errors.email.message}</p>}
+                {errors.email && <p className="text-sm text-rose-500">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground/60">Mensaje (opcional)</label>
+                <label className="text-[15px] font-semibold text-foreground">Mensaje (opcional)</label>
                 <textarea
                     {...register("mensaje")}
                     rows={compact ? 2 : 4}
                     placeholder="Estoy interesado en este proyecto..."
-                    className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all resize-none"
+                    className="w-full px-4 py-3.5 rounded-xl bg-background border border-border text-base text-foreground placeholder:text-base placeholder:text-muted-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all resize-none shadow-sm"
                 />
             </div>
 
             {error && (
-                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-base">
                     {error}
                 </div>
             )}
@@ -130,13 +130,13 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
             <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl gradient-brand text-white font-bold shadow-glow hover:shadow-glow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
+                className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl gradient-brand text-white text-base font-bold shadow-glow hover:shadow-glow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
             >
                 {isSubmitting ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                     <>
-                        Enviar Consulta <Send className="w-4 h-4" />
+                        Enviar consulta <Send className="w-4 h-4" />
                     </>
                 )}
             </button>

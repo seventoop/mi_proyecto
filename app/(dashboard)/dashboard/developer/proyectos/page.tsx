@@ -86,7 +86,7 @@ export default async function ProyectosPage() {
     const kycStatus = user?.kycStatus;
 
     return (
-        <div className="space-y-6 animate-fade-in p-6 max-w-[1600px] mx-auto">
+        <div className="space-y-6 animate-fade-in p-6">
             <ModuleHelp content={MODULE_HELP_CONTENT.proyectos} />
             <KycDemoStatusCard
                 kycStatus={(kycStatus as any) || "PENDIENTE"}

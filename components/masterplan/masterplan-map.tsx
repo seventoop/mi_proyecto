@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Map as MapIcon, Layers as LayersIcon, Filter, ZoomIn, ZoomOut,
-    Crosshair, X, Search, MapPin, Check, Save, Camera,
+    Crosshair, X, Search, MapPin, Check, Save, Camera, Grid3x3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -19,6 +19,8 @@ import MasterplanComparator from "./masterplan-comparator";
 import OverlayEditor, { OverlayConfig } from "./overlay-editor";
 import Tour360Viewer from "./tour360-viewer";
 import { getProjectBlueprintData } from "@/lib/actions/unidades";
+import { BlueprintEmbeddedMeta } from "@/lib/blueprint-utils";
+import PlanGalleryPicker, { type PlanGalleryItem } from "@/components/plan-gallery/plan-gallery-picker";
 
 const InfraestructuraTool = dynamic(() => import("./infraestructura-tool"), { ssr: false });
 const ImagenesMapaTool = dynamic(() => import("./imagenes-mapa-tool"), { ssr: false });
@@ -54,6 +56,7 @@ export interface Tour360Marker {
 interface MasterplanMapProps {
     proyectoId: string;
     modo: "admin" | "public";
+    canEdit?: boolean;
     initialUnits?: MasterplanUnit[];
     overlayImageUrl?: string;
     centerLat?: number;
@@ -62,9 +65,56 @@ interface MasterplanMapProps {
     tours360?: Tour360Marker[];
 }
 
+type OverlayCorners = [[number, number], [number, number], [number, number], [number, number]];
+
+function projectSvgPointToGeo(
+    nx: number,
+    ny: number,
+    bounds: [[number, number], [number, number]] | null,
+    rotation = 0,
+    corners?: OverlayCorners | null,
+): [number, number] | null {
+    if (corners && corners.length === 4) {
+        const [sw, se, ne, nw] = corners;
+        const top: [number, number] = [
+            nw[0] + (ne[0] - nw[0]) * nx,
+            nw[1] + (ne[1] - nw[1]) * nx,
+        ];
+        const bottom: [number, number] = [
+            sw[0] + (se[0] - sw[0]) * nx,
+            sw[1] + (se[1] - sw[1]) * nx,
+        ];
+        return [
+            top[0] + (bottom[0] - top[0]) * ny,
+            top[1] + (bottom[1] - top[1]) * ny,
+        ];
+    }
+
+    if (!bounds) return null;
+
+    const [[swLat, swLng], [neLat, neLng]] = bounds;
+    const cLat = (swLat + neLat) / 2;
+    const cLng = (swLng + neLng) / 2;
+    const rawLat = neLat - ny * (neLat - swLat);
+    const rawLng = swLng + nx * (neLng - swLng);
+
+    if (rotation !== 0) {
+        const rotRad = (rotation * Math.PI) / 180;
+        const dLat = rawLat - cLat;
+        const dLng = rawLng - cLng;
+        return [
+            cLat + dLat * Math.cos(rotRad) - dLng * Math.sin(rotRad),
+            cLng + dLat * Math.sin(rotRad) + dLng * Math.cos(rotRad),
+        ];
+    }
+
+    return [rawLat, rawLng];
+}
+
 export default function MasterplanMap({
     proyectoId,
     modo,
+    canEdit = false,
     initialUnits = [],
     overlayImageUrl,
     centerLat = -34.6037,
@@ -85,6 +135,8 @@ export default function MasterplanMap({
     const filteredIds = useMemo(() => new Set(filteredUnits.map((u) => u.id)), [filteredUnits]);
 
     const [blueprintLoaded, setBlueprintLoaded] = useState(false);
+    const [hasSavedBlueprint, setHasSavedBlueprint] = useState(false);
+    const [blueprintMeta, setBlueprintMeta] = useState<BlueprintEmbeddedMeta | null>(null);
     const mapRef = useRef<HTMLDivElement>(null);
     const leafletMapRef = useRef<any>(null);
     const polygonsRef = useRef<Map<string, any>>(new Map());
@@ -98,6 +150,8 @@ export default function MasterplanMap({
     const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
     const [isEditingOverlay, setIsEditingOverlay] = useState(false);
     const [isLoadingOverlay, setIsLoadingOverlay] = useState(false);
+    const [planGalleryItems, setPlanGalleryItems] = useState<PlanGalleryItem[]>([]);
+    const [showPlanGallery, setShowPlanGallery] = useState(false);
 
     // Tour 360 state
     const [activeTour, setActiveTour] = useState<{ url: string; title: string; sceneId?: string; initialOverlay?: Record<string, number> | null } | null>(null);
@@ -130,14 +184,157 @@ export default function MasterplanMap({
     const cameraMarkersRef = useRef<Map<string, any>>(new Map());
 
     const svgBlobUrlRef = useRef<string | null>(null);
+    const autoOpenedOverlayRef = useRef(false);
     const [isLoadingPlan, setIsLoadingPlan] = useState(false);
+    const overlayPreviewFrameRef = useRef<number | null>(null);
+    const overlayPreviewPayloadRef = useRef<{
+        bounds: [[number, number], [number, number]];
+        rotation: number;
+    } | null>(null);
 
     // Reset selection state when entering Paso 4 (prevent bleedover from Paso 3)
     useEffect(() => {
+        autoOpenedOverlayRef.current = false;
         setSelectedUnitId(null);
         setHoveredUnitId(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [proyectoId]);
+
+    const readJsonResponse = useCallback(async (response: Response) => {
+        const raw = await response.text();
+        if (!raw) return {};
+
+        try {
+            return JSON.parse(raw) as any;
+        } catch {
+            throw new Error(`Respuesta no parseable del servidor (${response.status})`);
+        }
     }, []);
+
+    const loadPlanGallery = useCallback(async () => {
+        try {
+            const response = await fetch(`/api/proyectos/${proyectoId}/plan-gallery`);
+            const data = await readJsonResponse(response);
+            if (response.ok && Array.isArray(data.items)) {
+                setPlanGalleryItems(data.items);
+            }
+        } catch {
+            // optional support UI
+        }
+    }, [proyectoId, readJsonResponse]);
+
+    useEffect(() => {
+        loadPlanGallery();
+    }, [loadPlanGallery]);
+
+    const buildMapOverlaySvg = useCallback((svgString: string, meta: BlueprintEmbeddedMeta | null) => {
+        if (typeof window === "undefined" || meta?.processingMode !== "detected-lots") {
+            return svgString;
+        }
+
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, "image/svg+xml");
+            const svg = doc.documentElement;
+
+            if (!svg || svg.tagName.toLowerCase() !== "svg") {
+                return svgString;
+            }
+
+            const style = doc.createElementNS("http://www.w3.org/2000/svg", "style");
+            style.textContent = `
+                .map-overlay-root { overflow: visible; }
+                .map-overlay-root text,
+                .map-overlay-root .lot-label,
+                .map-overlay-root .dxf-text {
+                    display: none !important;
+                }
+                .map-overlay-root path,
+                .map-overlay-root polygon,
+                .map-overlay-root polyline,
+                .map-overlay-root rect,
+                .map-overlay-root circle,
+                .map-overlay-root ellipse,
+                .map-overlay-root line {
+                    paint-order: stroke fill markers;
+                    stroke: rgba(255,255,255,0.96) !important;
+                    stroke-linejoin: round;
+                    stroke-linecap: round;
+                    filter: drop-shadow(0 0 2px rgba(0,0,0,0.95)) drop-shadow(0 0 5px rgba(0,0,0,0.7));
+                    shape-rendering: geometricPrecision;
+                }
+            `;
+            svg.insertBefore(style, svg.firstChild);
+            svg.setAttribute("class", `${svg.getAttribute("class") ?? ""} map-overlay-root`.trim());
+
+            svg.querySelectorAll("path, polygon, polyline, rect, circle, ellipse, line").forEach((node) => {
+                const tag = node.tagName.toLowerCase();
+                const d = node.getAttribute("d") || "";
+                const isClosed =
+                    d.includes("Z") ||
+                    tag === "polygon" ||
+                    tag === "rect" ||
+                    tag === "circle" ||
+                    tag === "ellipse";
+
+                const currentStrokeWidth = parseFloat(node.getAttribute("stroke-width") || "0.8");
+                const nextStrokeWidth = Number.isFinite(currentStrokeWidth)
+                    ? Math.max(currentStrokeWidth * 2.8, 1.8)
+                    : 1.8;
+
+                node.setAttribute("stroke-width", nextStrokeWidth.toFixed(2));
+                node.setAttribute("stroke-opacity", "1");
+                node.setAttribute("opacity", "1");
+                node.setAttribute("fill", isClosed ? "rgba(34,197,94,0.16)" : "none");
+            });
+
+            return new XMLSerializer().serializeToString(svg);
+        } catch {
+            return svgString;
+        }
+    }, []);
+
+    const loadSavedBlueprintOverlay = useCallback(async (openEditor = false) => {
+        const res = await fetch(`/api/proyectos/${proyectoId}/blueprint`);
+        if (!res.ok) {
+            if (openEditor) setIsEditingOverlay(true);
+            return false;
+        }
+
+        const data = await readJsonResponse(res);
+        setBlueprintMeta((data.blueprintMeta as BlueprintEmbeddedMeta | null) ?? null);
+
+        if (!data.masterplanSVG) {
+            setHasSavedBlueprint(false);
+            if (openEditor) setIsEditingOverlay(true);
+            return false;
+        }
+
+        setHasSavedBlueprint(true);
+
+        if (svgBlobUrlRef.current) {
+            URL.revokeObjectURL(svgBlobUrlRef.current);
+        }
+
+        const overlaySvg = buildMapOverlaySvg(
+            data.masterplanSVG as string,
+            (data.blueprintMeta as BlueprintEmbeddedMeta | null) ?? null
+        );
+        const blob = new Blob([overlaySvg], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        svgBlobUrlRef.current = url;
+
+        setOverlayConfig((prev) => ({
+            imageUrl: url,
+            bounds: prev?.bounds ?? null,
+            rotation: prev?.rotation ?? 0,
+            opacity: prev?.opacity ?? 0.9,
+            corners: prev?.corners ?? null,
+        }));
+
+        if (openEditor) setIsEditingOverlay(true);
+        return true;
+    }, [buildMapOverlaySvg, proyectoId, readJsonResponse]);
 
     // Fetch blueprint data (units with SVG paths) — same source as Paso 3
     useEffect(() => {
@@ -145,18 +342,26 @@ export default function MasterplanMap({
             // Fast-path: if caller already provided units, use them
             if (initialUnits && initialUnits.length > 0) {
                 setUnits(initialUnits);
+            } else {
+                const res = await getProjectBlueprintData(proyectoId);
+                if (res.success && res.data) {
+                    setUnits(res.data as any);
+                }
+            }
+
+            try {
+                await loadSavedBlueprintOverlay(false);
+            } catch (error) {
+                console.error("Failed to load saved blueprint overlay:", error);
+                setHasSavedBlueprint(false);
+                setBlueprintMeta(null);
+            } finally {
                 setBlueprintLoaded(true);
-                return;
             }
-            const res = await getProjectBlueprintData(proyectoId);
-            if (res.success && res.data) {
-                setUnits(res.data as any);
-            }
-            setBlueprintLoaded(true);
         };
         fetchBlueprint();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [proyectoId, setUnits]);
+    }, [initialUnits, loadSavedBlueprintOverlay, proyectoId, setUnits]);
 
     // Load saved overlay config from API
     useEffect(() => {
@@ -170,7 +375,12 @@ export default function MasterplanMap({
                         // Blob URLs expire between sessions — strip them (bounds are kept for polygon geo-transform)
                         const cfg = data.config;
                         const imageUrl = cfg.imageUrl && !cfg.imageUrl.startsWith("blob:") ? cfg.imageUrl : null;
-                        setOverlayConfig({ ...cfg, imageUrl });
+                        setOverlayConfig((prev) => ({
+                            ...cfg,
+                            imageUrl: imageUrl ?? prev?.imageUrl ?? null,
+                            opacity: prev?.opacity ?? cfg.opacity ?? 0.8,
+                            corners: cfg.corners ?? prev?.corners ?? null,
+                        }));
                     }
                 }
             } catch (err) {
@@ -183,8 +393,23 @@ export default function MasterplanMap({
     }, [proyectoId]);
 
     // Note: the overlay IMAGE is not auto-loaded on mount.
-    // overlayConfig.bounds is used for polygon geo-transformation only.
-    // The overlay image is only shown when admin explicitly loads it via "Cargar Plano".
+    // overlayConfig.bounds is used for polygon geo-transformation.
+    // If a saved blueprint exists but has not been positioned yet, open the editor once
+    // so the admin can start adjusting it without re-uploading anything.
+    useEffect(() => {
+        if (
+            modo === "admin" &&
+            isMapReady &&
+            hasSavedBlueprint &&
+            !!overlayConfig?.imageUrl &&
+            !overlayConfig?.bounds &&
+            !isEditingOverlay &&
+            !autoOpenedOverlayRef.current
+        ) {
+            autoOpenedOverlayRef.current = true;
+            setIsEditingOverlay(true);
+        }
+    }, [hasSavedBlueprint, isEditingOverlay, isMapReady, modo, overlayConfig?.bounds, overlayConfig?.imageUrl]);
 
     // Initialize Leaflet map
     useEffect(() => {
@@ -374,7 +599,7 @@ export default function MasterplanMap({
                     try { coords = JSON.parse(unit.geoJSON); } catch {}
                 }
 
-                // Option 2: SVG path → geo via overlay bounds + computed viewBox
+                // Option 2: SVG path → geo via saved overlay transform
                 if (!coords && svgViewBox && overlayConfig?.bounds) {
                     let svgPath = unit.path;
                     if (!svgPath && (unit as any).coordenadasMasterplan) {
@@ -386,27 +611,20 @@ export default function MasterplanMap({
                     if (svgPath) {
                         const nums = svgPath.match(/-?[\d.]+(?:e[+-]?\d+)?/g);
                         if (nums && nums.length >= 4) {
-                            const [[swLat, swLng], [neLat, neLng]] = overlayConfig.bounds;
-                            const cLat = (swLat + neLat) / 2, cLng = (swLng + neLng) / 2;
-                            const rotation = overlayConfig.rotation ?? 0;
-                            const rotRad = (rotation * Math.PI) / 180;
                             const pts: [number, number][] = [];
                             for (let i = 0; i + 1 < nums.length; i += 2) {
                                 const sx = parseFloat(nums[i]), sy = parseFloat(nums[i + 1]);
                                 if (isNaN(sx) || isNaN(sy)) continue;
                                 const nx = svgViewBox.w > 0 ? (sx - svgViewBox.x) / svgViewBox.w : 0;
                                 const ny = svgViewBox.h > 0 ? (sy - svgViewBox.y) / svgViewBox.h : 0;
-                                const rawLat = neLat - ny * (neLat - swLat);
-                                const rawLng = swLng + nx * (neLng - swLng);
-                                if (rotation !== 0) {
-                                    const dLat = rawLat - cLat, dLng = rawLng - cLng;
-                                    pts.push([
-                                        cLat + dLat * Math.cos(rotRad) - dLng * Math.sin(rotRad),
-                                        cLng + dLat * Math.sin(rotRad) + dLng * Math.cos(rotRad),
-                                    ]);
-                                } else {
-                                    pts.push([rawLat, rawLng]);
-                                }
+                                const projected = projectSvgPointToGeo(
+                                    nx,
+                                    ny,
+                                    overlayConfig.bounds,
+                                    overlayConfig.rotation ?? 0,
+                                    overlayConfig.corners ?? null,
+                                );
+                                if (projected) pts.push(projected);
                             }
                             if (pts.length >= 3) coords = pts;
                         }
@@ -576,11 +794,9 @@ export default function MasterplanMap({
     const updatePolygonPositionsLive = useCallback((
         newBounds: [[number, number], [number, number]],
         rotation = 0,
+        corners?: OverlayCorners | null,
     ) => {
         if (!svgViewBox) return;
-        const [[swLat, swLng], [neLat, neLng]] = newBounds;
-        const cLat = (swLat + neLat) / 2, cLng = (swLng + neLng) / 2;
-        const rotRad = (rotation * Math.PI) / 180;
 
         units.forEach(unit => {
             const polygon = polygonsRef.current.get(unit.id);
@@ -601,17 +817,8 @@ export default function MasterplanMap({
                 if (isNaN(sx) || isNaN(sy)) continue;
                 const nx = svgViewBox.w > 0 ? (sx - svgViewBox.x) / svgViewBox.w : 0;
                 const ny = svgViewBox.h > 0 ? (sy - svgViewBox.y) / svgViewBox.h : 0;
-                const rawLat = neLat - ny * (neLat - swLat);
-                const rawLng = swLng + nx * (neLng - swLng);
-                if (rotation !== 0) {
-                    const dLat = rawLat - cLat, dLng = rawLng - cLng;
-                    pts.push([
-                        cLat + dLat * Math.cos(rotRad) - dLng * Math.sin(rotRad),
-                        cLng + dLat * Math.sin(rotRad) + dLng * Math.cos(rotRad),
-                    ]);
-                } else {
-                    pts.push([rawLat, rawLng]);
-                }
+                const projected = projectSvgPointToGeo(nx, ny, newBounds, rotation, corners);
+                if (projected) pts.push(projected);
             }
             if (pts.length >= 3) {
                 polygon.setLatLngs(pts);
@@ -627,6 +834,36 @@ export default function MasterplanMap({
             }
         });
     }, [units, svgViewBox]);
+
+    const handleOverlayBoundsChange = useCallback((
+        bounds: [[number, number], [number, number]],
+        rotation: number,
+    ) => {
+        overlayPreviewPayloadRef.current = { bounds, rotation };
+        if (overlayPreviewFrameRef.current != null) return;
+
+        overlayPreviewFrameRef.current = window.requestAnimationFrame(() => {
+            overlayPreviewFrameRef.current = null;
+            const payload = overlayPreviewPayloadRef.current;
+            overlayPreviewPayloadRef.current = null;
+            if (!payload) return;
+            updatePolygonPositionsLive(
+                payload.bounds,
+                payload.rotation,
+                overlayConfig?.corners ?? null,
+            );
+        });
+    }, [overlayConfig?.corners, updatePolygonPositionsLive]);
+
+    useEffect(() => {
+        return () => {
+            if (overlayPreviewFrameRef.current != null) {
+                window.cancelAnimationFrame(overlayPreviewFrameRef.current);
+                overlayPreviewFrameRef.current = null;
+            }
+            overlayPreviewPayloadRef.current = null;
+        };
+    }, []);
 
     // ─── Location search (Nominatim) ─────────────────────────────────────────
     const searchLocation = useCallback((query: string) => {
@@ -702,6 +939,7 @@ export default function MasterplanMap({
                 body: JSON.stringify({
                     imageUrl: overlayConfig.imageUrl,
                     bounds: overlayConfig.bounds,
+                    corners: overlayConfig.corners ?? null,
                     rotation: overlayConfig.rotation ?? 0,
                     mapCenter: leafletMapRef.current ? {
                         lat: leafletMapRef.current.getCenter().lat,
@@ -731,36 +969,14 @@ export default function MasterplanMap({
 
         setIsLoadingPlan(true);
         try {
-            const res = await fetch(`/api/proyectos/${proyectoId}/blueprint`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.masterplanSVG) {
-                    if (svgBlobUrlRef.current) URL.revokeObjectURL(svgBlobUrlRef.current);
-                    const blob = new Blob([data.masterplanSVG], { type: "image/svg+xml;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    svgBlobUrlRef.current = url;
-                    // Preserve existing bounds/rotation/opacity when reloading
-                    setOverlayConfig(prev => ({
-                        imageUrl: url,
-                        bounds: prev?.bounds ?? null,
-                        rotation: prev?.rotation ?? 0,
-                        opacity: prev?.opacity ?? 0.75,
-                    }));
-                    setIsEditingOverlay(true);
-                } else {
-                    // No SVG, but open anyway
-                    setIsEditingOverlay(true);
-                }
-            } else {
-                setIsEditingOverlay(true);
-            }
+            await loadSavedBlueprintOverlay(true);
         } catch (e) {
             console.error("Error cargando blueprint como overlay:", e);
             setIsEditingOverlay(true);
         } finally {
             setIsLoadingPlan(false);
         }
-    }, [proyectoId, overlayConfig?.imageUrl]);
+    }, [loadSavedBlueprintOverlay, overlayConfig?.imageUrl]);
 
     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
 
@@ -884,7 +1100,20 @@ export default function MasterplanMap({
                             ) : (
                                 <LayersIcon className="w-3.5 h-3.5" />
                             )}
-                            Ajustar Plano
+                            {hasSavedBlueprint ? "Ajustar Plano" : "Cargar y Ajustar Plano"}
+                        </button>
+
+                        <button
+                            onClick={() => setShowPlanGallery((v) => !v)}
+                            className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                                showPlanGallery
+                                    ? "bg-indigo-500 text-white border-transparent"
+                                    : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
+                            )}
+                        >
+                            <Grid3x3 className="w-3.5 h-3.5" />
+                            Galeria de planos
                         </button>
 
                         {/* Separator */}
@@ -954,6 +1183,43 @@ export default function MasterplanMap({
             )}
 
             {/* ── Map area (flex-1 takes remaining height) ── */}
+            {modo === "admin" && showPlanGallery && (
+                <div className="flex-shrink-0 bg-slate-950 border-b border-slate-700/50 px-3 py-3">
+                    <div className="max-w-xl">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <p className="text-sm font-bold text-white">Galeria de planos</p>
+                                <p className="text-xs text-slate-400">Elegi cual queres usar en el mapa interactivo antes de posicionarlo.</p>
+                            </div>
+                            <button
+                                onClick={() => setShowPlanGallery(false)}
+                                className="text-xs font-semibold text-slate-400 hover:text-white"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                        <PlanGalleryPicker
+                            proyectoId={proyectoId}
+                            items={planGalleryItems}
+                            selectedId={planGalleryItems.find((item) => item.imageUrl === overlayConfig?.imageUrl)?.id ?? null}
+                            onSelect={(item) => {
+                                setOverlayConfig((prev) => ({
+                                    imageUrl: item.imageUrl,
+                                    bounds: prev?.bounds ?? null,
+                                    rotation: prev?.rotation ?? 0,
+                                    opacity: prev?.opacity ?? 0.9,
+                                    corners: prev?.corners ?? null,
+                                }));
+                                setShowPlanGallery(false);
+                                setIsEditingOverlay(true);
+                            }}
+                            onItemsChange={setPlanGalleryItems}
+                            allowUpload={false}
+                        />
+                    </div>
+                </div>
+            )}
+
             <div className="relative flex-1 min-h-0 overflow-hidden">
                 {/* Leaflet container */}
                 <div ref={mapRef} className="w-full h-full z-0" />
@@ -1025,11 +1291,11 @@ export default function MasterplanMap({
                 )}
 
                 {/* Hint: no overlay bounds configured yet — lotes can't be positioned */}
-                {blueprintLoaded && units.length > 0 && !overlayConfig?.bounds && modo === "admin" && (
+                {blueprintLoaded && hasSavedBlueprint && !overlayConfig?.bounds && modo === "admin" && (
                     <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-[999] pointer-events-none">
                         <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/90 backdrop-blur-sm text-white text-xs font-medium border border-slate-700/60 shadow-xl whitespace-nowrap">
                             <MapPin className="w-3.5 h-3.5 text-brand-400 shrink-0" />
-                            Cargá y posicioná el plano para ver los lotes sobre el mapa
+                            Ya hay un plano guardado. Ajustalo sobre el mapa para ubicarlo y posicionarlo.
                         </div>
                     </div>
                 )}
@@ -1088,6 +1354,7 @@ export default function MasterplanMap({
                         <MasterplanSidePanel
                             unit={selectedUnit}
                             modo={modo}
+                            canEdit={canEdit}
                             onClose={() => setSelectedUnitId(null)}
                         />
                     )}
@@ -1111,7 +1378,7 @@ export default function MasterplanMap({
                             proyectoId={proyectoId}
                             map={leafletMapRef.current}
                             existingConfig={overlayConfig}
-                            onBoundsChange={(bounds, rot) => updatePolygonPositionsLive(bounds, rot)}
+                            onBoundsChange={handleOverlayBoundsChange}
                             onSave={(config) => {
                                 setOverlayConfig(config);
                                 setIsEditingOverlay(false);
@@ -1241,3 +1508,4 @@ export default function MasterplanMap({
         </div>
     );
 }
+

@@ -62,10 +62,17 @@ export interface FloatingLabel {
 }
 
 export interface MasterplanOverlay {
-    imageUrl: string;
-    points: { pitch: number; yaw: number }[];
-    opacity: number;
+    mode?: "geo-calibrated";
+    imageUrl?: string;
+    points?: { pitch: number; yaw: number }[];
+    opacity?: number;
     isVisible: boolean;
+    altitudM?: number;
+    imageHeading?: number;
+    latOffset?: number;
+    lngOffset?: number;
+    planRotation?: number;
+    planScale?: number;
 }
 
 export interface Scene {
@@ -78,6 +85,7 @@ export interface Scene {
     floatingLabels?: FloatingLabel[];
     isDefault?: boolean;
     order?: number;
+    category?: string;
     masterplanOverlay?: MasterplanOverlay;
 }
 
@@ -227,11 +235,17 @@ function PanoramicOverlay({
     return (
         <>
             {/* Perspective Masterplan Overlay */}
-            {currentScene.masterplanOverlay?.isVisible && (() => {
-                const overlay = currentScene.masterplanOverlay;
-                const coords = overlay.points.map(p => projectCoords(p.pitch, p.yaw));
+            {currentScene.masterplanOverlay?.isVisible &&
+                currentScene.masterplanOverlay?.imageUrl &&
+                Array.isArray(currentScene.masterplanOverlay?.points) &&
+                currentScene.masterplanOverlay.points.length === 4 && (() => {
+                const overlay = currentScene.masterplanOverlay as MasterplanOverlay & {
+                    imageUrl: string;
+                    points: { pitch: number; yaw: number }[];
+                };
+                const coords = overlay.points.map((p) => projectCoords(p.pitch, p.yaw));
 
-                if (coords.some(c => !c)) return null;
+                if (coords.some((c) => !c)) return null;
 
                 const src = [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }];
                 const dst = coords as { x: number, y: number }[];
@@ -246,7 +260,7 @@ function PanoramicOverlay({
                             className="absolute top-0 left-0 w-[1000px] h-[1000px] origin-top-left"
                             style={{
                                 transform: `matrix3d(${matrix.join(',')})`,
-                                opacity: overlay.opacity,
+                                opacity: overlay.opacity ?? 0.55,
                                 backgroundImage: `url(${overlay.imageUrl})`,
                                 backgroundSize: '100% 100%'
                             }}
@@ -386,6 +400,8 @@ export default function TourViewer({
         const { pusherClient } = require("@/lib/pusher");
         const { CHANNELS, EVENTS } = require("@/lib/pusher");
 
+        if (!pusherClient) return; // Pusher not configured — skip realtime
+
         const channel = pusherClient.subscribe(CHANNELS.UNIDADES);
 
         channel.bind(EVENTS.UNIDAD_ESTADO_CAMBIADO, (data: { unidadId: string, nuevoEstado: string }) => {
@@ -398,12 +414,6 @@ export default function TourViewer({
                     return hs;
                 })
             })));
-
-            // Re-render Pannellum hotSpots if currently active
-            if (viewerInstance.current) {
-                // This is tricky as Pannellum doesn't allow easy hotspot update without re-render or internal API access
-                // For now, reflecting in the tooltip logic is the priority
-            }
         });
 
         return () => {

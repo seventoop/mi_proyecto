@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Upload, Trash2, Save, MapPin, ImageIcon,
     Plus, X, Loader2, GripVertical, Pencil, Check,
-    Link2, Navigation, Eye, Share2, Play, Pause,
+    Link2, Navigation, Eye, Share2, Play, Pause, Globe,
     Maximize2, RotateCcw, Camera, Grid3x3, Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,8 +19,17 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import Script from "next/script";
+import type { MasterplanUnit } from "@/lib/masterplan-store";
+import { computeSvgViewBox, type SvgViewBox } from "@/lib/geo-projection";
+import TourSceneOverlayEditor from "./tour-scene-overlay-editor";
+import Viewer360LotesOverlay from "@/components/masterplan/viewer360-lotes-overlay";
+import PlanGalleryPicker, { type PlanGalleryItem } from "@/components/plan-gallery/plan-gallery-picker";
+import {
+    DEFAULT_SCENE_OVERLAY,
+    type SceneOverlayCalibration,
+} from "@/lib/tour-overlay";
 
-// ─── Types ───
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Types ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 export type HotspotType = "info" | "scene" | "link" | "lot" | "check" | "sold" | "gallery" | "video";
 
 export interface Hotspot {
@@ -60,11 +70,31 @@ export interface FloatingLabel {
 }
 
 export interface MasterplanOverlay {
-    imageUrl: string;
-    points: { pitch: number; yaw: number }[]; // 4 points
-    opacity: number;
+    mode?: "geo-calibrated";
+    imageUrl?: string;
+    selectedPlanId?: string;
+    points?: { pitch: number; yaw: number }[];
+    opacity?: number;
     isVisible: boolean;
+    altitudM?: number;
+    imageHeading?: number;
+    latOffset?: number;
+    lngOffset?: number;
+    planRotation?: number;
+    planScale?: number;
+    showLabels?: boolean;
+    showPerimeter?: boolean;
+    cleanMode?: boolean;
+    transformLocked?: boolean;
+    snapEnabled?: boolean;
+    alignmentGuides?: boolean;
+    flipX?: boolean;
+    flipY?: boolean;
+    imageKind?: "360" | "foto" | "panoramica";
+    linkedUnitId?: string;
 }
+
+export type SceneDirection = "centro" | "norte" | "noreste" | "este" | "sureste" | "sur" | "suroeste" | "oeste" | "noroeste";
 
 export interface Scene {
     id: string;
@@ -77,6 +107,7 @@ export interface Scene {
     isDefault?: boolean;
     order?: number;
     category?: 'raw' | 'rendered';
+    direction?: SceneDirection;
     masterplanOverlay?: MasterplanOverlay;
 }
 
@@ -86,22 +117,64 @@ interface UploadProgress {
     progress: number;
     status: "uploading" | "done" | "error";
     url?: string;
+    error?: string;
+}
+
+interface SceneImageFormState {
+    title: string;
+    imageKind: "360" | "foto" | "panoramica";
+    direction: SceneDirection;
+    linkedUnitId: string;
+    altitudM: number;
+    imageHeading: number;
 }
 
 interface TourCreatorProps {
     proyectoId: string;
     tourId?: string; // Optional for delete action
     initialScenes?: Scene[];
-    onSave: (scenes: Scene[]) => void;
+    onSave: (scenes: Scene[]) => boolean | void | Promise<boolean | void>;
     onDelete?: () => void; // Callback for delete
 }
 
-// ─── Hotspot icon options ───
+const MAX_TOUR_UPLOAD_MB = 50;
+const MAX_PANORAMA_WIDTH = 8192;
+const MAX_PANORAMA_HEIGHT = 4096;
+const PANORAMA_OPTIMIZE_THRESHOLD_MB = 20;
+
+function createDefaultGeoOverlay(): MasterplanOverlay {
+    return { ...DEFAULT_SCENE_OVERLAY };
+}
+
+// Direction → default yaw mapping for auto-placing scene hotspots
+const DIRECTION_YAW: Record<SceneDirection, number> = {
+    centro: 0, norte: 0, noreste: 45, este: 90, sureste: 135,
+    sur: 180, suroeste: -135, oeste: -90, noroeste: -45,
+};
+
+const DIRECTION_GRID: { dir: SceneDirection; label: string }[][] = [
+    [{ dir: "noroeste", label: "NO" }, { dir: "norte", label: "N" }, { dir: "noreste", label: "NE" }],
+    [{ dir: "oeste",    label: "O"  }, { dir: "centro", label: "●" }, { dir: "este",    label: "E"  }],
+    [{ dir: "suroeste", label: "SO" }, { dir: "sur",    label: "S" }, { dir: "sureste", label: "SE" }],
+];
+
+function buildSceneImageForm(scene: Scene | null): SceneImageFormState {
+    return {
+        title: scene?.title || "",
+        imageKind: scene?.masterplanOverlay?.imageKind || "360",
+        direction: scene?.direction || "centro",
+        linkedUnitId: scene?.masterplanOverlay?.linkedUnitId || "",
+        altitudM: scene?.masterplanOverlay?.altitudM ?? 500,
+        imageHeading: scene?.masterplanOverlay?.imageHeading ?? 0,
+    };
+}
+
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Hotspot icon options ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 const HOTSPOT_ICONS: { value: string; label: string; emoji: string }[] = [
     { value: "info", label: "Info", emoji: "ℹ️" },
-    { value: "lot", label: "Lote N°", emoji: "🔢" },
+    { value: "lot", label: "Lote N°", emoji: "📌" },
     { value: "check", label: "Disponible", emoji: "✅" },
-    { value: "sold", label: "Vendido", emoji: "🔴" },
+    { value: "sold", label: "Vendido", emoji: "🏷️" },
     { value: "arrow", label: "Flecha", emoji: "➡️" },
     { value: "house", label: "Casa", emoji: "🏠" },
     { value: "tree", label: "Amenity", emoji: "🌳" },
@@ -120,7 +193,6 @@ interface PanoramicOverlayProps {
     draggingLabelId: string | null;
     setDraggingLabelId: (id: string | null) => void;
     pendingLandmarkAnchor: { pitch: number; yaw: number } | null;
-    pendingOverlayPoints: { pitch: number; yaw: number }[];
     currentPolygonPoints: { pitch: number; yaw: number }[];
     viewerReady: boolean;
 }
@@ -136,7 +208,6 @@ function PanoramicOverlay({
     draggingLabelId,
     setDraggingLabelId,
     pendingLandmarkAnchor,
-    pendingOverlayPoints,
     currentPolygonPoints,
     viewerReady
 }: PanoramicOverlayProps) {
@@ -251,11 +322,17 @@ function PanoramicOverlay({
     return (
         <>
             {/* Perspective Masterplan Overlay */}
-            {activeScene.masterplanOverlay?.isVisible && (() => {
-                const overlay = activeScene.masterplanOverlay;
-                const coords = overlay.points.map(p => projectCoords(p.pitch, p.yaw));
+            {activeScene.masterplanOverlay?.isVisible &&
+                activeScene.masterplanOverlay?.imageUrl &&
+                Array.isArray(activeScene.masterplanOverlay?.points) &&
+                activeScene.masterplanOverlay.points.length === 4 && (() => {
+                const overlay = activeScene.masterplanOverlay as MasterplanOverlay & {
+                    imageUrl: string;
+                    points: { pitch: number; yaw: number }[];
+                };
+                const coords = overlay.points.map((p: { pitch: number; yaw: number }) => projectCoords(p.pitch, p.yaw));
 
-                if (coords.some(c => !c)) return null;
+                if (coords.some((c) => !c)) return null;
 
                 const src = [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }];
                 const dst = coords as { x: number, y: number }[];
@@ -270,7 +347,7 @@ function PanoramicOverlay({
                             className="absolute top-0 left-0 w-[1000px] h-[1000px] origin-top-left"
                             style={{
                                 transform: `matrix3d(${matrix.join(',')})`,
-                                opacity: overlay.opacity,
+                                opacity: overlay.opacity ?? 0.55,
                                 backgroundImage: `url(${overlay.imageUrl})`,
                                 backgroundSize: '100% 100%'
                             }}
@@ -410,16 +487,6 @@ function PanoramicOverlay({
                     </g>
                 )}
 
-                {/* Pending Overlay Points */}
-                {editorMode === 'overlay' && pendingOverlayPoints.map((p, i) => {
-                    const c = projectCoords(p.pitch, p.yaw);
-                    return c ? (
-                        <g key={`pending-ov-${i}`}>
-                            <circle cx={c.x} cy={c.y} r={6} fill="white" stroke="#3b82f6" strokeWidth={2} />
-                            <text x={c.x} y={c.y} dy=".3em" textAnchor="middle" fill="#3b82f6" fontSize="8" fontWeight="bold">{i + 1}</text>
-                        </g>
-                    ) : null;
-                })}
             </svg>
 
             {/* Floating Labels Layer */}
@@ -460,14 +527,16 @@ export default function TourCreator({
     const [editingTitle, setEditingTitle] = useState<string | null>(null);
     const [editTitleValue, setEditTitleValue] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [tourSaved, setTourSaved] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [pannellumLoaded, setPannellumLoaded] = useState(false);
     const [viewerReady, setViewerReady] = useState(false);
+    const [isAutoRotating, setIsAutoRotating] = useState(false);
     const [hotspotMode, setHotspotMode] = useState<HotspotType>("info");
     const [linkTargetScene, setLinkTargetScene] = useState<string>("");
 
-    // Start with "view" mode, can switch to 'hotspot', 'polygon', 'label', 'overlay'
-    const [editorMode, setEditorMode] = useState<'view' | 'hotspot' | 'polygon' | 'label' | 'overlay'>('view');
+    // Start with "view" mode, can switch to 'hotspot', 'polygon', 'label'
+    const [editorMode, setEditorMode] = useState<'view' | 'hotspot' | 'polygon' | 'label'>('view');
 
     // Polygon Editor State
     const [currentPolygonPoints, setCurrentPolygonPoints] = useState<PolygonPoint[]>([]);
@@ -475,6 +544,7 @@ export default function TourCreator({
 
     // Gallery Tabs
     const [activeTab, setActiveTab] = useState<'raw' | 'rendered'>('raw');
+    const [uploadImageType, setUploadImageType] = useState<"foto" | "360" | "panoramica">("360");
 
     // Mouse tracking for ghost hotspot & dragging
     const [mouseCoords, setMouseCoords] = useState<{ pitch: number, yaw: number } | null>(null);
@@ -482,13 +552,21 @@ export default function TourCreator({
     const [draggingLabelId, setDraggingLabelId] = useState<string | null>(null);
     const [lastDragTime, setLastDragTime] = useState(0);
     const [projectUnits, setProjectUnits] = useState<{ id: string, numero: string }[]>([]);
+    const [overlayUnits, setOverlayUnits] = useState<MasterplanUnit[]>([]);
+    const [projectOverlayBounds, setProjectOverlayBounds] = useState<[[number, number], [number, number]] | null>(null);
+    const [projectMapCenter, setProjectMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+    const [planGalleryItems, setPlanGalleryItems] = useState<PlanGalleryItem[]>([]);
+    const [showPlanGallery, setShowPlanGallery] = useState(false);
+    const [projectOverlayRotation, setProjectOverlayRotation] = useState<number>(0);
+    const [projectSvgViewBox, setProjectSvgViewBox] = useState<SvgViewBox | null>(null);
+    const [isOverlayEditorOpen, setIsOverlayEditorOpen] = useState(false);
     const [selectedUnitId, setSelectedUnitId] = useState<string>("");
+    const [sceneForm, setSceneForm] = useState<SceneImageFormState>(() => buildSceneImageForm(null));
+    // Drives the "Confirmar imagen" overlay — only truthy right after a new upload
+    const [pendingConfirmSceneId, setPendingConfirmSceneId] = useState<string | null>(null);
 
     // Landmark Placement State
     const [pendingLandmarkAnchor, setPendingLandmarkAnchor] = useState<{ pitch: number, yaw: number } | null>(null);
-
-    // Overlay Alignment State
-    const [pendingOverlayPoints, setPendingOverlayPoints] = useState<{ pitch: number, yaw: number }[]>([]);
 
     const [isUpscaling, setIsUpscaling] = useState(false);
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
@@ -498,11 +576,20 @@ export default function TourCreator({
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const activeScene = scenes.find((s) => s.id === activeSceneId) || null;
+    const canAlignProjectPlan = Boolean(projectOverlayBounds && projectSvgViewBox && overlayUnits.length > 0);
 
     // Filter scenes by category (default to 'raw' if undefined for backward compatibility)
     const filteredScenes = scenes.filter(s => (s.category || 'raw') === activeTab);
 
-    // ─── Upscale Handler ───
+    useEffect(() => {
+        setSceneForm(buildSceneImageForm(activeScene));
+    }, [activeSceneId, activeScene]);
+
+    useEffect(() => {
+        setTourSaved(false);
+    }, [scenes]);
+
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Upscale Handler ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     const handleUpscale = async (scene: Scene) => {
         if (!scene.imageUrl) return;
 
@@ -516,7 +603,7 @@ export default function TourCreator({
                 console.log(msg);
             });
 
-            if (!enhancedImageSrc) throw new Error("Falló el procesamiento de la imagen");
+            if (!enhancedImageSrc) throw new Error("FallÃƒÆ’Ã‚Â³ el procesamiento de la imagen");
 
             // Create new scene for the rendered version
             const newScene: Scene = {
@@ -531,61 +618,152 @@ export default function TourCreator({
             setScenes((prev) => [...prev, newScene]);
             setActiveTab('rendered'); // Switch to rendered tab to show result
 
-            alert("¡Imagen mejorada con éxito! Se ha creado una copia en la galería de Renderizadas.");
+            toast.success("¡Imagen mejorada! Copia guardada en Renderizadas.");
         } catch (error: any) {
             console.error("Upscale failed", error);
-            alert(`Error al mejorar la imagen: ${error.message || "Verifica el formato o la conexión."}`);
+            toast.error(`Error al mejorar la imagen: ${error.message || "Verifica el formato o la conexión."}`);
         } finally {
             setIsUpscaling(false);
         }
     };
 
-    // ─── Initialize/reinitialize Pannellum viewer ───
-    useEffect(() => {
-        if (!pannellumLoaded || !viewerRef.current || scenes.length === 0) return;
-
-        const sceneId = activeSceneId || scenes[0].id;
-        const scene = scenes.find((s) => s.id === sceneId);
-        if (!scene) return;
-
-        // Reuse instance if already exists
-        if (viewerInstance.current) {
-            try {
-                if (viewerInstance.current.getScene() !== sceneId) {
-                    viewerInstance.current.loadScene(sceneId);
-                }
-                return;
-            } catch (e) {
-                console.warn("Instance reuse failed, recreating...", e);
-                viewerInstance.current.destroy();
-                viewerInstance.current = null;
-            }
+    const readJsonResponse = async (response: Response) => {
+        const text = await response.text();
+        try {
+            return text ? JSON.parse(text) : {};
+        } catch {
+            throw new Error("La respuesta del servidor no se pudo interpretar.");
         }
+    };
+
+    const loadImageDimensions = (file: File): Promise<{ width: number; height: number }> => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(file);
+            img.onload = () => {
+                resolve({ width: img.width, height: img.height });
+                URL.revokeObjectURL(objectUrl);
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                reject(new Error("No se pudo leer la imagen."));
+            };
+            img.src = objectUrl;
+        });
+    };
+
+    const optimizePanoramaFile = async (file: File): Promise<File> => {
+        if (!file.type.startsWith("image/")) return file;
+
+        const { width, height } = await loadImageDimensions(file);
+        const needsResize =
+            width > MAX_PANORAMA_WIDTH ||
+            height > MAX_PANORAMA_HEIGHT ||
+            file.size > PANORAMA_OPTIMIZE_THRESHOLD_MB * 1024 * 1024;
+
+        if (!needsResize) return file;
+
+        const scale = Math.min(
+            MAX_PANORAMA_WIDTH / width,
+            MAX_PANORAMA_HEIGHT / height,
+            1
+        );
+
+        const targetWidth = Math.max(1, Math.round(width * scale));
+        const targetHeight = Math.max(1, Math.round(height * scale));
+
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
 
         try {
-            // Build scenes config for Pannellum
-            const scenesConfig: any = {};
-            scenes.forEach((s) => {
-                scenesConfig[s.id] = {
-                    title: s.title,
-                    type: "equirectangular",
-                    panorama: s.imageUrl,
-                    hotSpots: s.hotspots
-                        .filter((h) => h.type !== "scene" || h.targetSceneId)
-                        .map((h) => ({
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error("No se pudo preparar la panorámica.."));
+                img.src = objectUrl;
+            });
+
+            const canvas = document.createElement("canvas");
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return file;
+
+            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+            const blob = await new Promise<Blob | null>((resolve) =>
+                canvas.toBlob(resolve, "image/jpeg", 0.88)
+            );
+
+            if (!blob) return file;
+
+            const optimizedName = file.name.replace(/\.[^/.]+$/, "") + "-optimized.jpg";
+            return new File([blob], optimizedName, {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+            });
+        } finally {
+            URL.revokeObjectURL(objectUrl);
+        }
+    };
+
+    // Tracks how many scenes Pannellum currently knows about
+    const pannellumSceneCountRef = useRef(0);
+
+    const buildPannellum = useCallback((targetSceneId: string) => {
+        if (!viewerRef.current || !(window as any).pannellum) return;
+
+        if (viewerInstance.current) {
+            try { viewerInstance.current.destroy(); } catch (_) {}
+            viewerInstance.current = null;
+        }
+
+        // Tooltip renderer — same logic as tour-viewer for consistent bubbles in editor
+        const hotspotTooltip = (hotSpotDiv: HTMLElement, args: any) => {
+            if (args.type === "scene") {
+                if (args.targetThumbnail) {
+                    hotSpotDiv.innerHTML = `<div class="hotspot-bubble-marker"><img src="${args.targetThumbnail}" /></div>`;
+                } else {
+                    hotSpotDiv.innerHTML = `<div class="hotspot-status-marker scene"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></div>`;
+                }
+            } else {
+                hotSpotDiv.classList.add("custom-tooltip");
+                const span = document.createElement("span");
+                span.textContent = args.text || "";
+                hotSpotDiv.appendChild(span);
+            }
+        };
+
+        const scenesConfig: any = {};
+        scenes.forEach((s) => {
+            scenesConfig[s.id] = {
+                title: s.title,
+                type: "equirectangular",
+                panorama: s.imageUrl,
+                hotSpots: s.hotspots
+                    .filter((h) => h.type !== "scene" || h.targetSceneId)
+                    .map((h) => {
+                        const targetScene = h.type === "scene" ? scenes.find(sc => sc.id === h.targetSceneId) : undefined;
+                        return {
                             pitch: h.pitch,
                             yaw: h.yaw,
                             type: h.type === "scene" ? "scene" : "info",
                             text: h.text,
                             sceneId: h.type === "scene" ? h.targetSceneId : undefined,
-                            cssClass: `hotspot-icon-${h.icon || "info"}`,
-                        })),
-                };
-            });
+                            createTooltipFunc: hotspotTooltip,
+                            createTooltipArgs: {
+                                type: h.type,
+                                text: h.text,
+                                targetThumbnail: (h as any).targetThumbnail || targetScene?.imageUrl,
+                            },
+                        };
+                    }),
+            };
+        });
 
-            viewerInstance.current = window.pannellum.viewer(viewerRef.current, {
+        try {
+            viewerInstance.current = (window as any).pannellum.viewer(viewerRef.current, {
                 default: {
-                    firstScene: sceneId,
+                    firstScene: targetSceneId,
                     sceneFadeDuration: 800,
                     autoLoad: true,
                     autoRotate: 0,
@@ -594,22 +772,37 @@ export default function TourCreator({
                 },
                 scenes: scenesConfig,
             });
-
-            viewerInstance.current.on("load", () => {
-                setViewerReady(true);
-            });
-
-            viewerInstance.current.on("scenechange", (newSceneId: string) => {
-                setActiveSceneId(newSceneId);
-            });
+            pannellumSceneCountRef.current = scenes.length;
+            setIsAutoRotating(false);
+            setViewerReady(false);
+            viewerInstance.current.on("load", () => setViewerReady(true));
+            viewerInstance.current.on("scenechange", (id: string) => setActiveSceneId(id));
         } catch (err) {
             console.error("Pannellum init error:", err);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [scenes]);
 
-        return () => {
-            // Only destroy if component unmounts
-        };
-    }, [pannellumLoaded]); // Re-init ONLY if JS library loads or for structural changes
+    // ─── Initialize/reinitialize Pannellum viewer ───
+    useEffect(() => {
+        if (!pannellumLoaded || !viewerRef.current || scenes.length === 0) return;
+
+        const sceneId = activeSceneId || scenes[0].id;
+        if (!scenes.find((s) => s.id === sceneId)) return;
+
+        // If scene count changed or no instance → full rebuild (picks up new uploads)
+        const needsRebuild = scenes.length !== pannellumSceneCountRef.current || !viewerInstance.current;
+
+        if (!needsRebuild && viewerInstance.current) {
+            try {
+                const current = viewerInstance.current.getScene?.();
+                if (current !== sceneId) viewerInstance.current.loadScene(sceneId);
+                return;
+            } catch (_) { /* fall through to rebuild */ }
+        }
+
+        buildPannellum(sceneId);
+    }, [pannellumLoaded, scenes.length, activeSceneId, buildPannellum]);
 
     // Global cleanup on unmount
     useEffect(() => {
@@ -622,24 +815,74 @@ export default function TourCreator({
     }, []);
 
 
-    // ─── Handle click on panorama to place hotspot ───
-    // ─── Fetch Units ───
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Project overlay data ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     useEffect(() => {
-        const fetchUnits = async () => {
+        const fetchProjectData = async () => {
             try {
-                const { getAllUnidades } = await import("@/lib/actions/unidades");
-                const res = await getAllUnidades({ proyectoId, pageSize: 1000 });
-                if (res.success && res.data) {
-                    setProjectUnits(res.data.map((u: any) => ({ id: u.id, numero: u.numero })));
+                const [blueprintRes, overlayRes, galleryRes] = await Promise.all([
+                    fetch(`/api/proyectos/${proyectoId}/blueprint`),
+                    fetch(`/api/proyectos/${proyectoId}/overlay`),
+                    fetch(`/api/proyectos/${proyectoId}/plan-gallery`),
+                ]);
+
+                const blueprintData = await readJsonResponse(blueprintRes);
+                if (blueprintRes.ok && Array.isArray(blueprintData?.unidades)) {
+                    const units: MasterplanUnit[] = blueprintData.unidades.map((u: any) => {
+                        let path: string | undefined;
+                        let cx: number | undefined;
+                        let cy: number | undefined;
+                        if (u.coordenadasMasterplan) {
+                            try {
+                                const parsed = JSON.parse(u.coordenadasMasterplan);
+                                path = parsed.path;
+                                cx = parsed.cx;
+                                cy = parsed.cy;
+                            } catch {}
+                        }
+                        return {
+                            id: u.id,
+                            numero: u.numero,
+                            tipo: "LOTE",
+                            superficie: u.superficie ?? null,
+                            frente: u.frente ?? null,
+                            fondo: u.fondo ?? null,
+                            esEsquina: false,
+                            orientacion: null,
+                            precio: u.precio ?? null,
+                            moneda: "USD",
+                            estado: u.estado,
+                            path,
+                            cx,
+                            cy,
+                        } as MasterplanUnit;
+                    });
+                    setOverlayUnits(units);
+                    setProjectUnits(units.map((u: MasterplanUnit) => ({ id: u.id, numero: u.numero })));
+                    setProjectSvgViewBox(computeSvgViewBox(units));
                 }
+
+                const overlayData = await readJsonResponse(overlayRes);
+                if (overlayRes.ok && overlayData?.config?.bounds) {
+                    setProjectOverlayBounds(overlayData.config.bounds);
+                    setProjectOverlayRotation(overlayData.config.rotation ?? 0);
+                }
+                if (overlayRes.ok && overlayData?.config?.mapCenter?.lat) {
+                    setProjectMapCenter({
+                        lat: overlayData.config.mapCenter.lat,
+                        lng: overlayData.config.mapCenter.lng,
+                    });
+                }
+
+                const galleryData = galleryRes.ok ? await galleryRes.json() : null;
+                if (galleryData?.items) setPlanGalleryItems(galleryData.items);
             } catch (error) {
-                console.error("Error fetching units:", error);
+                console.error("Error fetching project overlay data:", error);
             }
         };
-        fetchUnits();
+        fetchProjectData();
     }, [proyectoId]);
 
-    // ─── Handle click on panorama to place objects ───
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Handle click on panorama to place objects ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     const handleViewerClick = useCallback(
         (e: React.MouseEvent) => {
             if (editorMode === 'view' || !viewerInstance.current || !activeSceneId) return;
@@ -651,8 +894,13 @@ export default function TourCreator({
             const [pitch, yaw] = coords;
 
             if (editorMode === 'hotspot') {
-                if (!selectedUnitId) {
-                    alert("Por favor, selecciona una unidad antes de colocar el hotspot.");
+                // Scene-type hotspots don't need a selectedUnit
+                if (hotspotMode !== "scene" && !selectedUnitId) {
+                    toast.warning("Seleccioná una unidad antes de colocar el hotspot.");
+                    return;
+                }
+                if (hotspotMode === "scene" && !linkTargetScene) {
+                    toast.warning("Seleccioná la escena destino primero.");
                     return;
                 }
 
@@ -667,7 +915,7 @@ export default function TourCreator({
                     text: hotspotMode === "scene"
                         ? (targetScene?.title || "Ir a escena")
                         : (selectedUnit ? `Unidad ${selectedUnit.numero}` : "Punto de interés"),
-                    unidadId: selectedUnitId,
+                    unidadId: hotspotMode !== "scene" ? (selectedUnitId || "") : "",
                     targetSceneId: hotspotMode === "scene" ? linkTargetScene : undefined,
                     targetThumbnail: hotspotMode === "scene" ? targetScene?.imageUrl : undefined,
                     icon: hotspotMode === "lot" ? "lot" : "info",
@@ -716,33 +964,9 @@ export default function TourCreator({
                     setPendingLandmarkAnchor(null);
                     setEditorMode('view');
                 }
-            } else if (editorMode === 'overlay') {
-                const nextPoints = [...pendingOverlayPoints, { pitch, yaw }];
-                if (nextPoints.length < 4) {
-                    setPendingOverlayPoints(nextPoints);
-                } else {
-                    const imageUrl = prompt("URL de la imagen del plano (PNG/JPG):");
-                    if (imageUrl) {
-                        const overlay: MasterplanOverlay = {
-                            imageUrl,
-                            points: nextPoints as [any, any, any, any],
-                            opacity: 0.6,
-                            isVisible: true
-                        };
-                        setScenes((prev) =>
-                            prev.map((s) =>
-                                s.id === activeSceneId
-                                    ? { ...s, masterplanOverlay: overlay }
-                                    : s
-                            )
-                        );
-                    }
-                    setPendingOverlayPoints([]);
-                    setEditorMode('view');
-                }
             }
         },
-        [editorMode, activeSceneId, hotspotMode, linkTargetScene, pendingLandmarkAnchor, pendingOverlayPoints]
+        [editorMode, activeSceneId, hotspotMode, linkTargetScene, pendingLandmarkAnchor, selectedUnitId, projectUnits]
     );
 
     const handleViewerMouseMove = useCallback((e: React.MouseEvent) => {
@@ -791,7 +1015,7 @@ export default function TourCreator({
     // Helper to finish polygon
     const finishPolygon = () => {
         if (currentPolygonPoints.length < 3) {
-            alert("Un polígono necesita al menos 3 puntos.");
+            toast.warning("Un polígono necesita al menos 3 puntos.");
             return;
         }
         if (!activeSceneId) return;
@@ -829,7 +1053,7 @@ export default function TourCreator({
     };
 
 
-    // ─── File upload ───
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ File upload ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     const uploadFile = async (file: File): Promise<{ url: string; filename: string } | null> => {
         const id = `upload-${Date.now()}-${Math.random()}`;
         setUploads((prev) => [
@@ -838,8 +1062,15 @@ export default function TourCreator({
         ]);
 
         try {
+            let preparedFile = file;
+            try {
+                preparedFile = await optimizePanoramaFile(file);
+            } catch (optimizationError) {
+                console.warn("Panorama optimization skipped, using original file", optimizationError);
+            }
+
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", preparedFile);
             if (proyectoId) {
                 formData.append("projectId", proyectoId);
             }
@@ -849,22 +1080,27 @@ export default function TourCreator({
                 body: formData,
             });
 
-            if (!res.ok) throw new Error("Upload failed");
+            const data = await readJsonResponse(res);
+            if (!res.ok || !data?.success || !data?.url) {
+                throw new Error(data?.error || "No se pudo subir la imagen 360°.");
+            }
 
-            const data = await res.json();
             setUploads((prev) =>
                 prev.map((u) => (u.id === id ? { ...u, status: "done", progress: 100, url: data.url } : u))
             );
             return { url: data.url, filename: file.name };
-        } catch (err) {
+        } catch (err: any) {
             setUploads((prev) =>
-                prev.map((u) => (u.id === id ? { ...u, status: "error", progress: 0 } : u))
+                prev.map((u) => (u.id === id ? { ...u, status: "error", progress: 0, error: err?.message || "Error al subir" } : u))
             );
+            console.error("360 upload failed:", err);
+            toast.error(err?.message || "No se pudo subir la imagen 360°.");
             return null;
         }
     };
 
-    // ─── 2:1 Equirectangular Validation ───
+
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ 2:1 Equirectangular Validation ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     const validateEquirectangular = (file: File): Promise<{ valid: boolean; width: number; height: number; ratio: number }> => {
         return new Promise((resolve) => {
             const img = new Image();
@@ -883,6 +1119,7 @@ export default function TourCreator({
     };
 
     const handleFilesSelected = async (files: FileList | File[]) => {
+        setUploads([]);
         const fileArray = Array.from(files);
         const validFiles = fileArray.filter((f) =>
             f.type.startsWith("image/") || f.type === "application/pdf"
@@ -893,14 +1130,14 @@ export default function TourCreator({
         // Validate 2:1 aspect ratio for equirectangular panoramas
         const validatedFiles: File[] = [];
         for (const file of validFiles) {
-            if (file.type.startsWith("image/")) {
+            if (uploadImageType === "360" && file.type.startsWith("image/")) {
                 const result = await validateEquirectangular(file);
                 if (!result.valid) {
                     const proceed = confirm(
-                        `⚠️ "${file.name}" no tiene proporción 2:1 (equirectangular).\n\n` +
-                        `Resolución: ${result.width}×${result.height} (ratio ${result.ratio.toFixed(2)}:1)\n` +
-                        `Se recomienda una imagen con proporción 2:1 para una experiencia 360° óptima.\n\n` +
-                        `¿Desea continuar de todas formas?`
+                        `ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â "${file.name}" no tiene proporciÃƒÆ’Ã‚Â³n 2:1 (equirectangular).\n\n` +
+                        `ResoluciÃƒÆ’Ã‚Â³n: ${result.width}ÃƒÆ’Ã¢â‚¬â€${result.height} (ratio ${result.ratio.toFixed(2)}:1)\n` +
+                        `Se recomienda una imagen con proporciÃƒÆ’Ã‚Â³n 2:1 para una experiencia 360Ãƒâ€šÃ‚Â° ÃƒÆ’Ã‚Â³ptima.\n\n` +
+                        `Ãƒâ€šÃ‚Â¿Desea continuar de todas formas?`
                     );
                     if (!proceed) continue;
                 }
@@ -924,6 +1161,15 @@ export default function TourCreator({
                     .replace(/^\w/, (c) => c.toUpperCase()),
                 imageUrl: r.url,
                 hotspots: [],
+                masterplanOverlay: {
+                    ...(projectOverlayBounds && projectSvgViewBox
+                        ? createDefaultGeoOverlay()
+                        : { isVisible: true, opacity: 0.55 }),
+                    imageKind: uploadImageType,
+                    linkedUnitId: "",
+                    altitudM: uploadImageType === "360" ? 500 : undefined,
+                    imageHeading: uploadImageType === "360" ? 0 : undefined,
+                },
                 isDefault: scenes.length === 0 && i === 0,
                 order: scenes.length + i,
                 category: activeTab, // Assign current tab category
@@ -931,9 +1177,9 @@ export default function TourCreator({
 
         if (newScenes.length > 0) {
             setScenes((prev) => [...prev, ...newScenes]);
-            if (!activeSceneId) {
-                setActiveSceneId(newScenes[0].id);
-            }
+            setActiveSceneId(newScenes[0].id);
+            setSceneForm(buildSceneImageForm(newScenes[0]));
+            setPendingConfirmSceneId(newScenes[0].id); // show confirm panel
         }
 
         // Clear completed uploads after a delay
@@ -948,8 +1194,8 @@ export default function TourCreator({
         handleFilesSelected(e.dataTransfer.files);
     };
 
-    // ─── Scene management ───
-    // ─── Scene management ───
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Scene management ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Scene management ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     const deleteScene = (sceneId: string) => {
         setScenes((prev) => prev.filter((s) => s.id !== sceneId));
         if (activeSceneId === sceneId) {
@@ -973,6 +1219,38 @@ export default function TourCreator({
         }
         setEditingTitle(null);
     };
+
+    const applySceneForm = useCallback(() => {
+        if (!activeSceneId) return;
+
+        const normalizedHeading = ((Number(sceneForm.imageHeading) % 360) + 360) % 360;
+        const normalizedAltitude = Math.max(1, Number(sceneForm.altitudM) || 500);
+
+        setScenes((prev) =>
+            prev.map((scene) =>
+                scene.id === activeSceneId
+                    ? {
+                        ...scene,
+                        title: sceneForm.title.trim() || scene.title || "Sin título",
+                        direction: sceneForm.direction,
+                        masterplanOverlay: {
+                            ...(scene.masterplanOverlay ?? createDefaultGeoOverlay()),
+                            imageKind: sceneForm.imageKind,
+                            linkedUnitId: sceneForm.linkedUnitId || undefined,
+                            altitudM: sceneForm.imageKind === "360" ? normalizedAltitude : undefined,
+                            imageHeading: sceneForm.imageKind === "360" ? normalizedHeading : undefined,
+                        },
+                    }
+                    : scene
+            )
+        );
+        setPendingConfirmSceneId(null); // hide confirm overlay
+        toast.success("Imagen confirmada. Guardá el tour para persistir.", { duration: 2000 });
+    }, [activeSceneId, sceneForm]);
+
+    const resetSceneForm = useCallback(() => {
+        setSceneForm(buildSceneImageForm(activeScene));
+    }, [activeScene]);
 
     const removeHotspot = (sceneId: string, hotspotId: string) => {
         setScenes((prev) =>
@@ -999,53 +1277,29 @@ export default function TourCreator({
         );
     };
 
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Save tour ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     // ─── Save tour ───
     const handleSave = async () => {
         if (scenes.length === 0) return;
         setIsSaving(true);
         try {
-            const { upsertTour } = await import("@/lib/actions/tours");
-
-            const payload = {
-                id: tourId,
-                proyectoId,
-                nombre: "Tour 360 - " + new Date().toLocaleDateString(),
-                scenes: scenes.map((s, idx) => ({
-                    id: s.id.startsWith("scene-") ? undefined : s.id,
-                    title: s.title,
-                    imageUrl: s.imageUrl,
-                    isDefault: s.isDefault || (idx === 0 && !scenes.some(sc => sc.isDefault)),
-                    order: idx,
-                    category: (s.category || "raw").toUpperCase(),
-                    hotspots: s.hotspots.map(h => ({
-                        unidadId: (h as any).unidadId || "demo-unidad", // TODO: Wire actual unit picker
-                        type: h.type.toUpperCase(),
-                        pitch: h.pitch,
-                        yaw: h.yaw,
-                        text: h.text,
-                        targetSceneId: h.targetSceneId
-                    }))
-                }))
-            };
-
-            const res = await upsertTour(payload);
-            if (res.success) {
-                alert("Tour guardado con éxito.");
-                onSave(scenes);
-            } else {
-                throw new Error(res.error);
+            const result = await onSave(scenes);
+            if (result === false) {
+                setTourSaved(false);
+                return;
             }
-        } catch (error: any) {
+            setTourSaved(true);
+        } catch (error) {
             console.error("Save error:", error);
-            alert(`Error al guardar: ${error.message}`);
+            setTourSaved(false);
         } finally {
             setIsSaving(false);
         }
     };
 
-    // ─── Delete tour ───
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Delete tour ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     const handleDeleteTour = async () => {
-        if (!onDelete || !confirm("¿Estás seguro de que quieres eliminar este tour completo? Esta acción no se puede deshacer.")) return;
+        if (!onDelete || !confirm("¿Estás seguro de que querés eliminar este tour completo? Esta acción no se puede deshacer.")) return;
 
         setIsDeleting(true);
         try {
@@ -1065,14 +1319,14 @@ export default function TourCreator({
             />
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
 
-            {/* ─── Gallery Modal / View ─── */}
+            {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Gallery Modal / View ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
             <AnimatePresence>
                 {/* Gallery Mode implementation could go here as an overlay or separate view */}
             </AnimatePresence>
 
             {/* Main editor layout */}
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 min-h-0">
-                {/* ─── Left: Viewer ─── */}
+                {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Left: Viewer ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
                 <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/50 min-h-[400px]">
                     {scenes.length > 0 ? (
                         <>
@@ -1103,10 +1357,42 @@ export default function TourCreator({
                                 draggingLabelId={draggingLabelId}
                                 setDraggingLabelId={setDraggingLabelId}
                                 pendingLandmarkAnchor={pendingLandmarkAnchor}
-                                pendingOverlayPoints={pendingOverlayPoints}
                                 currentPolygonPoints={currentPolygonPoints}
                                 viewerReady={viewerReady}
                             />
+
+                            {/* Plan overlay — read-only preview when scene has a saved alignment */}
+                            {viewerReady && viewerInstance.current &&
+                                projectOverlayBounds && projectSvgViewBox &&
+                                activeScene?.masterplanOverlay?.isVisible &&
+                                (activeScene.masterplanOverlay as any)?.altitudM && (() => {
+                                    // Mirror TourSceneOverlayEditor: camLat/Lng = overlayBounds center + saved offsets
+                                    const ov = activeScene.masterplanOverlay as any;
+                                    const baseLat = (projectOverlayBounds[0][0] + projectOverlayBounds[1][0]) / 2;
+                                    const baseLng = (projectOverlayBounds[0][1] + projectOverlayBounds[1][1]) / 2;
+                                    const cosLat = Math.cos((baseLat * Math.PI) / 180) || 1;
+                                    const camLat = baseLat + (ov.latOffset ?? 0) / 111320;
+                                    const camLng = baseLng + (ov.lngOffset ?? 0) / (111320 * cosLat);
+                                    return (
+                                        <Viewer360LotesOverlay
+                                            viewer={viewerInstance.current}
+                                            units={overlayUnits}
+                                            overlayBounds={projectOverlayBounds}
+                                            overlayRotation={projectOverlayRotation}
+                                            svgViewBox={projectSvgViewBox}
+                                            camLat={camLat}
+                                            camLng={camLng}
+                                            camAlt={ov.altitudM ?? 500}
+                                            imageHeading={ov.imageHeading ?? 0}
+                                            latOffset={ov.latOffset ?? 0}
+                                            lngOffset={ov.lngOffset ?? 0}
+                                            planRotation={ov.planRotation ?? 0}
+                                            planScale={ov.planScale ?? 1}
+                                            isEditing={false}
+                                        />
+                                    );
+                                })()
+                            }
 
                             {/* Editor Mode Indicator & Controls */}
                             <AnimatePresence>
@@ -1119,23 +1405,21 @@ export default function TourCreator({
                                     >
                                         <div className="flex items-center gap-2 text-sm font-semibold text-brand-400">
                                             {editorMode === 'hotspot' && <><MapPin className="w-4 h-4" /> Colocando Hotspot</>}
-                                            {editorMode === 'polygon' && <><Grid3x3 className="w-4 h-4" /> Dibujando Polígono ({currentPolygonPoints.length} ptos)</>}
+                                            {editorMode === 'polygon' && <><Grid3x3 className="w-4 h-4" /> Dibujando PolÃƒÆ’Ã‚Â­gono ({currentPolygonPoints.length} ptos)</>}
                                             {editorMode === 'label' && <><Pencil className="w-4 h-4" /> Colocando Etiqueta</>}
-                                            {editorMode === 'overlay' && <><ImageIcon className="w-4 h-4" /> Ajustando Plano ({pendingOverlayPoints.length}/4 ptos)</>}
                                         </div>
 
                                         <div className="text-xs text-slate-400 text-center">
-                                            {editorMode === 'label' && !pendingLandmarkAnchor && "Hacé clic en el punto exacto de interés (el piso o un objeto)."}
-                                            {editorMode === 'label' && pendingLandmarkAnchor && "Hacé clic donde querés que flote la etiqueta de texto."}
-                                            {editorMode === 'overlay' && "Hacé clic en las 4 esquinas del terreno donde irá el plano."}
-                                            {editorMode !== 'label' && editorMode !== 'overlay' && `Hacé clic en la imagen para ${editorMode === 'polygon' ? 'agregar un punto' : 'colocar el elemento'}.`}
+                                            {editorMode === 'label' && !pendingLandmarkAnchor && "HacÃƒÆ’Ã‚Â© clic en el punto exacto de interÃƒÆ’Ã‚Â©s (el piso o un objeto)."}
+                                            {editorMode === 'label' && pendingLandmarkAnchor && "HacÃƒÆ’Ã‚Â© clic donde querÃƒÆ’Ã‚Â©s que flote la etiqueta de texto."}
+                                            {editorMode !== 'label' && `HacÃƒÆ’Ã‚Â© clic en la imagen para ${editorMode === 'polygon' ? 'agregar un punto' : 'colocar el elemento'}.`}
                                         </div>
 
                                         {editorMode === 'polygon' && (
                                             <div className="flex flex-col gap-2 w-full">
                                                 <input
                                                     type="text"
-                                                    placeholder="Lote N° / Texto"
+                                                    placeholder="Lote NÃƒâ€šÃ‚Â° / Texto"
                                                     value={polygonProperties.hoverText}
                                                     onChange={e => setPolygonProperties(prev => ({ ...prev, hoverText: e.target.value }))}
                                                     className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-brand-500"
@@ -1166,14 +1450,14 @@ export default function TourCreator({
                                     <button
                                         onClick={() => setEditorMode(editorMode === 'label' ? 'view' : 'label')}
                                         className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'label' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Ubicación"
+                                        title="UbicaciÃƒÆ’Ã‚Â³n"
                                     >
                                         <MapPin className="w-6 h-6" />
                                     </button>
                                     <button
                                         onClick={() => setEditorMode(editorMode === 'polygon' ? 'view' : 'polygon')}
                                         className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'polygon' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Dibujar Polígono"
+                                        title="Dibujar PolÃƒÆ’Ã‚Â­gono"
                                     >
                                         <Grid3x3 className="w-6 h-6" />
                                     </button>
@@ -1185,9 +1469,12 @@ export default function TourCreator({
                                         <Pencil className="w-6 h-6" />
                                     </button>
                                     <button
-                                        onClick={() => setEditorMode(editorMode === 'overlay' ? 'view' : 'overlay')}
-                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'overlay' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Galería"
+                                        onClick={() => {
+                                            if (!canAlignProjectPlan || !activeScene) return;
+                                            setIsOverlayEditorOpen(true);
+                                        }}
+                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", !canAlignProjectPlan && "opacity-40 cursor-not-allowed", isOverlayEditorOpen ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
+                                        title="Ajustar Plano"
                                     >
                                         <ImageIcon className="w-6 h-6" />
                                     </button>
@@ -1197,10 +1484,16 @@ export default function TourCreator({
                             {/* Viewer controls - Floating Pill */}
                             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4 bg-black/40 backdrop-blur-xl px-6 py-4 rounded-[1.5rem] border border-white/10 shadow-2xl min-w-[300px]">
                                 <button
-                                    onClick={() => viewerInstance.current?.isAutoRotating()
-                                        ? viewerInstance.current?.stopAutoRotate()
-                                        : viewerInstance.current?.startAutoRotate(2)
-                                    }
+                                    onClick={() => {
+                                        if (!viewerInstance.current) return;
+                                        if (isAutoRotating) {
+                                            viewerInstance.current.stopAutoRotate();
+                                            setIsAutoRotating(false);
+                                        } else {
+                                            viewerInstance.current.startAutoRotate(2);
+                                            setIsAutoRotating(true);
+                                        }
+                                    }}
                                     className="p-3 bg-white/5 hover:bg-white/20 rounded-xl text-white transition-all shadow-inner"
                                     title="Auto-rotar"
                                 >
@@ -1220,6 +1513,92 @@ export default function TourCreator({
                                 </button>
                             </div>
 
+                            {/* ─── Confirm image overlay — appears only right after upload ─── */}
+                            <AnimatePresence>
+                                {pendingConfirmSceneId && activeScene && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 24 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: 24 }}
+                                        className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-end justify-center p-6"
+                                    >
+                                        <div className="w-full max-w-lg bg-[#141414] border border-white/10 rounded-2xl shadow-2xl p-5 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-sm font-bold text-white">Confirmar imagen subida</p>
+                                                <button onClick={() => setPendingConfirmSceneId(null)} className="p-1 text-slate-400 hover:text-white transition-colors">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <label className="text-[11px] text-slate-400 uppercase tracking-wide">Título</label>
+                                                    <input
+                                                        value={sceneForm.title}
+                                                        onChange={(e) => setSceneForm((prev) => ({ ...prev, title: e.target.value }))}
+                                                        placeholder="Ej: Vista principal"
+                                                        className="w-full bg-[#1A1A1A] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[11px] text-slate-400 uppercase tracking-wide">Tipo</label>
+                                                    <select
+                                                        value={sceneForm.imageKind}
+                                                        onChange={(e) => setSceneForm((prev) => ({ ...prev, imageKind: e.target.value as "360" | "foto" | "panoramica" }))}
+                                                        className="w-full bg-[#1A1A1A] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                                                    >
+                                                        <option value="foto">Fotografía</option>
+                                                        <option value="360">360°</option>
+                                                        <option value="panoramica">Panorámica</option>
+                                                    </select>
+                                                </div>
+                                                {/* Compass direction */}
+                                                <div className="col-span-2 space-y-2">
+                                                    <label className="text-[11px] text-slate-400 uppercase tracking-wide">Ubicación en el recorrido</label>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="grid grid-cols-3 gap-1 flex-shrink-0">
+                                                            {DIRECTION_GRID.map((row, ri) =>
+                                                                row.map(({ dir, label }) => (
+                                                                    <button
+                                                                        key={dir}
+                                                                        type="button"
+                                                                        onClick={() => setSceneForm(prev => ({ ...prev, direction: dir }))}
+                                                                        className={cn(
+                                                                            "w-9 h-9 rounded-lg text-[11px] font-bold border transition-all",
+                                                                            sceneForm.direction === dir
+                                                                                ? "bg-indigo-600 border-indigo-400 text-white shadow-md shadow-indigo-500/30"
+                                                                                : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white"
+                                                                        )}
+                                                                    >{label}</button>
+                                                                ))
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-slate-500 leading-snug">
+                                                            Indicá desde dónde fue tomada esta imagen para que las burbujas de navegación se acomoden automáticamente.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-3 pt-1">
+                                                <button
+                                                    onClick={applySceneForm}
+                                                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-3 transition-all"
+                                                >
+                                                    <Check className="w-4 h-4" /> Confirmar imagen
+                                                </button>
+                                                <button
+                                                    onClick={() => setPendingConfirmSceneId(null)}
+                                                    className="px-5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-semibold py-3 transition-all border border-white/10"
+                                                >
+                                                    Ahora no
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             {/* Upscaling Overlay */}
                             <AnimatePresence>
                                 {isUpscaling && (
@@ -1237,8 +1616,7 @@ export default function TourCreator({
                                             </div>
                                             <h3 className="text-xl font-bold text-white mb-2">Mejorando Imagen con IA</h3>
                                             <p className="text-slate-400 text-sm mb-6">
-                                                Esto puede tomar unos momentos. Estamos aumentando la resolución y reduciendo el ruido.
-                                            </p>
+                                                Esto puede tomar unos momentos. Estamos aumentando la resoluciÃƒÆ’Ã‚Â³n y reduciendo el ruido.</p>
                                             <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
                                                 <motion.div
                                                     className="h-full bg-gradient-to-r from-brand-500 to-indigo-500"
@@ -1282,7 +1660,7 @@ export default function TourCreator({
                                 Se generan las escenas automáticamente.
                             </p>
                             <p className="text-xs text-slate-600 mt-3">
-                                PNG, JPG, WEBP • Equirectangular • Máximo 20MB
+                                PNG, JPG, WEBP • Equirectangular • Máximo 50MB
                             </p>
                         </div>
                     )}
@@ -1297,7 +1675,7 @@ export default function TourCreator({
                     />
                 </div>
 
-                {/* ─── Right: Sidebar ─── */}
+                {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Right: Sidebar ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
                 <div className="flex flex-col bg-black rounded-3xl border border-white/5 overflow-hidden min-h-0 shadow-2xl">
                     {/* Toggle Gallery Button */}
                     <div className="flex items-center justify-between p-4 border-b border-slate-800/50">
@@ -1313,7 +1691,7 @@ export default function TourCreator({
                                     <DialogHeader className="p-4 border-b border-slate-800">
                                         <DialogTitle>Galería de Imágenes 360°</DialogTitle>
                                         <DialogDescription className="text-slate-400">
-                                            Gestiona tus imágenes originales y las renderizadas por IA.
+                                            Gestioná tus imágenes originales y las renderizadas por IA.
                                         </DialogDescription>
                                     </DialogHeader>
 
@@ -1358,36 +1736,64 @@ export default function TourCreator({
                                                     <span className="text-xs font-bold text-slate-500 group-hover:text-brand-400">Subir Imagen</span>
                                                 </div>
 
-                                                {filteredScenes.map((scene) => (
-                                                    <div key={scene.id} className="group relative aspect-square rounded-xl bg-slate-900 overflow-hidden border border-slate-800 hover:border-brand-500/50 transition-all">
-                                                        <img src={scene.imageUrl} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
-
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <p className="text-white text-xs font-bold truncate mb-1">{scene.title}</p>
-                                                            <div className="flex gap-2">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setActiveSceneId(scene.id);
-                                                                        setIsGalleryOpen(false); // Intelligent behavior: Close gallery on selection
-                                                                    }}
-                                                                    className="flex-1 py-1.5 bg-slate-800 hover:bg-brand-600 text-white text-[10px] font-bold rounded"
-                                                                >
-                                                                    Ver
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => deleteScene(scene.id)}
-                                                                    className="p-1.5 bg-slate-800 hover:bg-rose-600 text-white rounded"
-                                                                >
-                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            </div>
+                                                {filteredScenes.map((scene) => {
+                                                    const isActive = activeSceneId === scene.id;
+                                                    const kind = scene.masterplanOverlay?.imageKind || (scene.category === 'rendered' ? 'rendered' : '360');
+                                                    const kindLabel = kind === '360' ? '360°' : kind === 'foto' ? 'Foto' : kind === 'panoramica' ? 'Pano' : kind === 'rendered' ? 'IA' : '360°';
+                                                    const kindColor = kind === 'rendered' ? 'bg-indigo-500' : kind === 'foto' ? 'bg-sky-500' : kind === 'panoramica' ? 'bg-violet-500' : 'bg-brand-500';
+                                                    const isEditingThis = editingTitle === scene.id;
+                                                    return (
+                                                    <div
+                                                        key={scene.id}
+                                                        className={`group relative rounded-xl bg-slate-900 overflow-hidden border-2 transition-all cursor-pointer ${isActive ? 'border-brand-500 shadow-lg shadow-brand-500/30' : 'border-slate-700 hover:border-slate-500'}`}
+                                                    >
+                                                        {/* Thumbnail */}
+                                                        <div className="aspect-video relative overflow-hidden" onClick={() => { setActiveSceneId(scene.id); setIsGalleryOpen(false); }}>
+                                                            <img src={scene.imageUrl} className="w-full h-full object-cover" alt={scene.title} />
+                                                            {/* Type badge — always visible */}
+                                                            <span className={`absolute top-2 left-2 text-[10px] font-black text-white px-1.5 py-0.5 rounded ${kindColor}`}>{kindLabel}</span>
+                                                            {/* Active indicator */}
+                                                            {isActive && (
+                                                                <span className="absolute top-2 right-2 text-[10px] font-black text-white bg-brand-500 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                                    <Eye className="w-2.5 h-2.5" /> Activa
+                                                                </span>
+                                                            )}
                                                         </div>
-
-                                                        {activeSceneId === scene.id && (
-                                                            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-500 shadow-glow"></div>
-                                                        )}
+                                                        {/* Name row — always visible, editable */}
+                                                        <div className="px-2 py-1.5 flex items-center gap-1 bg-slate-900">
+                                                            {isEditingThis ? (
+                                                                <input
+                                                                    value={editTitleValue}
+                                                                    onChange={(e) => setEditTitleValue(e.target.value)}
+                                                                    onKeyDown={(e) => { if (e.key === 'Enter') saveSceneTitle(); if (e.key === 'Escape') setEditingTitle(null); }}
+                                                                    onBlur={saveSceneTitle}
+                                                                    className="flex-1 bg-slate-800 border border-brand-500 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none"
+                                                                    autoFocus
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            ) : (
+                                                                <>
+                                                                    <span className="flex-1 text-xs font-semibold text-white/80 truncate">{scene.title || 'Sin nombre'}</span>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); startEditingTitle(scene); }}
+                                                                        className="p-0.5 text-white/30 hover:text-white opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                                                                        title="Renombrar"
+                                                                    >
+                                                                        <Pencil className="w-3 h-3" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); deleteScene(scene.id); }}
+                                                                        className="p-0.5 text-white/30 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                                                                        title="Eliminar"
+                                                                    >
+                                                                        <Trash2 className="w-3 h-3" />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
 
                                             {filteredScenes.length === 0 && (
@@ -1403,36 +1809,86 @@ export default function TourCreator({
                         </div>
                     </div>
 
-                    {/* Scene list header (Hidden/Simplified as we have the Gallery Modal now, but keeping for quick access) */}
-                    {/* ... Existing Sidebar Content ... */}
-                    <div className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                        Acceso Rápido
-                    </div>
+                    <div className="px-4 pb-4 space-y-4">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+                            Tipo de imagen a subir
+                        </div>
 
-                    {/* Tabs / Acceso Rápido Pills */}
-                    <div className="flex p-1.5 mx-4 gap-1 bg-[#1A1A1A] rounded-xl border border-white/5 shadow-inner">
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                onClick={() => setUploadImageType("foto")}
+                                className={cn(
+                                    "flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-bold transition-all",
+                                    uploadImageType === "foto"
+                                        ? "bg-indigo-600/20 border-indigo-500 text-white"
+                                        : "bg-[#1A1A1A] border-white/10 text-slate-400 hover:text-white"
+                                )}
+                            >
+                                <Camera className="w-4 h-4" />
+                                Fotografía
+                            </button>
+                            <button
+                                onClick={() => setUploadImageType("360")}
+                                className={cn(
+                                    "flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-bold transition-all",
+                                    uploadImageType === "360"
+                                        ? "bg-indigo-600/20 border-indigo-500 text-white"
+                                        : "bg-[#1A1A1A] border-white/10 text-slate-400 hover:text-white"
+                                )}
+                            >
+                                <Globe className="w-4 h-4" />
+                                360°
+                            </button>
+                            <button
+                                onClick={() => setUploadImageType("panoramica")}
+                                className={cn(
+                                    "flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-bold transition-all",
+                                    uploadImageType === "panoramica"
+                                        ? "bg-indigo-600/20 border-indigo-500 text-white"
+                                        : "bg-[#1A1A1A] border-white/10 text-slate-400 hover:text-white"
+                                )}
+                            >
+                                <ImageIcon className="w-4 h-4" />
+                                Panorámica
+                            </button>
+                        </div>
+
                         <button
-                            onClick={() => setActiveTab('raw')}
-                            className={cn(
-                                "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
-                                activeTab === 'raw'
-                                    ? "bg-[#333333] text-white shadow-lg"
-                                    : "text-slate-500 hover:text-slate-300"
-                            )}
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-3 transition-all"
                         >
-                            Originales
+                            <Upload className="w-4 h-4" />
+                            Subir imagen
                         </button>
-                        <button
-                            onClick={() => setActiveTab('rendered')}
-                            className={cn(
-                                "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
-                                activeTab === 'rendered'
-                                    ? "bg-[#333333] text-white shadow-lg"
-                                    : "text-slate-500 hover:text-slate-300"
-                            )}
-                        >
-                            Renderizadas (AI)
-                        </button>
+
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+                            Acceso rápido
+                        </div>
+
+                        <div className="flex p-1.5 gap-1 bg-[#1A1A1A] rounded-xl border border-white/5 shadow-inner">
+                            <button
+                                onClick={() => setActiveTab('raw')}
+                                className={cn(
+                                    "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+                                    activeTab === 'raw'
+                                        ? "bg-[#333333] text-white shadow-lg"
+                                        : "text-slate-500 hover:text-slate-300"
+                                )}
+                            >
+                                Originales
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('rendered')}
+                                className={cn(
+                                    "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+                                    activeTab === 'rendered'
+                                        ? "bg-[#333333] text-white shadow-lg"
+                                        : "text-slate-500 hover:text-slate-300"
+                                )}
+                            >
+                                Renderizadas (AI)
+                            </button>
+                        </div>
                     </div>
 
                     {/* Upload progress */}
@@ -1446,18 +1902,25 @@ export default function TourCreator({
                             >
                                 <div className="p-3 space-y-2">
                                     {uploads.map((upload) => (
-                                        <div key={upload.id} className="flex items-center gap-2">
+                                        <div key={upload.id} className="flex items-start gap-2">
                                             <Loader2
                                                 className={cn(
-                                                    "w-3.5 h-3.5 shrink-0",
+                                                    "w-3.5 h-3.5 shrink-0 mt-0.5",
                                                     upload.status === "uploading" && "animate-spin text-indigo-400",
                                                     upload.status === "done" && "text-emerald-400",
                                                     upload.status === "error" && "text-rose-400"
                                                 )}
                                             />
-                                            <span className="text-xs text-slate-400 truncate flex-1">
-                                                {upload.filename}
-                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-xs text-slate-400 truncate">
+                                                    {upload.filename}
+                                                </div>
+                                                {upload.status === "error" && upload.error && (
+                                                    <div className="text-[10px] text-rose-400 mt-0.5 break-words">
+                                                        {upload.error}
+                                                    </div>
+                                                )}
+                                            </div>
                                             {upload.status === "done" && (
                                                 <Check className="w-3 h-3 text-emerald-400" />
                                             )}
@@ -1558,7 +2021,7 @@ export default function TourCreator({
                         )}
                     </div>
 
-                    {/* ─── Hotspot Controls ─── */}
+                    {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Hotspot Controls ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
                     {activeScene && (
                         <div className="border-t border-white/5 p-4 space-y-4">
                             <div className="flex items-center justify-between px-1">
@@ -1609,11 +2072,11 @@ export default function TourCreator({
                                         className={cn(
                                             "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-all",
                                             isPlacingHotspot && hotspotMode === "scene"
-                                                ? "bg-white/10 text-white border-white/20"
-                                                : "bg-[#1A1A1A] text-slate-400 border-white/5 hover:border-white/10"
+                                                ? "bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/30"
+                                                : "bg-indigo-900/40 text-indigo-300 border-indigo-700/50 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
                                         )}
                                     >
-                                        <Navigation className="w-3.5 h-3.5" /> Escena
+                                        <Navigation className="w-3.5 h-3.5" /> Conectar vista
                                     </button>
                                     <button
                                         onClick={() => {
@@ -1631,22 +2094,65 @@ export default function TourCreator({
                                     </button>
                                 </div>
 
-                                {/* Scene target selector */}
+                                {/* Scene target selector + auto-place */}
                                 {isPlacingHotspot && hotspotMode === "scene" && (
-                                    <select
-                                        value={linkTargetScene}
-                                        onChange={(e) => setLinkTargetScene(e.target.value)}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
-                                    >
-                                        <option value="">Seleccionar escena destino</option>
-                                        {scenes
-                                            .filter((s) => s.id !== activeSceneId)
-                                            .map((s) => (
-                                                <option key={s.id} value={s.id}>
-                                                    {s.title}
-                                                </option>
-                                            ))}
-                                    </select>
+                                    <div className="space-y-2">
+                                        <select
+                                            value={linkTargetScene}
+                                            onChange={(e) => {
+                                                setLinkTargetScene(e.target.value);
+                                                // Auto-rotate viewer to face target scene's direction
+                                                const target = scenes.find(s => s.id === e.target.value);
+                                                if (target?.direction && viewerInstance.current) {
+                                                    try {
+                                                        viewerInstance.current.setYaw(DIRECTION_YAW[target.direction], false);
+                                                        viewerInstance.current.setPitch(0, false);
+                                                    } catch (_) {}
+                                                }
+                                            }}
+                                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                                        >
+                                            <option value="">Seleccionar escena destino</option>
+                                            {scenes
+                                                .filter((s) => s.id !== activeSceneId)
+                                                .map((s) => (
+                                                    <option key={s.id} value={s.id}>
+                                                        {s.direction ? `${s.direction.toUpperCase().slice(0,2)} — ` : ""}{s.title}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                        {/* Auto-place at target direction */}
+                                        {linkTargetScene && (() => {
+                                            const target = scenes.find(s => s.id === linkTargetScene);
+                                            return target?.direction ? (
+                                                <button
+                                                    onClick={() => {
+                                                        const yaw = DIRECTION_YAW[target.direction!];
+                                                        const newHotspot: Hotspot = {
+                                                            id: `hs-${Date.now()}`,
+                                                            type: "scene",
+                                                            pitch: 0,
+                                                            yaw,
+                                                            text: target.title || "Ir a escena",
+                                                            unidadId: "",
+                                                            targetSceneId: linkTargetScene,
+                                                            targetThumbnail: target.imageUrl,
+                                                        };
+                                                        setScenes(prev => prev.map(s =>
+                                                            s.id === activeSceneId ? { ...s, hotspots: [...s.hotspots, newHotspot] } : s
+                                                        ));
+                                                        setEditorMode('view');
+                                                        setIsPlacingHotspot(false);
+                                                        toast.success(`Burbuja colocada hacia el ${target.direction}`);
+                                                    }}
+                                                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-700/50 hover:bg-indigo-600 text-indigo-200 text-[11px] font-bold border border-indigo-600/50 transition-all"
+                                                >
+                                                    <Navigation className="w-3 h-3" /> Colocar al {target.direction} automáticamente
+                                                </button>
+                                            ) : null;
+                                        })()}
+                                        <p className="text-[10px] text-slate-500">O hacé clic en el visor para colocar la burbuja manualmente.</p>
+                                    </div>
                                 )}
                             </div>
 
@@ -1657,6 +2163,7 @@ export default function TourCreator({
                                         <div
                                             key={h.id}
                                             className="flex items-center gap-2 p-2 bg-slate-900 rounded-lg border border-slate-800"
+
                                         >
                                             <span className="text-xs">
                                                 {h.type === "info" ? "ℹ️" : h.type === "scene" ? "➡️" : "🔗"}
@@ -1680,64 +2187,103 @@ export default function TourCreator({
                             )}
                         </div>
                     )}
+                    {/* "Confirmar imagen" fue movido al overlay del viewer — ver abajo */}
 
-                    {/* ─── Masterplan Overlay Controls ─── */}
-                    {activeScene && activeScene.masterplanOverlay && (
+                    {/* Masterplan Overlay Controls */}
+                    {activeScene && (
                         <div className="border-t border-slate-800/50 p-4 space-y-3 bg-indigo-500/5">
                             <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">
                                     Plano Superpuesto
                                 </span>
-                                <div className="flex gap-1">
+                                <div className="flex items-center gap-1">
+                                    {activeScene.masterplanOverlay && (
+                                        <button
+                                            onClick={() => {
+                                                setScenes(prev => prev.map(s => s.id === activeSceneId ? {
+                                                    ...s,
+                                                    masterplanOverlay: { ...s.masterplanOverlay!, isVisible: !s.masterplanOverlay!.isVisible }
+                                                } : s));
+                                            }}
+                                            className={cn(
+                                                "p-1.5 rounded bg-slate-800 hover:bg-slate-700 transition-colors",
+                                                activeScene.masterplanOverlay.isVisible ? "text-indigo-400" : "text-slate-600"
+                                            )}
+                                            title="Alternar visibilidad"
+                                        >
+                                            <Eye className={cn("w-3.5 h-3.5", !activeScene.masterplanOverlay.isVisible && "opacity-50")} />
+                                        </button>
+                                    )}
                                     <button
-                                        onClick={() => {
-                                            setScenes(prev => prev.map(s => s.id === activeSceneId ? {
-                                                ...s,
-                                                masterplanOverlay: { ...s.masterplanOverlay!, isVisible: !s.masterplanOverlay!.isVisible }
-                                            } : s));
-                                        }}
+                                        onClick={() => setShowPlanGallery(v => !v)}
                                         className={cn(
-                                            "p-1.5 rounded bg-slate-800 hover:bg-slate-700 transition-colors",
-                                            activeScene.masterplanOverlay.isVisible ? "text-indigo-400" : "text-slate-600"
+                                            "p-1.5 rounded text-[10px] font-bold border transition-all",
+                                            showPlanGallery
+                                                ? "bg-indigo-600 border-indigo-500 text-white"
+                                                : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
                                         )}
-                                        title="Alternar Visibilidad"
+                                        title="Galería de planos"
                                     >
-                                        <Eye className={cn("w-3.5 h-3.5", !activeScene.masterplanOverlay.isVisible && "opacity-50")} />
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            if (confirm("¿Eliminar el plano de esta escena?")) {
-                                                setScenes(prev => prev.map(s => s.id === activeSceneId ? { ...s, masterplanOverlay: undefined } : s));
-                                            }
-                                        }}
-                                        className="p-1.5 rounded bg-slate-800 hover:bg-rose-500/20 text-slate-600 hover:text-rose-400 transition-colors"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Grid3x3 className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="space-y-2 text-xs">
-                                <div className="flex justify-between text-slate-500">
-                                    <span>Opacidad</span>
-                                    <span className="text-indigo-300 font-mono">{Math.round((activeScene.masterplanOverlay?.opacity || 0) * 100)}%</span>
+                            {/* Plan gallery picker */}
+                            {showPlanGallery && (
+                                <div className="space-y-2">
+                                    <p className="text-[10px] text-slate-500">Seleccioná el plano a usar en esta escena:</p>
+                                    <PlanGalleryPicker
+                                        proyectoId={proyectoId}
+                                        items={planGalleryItems}
+                                        selectedId={activeScene.masterplanOverlay?.selectedPlanId ?? null}
+                                        onSelect={(item) => {
+                                            setScenes(prev => prev.map(s =>
+                                                s.id === activeSceneId ? {
+                                                    ...s,
+                                                    masterplanOverlay: {
+                                                        ...(s.masterplanOverlay ?? { isVisible: true }),
+                                                        selectedPlanId: item.id,
+                                                        imageUrl: item.imageUrl,
+                                                    }
+                                                } : s
+                                            ));
+                                            setShowPlanGallery(false);
+                                            toast.success(`Plano "${item.nombre}" seleccionado`);
+                                        }}
+                                        onItemsChange={setPlanGalleryItems}
+                                        allowUpload={false}
+                                    />
                                 </div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                                    value={activeScene.masterplanOverlay?.opacity || 0}
-                                    onChange={(e) => {
-                                        const opacity = parseFloat(e.target.value);
-                                        setScenes(prev => prev.map(s => s.id === activeSceneId ? {
-                                            ...s,
-                                            masterplanOverlay: { ...s.masterplanOverlay!, opacity }
-                                        } : s));
-                                    }}
-                                    className="w-full accent-indigo-500 bg-slate-800 h-1 rounded-lg appearance-none cursor-pointer"
-                                />
-                            </div>
+                            )}
+
+                            {activeScene.masterplanOverlay && !showPlanGallery && (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            if (canAlignProjectPlan) {
+                                                setIsOverlayEditorOpen(true);
+                                            }
+                                        }}
+                                        disabled={!canAlignProjectPlan}
+                                        className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all"
+                                    >
+                                        Ajustar Plano
+                                    </button>
+                                    <p className="text-xs text-slate-400 leading-relaxed">
+                                        Abrí el editor completo para ubicar el plano sobre la imagen 360 y guardar la alineación de esta escena.
+                                    </p>
+                                </>
+                            )}
+
+                            {!activeScene.masterplanOverlay && !showPlanGallery && (
+                                <button
+                                    onClick={() => setShowPlanGallery(true)}
+                                    className="w-full py-2 rounded-xl border border-dashed border-indigo-700/50 text-indigo-400 hover:text-indigo-300 text-xs font-semibold transition-all"
+                                >
+                                    Seleccionar plano de la galería
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -1746,11 +2292,20 @@ export default function TourCreator({
                         <button
                             onClick={handleSave}
                             disabled={isSaving || scenes.length === 0}
-                            className="w-full py-4 rounded-2xl bg-white text-black text-sm font-black shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                            className={cn(
+                                "w-full py-4 rounded-2xl text-sm font-black shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3",
+                                tourSaved
+                                    ? "bg-orange-500 text-white"
+                                    : "bg-white text-black"
+                            )}
                         >
                             {isSaving ? (
                                 <>
                                     <Loader2 className="w-5 h-5 animate-spin" /> Guardando...
+                                </>
+                            ) : tourSaved ? (
+                                <>
+                                    <Check className="w-5 h-5" /> Guardado
                                 </>
                             ) : (
                                 <>
@@ -1763,6 +2318,56 @@ export default function TourCreator({
             </div>
 
             {/* Bottom: Removed Redundant Scene Strip as requested by design */}
+
+            {isOverlayEditorOpen && activeScene && projectOverlayBounds && projectSvgViewBox && (
+                <TourSceneOverlayEditor
+                    proyectoId={proyectoId}
+                    scene={activeScene}
+                    units={overlayUnits}
+                    overlayBounds={projectOverlayBounds}
+                    overlayRotation={projectOverlayRotation}
+                    svgViewBox={projectSvgViewBox}
+                    planGalleryItems={planGalleryItems}
+                    onPlanGalleryItemsChange={setPlanGalleryItems}
+                    onSelectPlan={(item) => {
+                        setScenes((prev) =>
+                            prev.map((scene) =>
+                                scene.id === activeScene.id
+                                    ? {
+                                        ...scene,
+                                        masterplanOverlay: {
+                                            ...scene.masterplanOverlay,
+                                            selectedPlanId: item.id,
+                                            imageUrl: item.imageUrl,
+                                            isVisible: scene.masterplanOverlay?.isVisible ?? true,
+                                            opacity: scene.masterplanOverlay?.opacity ?? 0.55,
+                                        },
+                                    }
+                                    : scene
+                            )
+                        );
+                    }}
+                    onClose={() => setIsOverlayEditorOpen(false)}
+                    onSaved={(overlay: SceneOverlayCalibration) => {
+                        setScenes((prev) =>
+                            prev.map((scene) =>
+                                scene.id === activeScene.id
+                                    ? {
+                                        ...scene,
+                                        masterplanOverlay: {
+                                            ...scene.masterplanOverlay,
+                                            ...overlay,
+                                            isVisible: overlay.isVisible ?? scene.masterplanOverlay?.isVisible ?? true,
+                                            opacity: scene.masterplanOverlay?.opacity ?? 0.55,
+                                        },
+                                    }
+                                    : scene
+                            )
+                        );
+                        setIsOverlayEditorOpen(false);
+                    }}
+                />
+            )}
 
             {/* Hotspot styling */}
             <style jsx global>{`

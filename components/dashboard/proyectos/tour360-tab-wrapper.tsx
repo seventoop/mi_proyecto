@@ -69,22 +69,53 @@ export default function Tour360TabWrapper({
     };
 
     const handleSaveTour = async (scenes: Scene[]) => {
-        if (!tourName) return alert("El nombre es obligatorio");
-        if (scenes.length === 0) return alert("Debes agregar al menos una escena");
+        if (!tourName.trim()) {
+            alert("El nombre del tour es obligatorio");
+            return false;
+        }
+        if (scenes.length === 0) {
+            alert("Debés agregar al menos una escena");
+            return false;
+        }
 
         setIsSaving(true);
+
+        // Normalize scene data to match the Zod schema in lib/actions/tours.ts
+        const HOTSPOT_TYPE_MAP: Record<string, "INFO" | "SCENE" | "LINK" | "UNIT"> = {
+            info: "INFO", scene: "SCENE", link: "LINK", unit: "UNIT",
+            lot: "UNIT", check: "INFO", sold: "INFO", gallery: "INFO",
+            video: "LINK", arrow: "INFO", house: "INFO", tree: "INFO", camera: "INFO",
+        };
+
+        const normalizedScenes = scenes.map((s, idx) => ({
+            id: s.id?.startsWith("scene-") ? undefined : s.id,
+            title: s.title || "Sin título",
+            imageUrl: s.imageUrl,
+            masterplanOverlay: s.masterplanOverlay ?? null,
+            isDefault: s.isDefault || (idx === 0 && !scenes.some(sc => sc.isDefault)),
+            order: idx,
+            category: ((s.category || "raw").toUpperCase()) as "RAW" | "RENDERED",
+            hotspots: (s.hotspots || []).map((h: any) => ({
+                unidadId: h.unidadId || null,
+                type: HOTSPOT_TYPE_MAP[h.type?.toLowerCase()] ?? "INFO",
+                pitch: h.pitch ?? 0,
+                yaw: h.yaw ?? 0,
+                text: h.text ?? null,
+                targetSceneId: h.targetSceneId ?? null,
+            })),
+        }));
 
         let res;
         if (viewMode === "CREATE") {
             res = await createTour({
                 proyectoId,
-                nombre: tourName,
-                scenes: scenes // Now passing the array directly
+                nombre: tourName.trim(),
+                scenes: normalizedScenes,
             });
         } else {
             res = await updateTour(activeTour.id, {
-                nombre: tourName,
-                scenes: scenes
+                nombre: tourName.trim(),
+                scenes: normalizedScenes,
             });
         }
 
@@ -103,8 +134,10 @@ export default function Tour360TabWrapper({
 
             router.refresh();
             setViewMode("LIST");
+            return true;
         } else {
             toast.error("error" in res ? String(res.error) : "Error");
+            return false;
         }
     };
 

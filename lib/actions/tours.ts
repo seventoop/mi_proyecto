@@ -1,15 +1,15 @@
-"use server";
+﻿"use server";
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 
-// ─── Schemas ───
+// â”€â”€â”€ Schemas â”€â”€â”€
 
 const hotspotSchema = z.object({
     id: z.string().optional(),
-    unidadId: z.string().min(1, "unidadId requerido para hotspot"),
+    unidadId: z.string().optional().nullable(),
     type: z.enum(["INFO", "SCENE", "LINK", "UNIT"]),
     pitch: z.number(),
     yaw: z.number(),
@@ -17,10 +17,19 @@ const hotspotSchema = z.object({
     targetSceneId: z.string().optional().nullable(),
 });
 
+const imageUrlSchema = z
+    .string()
+    .min(1, "URL de imagen invalida")
+    .refine(
+        (value) => value.startsWith("/") || /^https?:\/\//i.test(value),
+        "URL de imagen invalida"
+    );
+
 const sceneSchema = z.object({
     id: z.string().optional(),
-    title: z.string().min(1, "Título de escena requerido"),
-    imageUrl: z.string().url("URL de imagen inválida"),
+    title: z.string().min(1, "TÃ­tulo de escena requerido"),
+    imageUrl: imageUrlSchema,
+    masterplanOverlay: z.any().optional().nullable(),
     isDefault: z.boolean().default(false),
     order: z.number().default(0),
     category: z.enum(["RAW", "RENDERED"]).default("RAW"),
@@ -38,7 +47,7 @@ const updateTourSchema = createTourSchema.extend({
     id: z.string().min(1),
 });
 
-// ─── Queries ───
+// â”€â”€â”€ Queries â”€â”€â”€
 
 export async function getProjectTours(proyectoId: string) {
     try {
@@ -106,7 +115,7 @@ export async function getPublicTour(tourId: string) {
 
         // Security requirement: Only published projects
         if ((tour as any).proyecto.estado !== "PUBLICADO") {
-            return { success: false, error: "Este tour no está disponible públicamente" };
+            return { success: false, error: "Este tour no estÃƒÆ’Ã‚Â¡ disponible pÃƒÆ’Ã‚Âºblicamente" };
         }
 
         return { success: true, data: tour };
@@ -123,13 +132,13 @@ export async function updateTour(id: string, input: any) {
     return upsertTour({ ...input, id });
 }
 
-// ─── Mutations ───
+// â”€â”€â”€ Mutations â”€â”€â”€
 
 export async function upsertTour(input: unknown) {
     try {
         const parsed = createTourSchema.partial({ proyectoId: true }).safeParse(input);
         if (!parsed.success) {
-            return { success: false, error: parsed.error.issues[0]?.message || "Datos inválidos" };
+            return { success: false, error: parsed.error.issues[0]?.message || "Datos invÃƒÆ’Ã‚Â¡lidos" };
         }
 
         const data = parsed.data as any;
@@ -170,6 +179,7 @@ export async function upsertTour(input: unknown) {
                         tourId: tour.id,
                         title: scene.title,
                         imageUrl: scene.imageUrl,
+                        masterplanOverlay: scene.masterplanOverlay ?? undefined,
                         isDefault: scene.isDefault,
                         order: scene.order,
                         category: scene.category,
@@ -250,3 +260,5 @@ export async function rejectTour(id: string, reason: string) {
         return handleGuardError(error);
     }
 }
+
+

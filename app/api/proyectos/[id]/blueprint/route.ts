@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
+import { extractBlueprintMeta } from "@/lib/blueprint-utils";
 
 /**
  * GET /api/proyectos/[id]/blueprint
@@ -51,9 +52,12 @@ export async function GET(
         }
 
         const unidades = project.etapas[0]?.manzanas[0]?.unidades ?? [];
+        const blueprintMeta = extractBlueprintMeta(project.masterplanSVG);
 
         return NextResponse.json({
             masterplanSVG: project.masterplanSVG ?? null,
+            blueprintMeta,
+            hasDetectedLots: blueprintMeta?.processingMode === "detected-lots" && unidades.length > 0,
             unidades,
         });
     } catch (error) {

@@ -52,7 +52,28 @@ export async function uploadFile(options: UploadOptions): Promise<UploadResult> 
 
     switch (storageType) {
         case "s3":
-            return uploadToS3(options);
+            try {
+                return await uploadToS3(options);
+            } catch (error: any) {
+                const isDev = process.env.NODE_ENV !== "production";
+                const status = error?.$metadata?.httpStatusCode ?? error?.$response?.statusCode ?? error?.$response?.status;
+                const message = String(error?.$response?.body || error?.message || "");
+                const canFallbackToLocal =
+                    isDev &&
+                    (status === 540 ||
+                        message.toLowerCase().includes("project paused") ||
+                        message.toLowerCase().includes("unpause the project"));
+
+                if (canFallbackToLocal) {
+                    console.warn(
+                        "⚠️  [Storage] S3/Supabase no disponible en desarrollo, usando fallback local:",
+                        message || `status ${status}`
+                    );
+                    return uploadToLocal(options);
+                }
+
+                throw error;
+            }
         case "local":
             return uploadToLocal(options);
         default:

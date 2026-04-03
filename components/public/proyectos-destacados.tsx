@@ -24,11 +24,11 @@ export default function ProyectosDestacados({ proyectos }: { proyectos: Proyecto
     if (!proyectos || proyectos.length === 0) {
         return (
             <section className="py-24 bg-background">
-                <div className="max-w-7xl mx-auto px-6 text-center">
+                <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 xl:px-12 text-center">
                     <h2 className="text-3xl md:text-5xl font-black text-foreground mb-6">{t.featuredProjects.title}</h2>
                     <div className="bg-card border border-border rounded-3xl p-12 max-w-2xl mx-auto shadow-xl">
                         <p className="text-xl text-foreground font-medium">{t.featuredProjects.emptyTitle}</p>
-                        <p className="text-sm text-muted-foreground mt-2">{t.featuredProjects.emptyDesc}</p>
+                        <p className="text-base text-muted-foreground mt-2">{t.featuredProjects.emptyDesc}</p>
                     </div>
                 </div>
             </section>
@@ -37,7 +37,7 @@ export default function ProyectosDestacados({ proyectos }: { proyectos: Proyecto
 
     return (
         <section className="py-24 bg-background overflow-hidden">
-            <div className="max-w-7xl mx-auto px-6">
+            <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 xl:px-12">
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 md:mb-16 gap-6">
                     <div>
                         <span className="text-brand-orange font-bold uppercase tracking-widest text-sm mb-3 block">
@@ -74,7 +74,7 @@ export default function ProyectosDestacados({ proyectos }: { proyectos: Proyecto
                                 {/* Badges */}
                                 <div className="absolute top-5 left-5 flex flex-col items-start gap-2">
                                     <span className={cn(
-                                        "px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-lg",
+                                        "px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider backdrop-blur-md shadow-lg",
                                         proyecto.estado === "ACTIVO"
                                             ? "bg-emerald-500/90 text-white"
                                             : "bg-brand-orange/90 text-white"
@@ -82,7 +82,7 @@ export default function ProyectosDestacados({ proyectos }: { proyectos: Proyecto
                                         {proyecto.estado}
                                     </span>
                                     {proyecto.tipo && (
-                                        <span className="px-3 py-1.5 rounded-full bg-black/50 text-white/90 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border border-white/10">
+                                        <span className="px-3 py-1.5 rounded-full bg-black/50 text-white/90 text-xs font-bold uppercase tracking-wider backdrop-blur-md border border-white/10">
                                             {proyecto.tipo}
                                         </span>
                                     )}
@@ -96,7 +96,7 @@ export default function ProyectosDestacados({ proyectos }: { proyectos: Proyecto
                                 </h3>
 
                                 {((proyecto.ciudad && proyecto.provincia) || proyecto.ubicacion) && (
-                                    <div className="flex items-center gap-1.5 text-muted-foreground text-sm mb-6">
+                                    <div className="flex items-center gap-1.5 text-muted-foreground text-base mb-6">
                                         <MapPin className="w-4 h-4 text-brand-orange/70 group-hover:text-brand-orange transition-colors" />
                                         <span className="truncate font-medium">
                                             {proyecto.ciudad && proyecto.provincia
@@ -109,7 +109,7 @@ export default function ProyectosDestacados({ proyectos }: { proyectos: Proyecto
                                 <div className="pt-4 border-t border-border flex items-center justify-between">
                                     {proyecto.precioDesde ? (
                                         <div>
-                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block mb-0.5">{t.featuredProjects.investmentFrom}</span>
+                                            <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block mb-0.5">{t.featuredProjects.investmentFrom}</span>
                                             <span className="text-lg font-black text-foreground">
                                                 {formatCurrency(proyecto.precioDesde)} <span className="text-sm font-semibold text-brand-orange">USD</span>
                                             </span>

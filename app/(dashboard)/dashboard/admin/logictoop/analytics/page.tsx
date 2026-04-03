@@ -6,7 +6,7 @@ export const metadata = {
 
 export default function AnalyticsPage() {
     return (
-        <div className="container max-w-7xl mx-auto py-8">
+        <div className="w-full py-8">
             <AutomationAnalyticsDashboard />
         </div>
     );

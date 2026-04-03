@@ -1,17 +1,17 @@
 version: '3.8'
-
 services:
-  postgres:
+  db:
     image: postgres:15-alpine
-    container_name: seventoop_postgres
+    container_name: seventoop-db
+    restart: always
     environment:
-      POSTGRES_USER: usuario
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: seventoop
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=seventoop
     ports:
-      - "5433:5432"
+      - '5432:5432'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
+  db_data:

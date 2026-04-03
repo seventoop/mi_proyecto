@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireAnyRole, handleApiGuardError } from "@/lib/guards";
 
 // GET /api/developments — listar todos los proyectos
 export async function GET() {
     try {
+        const user = await requireAnyRole(["ADMIN", "DESARROLLADOR", "VENDEDOR"]);
+
         const proyectos = await prisma.proyecto.findMany({
             where: {
-                visibilityStatus: "PUBLICADO",
-                estado: { not: "SUSPENDIDO" },
-                OR: [
-                    { isDemo: false },
-                    {
-                        isDemo: true,
-                        demoExpiresAt: { gt: new Date() }
-                    }
-                ]
+                ...(user.role === "ADMIN" || user.role === "SUPERADMIN"
+                    ? {}
+                    : { orgId: user.orgId ?? "__none__" }),
+                deletedAt: null,
             },
             include: {
                 etapas: {
@@ -38,17 +36,14 @@ export async function GET() {
 
         return NextResponse.json(proyectos);
     } catch (error) {
-        console.error("Error fetching projects:", error);
-        return NextResponse.json(
-            { error: "Error al obtener proyectos" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
 // POST /api/developments — crear nuevo proyecto
 export async function POST(request: Request) {
     try {
+        const user = await requireAnyRole(["ADMIN", "DESARROLLADOR"]);
         const body = await request.json();
 
         const proyecto = await prisma.proyecto.create({
@@ -59,19 +54,16 @@ export async function POST(request: Request) {
                 estado: body.estado || "PLANIFICACION",
                 tipo: body.tipo || "URBANIZACION",
                 imagenPortada: body.imagenPortada,
-                galeria: body.galeria || [],
-                documentos: body.documentos || [],
+                galeria: JSON.stringify(body.galeria || []),
+                documentos: JSON.stringify(body.documentos || []),
                 masterplanSVG: body.masterplanSVG,
-                // masterplanConfig: body.masterplanConfig,
+                orgId: user.orgId ?? undefined,
+                creadoPorId: user.id,
             },
         });
 
         return NextResponse.json(proyecto, { status: 201 });
     } catch (error) {
-        console.error("Error creating project:", error);
-        return NextResponse.json(
-            { error: "Error al crear proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

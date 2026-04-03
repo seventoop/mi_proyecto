@@ -171,7 +171,7 @@ export default function NewProyectoDeveloperPage() {
                 Volver a Proyectos
             </Link>
 
-            <div className="max-w-6xl mx-auto">
+            <div className="w-full">
                 {hasActiveDemo && kycStatus !== "VERIFICADO" && (
                     <div className="mb-10 p-6 sm:p-8 bg-white dark:bg-slate-900 border border-brand-500/20 rounded-[2.5rem] flex flex-col sm:flex-row items-center gap-6 shadow-2xl shadow-brand-500/5 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/5 rounded-full blur-3xl transition-all group-hover:bg-brand-500/10" />

@@ -21,7 +21,7 @@ export default function ComoFunciona() {
             {/* Soft ambient background */}
             <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-brand-orange/5 rounded-full blur-[120px] pointer-events-none" />
 
-            <div className="max-w-7xl mx-auto px-6 relative z-10">
+            <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 xl:px-12 relative z-10">
                 <div className="text-center mb-16 md:mb-24">
                     <span className="text-brand-orange font-bold uppercase tracking-widest text-sm mb-4 block">
                         {t.howItWorks.badge}
@@ -42,7 +42,7 @@ export default function ComoFunciona() {
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true, margin: "-50px" }}
                             transition={{ duration: 0.4, delay: idx * 0.05 }}
-                            className="bg-card/50 dark:bg-white/5 border border-border/60 dark:border-white/10 rounded-2xl p-6 group hover:border-brand-orange/40 hover:bg-card dark:hover:bg-white/10 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-brand-orange/5 flex flex-col h-full"
+                            className="bg-card border border-border rounded-2xl p-6 group hover:border-brand-orange/40 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-brand-orange/5 flex flex-col h-full"
                         >
                             {/* Step Indicator */}
                             <div className="flex items-center gap-3 mb-4">
@@ -53,10 +53,10 @@ export default function ComoFunciona() {
                             </div>
 
                             {/* Step Content */}
-                            <h3 className="text-lg font-bold text-foreground mb-2 group-hover:text-brand-orange transition-colors line-clamp-2">
+                            <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-brand-orange transition-colors line-clamp-2">
                                 {paso.title}
                             </h3>
-                            <p className="text-sm text-muted-foreground leading-relaxed font-medium">
+                            <p className="text-base text-muted-foreground leading-relaxed font-medium">
                                 {paso.desc}
                             </p>
                         </motion.div>

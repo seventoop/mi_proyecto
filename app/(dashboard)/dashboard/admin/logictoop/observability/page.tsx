@@ -6,7 +6,7 @@ export const metadata = {
 
 export default function ObservabilityPage() {
     return (
-        <div className="container max-w-7xl mx-auto py-8">
+        <div className="w-full py-8">
             <ObservabilityDashboard />
         </div>
     );

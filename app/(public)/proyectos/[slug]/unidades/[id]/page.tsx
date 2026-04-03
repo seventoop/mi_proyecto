@@ -83,7 +83,7 @@ export default async function UnitDetailPage({ params }: { params: { slug: strin
     return (
         <div className="bg-slate-950 min-h-screen pt-24 pb-20 text-white">
             {/* Header / Breadcrumb */}
-            <div className="max-w-7xl mx-auto px-4 mb-8">
+            <div className="w-full px-4 mb-8">
                 <Link
                     href={`/proyectos/${params.slug}/masterplan`}
                     className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-4"
@@ -114,7 +114,7 @@ export default async function UnitDetailPage({ params }: { params: { slug: strin
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="w-full px-4 grid grid-cols-1 lg:grid-cols-3 gap-12">
                 {/* ─── Left Column (Details) ─── */}
                 <div className="lg:col-span-2 space-y-12">
 

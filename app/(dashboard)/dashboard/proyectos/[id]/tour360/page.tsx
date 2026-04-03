@@ -88,7 +88,7 @@ export default function TourPage() {
     };
 
     const handleSaveScenes = async (scenes: Scene[]) => {
-        if (!selectedTour) return;
+        if (!selectedTour) return false;
 
         try {
             const res = await fetch(`/api/tours/${selectedTour.id}`, {
@@ -99,11 +99,14 @@ export default function TourPage() {
                 }),
             });
             const updatedTour = await res.json();
+            if (!res.ok) throw new Error(updatedTour?.error || "Error al guardar");
             setTours(tours.map(t => t.id === updatedTour.id ? updatedTour : t));
             alert("Tour guardado correctamente");
+            return true;
         } catch (error) {
             console.error("Failed to save tour", error);
             alert("Error al guardar");
+            return false;
         }
     };
 

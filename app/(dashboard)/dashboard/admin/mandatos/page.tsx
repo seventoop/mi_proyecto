@@ -147,7 +147,7 @@ export default function AdminMandatosPage() {
     };
 
     return (
-        <div className="p-6 max-w-6xl mx-auto space-y-8 animate-fade-in">
+        <div className="p-6 w-full space-y-8 animate-fade-in">
             {/* Header */}
             <ModuleHelp content={MODULE_HELP_CONTENT.adminMandatos} />
 

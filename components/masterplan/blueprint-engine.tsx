@@ -6,11 +6,25 @@ import {
     Upload, FileCode, Layers, RefreshCw,
     Trash2, FileText, ZoomIn, ZoomOut, Maximize2, Minimize2,
     RotateCcw, ScanSearch, Map, Ruler, Download,
-    Search, X, Check, LayoutList, HelpCircle, ChevronDown, ChevronUp
+    Search, X, Check, LayoutList, HelpCircle, ChevronDown, ChevronUp, Grid3x3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMasterplanStore } from "@/lib/masterplan-store";
-import { parseBlueprintSVG, parseBlueprintDXF, ExtractedPath } from "@/lib/blueprint-utils";
+import PlanGalleryPicker, { type PlanGalleryItem } from "@/components/plan-gallery/plan-gallery-picker";
+import {
+    parseBlueprintSVG,
+    parseBlueprintDXF,
+    ExtractedPath,
+    BlueprintEmbeddedMeta,
+    BlueprintSourceKind,
+    assessBlueprintDetection,
+    buildDetectedLotsSVG,
+    buildFallbackBlueprintSVG,
+    buildImageBlueprintSVG,
+    detectBlueprintSourceKind,
+    extractBlueprintMeta,
+    sanitizeBlueprintSVG,
+} from "@/lib/blueprint-utils";
 
 interface BlueprintEngineProps { proyectoId: string; }
 
@@ -27,6 +41,14 @@ interface LotRecord {
     observaciones: string;
 }
 
+interface ProcessingReport {
+    sourceKind: BlueprintSourceKind;
+    mode: "detected-lots" | "visual-only" | "source-only";
+    warnings: string[];
+    message: string;
+    sourceUrl?: string;
+}
+
 const ESTADO_CONFIG: Record<LotEstado, { label: string; color: string; bg: string }> = {
     DISPONIBLE: { label: "Disponible", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/30" },
     RESERVADO:  { label: "Reservado",  color: "text-amber-600 dark:text-amber-400",   bg: "bg-amber-500/10 border-amber-500/30"   },
@@ -35,7 +57,7 @@ const ESTADO_CONFIG: Record<LotEstado, { label: string; color: string; bg: strin
 };
 
 const ESTADO_FILL: Record<LotEstado, string> = {
-    DISPONIBLE: "rgba(16,185,129,0.18)",
+    DISPONIBLE: "rgba(16,185,129,0.08)",
     RESERVADO:  "rgba(245,158,11,0.22)",
     VENDIDO:    "rgba(239,68,68,0.22)",
     BLOQUEADO:  "rgba(100,116,139,0.18)",
@@ -66,6 +88,9 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     const [svgContent, setSvgContent] = useState<string | null>(null);
     const [extractedPaths, setExtractedPaths] = useState<ExtractedPath[]>([]);
     const [isDXF, setIsDXF] = useState(false);
+    const [sourceKind, setSourceKind] = useState<BlueprintSourceKind>("unknown");
+    const [processingReport, setProcessingReport] = useState<ProcessingReport | null>(null);
+    const [sourcePreviewUrl, setSourcePreviewUrl] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [viewMode, setViewMode] = useState<"analysis" | "blueprint">("analysis");
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -78,6 +103,9 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     const [tableFilter, setTableFilter] = useState<LotEstado | "ALL">("ALL");
     const [showTable, setShowTable] = useState(false);
     const [scaleMeters, setScaleMeters] = useState<string>("1");
+    const [planGalleryItems, setPlanGalleryItems] = useState<PlanGalleryItem[]>([]);
+    const [showPlanGallery, setShowPlanGallery] = useState(false);
+    const [selectedGalleryPlanId, setSelectedGalleryPlanId] = useState<string | null>(null);
 
     const [loadedFromDB, setLoadedFromDB] = useState(false);
     const [showSummary, setShowSummary] = useState(false);
@@ -108,12 +136,40 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
             try {
                 const res = await fetch(`/api/proyectos/${proyectoId}/blueprint`);
                 if (!res.ok) return;
-                const data = await res.json();
+                const data = await readJsonResponse(res);
 
-                if (!data.masterplanSVG || !data.unidades?.length) return;
+                if (!data.masterplanSVG) return;
 
-                // Restore SVG
+                const embeddedMeta = (data.blueprintMeta as BlueprintEmbeddedMeta | null) ?? extractBlueprintMeta(data.masterplanSVG);
                 setSvgContent(data.masterplanSVG);
+                setSourceKind(embeddedMeta?.sourceKind ?? "svg");
+                setIsDXF(embeddedMeta?.sourceKind === "dxf");
+                setSourcePreviewUrl(embeddedMeta?.sourceUrl ?? null);
+                setProcessingReport(embeddedMeta ? {
+                    sourceKind: embeddedMeta.sourceKind,
+                    mode: embeddedMeta.processingMode,
+                    warnings: embeddedMeta.warnings ?? [],
+                    message:
+                        embeddedMeta.processingMode === "detected-lots"
+                            ? "Plano restaurado con deteccion previa."
+                            : embeddedMeta.processingMode === "visual-only"
+                                ? "Se restauro una base visual sin lotes detectados automaticamente."
+                                : "Se restauro el archivo original como referencia.",
+                    sourceUrl: embeddedMeta.sourceUrl,
+                } : null);
+
+                if (embeddedMeta?.processingMode !== "detected-lots" || !data.unidades?.length) {
+                    setExtractedPaths([]);
+                    setLotRecords([]);
+                    setStats({
+                        pathsFound: embeddedMeta?.detectedPaths ?? 0,
+                        labeled: embeddedMeta?.detectedLots ?? 0,
+                    });
+                    setShowTable(false);
+                    setLoadedFromDB(true);
+                    return;
+                }
+
                 setIsDXF(false);
 
                 // Reconstruct extractedPaths from units stored in DB
@@ -227,6 +283,220 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     };
 
     // ─── File upload ──────────────────────────────────────────────────────────
+    const readJsonResponse = async (response: Response) => {
+        const raw = await response.text();
+        if (!raw) return {};
+
+        try {
+            return JSON.parse(raw) as any;
+        } catch {
+            throw new Error(`Respuesta no parseable del servidor (${response.status})`);
+        }
+    };
+
+    const loadPlanGallery = useCallback(async () => {
+        try {
+            const response = await fetch(`/api/proyectos/${proyectoId}/plan-gallery`);
+            const data = await readJsonResponse(response);
+            if (response.ok && Array.isArray(data.items)) {
+                setPlanGalleryItems(data.items);
+            }
+        } catch {
+            // silent: gallery is optional support UI
+        }
+    }, [proyectoId]);
+
+    useEffect(() => {
+        loadPlanGallery();
+    }, [loadPlanGallery]);
+
+    const uploadMasterplanSource = async (uploadedFile: File) => {
+        const formData = new FormData();
+        formData.append("file", uploadedFile);
+        formData.append("projectId", proyectoId);
+
+        const response = await fetch("/api/upload/masterplan", {
+            method: "POST",
+            body: formData,
+        });
+        const data = await readJsonResponse(response);
+
+        if (!response.ok) {
+            throw new Error(data.error || "No se pudo guardar el archivo original");
+        }
+
+        return data as { url: string; detectedType?: string | null };
+    };
+
+    const tryUploadMasterplanSource = async (uploadedFile: File) => {
+        try {
+            const upload = await uploadMasterplanSource(uploadedFile);
+            return { upload, warning: null as string | null };
+        } catch (error: any) {
+            return {
+                upload: null,
+                warning: error?.message || "No se pudo guardar el archivo original en este intento.",
+            };
+        }
+    };
+
+    const getImageDimensions = async (uploadedFile: File) => {
+        const previewUrl = URL.createObjectURL(uploadedFile);
+
+        try {
+            const image = new Image();
+            await new Promise<void>((resolve, reject) => {
+                image.onload = () => resolve();
+                image.onerror = () => reject(new Error("No se pudo leer la imagen"));
+                image.src = previewUrl;
+            });
+
+            return {
+                width: image.naturalWidth || 1600,
+                height: image.naturalHeight || 900,
+            };
+        } finally {
+            URL.revokeObjectURL(previewUrl);
+        }
+    };
+
+    const resetBlueprintState = () => {
+        setSvgContent(null);
+        setStats(null);
+        setExtractedPaths([]);
+        setLotRecords([]);
+        setActiveLotNumber(null);
+        setShowTable(false);
+        setIsDXF(false);
+        setSourceKind("unknown");
+        setProcessingReport(null);
+        setSourcePreviewUrl(null);
+    };
+
+    const savePlanToGallery = useCallback(async (
+        svg: string,
+        uploadedFile: File,
+        tipo: PlanGalleryItem["tipo"] = "subdivision",
+    ) => {
+        try {
+            const form = new FormData();
+            const name = uploadedFile.name.replace(/\.[^.]+$/, "");
+            const svgFile = new File([svg], `${name}.svg`, { type: "image/svg+xml" });
+            form.append("file", svgFile);
+            form.append("nombre", name);
+            form.append("tipo", tipo);
+
+            const response = await fetch(`/api/proyectos/${proyectoId}/plan-gallery`, {
+                method: "POST",
+                body: form,
+            });
+            const data = await readJsonResponse(response);
+            if (!response.ok || !data.item) {
+                throw new Error(data.error || "No se pudo agregar a la galeria");
+            }
+
+            setPlanGalleryItems((prev) => [...prev, data.item]);
+            setSelectedGalleryPlanId(data.item.id);
+        } catch {
+            // no bloquear el flujo principal por una falla secundaria
+        }
+    }, [proyectoId]);
+
+    const applyGalleryPlan = useCallback(async (item: PlanGalleryItem) => {
+        try {
+            const response = await fetch(item.imageUrl);
+            const raw = await response.text();
+            const svg = sanitizeBlueprintSVG(raw);
+            const meta = extractBlueprintMeta(svg);
+
+            setSelectedGalleryPlanId(item.id);
+            setFile(null);
+            setSvgContent(svg);
+            setExtractedPaths([]);
+            setLotRecords([]);
+            setActiveLotNumber(null);
+            setShowTable(false);
+            setSourceKind(meta?.sourceKind ?? "svg");
+            setIsDXF(false);
+            setStats({
+                pathsFound: meta?.detectedPaths ?? 0,
+                labeled: meta?.detectedLots ?? 0,
+            });
+            setSourcePreviewUrl(item.imageUrl);
+            setProcessingReport({
+                sourceKind: meta?.sourceKind ?? "svg",
+                mode: meta?.processingMode ?? "visual-only",
+                warnings: meta?.warnings ?? [],
+                message: `Plano "${item.nombre}" cargado desde la galeria.`,
+                sourceUrl: item.imageUrl,
+            });
+            setViewMode("blueprint");
+            setShowPlanGallery(false);
+        } catch {
+            alert("No se pudo abrir este plano de la galeria.");
+        }
+    }, []);
+
+    const setDetectedLotsResult = (
+        uploadedFile: File,
+        kind: BlueprintSourceKind,
+        svg: string,
+        paths: ExtractedPath[],
+        warnings: string[] = [],
+        options?: { sourceUrl?: string; message?: string }
+    ) => {
+        const labeled = paths.filter((path) => path.lotNumber).length;
+        setFile(uploadedFile);
+        setSelectedGalleryPlanId(null);
+        setSourceKind(kind);
+        setIsDXF(kind === "dxf");
+        setSvgContent(svg);
+        setExtractedPaths(paths);
+        initLotRecords(paths);
+        setStats({ pathsFound: paths.length, labeled });
+        setProcessingReport({
+            sourceKind: kind,
+            mode: "detected-lots",
+            warnings,
+            message:
+                options?.message ??
+                (labeled > 0
+                    ? `Se detectaron ${labeled} lotes para sincronizar.`
+                    : "Se detecto la geometria del plano, pero no etiquetas confiables."),
+            sourceUrl: options?.sourceUrl,
+        });
+        setSourcePreviewUrl(options?.sourceUrl ?? null);
+        if (labeled > 0) setShowTable(true);
+        void savePlanToGallery(svg, uploadedFile, "subdivision");
+    };
+
+    const setVisualOnlyResult = (
+        uploadedFile: File,
+        kind: BlueprintSourceKind,
+        svg: string,
+        options: { sourceUrl?: string; warnings?: string[]; message: string; mode?: "visual-only" | "source-only" }
+    ) => {
+        const warnings = options.warnings ?? [];
+        const mode = options.mode ?? "visual-only";
+        setFile(uploadedFile);
+        setSelectedGalleryPlanId(null);
+        setSourceKind(kind);
+        setIsDXF(false);
+        setSvgContent(svg);
+        setExtractedPaths([]);
+        setLotRecords([]);
+        setStats({ pathsFound: 0, labeled: 0 });
+        setProcessingReport({
+            sourceKind: kind,
+            mode,
+            warnings,
+            message: options.message,
+            sourceUrl: options.sourceUrl,
+        });
+        setSourcePreviewUrl(options.sourceUrl ?? null);
+        void savePlanToGallery(svg, uploadedFile, kind === "pdf" ? "catastral" : "otro");
+    };
+
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault(); setIsDragging(false);
         handleFileUpload({ target: { files: e.dataTransfer.files } } as React.ChangeEvent<HTMLInputElement>);
@@ -235,55 +505,295 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const uploadedFile = e.target.files?.[0];
         if (!uploadedFile) return;
-        setFile(uploadedFile); setProcessing(true); setSvgContent(null);
-        setStats(null); setExtractedPaths([]); setLotRecords([]);
-        setActiveLotNumber(null);
+        setProcessing(true);
+        resetBlueprintState();
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target?.result as string;
-            const isSvg = content.trim().toLowerCase().startsWith("<svg") || content.includes("<svg");
-            const isBin = /[\x00-\x08\x0E-\x1F\x80-\xFF]/.test(content.slice(0, 1000));
-            if (isBin && !isSvg) {
-                alert("El archivo parece binario (.DWG). Exportalo a DXF ASCII o SVG.");
-                setProcessing(false); return;
+        try {
+            const kind = detectBlueprintSourceKind(uploadedFile);
+            const textContent = kind === "svg" || kind === "dxf" ? await uploadedFile.text() : null;
+
+            if (kind === "svg" && textContent) {
+                const cleanSvg = sanitizeBlueprintSVG(textContent);
+                const paths = parseBlueprintSVG(cleanSvg);
+                setDetectedLotsResult(
+                    uploadedFile,
+                    "svg",
+                    cleanSvg,
+                    paths,
+                    paths.length === 0 ? ["Se cargo el SVG como base visual sin poligonos detectables."] : []
+                );
+                return;
             }
-            if (isSvg) {
-                setIsDXF(false); setSvgContent(content);
-                setTimeout(() => {
-                    const paths = parseBlueprintSVG(content);
-                    setExtractedPaths(paths); initLotRecords(paths);
-                    setStats({ pathsFound: paths.length, labeled: paths.filter(p => p.lotNumber).length });
-                    setProcessing(false);
-                }, 800);
-            } else {
-                setIsDXF(true);
-                setTimeout(() => {
-                    try {
-                        const result = parseBlueprintDXF(content);
-                        setSvgContent(result.svg); setExtractedPaths(result.paths);
-                        initLotRecords(result.paths);
-                        setStats({ pathsFound: result.paths.length, labeled: result.paths.filter(p => p.lotNumber).length });
-                        if (result.paths.filter(p => p.lotNumber).length > 0) setShowTable(true);
-                    } catch (err: any) {
-                        alert(`Error al procesar DXF: ${err.message ?? "Formato no reconocido"}.\nExportá como "DXF ASCII" desde AutoCAD.`);
+
+            if (kind === "dxf" && textContent) {
+                try {
+                    const result = parseBlueprintDXF(textContent);
+                    const assessment = assessBlueprintDetection(result.paths);
+                    const { upload, warning: uploadWarning } = await tryUploadMasterplanSource(uploadedFile);
+                    const warnings = [...assessment.warnings, ...(uploadWarning ? [uploadWarning] : [])];
+
+                    if (assessment.mode !== "detected-lots") {
+                        const fallbackSvg = buildFallbackBlueprintSVG({
+                            title: "DXF complejo recibido",
+                            subtitle: uploadedFile.name,
+                            lines: [
+                                "La estructura CAD no permitio detectar lotes confiables en esta pasada.",
+                                upload
+                                    ? "Se guardo el archivo original para continuar sin perder la fuente."
+                                    : "Mostramos el resultado, pero no pudimos persistir la fuente original en este intento.",
+                            ],
+                            meta: {
+                                sourceKind: "dxf",
+                                sourceName: uploadedFile.name,
+                                sourceMime: uploadedFile.type || undefined,
+                                sourceUrl: upload?.url,
+                                processingMode: "source-only",
+                                warnings,
+                                detectedPaths: assessment.metrics.plausiblePolygons,
+                                detectedLots: 0,
+                            },
+                        });
+                        setVisualOnlyResult(uploadedFile, "dxf", fallbackSvg, {
+                            sourceUrl: upload?.url,
+                            warnings,
+                            message: "El DXF quedo guardado como fuente original. No se sincronizo inventario para evitar datos basura.",
+                            mode: "source-only",
+                        });
+                        return;
                     }
-                    setProcessing(false);
-                }, 800);
+
+                    const usableSvg = buildDetectedLotsSVG(assessment.usablePaths);
+                    const labeledPolygons = assessment.usablePaths.filter((path) => path.lotNumber).length;
+
+                    setDetectedLotsResult(
+                        uploadedFile,
+                        "dxf",
+                        usableSvg,
+                        assessment.usablePaths,
+                        warnings,
+                        {
+                            sourceUrl: upload?.url,
+                            message:
+                                assessment.syntheticLabelsApplied
+                                    ? `Se detectaron ${assessment.metrics.plausiblePolygons} poligonos utilizables. Se asignaron identificadores correlativos para evitar etiquetas basura.`
+                                    : `Se detectaron ${assessment.metrics.plausiblePolygons} poligonos utilizables y ${labeledPolygons} etiquetas confiables.`,
+                        }
+                    );
+                    return;
+                } catch (error: any) {
+                    const { upload, warning: uploadWarning } = await tryUploadMasterplanSource(uploadedFile);
+                    const warnings = [error?.message || "DXF no compatible con el parser actual"];
+                    if (uploadWarning) {
+                        warnings.push(uploadWarning);
+                    }
+                    const fallbackSvg = buildFallbackBlueprintSVG({
+                        title: "DXF recibido",
+                        subtitle: uploadedFile.name,
+                        lines: [
+                            "No pudimos reconstruir los lotes de forma confiable en este intento.",
+                            upload
+                                ? "Se guardo el archivo original para reintentar o ajustar despues."
+                                : "Mostramos el resultado igualmente, pero no pudimos guardar el archivo original en este intento.",
+                        ],
+                        meta: {
+                            sourceKind: "dxf",
+                            sourceName: uploadedFile.name,
+                            sourceMime: uploadedFile.type || undefined,
+                            sourceUrl: upload?.url,
+                            processingMode: "source-only",
+                            warnings,
+                        },
+                    });
+                    setVisualOnlyResult(uploadedFile, "dxf", fallbackSvg, {
+                        sourceUrl: upload?.url,
+                        warnings,
+                        message: upload
+                            ? "El DXF se guardo como fuente original. No se detectaron lotes automaticamente."
+                            : "No se detectaron lotes automaticamente. Mostramos el resultado, pero no pudimos guardar el archivo original en este intento.",
+                        mode: "source-only",
+                    });
+                    return;
+                }
             }
-        };
-        reader.readAsText(uploadedFile);
+
+            if (kind === "image") {
+                const { upload, warning: uploadWarning } = await tryUploadMasterplanSource(uploadedFile);
+                const dimensions = await getImageDimensions(uploadedFile);
+                const svg = buildImageBlueprintSVG({
+                    imageUrl: upload?.url ?? URL.createObjectURL(uploadedFile),
+                    width: dimensions.width,
+                    height: dimensions.height,
+                    meta: {
+                        sourceKind: "image",
+                        sourceName: uploadedFile.name,
+                        sourceMime: uploadedFile.type || undefined,
+                        sourceUrl: upload?.url,
+                        processingMode: "visual-only",
+                        warnings: [
+                            "Se cargo una base visual. La deteccion automatica de lotes queda para una segunda pasada.",
+                            ...(uploadWarning ? [uploadWarning] : []),
+                        ],
+                    },
+                });
+                setVisualOnlyResult(uploadedFile, "image", svg, {
+                    sourceUrl: upload?.url,
+                    warnings: [
+                        "Se cargo una base visual sin deteccion automatica de lotes.",
+                        ...(uploadWarning ? [uploadWarning] : []),
+                    ],
+                    message: "La imagen ya puede usarse como base visual del proyecto.",
+                });
+                return;
+            }
+
+            if (kind === "pdf") {
+                const { upload, warning: uploadWarning } = await tryUploadMasterplanSource(uploadedFile);
+                const svg = buildFallbackBlueprintSVG({
+                    title: "PDF cargado",
+                    subtitle: uploadedFile.name,
+                    lines: [
+                        upload ? "El archivo se guardo correctamente." : "Se preparo una base visual local para continuar.",
+                        "No se detectaron lotes automaticamente desde PDF en el navegador.",
+                        "Podes seguir con una base visual o volver despues con un DXF o SVG.",
+                    ],
+                    meta: {
+                        sourceKind: "pdf",
+                        sourceName: uploadedFile.name,
+                        sourceMime: uploadedFile.type || undefined,
+                        sourceUrl: upload?.url,
+                        processingMode: "visual-only",
+                        warnings: [
+                            "El PDF se mantiene como referencia visual; la deteccion automatica no esta disponible en esta pasada.",
+                            ...(uploadWarning ? [uploadWarning] : []),
+                        ],
+                    },
+                });
+                setVisualOnlyResult(uploadedFile, "pdf", svg, {
+                    sourceUrl: upload?.url,
+                    warnings: [
+                        "PDF cargado como referencia visual sin deteccion automatica.",
+                        ...(uploadWarning ? [uploadWarning] : []),
+                    ],
+                    message: upload
+                        ? "El PDF quedo guardado y disponible como referencia visual."
+                        : "El PDF quedo cargado como base visual local aunque la fuente no se pudo persistir en este intento.",
+                });
+                return;
+            }
+
+            if (kind === "dwg") {
+                const { upload, warning: uploadWarning } = await tryUploadMasterplanSource(uploadedFile);
+                const svg = buildFallbackBlueprintSVG({
+                    title: "DWG recibido",
+                    subtitle: uploadedFile.name,
+                    lines: [
+                        upload ? "El archivo original se guardo correctamente." : "Se genero una referencia local para no perder el flujo.",
+                        "El navegador no puede convertir DWG a lotes de forma segura en esta etapa.",
+                        "Si tenes DXF o SVG, podes reintentar luego sin perder esta referencia.",
+                    ],
+                    meta: {
+                        sourceKind: "dwg",
+                        sourceName: uploadedFile.name,
+                        sourceMime: uploadedFile.type || undefined,
+                        sourceUrl: upload?.url,
+                        processingMode: "source-only",
+                        warnings: [
+                            "DWG almacenado como fuente original; conversion automatica pendiente.",
+                            ...(uploadWarning ? [uploadWarning] : []),
+                        ],
+                    },
+                });
+                setVisualOnlyResult(uploadedFile, "dwg", svg, {
+                    sourceUrl: upload?.url,
+                    warnings: [
+                        "DWG guardado como archivo original. No se genero deteccion automatica.",
+                        ...(uploadWarning ? [uploadWarning] : []),
+                    ],
+                    message: upload
+                        ? "El DWG se guardo y quedo trazado para continuar sin perder el archivo."
+                        : "El DWG quedo cargado en modo referencia aunque la fuente no se pudo persistir en este intento.",
+                    mode: "source-only",
+                });
+                return;
+            }
+
+            throw new Error("Formato no soportado para este flujo");
+        } catch (error: any) {
+            alert(`No se pudo procesar el plano: ${error.message || "Error inesperado"}`);
+            resetBlueprintState();
+            return;
+        } finally {
+            setProcessing(false);
+        }
+                    
     };
 
     const handleClear = () => {
-        setFile(null); setSvgContent(null); setStats(null); setExtractedPaths([]);
-        setLotRecords([]); setIsDXF(false); setViewMode("analysis");
-        setActiveLotNumber(null); setShowTable(false); setLoadedFromDB(false);
+        setFile(null);
+        resetBlueprintState();
+        setViewMode("analysis");
+        setLoadedFromDB(false);
         setTooltip({ visible: false, lot: "", area: "", x: 0, y: 0 });
         if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
     };
 
     const handleSync = async () => {
+        if (!svgContent) return;
+        setProcessing(true);
+        try {
+            const lotDataMap: Record<string, LotRecord> = {};
+            lotRecords.forEach((record) => { lotDataMap[record.pathId] = record; });
+
+            const meta: BlueprintEmbeddedMeta | undefined = processingReport ? {
+                sourceKind: processingReport.sourceKind,
+                sourceName: file?.name,
+                sourceMime: file?.type || undefined,
+                sourceUrl: processingReport.sourceUrl,
+                processingMode: processingReport.mode,
+                warnings: processingReport.warnings,
+                detectedPaths: extractedPaths.length,
+                detectedLots: extractedPaths.filter((path) => path.lotNumber).length,
+            } : undefined;
+
+            const res = await fetch(`/api/proyectos/${proyectoId}/blueprint/sync`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    svgContent,
+                    meta,
+                    paths: extractedPaths.map((path) => {
+                        const ld = lotDataMap[path.id];
+                        return {
+                            internalId: path.internalId,
+                            lotNumber: path.lotNumber,
+                            pathData: path.pathData,
+                            center: path.center,
+                            areaSqm: path.areaSqm,
+                            estado: ld?.estado ?? "DISPONIBLE",
+                            precio: ld?.precio ? parseFloat(ld.precio) : null,
+                            frente: ld?.frente ? parseFloat(ld.frente) : null,
+                            fondo: ld?.fondo ? parseFloat(ld.fondo) : null,
+                        };
+                    }),
+                }),
+            });
+
+            if (res.ok) {
+                const data = await readJsonResponse(res);
+                alert(`${data.message || "Plano guardado con exito."}\n${data.created ?? 0} unidades creadas, ${data.updated ?? 0} actualizadas.`);
+                return;
+            }
+
+            const err = await readJsonResponse(res).catch(() => ({}));
+            throw new Error(err.error || "Error del servidor");
+        } catch (e: any) {
+            alert(`Error al sincronizar: ${e.message}`);
+            return;
+        } finally {
+            setProcessing(false);
+        }
+
         if (!svgContent || extractedPaths.length === 0) return;
         setProcessing(true);
         try {
@@ -378,6 +888,9 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     const activeStyle = activeLotNumber
         ? `.blueprint-render path[data-lot="${activeLotNumber}"] { fill: rgba(249,115,22,0.4) !important; stroke: #f97316 !important; stroke-width: 2 !important; }`
         : "";
+    const shouldApplyLotStatusStyles =
+        viewMode === "analysis" &&
+        (loadedFromDB || lotRecords.some((record) => record.estado !== "DISPONIBLE"));
 
     // ─── Status count map ─────────────────────────────────────────────────────
     const statusCounts = (Object.keys(ESTADO_CONFIG) as LotEstado[]).reduce((acc, key) => {
@@ -394,11 +907,11 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     <div className="bg-brand-500/10 p-1.5 rounded-lg shrink-0"><FileCode className="w-4 h-4 text-brand-500" /></div>
                     <div className="min-w-0">
                         <h3 className="font-bold text-sm leading-none">Procesador de Planos AI</h3>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-tight mt-0.5">Análisis DXF/SVG</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-tight mt-0.5">Carga flexible y detección tolerante</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    <input ref={fileInputRef} type="file" className="hidden" accept=".svg,.dxf" onChange={handleFileUpload} />
+                    <input ref={fileInputRef} type="file" className="hidden" accept=".svg,.dxf,.dwg,.pdf,.png,.jpg,.jpeg,.webp" onChange={handleFileUpload} />
 
                     {/* View mode toggle */}
                     {svgContent && (
@@ -436,7 +949,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                         </button>
                     ) : (
                         <button onClick={() => fileInputRef.current?.click()} className="cursor-pointer bg-brand-500 hover:bg-brand-600 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow transition-all flex items-center gap-1.5">
-                            <Upload className="w-3 h-3" />Subir DXF/SVG
+                            <Upload className="w-3 h-3" />Subir plano
                         </button>
                     )}
 
@@ -468,6 +981,17 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                         </button>
                     )}
 
+                    <button
+                        onClick={() => setShowPlanGallery(v => !v)}
+                        className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all",
+                            showPlanGallery
+                                ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-300"
+                                : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-500/40")}
+                    >
+                        <Grid3x3 className="w-3 h-3" />
+                        Galeria de planos
+                    </button>
+
                     {/* Help */}
                     <div className="relative group">
                         <button className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
@@ -475,11 +999,11 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                         </button>
                         <div className="absolute right-0 top-9 w-64 bg-slate-900 text-white text-[10px] rounded-xl p-3 shadow-2xl border border-slate-700 leading-relaxed z-50 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
                             <p className="font-bold mb-1 text-slate-200">Formatos soportados</p>
-                            <p className="text-slate-400 mb-2">DXF (AutoCAD, QGIS, Civil 3D) y SVG · Máx 50 MB</p>
+                            <p className="text-slate-400 mb-2">DXF, DWG, SVG, PDF e imagenes comunes · Max 50 MB</p>
                             <p className="font-bold mb-1 text-slate-200">El sistema detecta</p>
-                            <p className="text-slate-400 mb-2">LWPOLYLINE, LINE, ARC, CIRCLE, TEXT y MTEXT</p>
+                            <p className="text-slate-400 mb-2">Detecta lotes cuando el archivo lo permite y, si no, guarda una base visual segura.</p>
                             <p className="font-bold mb-1 text-slate-200">Factor de escala</p>
-                            <p className="text-slate-400">Ajustá "1u = X m" para ver las áreas en m² reales.</p>
+                            <p className="text-slate-400">Ajusta "1u = X m" para ver areas reales cuando haya poligonos detectados.</p>
                         </div>
                     </div>
 
@@ -497,15 +1021,65 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     </button>
 
                     {/* Sync */}
-                    {stats && (
+                    {(stats || processingReport) && (
                         <button onClick={handleSync} disabled={processing} className="bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-lg shadow-brand-500/20 transition-all flex items-center gap-1.5">
-                            <RefreshCw className={cn("w-3 h-3", processing && "animate-spin")} />Sincronizar
+                            <RefreshCw className={cn("w-3 h-3", processing && "animate-spin")} />{extractedPaths.length > 0 ? "Sincronizar" : "Guardar base visual"}
                         </button>
                     )}
                 </div>
             </div>
 
             {/* ── Main workspace: viewer + summary panel ──────────────────── */}
+            {processingReport && (
+                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-amber-50/60 dark:bg-amber-500/5">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{processingReport.message}</p>
+                            {processingReport.warnings.length > 0 && (
+                                <p className="text-[11px] text-slate-500 mt-1">
+                                    {processingReport.warnings.join(" ")}
+                                </p>
+                            )}
+                        </div>
+                        {sourcePreviewUrl && (
+                            <a
+                                href={sourcePreviewUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] font-bold text-brand-500 whitespace-nowrap"
+                            >
+                                Ver archivo original
+                            </a>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {showPlanGallery && (
+                <div className="px-4 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/70">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Galeria de planos</p>
+                            <p className="text-xs text-slate-500">Todos los planos cargados en este proyecto quedan disponibles para reutilizarlos.</p>
+                        </div>
+                        <button
+                            onClick={() => setShowPlanGallery(false)}
+                            className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                    <PlanGalleryPicker
+                        proyectoId={proyectoId}
+                        items={planGalleryItems}
+                        selectedId={selectedGalleryPlanId}
+                        onSelect={applyGalleryPlan}
+                        onItemsChange={setPlanGalleryItems}
+                        allowUpload={false}
+                    />
+                </div>
+            )}
+
             <div className="flex-1 flex overflow-hidden min-h-0">
 
                 {/* ── SVG Viewer ──────────────────────────────────────────── */}
@@ -518,8 +1092,8 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
                     onDrop={handleDrop}
                 >
-                    {svgContent && viewMode === "analysis" && (
-                        <style dangerouslySetInnerHTML={{ __html: dynamicStyles + "\n" + activeStyle }} />
+                    {svgContent && (shouldApplyLotStatusStyles || !!activeLotNumber) && (
+                        <style dangerouslySetInnerHTML={{ __html: `${shouldApplyLotStatusStyles ? dynamicStyles : ""}\n${activeStyle}` }} />
                     )}
                     {svgContent && (
                         <style>{`.blueprint-render { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; } .blueprint-render svg { max-width: 100%; max-height: 100%; width: auto; height: auto; }`}</style>
@@ -533,7 +1107,15 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                             <p className={cn("text-base font-semibold", isDragging ? "text-brand-500" : "text-slate-400")}>
                                 {isDragging ? "Soltá para cargar el plano" : "Hacé clic o arrastrá tu plano aquí"}
                             </p>
-                            <p className="text-xs text-slate-400">Formatos: DXF, SVG · Máximo 50 MB</p>
+                            <p className="text-xs text-slate-400">Formatos: DXF, DWG, SVG, PDF e imagenes comunes · Maximo 50 MB</p>
+                        </div>
+                    ) : sourceKind === "pdf" && sourcePreviewUrl && viewMode === "blueprint" ? (
+                        <div className="absolute inset-0 p-4">
+                            <iframe
+                                src={sourcePreviewUrl}
+                                title="Vista PDF del plano"
+                                className="w-full h-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white"
+                            />
                         </div>
                     ) : (
                         <TransformWrapper initialScale={1} minScale={0.05} maxScale={30} centerOnInit wheel={{ step: 0.1 }}>
@@ -551,7 +1133,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                             {/* Top-left badges */}
                             <div className="absolute top-3 left-3 z-10 flex gap-2 pointer-events-none">
                                 <div className="text-[9px] font-mono text-slate-400 bg-black/40 backdrop-blur-sm px-2 py-1 rounded border border-white/10 flex items-center gap-1">
-                                    <Layers className="w-2.5 h-2.5" />{isDXF ? "DXF Processed" : "SVG Mapping"}
+                                    <Layers className="w-2.5 h-2.5" />{processingReport?.mode === "detected-lots" ? (isDXF ? "DXF Processed" : "SVG Mapping") : `Base ${sourceKind.toUpperCase()}`}
                                 </div>
                                 {isDXF && <div className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 backdrop-blur-sm px-2 py-1 rounded border border-emerald-500/20">ASCII DXF</div>}
                                 {stats && <div className="text-[9px] font-mono text-blue-400 bg-blue-500/10 backdrop-blur-sm px-2 py-1 rounded border border-blue-500/20">{stats.pathsFound} polígonos · {stats.labeled} lotes</div>}
@@ -627,9 +1209,11 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                                 viewMode === "analysis"
                                     ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                                     : "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-500")}>
-                                {viewMode === "analysis"
-                                    ? "Clic en un lote para seleccionarlo. Los colores reflejan el estado comercial."
-                                    : "Vista técnica. Cambiá a Análisis para interactuar con los lotes."}
+                                {processingReport?.mode !== "detected-lots"
+                                    ? "Este archivo quedo como base visual o referencia. Podes guardarlo sin bloquear el proyecto."
+                                    : viewMode === "analysis"
+                                        ? "Clic en un lote para seleccionarlo. Los colores reflejan el estado comercial."
+                                        : "Vista tecnica. Cambia a Analisis para interactuar con los lotes."}
                             </div>
                         )}
 
@@ -639,7 +1223,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                                     <FileCode className="w-5 h-5 text-slate-300" />
                                 </div>
                                 <p className="text-[10px] text-slate-400 leading-relaxed">
-                                    Cargá un plano DXF o SVG para ver el análisis aquí.
+                                    Carga un plano DXF, DWG, SVG, PDF o imagen para iniciar el procesamiento.
                                 </p>
                             </div>
                         )}
@@ -842,3 +1426,5 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
         </div>
     );
 }
+
+

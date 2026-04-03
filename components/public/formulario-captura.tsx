@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Send, CheckCircle, MapPin, Building2, TrendingUp, ShieldCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { crearLeadLanding } from "@/lib/actions/leads";
 import { useLanguage } from "@/components/providers/language-provider";
 
@@ -73,7 +72,7 @@ export default function FormularioCaptura() {
             } else {
                 setError(res.error || "Ocurrió un error al enviar tu solicitud.");
             }
-        } catch (e) {
+        } catch {
             setError("Error de conexión. Intenta nuevamente.");
         }
     };
@@ -89,11 +88,9 @@ export default function FormularioCaptura() {
 
     return (
         <section id="oportunidades" className="py-24 bg-background relative overflow-hidden">
-            {/* Background embellishments */}
             <div className="absolute top-0 right-0 w-1/2 h-full bg-brand-orange/5 blur-[100px] pointer-events-none" />
 
-            <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 relative z-10">
-                {/* Left side: Copy & Benefits */}
+            <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 xl:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16 xl:gap-20 relative z-10">
                 <div className="flex flex-col justify-center">
                     <span className="text-brand-orange font-bold uppercase tracking-widest text-sm mb-4 block">
                         {t.profile.vipAccess}
@@ -113,16 +110,14 @@ export default function FormularioCaptura() {
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-foreground mb-1">{b.title}</h4>
-                                    <p className="text-sm text-muted-foreground leading-relaxed">{b.desc}</p>
+                                    <p className="text-base text-muted-foreground leading-relaxed">{b.desc}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* Right side: Form */}
-                <div className="bg-card p-8 md:p-10 rounded-[2.5rem] border border-border shadow-2xl relative">
-                    {/* Inner glow */}
+                <div className="bg-card p-8 md:p-10 rounded-[2.5rem] border border-border/80 shadow-2xl shadow-slate-900/5 relative">
                     <div className="absolute inset-0 rounded-[2.5rem] border border-white/40 dark:border-white/5 pointer-events-none" />
 
                     {isSuccess ? (
@@ -130,13 +125,13 @@ export default function FormularioCaptura() {
                             <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/20">
                                 <CheckCircle className="w-10 h-10 text-emerald-500" />
                             </div>
-                            <h3 className="text-3xl font-black text-brand-gray dark:text-white mb-4">{t.profile.form.successTitle}</h3>
-                            <p className="text-brand-muted dark:text-white/70 max-w-sm mx-auto mb-8 text-lg">
+                            <h3 className="text-3xl font-black text-foreground mb-4">{t.profile.form.successTitle}</h3>
+                            <p className="text-muted-foreground max-w-sm mx-auto mb-8 text-lg">
                                 {t.profile.form.successDesc}
                             </p>
                             <button
                                 onClick={() => setIsSuccess(false)}
-                                className="px-8 py-3 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-white/10 text-brand-gray dark:text-white font-bold hover:border-brand-orange transition-colors"
+                                className="px-8 py-3 rounded-xl bg-background border border-border text-foreground font-bold hover:border-brand-orange transition-colors"
                             >
                                 {t.profile.form.sendAnother}
                             </button>
@@ -145,28 +140,28 @@ export default function FormularioCaptura() {
                         <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-5">
                             <div className="flex flex-col gap-1 mb-4">
                                 <h3 className="text-2xl font-black text-foreground">{t.profile.form.completeProfile}</h3>
-                                <p className="text-xs text-muted-foreground font-medium italic">
+                                <p className="text-sm text-muted-foreground font-medium italic">
                                     {t.profile.form.noProjectsWarning}
                                 </p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-sm font-bold text-foreground/80">{t.profile.form.fullName}</label>
+                                    <label className="text-sm font-bold text-foreground">{t.profile.form.fullName}</label>
                                     <input
                                         {...register("nombre")}
                                         placeholder={t.profile.form.fullNamePlaceholder}
-                                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border/80 text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
                                     />
                                     {errors.nombre && <p className="text-xs text-rose-500 font-semibold mt-1">{errors.nombre.message}</p>}
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-sm font-bold text-foreground/80">{t.profile.form.whatsapp}</label>
+                                    <label className="text-sm font-bold text-foreground">{t.profile.form.whatsapp}</label>
                                     <input
                                         {...register("whatsapp")}
                                         placeholder={t.profile.form.whatsappPlaceholder}
-                                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border/80 text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
                                     />
                                     {errors.whatsapp && <p className="text-xs text-rose-500 font-semibold mt-1">{errors.whatsapp.message}</p>}
                                 </div>
@@ -174,39 +169,39 @@ export default function FormularioCaptura() {
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-sm font-bold text-foreground/80">{t.profile.form.province}</label>
+                                    <label className="text-sm font-bold text-foreground">{t.profile.form.province}</label>
                                     <input
                                         {...register("provincia")}
                                         placeholder={t.profile.form.provincePlaceholder}
-                                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border/80 text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
                                     />
                                     {errors.provincia && <p className="text-xs text-rose-500 font-semibold mt-1">{errors.provincia.message}</p>}
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-sm font-bold text-foreground/80">{t.profile.form.city}</label>
+                                    <label className="text-sm font-bold text-foreground">{t.profile.form.city}</label>
                                     <input
                                         {...register("ciudad")}
                                         placeholder={t.profile.form.cityPlaceholder}
-                                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border/80 text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
                                     />
                                     {errors.ciudad && <p className="text-xs text-rose-500 font-semibold mt-1">{errors.ciudad.message}</p>}
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-sm font-bold text-foreground/80">{t.profile.form.zone}</label>
+                                    <label className="text-sm font-bold text-foreground">{t.profile.form.zone}</label>
                                     <input
                                         {...register("zona")}
                                         placeholder={t.profile.form.zonePlaceholder}
-                                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border/80 text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
                                     />
                                     {errors.zona && <p className="text-xs text-rose-500 font-semibold mt-1">{errors.zona.message}</p>}
                                 </div>
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-sm font-bold text-foreground/80">{t.profile.form.liveOrInvest}</label>
+                                <label className="text-sm font-bold text-foreground">{t.profile.form.liveOrInvest}</label>
                                 <select
                                     {...register("intencion")}
-                                    className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
+                                    className="w-full px-4 py-3 rounded-xl bg-background border border-border/80 text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
                                 >
                                     <option value="">{t.profile.form.selectIntention}</option>
                                     <option value="VIVIR">{t.profile.form.toLive}</option>
@@ -217,14 +212,14 @@ export default function FormularioCaptura() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-sm font-bold text-foreground/80">{t.profile.form.projectCategory}</label>
+                                    <label className="text-sm font-bold text-foreground">{t.profile.form.projectCategory}</label>
                                     <select
                                         {...register("categoriaProyecto")}
                                         onChange={(e) => {
                                             setValue("categoriaProyecto", e.target.value, { shouldValidate: true });
                                             setValue("subtipoProyecto", "");
                                         }}
-                                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border/80 text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
                                     >
                                         <option value="">{t.profile.form.selectCategory}</option>
                                         <option value="LOTE_URBANIZACION">{t.profile.form.categories.lote}</option>
@@ -234,11 +229,11 @@ export default function FormularioCaptura() {
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-sm font-bold text-foreground/80">{t.profile.form.projectSubtype}</label>
+                                    <label className="text-sm font-bold text-foreground">{t.profile.form.projectSubtype}</label>
                                     <select
                                         {...register("subtipoProyecto")}
                                         disabled={!watchCategoria}
-                                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium disabled:opacity-50"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border/80 text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium disabled:opacity-50"
                                     >
                                         <option value="">{t.profile.form.selectSubtype}</option>
                                         {watchCategoria === "LOTE_URBANIZACION" && (
@@ -264,7 +259,7 @@ export default function FormularioCaptura() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-foreground/80">{t.profile.form.investmentBudget}</label>
+                                <label className="text-sm font-bold text-foreground">{t.profile.form.investmentBudget}</label>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="relative">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">USD</span>
@@ -272,7 +267,7 @@ export default function FormularioCaptura() {
                                             type="number"
                                             {...register("presupuestoMinUsd")}
                                             placeholder={t.profile.form.budgetMin}
-                                            className="w-full pl-14 pr-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
+                                            className="w-full pl-14 pr-4 py-3 rounded-xl bg-background border border-border/80 text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
                                         />
                                     </div>
                                     <div className="relative">
@@ -281,7 +276,7 @@ export default function FormularioCaptura() {
                                             type="number"
                                             {...register("presupuestoMaxUsd")}
                                             placeholder={t.profile.form.budgetMax}
-                                            className="w-full pl-14 pr-4 py-3 rounded-xl bg-muted/30 border border-border text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
+                                            className="w-full pl-14 pr-4 py-3 rounded-xl bg-background border border-border/80 text-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all font-medium"
                                         />
                                     </div>
                                 </div>
@@ -312,7 +307,7 @@ export default function FormularioCaptura() {
                                 )}
                             </button>
 
-                            <p className="text-center text-[10px] text-muted-foreground font-medium mt-2 leading-tight">
+                            <p className="text-center text-xs text-muted-foreground font-medium mt-2 leading-tight">
                                 {t.profile.form.privacy}
                             </p>
                         </form>

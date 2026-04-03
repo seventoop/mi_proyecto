@@ -182,6 +182,12 @@ export async function convertLeadToOportunidad(leadId: string, proyectoId: strin
 
         if (!lead) return { success: false, error: "Lead no encontrado" };
 
+        const proyecto = await prisma.proyecto.findUnique({
+            where: { id: proyectoId },
+            select: { id: true, orgId: true },
+        });
+        if (!proyecto) return { success: false, error: "Proyecto no encontrado" };
+
         const isAdminCvt = user.role === "ADMIN" || user.role === "SUPERADMIN";
         if (!isAdminCvt) {
             if (lead.orgId) {
@@ -189,6 +195,26 @@ export async function convertLeadToOportunidad(leadId: string, proyectoId: strin
             } else {
                 // Lead legacy sin orgId: denegar a no-admin (fail-secure)
                 return { success: false, error: "Lead no encontrado" };
+            }
+            if (!proyecto.orgId || proyecto.orgId !== orgId) {
+                return { success: false, error: "Proyecto no encontrado" };
+            }
+        }
+
+        if (lead.orgId && proyecto.orgId && lead.orgId !== proyecto.orgId) {
+            return { success: false, error: "Lead y proyecto no pertenecen a la misma organización" };
+        }
+
+        if (unidadId) {
+            const unidad = await prisma.unidad.findFirst({
+                where: {
+                    id: unidadId,
+                    manzana: { etapa: { proyectoId } },
+                },
+                select: { id: true },
+            });
+            if (!unidad) {
+                return { success: false, error: "Unidad no encontrada para este proyecto" };
             }
         }
 

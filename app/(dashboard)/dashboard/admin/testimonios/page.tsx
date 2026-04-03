@@ -52,7 +52,7 @@ export default function AdminTestimoniosPage() {
         : testimonios.filter(t => t.estado === filter);
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+        <div className="p-6 space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex-1">
                     <ModuleHelp content={MODULE_HELP_CONTENT.adminTestimonios} />

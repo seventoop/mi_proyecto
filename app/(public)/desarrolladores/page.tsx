@@ -18,7 +18,7 @@ export default function DevelopersPage() {
             <section className="py-20 px-6 relative overflow-hidden">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-orange/5 rounded-full blur-[200px] pointer-events-none" />
 
-                <div className="max-w-5xl mx-auto text-center relative z-10 space-y-8">
+                <div className="w-full text-center relative z-10 space-y-8">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-orange/10 border border-brand-orange/20 shadow-lg">
                         <Building2 className="w-4 h-4 text-brand-orange" />
                         <span className="bg-gradient-to-r from-brand-orange to-brand-orangeDark bg-clip-text text-transparent font-black uppercase text-xs tracking-widest">
@@ -66,7 +66,7 @@ export default function DevelopersPage() {
 
             {/* CTA Final Desarrolladores */}
             <section className="py-20 px-6 relative overflow-hidden bg-white dark:bg-black border-t border-slate-200/60 dark:border-white/5">
-                <div className="max-w-5xl mx-auto rounded-[3rem] bg-gradient-to-br from-brand-orange via-brand-orangeDark to-brand-orange/80 p-14 md:p-20 text-center relative overflow-hidden shadow-2xl">
+                <div className="w-full rounded-[3rem] bg-gradient-to-br from-brand-orange via-brand-orangeDark to-brand-orange/80 p-14 md:p-20 text-center relative overflow-hidden shadow-2xl">
                     <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[120px]" />
                     <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/10 rounded-full blur-[120px]" />
 

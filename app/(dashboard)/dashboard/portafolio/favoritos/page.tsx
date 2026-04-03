@@ -14,7 +14,7 @@ export default async function PortafolioFavoritosPage() {
     const favoritos = res.success ? (res as any).data : [];
 
     return (
-        <div className="space-y-6 animate-fade-in max-w-7xl mx-auto pb-10 p-6">
+        <div className="space-y-6 animate-fade-in w-full pb-10 p-6">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight flex items-center gap-3">

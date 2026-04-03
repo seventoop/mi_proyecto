@@ -14,7 +14,7 @@ export default function DashboardLayout({
             <Sidebar />
             <DashboardContainer>
                 <Header />
-                <main className="p-4 sm:p-6 lg:p-8 xl:px-10 max-w-[1600px] mx-auto overflow-x-hidden pt-6">
+                <main className="p-4 sm:p-6 lg:p-8 xl:px-10 w-full overflow-x-hidden pt-6">
                     {children}
                 </main>
             </DashboardContainer>

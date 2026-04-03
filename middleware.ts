@@ -56,7 +56,12 @@ export default withAuth(
         }
 
         // 4. General API (User based if authenticated, else IP)
-        if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth") && !pathname.startsWith("/api/webhooks")) {
+        if (
+            pathname.startsWith("/api/") &&
+            !pathname.startsWith("/api/auth") &&
+            !pathname.startsWith("/api/webhooks") &&
+            pathname !== "/api/upload/360"
+        ) {
             const identifier = userId || ip;
             const { allowed } = await checkRateLimit(identifier, RATE_LIMIT_POLICIES.GENERAL_API);
             if (!allowed) {

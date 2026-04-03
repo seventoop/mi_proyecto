@@ -22,7 +22,7 @@ export default async function WorkflowsPage() {
     });
 
     return (
-        <div className="p-8 space-y-6 max-w-6xl mx-auto">
+        <div className="p-8 space-y-6 w-full">
             <div className="flex items-end justify-between">
                 <div>
                     <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
