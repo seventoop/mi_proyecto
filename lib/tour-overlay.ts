@@ -20,6 +20,23 @@ export interface SceneOverlayCalibration {
   lngOffset?: number;
   planRotation?: number;
   planScale?: number;
+  /**
+   * Independent East-West scale multiplier applied in geo-space before rotation.
+   * Combined with planScale: effectiveScaleX = planScale * planScaleX.
+   * Values > 1 stretch the plan east-west; < 1 compress it.
+   * Corrects aspect-ratio mismatch between the SVG viewBox and the geographic bounds.
+   */
+  planScaleX?: number;
+  /**
+   * Independent North-South scale multiplier applied in geo-space before rotation.
+   * Combined with planScale: effectiveScaleY = planScale * planScaleY.
+   * Values > 1 stretch the plan north-south; < 1 compress it.
+   */
+  planScaleY?: number;
+  /** @deprecated Screen-space pitch offset — kept for backward compat, not exposed in UI. */
+  pitchBias?: number;
+  /** @deprecated Screen-space roll correction — kept for backward compat, not exposed in UI. */
+  cameraRoll?: number;
   showLabels?: boolean;
   showPerimeter?: boolean;
   cleanMode?: boolean;
@@ -41,6 +58,10 @@ export interface NormalizedSceneOverlayCalibration {
   lngOffset: number;
   planRotation: number;
   planScale: number;
+  planScaleX: number;
+  planScaleY: number;
+  pitchBias: number;
+  cameraRoll: number;
   showLabels: boolean;
   showPerimeter: boolean;
   cleanMode: boolean;
@@ -62,6 +83,10 @@ export const DEFAULT_SCENE_OVERLAY: NormalizedSceneOverlayCalibration = {
   lngOffset: 0,
   planRotation: 0,
   planScale: 1,
+  planScaleX: 1,
+  planScaleY: 1,
+  pitchBias: 0,
+  cameraRoll: 0,
   showLabels: true,
   showPerimeter: true,
   cleanMode: false,
@@ -81,5 +106,54 @@ export function normalizeSceneOverlay(
     ...(overlay ?? {}),
     mode: "geo-calibrated",
     marks: Array.isArray(overlay?.marks) ? overlay!.marks : [],
+  };
+}
+
+export interface GeoOverlayViewerState {
+  isVisible: boolean;
+  opacity: number;
+  altitudM: number;
+  imageHeading: number;
+  latOffset: number;
+  lngOffset: number;
+  planRotation: number;
+  planScale: number;
+  planScaleX: number;
+  planScaleY: number;
+  pitchBias: number;
+  cameraRoll: number;
+  showLabels: boolean;
+  showPerimeter: boolean;
+  cleanMode: boolean;
+  transformLocked: boolean;
+  alignmentGuides: boolean;
+  flipX: boolean;
+  flipY: boolean;
+}
+
+export function getGeoOverlayViewerState(
+  overlay?: SceneOverlayCalibration | null
+): GeoOverlayViewerState {
+  const normalized = normalizeSceneOverlay(overlay);
+  return {
+    isVisible: normalized.isVisible,
+    opacity: normalized.opacity,
+    altitudM: normalized.altitudM,
+    imageHeading: normalized.imageHeading,
+    latOffset: normalized.latOffset,
+    lngOffset: normalized.lngOffset,
+    planRotation: normalized.planRotation,
+    planScale: normalized.planScale,
+    planScaleX: normalized.planScaleX,
+    planScaleY: normalized.planScaleY,
+    pitchBias: normalized.pitchBias,
+    cameraRoll: normalized.cameraRoll,
+    showLabels: normalized.showLabels,
+    showPerimeter: normalized.showPerimeter,
+    cleanMode: normalized.cleanMode,
+    transformLocked: normalized.transformLocked,
+    alignmentGuides: normalized.alignmentGuides,
+    flipX: normalized.flipX,
+    flipY: normalized.flipY,
   };
 }

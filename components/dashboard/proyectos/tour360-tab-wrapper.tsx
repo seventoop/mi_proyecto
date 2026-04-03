@@ -31,6 +31,10 @@ export default function Tour360TabWrapper({
     const [tourName, setTourName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
+    useEffect(() => {
+        setTours(initialTours || []);
+    }, [initialTours]);
+
     const handleCreateClick = () => {
         setTourName("Nuevo Tour");
         setEditorScenes([]);
@@ -151,6 +155,18 @@ export default function Tour360TabWrapper({
     const handleApprove = async (tourId: string) => {
         const approvePromise = approveTour(tourId).then((res) => {
             if (res.success) {
+                const approvedTour = (res as any).data;
+                setTours((prev) =>
+                    prev.map((tour) =>
+                        tour.id === tourId
+                            ? {
+                                ...tour,
+                                estado: approvedTour?.estado ?? "APROBADO",
+                                notasAdmin: approvedTour?.notasAdmin ?? null,
+                            }
+                            : tour
+                    )
+                );
                 router.refresh();
                 return "Tour aprobado";
             }
@@ -170,6 +186,18 @@ export default function Tour360TabWrapper({
 
         const rejectPromise = rejectTour(tourId, reason).then((res) => {
             if (res.success) {
+                const rejectedTour = (res as any).data;
+                setTours((prev) =>
+                    prev.map((tour) =>
+                        tour.id === tourId
+                            ? {
+                                ...tour,
+                                estado: rejectedTour?.estado ?? "RECHAZADO",
+                                notasAdmin: rejectedTour?.notasAdmin ?? reason.trim(),
+                            }
+                            : tour
+                    )
+                );
                 router.refresh();
                 return "Tour rechazado";
             }

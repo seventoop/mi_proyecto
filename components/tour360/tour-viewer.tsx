@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Script from "next/script";
 import { cn } from "@/lib/utils";
+import Viewer360LotesOverlay from "@/components/masterplan/viewer360-lotes-overlay";
+import type { MasterplanUnit } from "@/lib/masterplan-store";
+import type { SvgViewBox } from "@/lib/geo-projection";
+import { getGeoOverlayViewerState } from "@/lib/tour-overlay";
 import {
     Loader2, Play, Pause, Maximize2, Share2, Copy, Check,
     ChevronLeft, ChevronRight, MapPin, X, Volume2, VolumeX,
@@ -73,6 +77,19 @@ export interface MasterplanOverlay {
     lngOffset?: number;
     planRotation?: number;
     planScale?: number;
+    planScaleX?: number;
+    planScaleY?: number;
+    pitchBias?: number;
+    cameraRoll?: number;
+    showLabels?: boolean;
+    showPerimeter?: boolean;
+    cleanMode?: boolean;
+    transformLocked?: boolean;
+    snapEnabled?: boolean;
+    alignmentGuides?: boolean;
+    flipX?: boolean;
+    flipY?: boolean;
+    selectedPlanId?: string;
 }
 
 export interface Scene {
@@ -108,6 +125,22 @@ interface TourViewerProps {
         estado?: string;
     } | null;
     onPolygonClick?: (polygon: TourPolygon) => void;
+    overlayUnits?: MasterplanUnit[];
+    overlayBounds?: [[number, number], [number, number]] | null;
+    overlayRotation?: number;
+    overlaySvgViewBox?: SvgViewBox | null;
+}
+
+function normalizeViewerScene(scene: Scene, index: number): Scene {
+    return {
+        ...scene,
+        id: scene.id || `scene-${index}`,
+        title: scene.title || `Escena ${index + 1}`,
+        imageUrl: scene.imageUrl || "",
+        hotspots: Array.isArray(scene.hotspots) ? scene.hotspots : [],
+        polygons: Array.isArray(scene.polygons) ? scene.polygons : [],
+        floatingLabels: Array.isArray(scene.floatingLabels) ? scene.floatingLabels : [],
+    };
 }
 
 
@@ -116,13 +149,21 @@ function PanoramicOverlay({
     viewerRef,
     currentScene,
     viewerReady,
-    onPolygonClick
+    onPolygonClick,
+    overlayUnits,
+    overlayBounds,
+    overlayRotation,
+    overlaySvgViewBox,
 }: {
     viewer: any;
     viewerRef: React.RefObject<HTMLDivElement>;
     currentScene: Scene | null;
     viewerReady: boolean;
     onPolygonClick?: (polygon: TourPolygon) => void;
+    overlayUnits?: MasterplanUnit[];
+    overlayBounds?: [[number, number], [number, number]] | null;
+    overlayRotation?: number;
+    overlaySvgViewBox?: SvgViewBox | null;
 }) {
     const [viewState, setViewState] = useState({ hfov: 100, pitch: 0, yaw: 0 });
 
@@ -234,7 +275,54 @@ function PanoramicOverlay({
 
     return (
         <>
-            {/* Perspective Masterplan Overlay */}
+            {/* Shared geo-calibrated overlay */}
+            {currentScene.masterplanOverlay?.mode === "geo-calibrated" &&
+                currentScene.masterplanOverlay?.imageUrl &&
+                overlayBounds &&
+                overlaySvgViewBox &&
+                Array.isArray(overlayUnits) &&
+                overlayUnits.length > 0 && (() => {
+                const overlay = getGeoOverlayViewerState(currentScene.masterplanOverlay);
+                if (!overlay.isVisible) return null;
+                const baseLat = (overlayBounds[0][0] + overlayBounds[1][0]) / 2;
+                const baseLng = (overlayBounds[0][1] + overlayBounds[1][1]) / 2;
+                const cosLat = Math.cos((baseLat * Math.PI) / 180) || 1;
+                const camLat = baseLat + overlay.latOffset / 111320;
+                const camLng = baseLng + overlay.lngOffset / (111320 * cosLat);
+
+                return (
+                    <Viewer360LotesOverlay
+                        viewer={viewer}
+                        units={overlayUnits}
+                        overlayBounds={overlayBounds}
+                        overlayRotation={overlayRotation ?? 0}
+                        svgViewBox={overlaySvgViewBox}
+                        camLat={camLat}
+                        camLng={camLng}
+                        camAlt={overlay.altitudM}
+                        imageHeading={overlay.imageHeading}
+                        latOffset={overlay.latOffset}
+                        lngOffset={overlay.lngOffset}
+                        planRotation={overlay.planRotation}
+                        planScale={overlay.planScale}
+                        planScaleX={overlay.planScaleX}
+                        planScaleY={overlay.planScaleY}
+                        pitchBias={overlay.pitchBias}
+                        cameraRoll={overlay.cameraRoll}
+                        opacity={overlay.opacity}
+                        showLabels={overlay.showLabels}
+                        showPerimeter={overlay.showPerimeter}
+                        cleanMode={overlay.cleanMode}
+                        transformLocked={overlay.transformLocked}
+                        alignmentGuides={overlay.alignmentGuides}
+                        flipX={overlay.flipX}
+                        flipY={overlay.flipY}
+                        isEditing={false}
+                    />
+                );
+            })()}
+
+            {/* Legacy perspective overlay */}
             {currentScene.masterplanOverlay?.isVisible &&
                 currentScene.masterplanOverlay?.imageUrl &&
                 Array.isArray(currentScene.masterplanOverlay?.points) &&
@@ -339,6 +427,10 @@ export default function TourViewer({
     showAutoTour = true,
     unitInfo = null,
     onPolygonClick,
+    overlayUnits = [],
+    overlayBounds = null,
+    overlayRotation = 0,
+    overlaySvgViewBox = null,
 }: TourViewerProps) {
     const viewerRef = useRef<HTMLDivElement>(null);
     const viewerInstance = useRef<any>(null);
@@ -355,6 +447,13 @@ export default function TourViewer({
     const [showOverlays, setShowOverlays] = useState(true);
     const autoTourTimer = useRef<NodeJS.Timeout | null>(null);
     const [viewState, setViewState] = useState({ hfov: 100, pitch: 0, yaw: 0 });
+    const normalizedScenes = useMemo(
+        () =>
+            (Array.isArray(scenes) ? scenes : [])
+                .map(normalizeViewerScene)
+                .filter((scene) => !!scene.imageUrl),
+        [scenes]
+    );
 
     useEffect(() => {
         if (!viewerInstance.current || !viewerReady) return;
@@ -374,11 +473,11 @@ export default function TourViewer({
     }, [viewerReady]);
 
     const startScene = initialSceneId
-        ? scenes.find((s) => s.id === initialSceneId)
-        : scenes.find((s) => s.isDefault) || scenes[0];
+        ? normalizedScenes.find((s) => s.id === initialSceneId)
+        : normalizedScenes.find((s) => s.isDefault) || normalizedScenes[0];
 
-    const currentScene = scenes.find((s) => s.id === currentSceneId) || startScene;
-    const currentIndex = scenes.findIndex((s) => s.id === currentSceneId);
+    const currentScene = normalizedScenes.find((s) => s.id === currentSceneId) || startScene;
+    const currentIndex = normalizedScenes.findIndex((s) => s.id === currentSceneId);
 
     // Initialize Pannellum
     useEffect(() => {
@@ -392,7 +491,11 @@ export default function TourViewer({
 
 
     // Dynamic scenes state to handle real-time updates
-    const [dynamicScenes, setDynamicScenes] = useState<Scene[]>(scenes);
+    const [dynamicScenes, setDynamicScenes] = useState<Scene[]>(normalizedScenes);
+
+    useEffect(() => {
+        setDynamicScenes(normalizedScenes);
+    }, [normalizedScenes]);
 
     useEffect(() => {
         if (!proyectoId) return;
@@ -426,7 +529,7 @@ export default function TourViewer({
 
         try {
             const scenesConfig: any = {};
-            scenes.forEach((scene) => {
+            dynamicScenes.forEach((scene) => {
                 scenesConfig[scene.id] = {
                     title: scene.title,
                     type: "equirectangular",
@@ -471,7 +574,15 @@ export default function TourViewer({
 
             setCurrentSceneId(firstSceneId);
         } catch (err) {
-            console.error("Init error:", err);
+            console.error("Init error:", err, {
+                firstSceneId,
+                scenes: dynamicScenes.map((scene) => ({
+                    id: scene.id,
+                    title: scene.title,
+                    imageUrl: scene.imageUrl,
+                    hotspotCount: scene.hotspots.length,
+                })),
+            });
             setError("Error al inicializar el visor.");
         }
     };
@@ -522,20 +633,20 @@ export default function TourViewer({
     };
 
     const goNext = () => {
-        const idx = scenes.findIndex((s) => s.id === currentSceneId);
-        if (idx < scenes.length - 1) {
-            goToScene(scenes[idx + 1].id);
+        const idx = dynamicScenes.findIndex((s) => s.id === currentSceneId);
+        if (idx < dynamicScenes.length - 1) {
+            goToScene(dynamicScenes[idx + 1].id);
         } else {
-            goToScene(scenes[0].id); // Loop
+            goToScene(dynamicScenes[0].id); // Loop
         }
     };
 
     const goPrev = () => {
-        const idx = scenes.findIndex((s) => s.id === currentSceneId);
+        const idx = dynamicScenes.findIndex((s) => s.id === currentSceneId);
         if (idx > 0) {
-            goToScene(scenes[idx - 1].id);
+            goToScene(dynamicScenes[idx - 1].id);
         } else {
-            goToScene(scenes[scenes.length - 1].id);
+            goToScene(dynamicScenes[dynamicScenes.length - 1].id);
         }
     };
 
@@ -640,6 +751,10 @@ export default function TourViewer({
                 currentScene={currentScene || null}
                 viewerReady={viewerReady}
                 onPolygonClick={onPolygonClick}
+                overlayUnits={overlayUnits}
+                overlayBounds={overlayBounds}
+                overlayRotation={overlayRotation}
+                overlaySvgViewBox={overlaySvgViewBox}
             />
 
             {/* ─── Radar / Compass ─── */}
@@ -671,9 +786,9 @@ export default function TourViewer({
                         <span className="text-sm font-semibold text-white">
                             {currentScene?.title || "Tour 360°"}
                         </span>
-                        {scenes.length > 1 && (
+                        {dynamicScenes.length > 1 && (
                             <span className="text-xs text-slate-400 ml-2">
-                                {currentIndex + 1}/{scenes.length}
+                                {currentIndex + 1}/{dynamicScenes.length}
                             </span>
                         )}
                     </div>
@@ -792,9 +907,9 @@ export default function TourViewer({
             {showControls && isLoaded && (
                 <div className="absolute bottom-0 inset-x-0 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     {/* Scene strip */}
-                    {showSceneStrip && scenes.length > 1 && (
+                    {showSceneStrip && dynamicScenes.length > 1 && (
                         <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto">
-                            {scenes.map((scene, i) => (
+                            {dynamicScenes.map((scene, i) => (
                                 <button
                                     key={scene.id}
                                     onClick={() => goToScene(scene.id)}
@@ -820,7 +935,7 @@ export default function TourViewer({
                     <div className="flex items-center justify-center gap-2 bg-gradient-to-t from-black/60 to-transparent px-4 py-3">
                         <div className="flex items-center gap-1 bg-slate-900/80 backdrop-blur-xl p-1.5 rounded-xl border border-white/10">
                             {/* Prev */}
-                            {scenes.length > 1 && (
+                            {dynamicScenes.length > 1 && (
                                 <button onClick={goPrev} className="p-1.5 hover:bg-white/10 rounded-lg text-white transition-colors">
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
@@ -832,7 +947,7 @@ export default function TourViewer({
                             </button>
 
                             {/* Auto tour */}
-                            {showAutoTour && scenes.length > 1 && (
+                            {showAutoTour && dynamicScenes.length > 1 && (
                                 <button
                                     onClick={isAutoTouring ? stopAutoTour : startAutoTour}
                                     className={cn(
@@ -848,7 +963,7 @@ export default function TourViewer({
                             )}
 
                             {/* Next */}
-                            {scenes.length > 1 && (
+                            {dynamicScenes.length > 1 && (
                                 <button onClick={goNext} className="p-1.5 hover:bg-white/10 rounded-lg text-white transition-colors">
                                     <ChevronRight className="w-4 h-4" />
                                 </button>

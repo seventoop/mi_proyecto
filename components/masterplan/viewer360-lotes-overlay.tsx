@@ -77,6 +77,10 @@ export interface Viewer360LotesOverlayProps {
   lngOffset: number;
   planRotation: number;
   planScale: number;
+  planScaleX?: number;
+  planScaleY?: number;
+  pitchBias?: number;
+  cameraRoll?: number;
   opacity?: number;
   showLabels?: boolean;
   showPerimeter?: boolean;
@@ -222,6 +226,10 @@ export default function Viewer360LotesOverlay({
   camLat, camLng, camAlt, imageHeading,
   latOffset, lngOffset,
   planRotation, planScale,
+  planScaleX = 1,
+  planScaleY = 1,
+  pitchBias = 0,
+  cameraRoll = 0,
   opacity = 0.55,
   showLabels = true,
   showPerimeter = true,
@@ -247,6 +255,10 @@ export default function Viewer360LotesOverlay({
   const lngOffsetRef     = useRef(lngOffset);
   const planRotRef       = useRef(planRotation);
   const planScaleRef     = useRef(planScale);
+  const planScaleXRef    = useRef(planScaleX);
+  const planScaleYRef    = useRef(planScaleY);
+  const pitchBiasRef     = useRef(pitchBias);
+  const cameraRollRef    = useRef(cameraRoll);
   const opacityRef       = useRef(opacity);
   const showLabelsRef    = useRef(showLabels);
   const showPerimeterRef = useRef(showPerimeter);
@@ -272,6 +284,10 @@ export default function Viewer360LotesOverlay({
   lngOffsetRef.current     = lngOffset;
   planRotRef.current       = planRotation;
   planScaleRef.current     = planScale;
+  planScaleXRef.current    = planScaleX;
+  planScaleYRef.current    = planScaleY;
+  pitchBiasRef.current     = pitchBias;
+  cameraRollRef.current    = cameraRoll;
   opacityRef.current       = opacity;
   showLabelsRef.current    = showLabels;
   showPerimeterRef.current = showPerimeter;
@@ -319,6 +335,10 @@ export default function Viewer360LotesOverlay({
       const _hdg        = imageHeadingRef.current + delta.hdgDelta;
       const _planRot    = planRotRef.current + delta.planRotDelta;
       const _planScale  = planScaleRef.current * delta.scaleFactor;
+      const _planScaleX = planScaleXRef.current;
+      const _planScaleY = planScaleYRef.current;
+      const _pitchBias  = pitchBiasRef.current;
+      const _cameraRoll = cameraRollRef.current;
       const _opacity    = opacityRef.current;
       const _showLabels = showLabelsRef.current && !cleanModeRef.current;
       const _showPerimeter = showPerimeterRef.current && !cleanModeRef.current;
@@ -339,6 +359,26 @@ export default function Viewer360LotesOverlay({
       const hfov      = viewer.getHfov()  as number;
       const W = container.clientWidth;
       const H = container.clientHeight;
+
+      // Pre-compute roll correction constants (avoids per-point trig)
+      const cosRoll = Math.cos(_cameraRoll * DEG);
+      const sinRoll = Math.sin(_cameraRoll * DEG);
+      const halfW   = W / 2;
+      const halfH   = H / 2;
+
+      /** Projects a geo point to screen applying pitchBias and cameraRoll corrections. */
+      const projectGeo = (lat: number, lng: number): ScreenPt | null => {
+        const { pitch, yaw } = geoToPitchYaw(lat, lng, _camLat, _camLng, _alt, _hdg);
+        const raw = projectSphericalToScreen(pitch + _pitchBias, yaw, viewPitch, viewYaw, hfov, W, H);
+        if (!raw) return null;
+        if (_cameraRoll === 0) return raw;
+        const dx = raw.x - halfW;
+        const dy = raw.y - halfH;
+        return {
+          x: halfW + dx * cosRoll - dy * sinRoll,
+          y: halfH + dx * sinRoll + dy * cosRoll,
+        };
+      };
 
       svg.innerHTML = "";
 
@@ -369,12 +409,7 @@ export default function Viewer360LotesOverlay({
       // Since planRotation rotates around this centroid, its screen position
       // does NOT change when the plan rotates (only when translated/zoomed).
       {
-        const { pitch: cPitch, yaw: cYaw } = geoToPitchYaw(
-          centLat, centLng, _camLat, _camLng, _alt, _hdg
-        );
-        centScreenRef.current = projectSphericalToScreen(
-          cPitch, cYaw, viewPitch, viewYaw, hfov, W, H
-        );
+        centScreenRef.current = projectGeo(centLat, centLng);
       }
 
       // ── Pass 1: apply plan transform, project to screen ───────────────────
@@ -387,11 +422,24 @@ export default function Viewer360LotesOverlay({
       const unitData: UnitData[] = [];
       let bbMinX = Infinity, bbMinY = Infinity, bbMaxX = -Infinity, bbMaxY = -Infinity;
       const allVisiblePts: ScreenPt[] = [];
+      // Independent per-axis scale applied in geo-space BEFORE rotation.
+      // effectiveScaleX/Y = uniform planScale × per-axis multiplier.
+      // When planScaleX = planScaleY = 1 this is identical to the previous
+      // uniform-scale-after-rotation formula (scalar multiplication commutes).
+      // Non-equal values correct the aspect-ratio mismatch between the SVG
+      // viewBox and the geographic bounding box, which is the root cause of
+      // diagonal corner divergence ("el plano queda cruzado").
+      const effectiveScaleEW = _planScale * _planScaleX; // East-West
+      const effectiveScaleNS = _planScale * _planScaleY; // North-South
       const transformGeoPoint = (lat: number, lng: number): [number, number] => {
+        // Displacement from centroid in metres, flip applied
         const dLat = (lat - centLat) * 111320 * _flipY;
         const dLng = (lng - centLng) * 111320 * cosCent * _flipX;
-        const rdLat = (dLat * cosPR - dLng * sinPR) * _planScale;
-        const rdLng = (dLat * sinPR + dLng * cosPR) * _planScale;
+        // Scale independently per axis, then rotate
+        const dLatS = dLat * effectiveScaleNS;
+        const dLngS = dLng * effectiveScaleEW;
+        const rdLat = dLatS * cosPR - dLngS * sinPR;
+        const rdLng = dLatS * sinPR + dLngS * cosPR;
         return [centLat + rdLat / 111320, centLng + rdLng / (111320 * cosCent)];
       };
 
@@ -402,10 +450,7 @@ export default function Viewer360LotesOverlay({
 
         const rotatedLatLngs: [number, number][] = rawLatLngs.map(([lat, lng]) => transformGeoPoint(lat, lng));
 
-        const screenPts = rotatedLatLngs.map(([lat, lng]) => {
-          const { pitch, yaw } = geoToPitchYaw(lat, lng, _camLat, _camLng, _alt, _hdg);
-          return projectSphericalToScreen(pitch, yaw, viewPitch, viewYaw, hfov, W, H);
-        });
+        const screenPts = rotatedLatLngs.map(([lat, lng]) => projectGeo(lat, lng));
 
         const visiblePts = screenPts.filter(Boolean) as ScreenPt[];
         if (visiblePts.length < 3) continue;

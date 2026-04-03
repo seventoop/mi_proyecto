@@ -26,6 +26,7 @@ import Viewer360LotesOverlay from "@/components/masterplan/viewer360-lotes-overl
 import PlanGalleryPicker, { type PlanGalleryItem } from "@/components/plan-gallery/plan-gallery-picker";
 import {
     DEFAULT_SCENE_OVERLAY,
+    getGeoOverlayViewerState,
     type SceneOverlayCalibration,
 } from "@/lib/tour-overlay";
 
@@ -1364,15 +1365,18 @@ export default function TourCreator({
                             {/* Plan overlay — read-only preview when scene has a saved alignment */}
                             {viewerReady && viewerInstance.current &&
                                 projectOverlayBounds && projectSvgViewBox &&
-                                activeScene?.masterplanOverlay?.isVisible &&
-                                (activeScene.masterplanOverlay as any)?.altitudM && (() => {
+                                activeScene?.masterplanOverlay && (() => {
                                     // Mirror TourSceneOverlayEditor: camLat/Lng = overlayBounds center + saved offsets
-                                    const ov = activeScene.masterplanOverlay as any;
+                                    const ov = getGeoOverlayViewerState(activeScene.masterplanOverlay);
+                                    if (!ov.isVisible) return null;
                                     const baseLat = (projectOverlayBounds[0][0] + projectOverlayBounds[1][0]) / 2;
                                     const baseLng = (projectOverlayBounds[0][1] + projectOverlayBounds[1][1]) / 2;
                                     const cosLat = Math.cos((baseLat * Math.PI) / 180) || 1;
-                                    const camLat = baseLat + (ov.latOffset ?? 0) / 111320;
-                                    const camLng = baseLng + (ov.lngOffset ?? 0) / (111320 * cosLat);
+                                    const camLat = baseLat + ov.latOffset / 111320;
+                                    const camLng = baseLng + ov.lngOffset / (111320 * cosLat);
+                                    if (process.env.NODE_ENV !== "production") {
+                                        console.debug("[tour-overlay] viewer-render-state", ov);
+                                    }
                                     return (
                                         <Viewer360LotesOverlay
                                             viewer={viewerInstance.current}
@@ -1382,12 +1386,24 @@ export default function TourCreator({
                                             svgViewBox={projectSvgViewBox}
                                             camLat={camLat}
                                             camLng={camLng}
-                                            camAlt={ov.altitudM ?? 500}
-                                            imageHeading={ov.imageHeading ?? 0}
-                                            latOffset={ov.latOffset ?? 0}
-                                            lngOffset={ov.lngOffset ?? 0}
-                                            planRotation={ov.planRotation ?? 0}
-                                            planScale={ov.planScale ?? 1}
+                                            camAlt={ov.altitudM}
+                                            imageHeading={ov.imageHeading}
+                                            latOffset={ov.latOffset}
+                                            lngOffset={ov.lngOffset}
+                                            planRotation={ov.planRotation}
+                                            planScale={ov.planScale}
+                                            planScaleX={ov.planScaleX}
+                                            planScaleY={ov.planScaleY}
+                                            pitchBias={ov.pitchBias}
+                                            cameraRoll={ov.cameraRoll}
+                                            opacity={ov.opacity}
+                                            showLabels={ov.showLabels}
+                                            showPerimeter={ov.showPerimeter}
+                                            cleanMode={ov.cleanMode}
+                                            transformLocked={ov.transformLocked}
+                                            alignmentGuides={ov.alignmentGuides}
+                                            flipX={ov.flipX}
+                                            flipY={ov.flipY}
                                             isEditing={false}
                                         />
                                     );
@@ -2358,7 +2374,6 @@ export default function TourCreator({
                                             ...scene.masterplanOverlay,
                                             ...overlay,
                                             isVisible: overlay.isVisible ?? scene.masterplanOverlay?.isVisible ?? true,
-                                            opacity: scene.masterplanOverlay?.opacity ?? 0.55,
                                         },
                                     }
                                     : scene

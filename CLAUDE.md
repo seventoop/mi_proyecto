@@ -5,20 +5,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev          # Start dev server
+npm run dev          # Start dev server on http://localhost:5000
 npm run typecheck    # TypeScript check (no emit)
 npm run lint         # ESLint
 npm run check-all    # typecheck + build
 npm run build        # Production build
+npm run start        # Start server on http://localhost:5000
 
 # Database
-docker-compose up -d          # Start local Postgres on port 5433
+docker-compose up -d          # Start local Postgres on host 5433 using seventoop-db / seventoop-net
 npm run db:migrate:dev        # Create and apply new migration
 npm run db:migrate:deploy     # Apply migrations (production)
 npm run db:migrate:status     # Check migration status
 npm run db:seed               # Seed database
 npm run db:studio             # Open Prisma Studio
 ```
+
+## Local Environment Canon
+
+> **Antes de modificar cualquier configuración de entorno, leer [`REPO_RULES.md`](./REPO_RULES.md). Es la fuente de verdad obligatoria para todos los agentes.**
+
+- Local source of truth: `.env.local`
+- Do not introduce another canonical `.env` for local development
+- App local URL: `http://localhost:5000`
+- Local Postgres host port: `5433`
+- Local Postgres container port: `5432`
+- Local database: `seventoop`
+- Local DB user: `usuario`
+- Local DB password: `password`
+- Docker container: `seventoop-db`
+- Docker network: `seventoop-net`
+
+Production and Preview must use Vercel environment variables only. Never reuse localhost values in Vercel.
 
 ## Architecture
 
