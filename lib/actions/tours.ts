@@ -4,8 +4,9 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
+import { toStoredTourSceneCategory } from "@/lib/tour-media";
 
-// â”€â”€â”€ Schemas â”€â”€â”€
+// ─── Schemas ───
 
 const hotspotSchema = z.object({
     id: z.string().optional(),
@@ -32,7 +33,7 @@ const sceneSchema = z.object({
     masterplanOverlay: z.any().optional().nullable(),
     isDefault: z.boolean().default(false),
     order: z.number().default(0),
-    category: z.enum(["RAW", "RENDERED"]).default("RAW"),
+    category: z.string().default("TOUR360"),
     hotspots: z.array(hotspotSchema).default([]),
 });
 
@@ -47,7 +48,7 @@ const updateTourSchema = createTourSchema.extend({
     id: z.string().min(1),
 });
 
-// â”€â”€â”€ Queries â”€â”€â”€
+// ─── Queries ───
 
 export async function getProjectTours(proyectoId: string) {
     try {
@@ -132,7 +133,7 @@ export async function updateTour(id: string, input: any) {
     return upsertTour({ ...input, id });
 }
 
-// â”€â”€â”€ Mutations â”€â”€â”€
+// ─── Mutations ───
 
 export async function upsertTour(input: unknown) {
     try {
@@ -182,7 +183,7 @@ export async function upsertTour(input: unknown) {
                         masterplanOverlay: scene.masterplanOverlay ?? undefined,
                         isDefault: scene.isDefault,
                         order: scene.order,
-                        category: scene.category,
+                        category: toStoredTourSceneCategory(scene.category),
                     }
                 });
 
@@ -260,5 +261,4 @@ export async function rejectTour(id: string, reason: string) {
         return handleGuardError(error);
     }
 }
-
 

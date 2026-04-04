@@ -29,6 +29,12 @@ import {
     getGeoOverlayViewerState,
     type SceneOverlayCalibration,
 } from "@/lib/tour-overlay";
+import {
+    normalizeTourMediaCategory,
+    TOUR_MEDIA_CATEGORY_BADGE_STYLES,
+    TOUR_MEDIA_CATEGORY_SHORT_LABELS,
+    type TourMediaCategory,
+} from "@/lib/tour-media";
 
 // ─── Types ───
 export type HotspotType = "info" | "scene" | "link" | "lot" | "check" | "sold" | "gallery" | "video";
@@ -107,7 +113,7 @@ export interface Scene {
     floatingLabels?: FloatingLabel[];
     isDefault?: boolean;
     order?: number;
-    category?: 'raw' | 'rendered';
+    category?: TourMediaCategory | "raw" | "rendered";
     direction?: SceneDirection;
     masterplanOverlay?: MasterplanOverlay;
 }
@@ -123,7 +129,7 @@ interface UploadProgress {
 
 interface SceneImageFormState {
     title: string;
-    imageKind: "360" | "foto" | "panoramica";
+    mediaCategory: TourMediaCategory;
     direction: SceneDirection;
     linkedUnitId: string;
     altitudM: number;
@@ -160,9 +166,10 @@ const DIRECTION_GRID: { dir: SceneDirection; label: string }[][] = [
 ];
 
 function buildSceneImageForm(scene: Scene | null): SceneImageFormState {
+    const mediaCategory = normalizeTourMediaCategory(scene);
     return {
         title: scene?.title || "",
-        imageKind: scene?.masterplanOverlay?.imageKind || "360",
+        mediaCategory,
         direction: scene?.direction || "centro",
         linkedUnitId: scene?.masterplanOverlay?.linkedUnitId || "",
         altitudM: scene?.masterplanOverlay?.altitudM ?? 500,
@@ -544,8 +551,8 @@ export default function TourCreator({
     const [polygonProperties, setPolygonProperties] = useState<{ hoverText: string, linkedUnitId: string }>({ hoverText: "", linkedUnitId: "" });
 
     // Gallery Tabs
-    const [activeTab, setActiveTab] = useState<'raw' | 'rendered'>('raw');
-    const [uploadImageType, setUploadImageType] = useState<"foto" | "360" | "panoramica">("360");
+    const [activeTab, setActiveTab] = useState<TourMediaCategory>('tour360');
+    const [uploadImageType, setUploadImageType] = useState<TourMediaCategory>("tour360");
 
     // Mouse tracking for ghost hotspot & dragging
     const [mouseCoords, setMouseCoords] = useState<{ pitch: number, yaw: number } | null>(null);
@@ -579,8 +586,8 @@ export default function TourCreator({
     const activeScene = scenes.find((s) => s.id === activeSceneId) || null;
     const canAlignProjectPlan = Boolean(projectOverlayBounds && projectSvgViewBox && overlayUnits.length > 0);
 
-    // Filter scenes by category (default to 'raw' if undefined for backward compatibility)
-    const filteredScenes = scenes.filter(s => (s.category || 'raw') === activeTab);
+    // Filter scenes by category with backward compatibility for legacy values.
+    const filteredScenes = scenes.filter((scene) => normalizeTourMediaCategory(scene) === activeTab);
 
     useEffect(() => {
         setSceneForm(buildSceneImageForm(activeScene));
@@ -612,14 +619,14 @@ export default function TourCreator({
                 id: `scene-${Date.now()}-ai`,
                 title: `${scene.title} (Mejorada)`,
                 imageUrl: enhancedImageSrc,
-                category: 'rendered',
+                category: 'render',
                 isDefault: false,
             };
 
             setScenes((prev) => [...prev, newScene]);
-            setActiveTab('rendered'); // Switch to rendered tab to show result
+            setActiveTab('render'); // Switch to rendered tab to show result
 
-            toast.success("¡Imagen mejorada! Copia guardada en Renderizadas.");
+            toast.success("¡Imagen mejorada! Copia guardada en Imágenes render.");
         } catch (error: any) {
             console.error("Upscale failed", error);
             toast.error(`Error al mejorar la imagen: ${error.message || "Verifica el formato o la conexión."}`);
@@ -1131,7 +1138,7 @@ export default function TourCreator({
         // Validate 2:1 aspect ratio for equirectangular panoramas
         const validatedFiles: File[] = [];
         for (const file of validFiles) {
-            if (uploadImageType === "360" && file.type.startsWith("image/")) {
+            if (uploadImageType === "tour360" && file.type.startsWith("image/")) {
                 const result = await validateEquirectangular(file);
                 if (!result.valid) {
                     const proceed = confirm(
@@ -1166,18 +1173,19 @@ export default function TourCreator({
                     ...(projectOverlayBounds && projectSvgViewBox
                         ? createDefaultGeoOverlay()
                         : { isVisible: true, opacity: 0.55 }),
-                    imageKind: uploadImageType,
+                    imageKind: uploadImageType === "tour360" ? "360" : "foto",
                     linkedUnitId: "",
-                    altitudM: uploadImageType === "360" ? 500 : undefined,
-                    imageHeading: uploadImageType === "360" ? 0 : undefined,
+                    altitudM: uploadImageType === "tour360" ? 500 : undefined,
+                    imageHeading: uploadImageType === "tour360" ? 0 : undefined,
                 },
                 isDefault: scenes.length === 0 && i === 0,
                 order: scenes.length + i,
-                category: activeTab, // Assign current tab category
+                category: uploadImageType,
             }));
 
         if (newScenes.length > 0) {
             setScenes((prev) => [...prev, ...newScenes]);
+            setActiveTab(uploadImageType);
             setActiveSceneId(newScenes[0].id);
             setSceneForm(buildSceneImageForm(newScenes[0]));
             setPendingConfirmSceneId(newScenes[0].id); // show confirm panel
@@ -1233,20 +1241,21 @@ export default function TourCreator({
                     ? {
                         ...scene,
                         title: sceneForm.title.trim() || scene.title || "Sin título",
+                        category: sceneForm.mediaCategory,
                         direction: sceneForm.direction,
                         masterplanOverlay: {
                             ...(scene.masterplanOverlay ?? createDefaultGeoOverlay()),
-                            imageKind: sceneForm.imageKind,
+                            imageKind: sceneForm.mediaCategory === "tour360" ? "360" : "foto",
                             linkedUnitId: sceneForm.linkedUnitId || undefined,
-                            altitudM: sceneForm.imageKind === "360" ? normalizedAltitude : undefined,
-                            imageHeading: sceneForm.imageKind === "360" ? normalizedHeading : undefined,
+                            altitudM: sceneForm.mediaCategory === "tour360" ? normalizedAltitude : undefined,
+                            imageHeading: sceneForm.mediaCategory === "tour360" ? normalizedHeading : undefined,
                         },
                     }
                     : scene
             )
         );
         setPendingConfirmSceneId(null); // hide confirm overlay
-        toast.success("Imagen confirmada. Guardá el tour para persistir.", { duration: 2000 });
+        toast.success("Imagen confirmada. Guardá la galería para persistir.", { duration: 2000 });
     }, [activeSceneId, sceneForm]);
 
     const resetSceneForm = useCallback(() => {
@@ -1300,7 +1309,7 @@ export default function TourCreator({
 
     // ─── Delete tour ───
     const handleDeleteTour = async () => {
-        if (!onDelete || !confirm("¿Estás seguro de que querés eliminar este tour completo? Esta acción no se puede deshacer.")) return;
+        if (!onDelete || !confirm("¿Estás seguro de que querés eliminar esta galería completa? Esta acción no se puede deshacer.")) return;
 
         setIsDeleting(true);
         try {
@@ -1557,15 +1566,16 @@ export default function TourCreator({
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <label className="text-[11px] text-slate-400 uppercase tracking-wide">Tipo</label>
+                                                    <label className="text-[11px] text-slate-400 uppercase tracking-wide">Categoría</label>
                                                     <select
-                                                        value={sceneForm.imageKind}
-                                                        onChange={(e) => setSceneForm((prev) => ({ ...prev, imageKind: e.target.value as "360" | "foto" | "panoramica" }))}
+                                                        value={sceneForm.mediaCategory}
+                                                        onChange={(e) => setSceneForm((prev) => ({ ...prev, mediaCategory: e.target.value as TourMediaCategory }))}
                                                         className="w-full bg-[#1A1A1A] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                                                     >
-                                                        <option value="foto">Fotografía</option>
-                                                        <option value="360">360°</option>
-                                                        <option value="panoramica">Panorámica</option>
+                                                        <option value="tour360">360 / Panorámica</option>
+                                                        <option value="real">Imágenes reales</option>
+                                                        <option value="render">Imágenes render</option>
+                                                        <option value="avance">Avance de obra</option>
                                                     </select>
                                                 </div>
                                                 {/* Compass direction */}
@@ -1668,12 +1678,12 @@ export default function TourCreator({
                                 <Camera className="w-16 h-16 text-slate-500" />
                             </motion.div>
                             <h3 className="text-lg font-bold text-slate-300 mb-1">
-                                Subí tus imágenes 360°
+                                Subí imágenes del proyecto
                             </h3>
                             <p className="text-sm text-slate-500 text-center max-w-sm">
-                                Arrastrá fotos del drone o cámara 360° aquí.
+                                Arrastrá panorámicas, fotos reales, renders o avance de obra aquí.
                                 <br />
-                                Se generan las escenas automáticamente.
+                                Después podés organizarlas por categoría.
                             </p>
                             <p className="text-xs text-slate-600 mt-3">
                                 PNG, JPG, WEBP • Equirectangular • Máximo 50MB
@@ -1705,37 +1715,61 @@ export default function TourCreator({
                                 </DialogTrigger>
                                 <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 bg-slate-950 border-slate-800 text-white">
                                     <DialogHeader className="p-4 border-b border-slate-800">
-                                        <DialogTitle>Galería de Imágenes 360°</DialogTitle>
+                                        <DialogTitle>Galería de Imágenes</DialogTitle>
                                         <DialogDescription className="text-slate-400">
-                                            Gestioná tus imágenes originales y las renderizadas por IA.
+                                            Organizá el contenido por categorías sin alterar el Tour 360 existente.
                                         </DialogDescription>
                                     </DialogHeader>
 
                                     <div className="flex-1 flex flex-col min-h-0">
                                         <div className="flex p-2 gap-2 border-b border-slate-800 bg-slate-900/50">
                                             <button
-                                                onClick={() => setActiveTab('raw')}
+                                                onClick={() => setActiveTab('tour360')}
                                                 className={cn(
                                                     "px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2",
-                                                    activeTab === 'raw'
+                                                    activeTab === 'tour360'
                                                         ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20"
                                                         : "text-slate-400 hover:text-white hover:bg-slate-800"
                                                 )}
                                             >
-                                                <ImageIcon className="w-4 h-4" />
-                                                Originales ({scenes.filter(s => (s.category || 'raw') === 'raw').length})
+                                                <Globe className="w-4 h-4" />
+                                                360 / Panorámicas ({scenes.filter((scene) => normalizeTourMediaCategory(scene) === 'tour360').length})
                                             </button>
                                             <button
-                                                onClick={() => setActiveTab('rendered')}
+                                                onClick={() => setActiveTab('real')}
                                                 className={cn(
                                                     "px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2",
-                                                    activeTab === 'rendered'
+                                                    activeTab === 'real'
+                                                        ? "bg-sky-500 text-white shadow-lg shadow-sky-500/20"
+                                                        : "text-slate-400 hover:text-white hover:bg-slate-800"
+                                                )}
+                                            >
+                                                <Camera className="w-4 h-4" />
+                                                Imágenes reales ({scenes.filter((scene) => normalizeTourMediaCategory(scene) === 'real').length})
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveTab('render')}
+                                                className={cn(
+                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2",
+                                                    activeTab === 'render'
                                                         ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
                                                         : "text-slate-400 hover:text-white hover:bg-slate-800"
                                                 )}
                                             >
                                                 <Sparkles className="w-4 h-4" />
-                                                Renderizadas ({scenes.filter(s => s.category === 'rendered').length})
+                                                Imágenes render ({scenes.filter((scene) => normalizeTourMediaCategory(scene) === 'render').length})
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveTab('avance')}
+                                                className={cn(
+                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2",
+                                                    activeTab === 'avance'
+                                                        ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20"
+                                                        : "text-slate-400 hover:text-white hover:bg-slate-800"
+                                                )}
+                                            >
+                                                <Navigation className="w-4 h-4" />
+                                                Avance de obra ({scenes.filter((scene) => normalizeTourMediaCategory(scene) === 'avance').length})
                                             </button>
                                         </div>
 
@@ -1754,9 +1788,9 @@ export default function TourCreator({
 
                                                 {filteredScenes.map((scene) => {
                                                     const isActive = activeSceneId === scene.id;
-                                                    const kind = scene.masterplanOverlay?.imageKind || (scene.category === 'rendered' ? 'rendered' : '360');
-                                                    const kindLabel = kind === '360' ? '360°' : kind === 'foto' ? 'Foto' : kind === 'panoramica' ? 'Pano' : kind === 'rendered' ? 'IA' : '360°';
-                                                    const kindColor = kind === 'rendered' ? 'bg-indigo-500' : kind === 'foto' ? 'bg-sky-500' : kind === 'panoramica' ? 'bg-violet-500' : 'bg-brand-500';
+                                                    const mediaCategory = normalizeTourMediaCategory(scene);
+                                                    const kindLabel = TOUR_MEDIA_CATEGORY_SHORT_LABELS[mediaCategory];
+                                                    const kindColor = TOUR_MEDIA_CATEGORY_BADGE_STYLES[mediaCategory];
                                                     const isEditingThis = editingTitle === scene.id;
                                                     return (
                                                     <div
@@ -1827,45 +1861,57 @@ export default function TourCreator({
 
                     <div className="px-4 pb-4 space-y-4">
                         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                            Tipo de imagen a subir
+                            Categoría de imagen
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                             <button
-                                onClick={() => setUploadImageType("foto")}
+                                onClick={() => setUploadImageType("tour360")}
                                 className={cn(
                                     "flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-bold transition-all",
-                                    uploadImageType === "foto"
-                                        ? "bg-indigo-600/20 border-indigo-500 text-white"
-                                        : "bg-[#1A1A1A] border-white/10 text-slate-400 hover:text-white"
-                                )}
-                            >
-                                <Camera className="w-4 h-4" />
-                                Fotografía
-                            </button>
-                            <button
-                                onClick={() => setUploadImageType("360")}
-                                className={cn(
-                                    "flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-bold transition-all",
-                                    uploadImageType === "360"
+                                    uploadImageType === "tour360"
                                         ? "bg-indigo-600/20 border-indigo-500 text-white"
                                         : "bg-[#1A1A1A] border-white/10 text-slate-400 hover:text-white"
                                 )}
                             >
                                 <Globe className="w-4 h-4" />
-                                360°
+                                360 / Panorámica
                             </button>
                             <button
-                                onClick={() => setUploadImageType("panoramica")}
+                                onClick={() => setUploadImageType("real")}
                                 className={cn(
                                     "flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-bold transition-all",
-                                    uploadImageType === "panoramica"
+                                    uploadImageType === "real"
+                                        ? "bg-sky-500/20 border-sky-500 text-white"
+                                        : "bg-[#1A1A1A] border-white/10 text-slate-400 hover:text-white"
+                                )}
+                            >
+                                <Camera className="w-4 h-4" />
+                                Imágenes reales
+                            </button>
+                            <button
+                                onClick={() => setUploadImageType("render")}
+                                className={cn(
+                                    "flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-bold transition-all",
+                                    uploadImageType === "render"
                                         ? "bg-indigo-600/20 border-indigo-500 text-white"
                                         : "bg-[#1A1A1A] border-white/10 text-slate-400 hover:text-white"
                                 )}
                             >
-                                <ImageIcon className="w-4 h-4" />
-                                Panorámica
+                                <Sparkles className="w-4 h-4" />
+                                Imágenes render
+                            </button>
+                            <button
+                                onClick={() => setUploadImageType("avance")}
+                                className={cn(
+                                    "flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-bold transition-all",
+                                    uploadImageType === "avance"
+                                        ? "bg-amber-500/20 border-amber-500 text-white"
+                                        : "bg-[#1A1A1A] border-white/10 text-slate-400 hover:text-white"
+                                )}
+                            >
+                                <Navigation className="w-4 h-4" />
+                                Avance de obra
                             </button>
                         </div>
 
@@ -1881,29 +1927,21 @@ export default function TourCreator({
                             Acceso rápido
                         </div>
 
-                        <div className="flex p-1.5 gap-1 bg-[#1A1A1A] rounded-xl border border-white/5 shadow-inner">
-                            <button
-                                onClick={() => setActiveTab('raw')}
-                                className={cn(
-                                    "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
-                                    activeTab === 'raw'
-                                        ? "bg-[#333333] text-white shadow-lg"
-                                        : "text-slate-500 hover:text-slate-300"
-                                )}
-                            >
-                                Originales
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('rendered')}
-                                className={cn(
-                                    "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
-                                    activeTab === 'rendered'
-                                        ? "bg-[#333333] text-white shadow-lg"
-                                        : "text-slate-500 hover:text-slate-300"
-                                )}
-                            >
-                                Renderizadas (AI)
-                            </button>
+                        <div className="grid grid-cols-2 gap-1.5 bg-[#1A1A1A] rounded-xl border border-white/5 shadow-inner p-1.5">
+                            {(["tour360", "real", "render", "avance"] as TourMediaCategory[]).map((category) => (
+                                <button
+                                    key={category}
+                                    onClick={() => setActiveTab(category)}
+                                    className={cn(
+                                        "py-2 text-xs font-bold rounded-lg transition-all",
+                                        activeTab === category
+                                            ? "bg-[#333333] text-white shadow-lg"
+                                            : "text-slate-500 hover:text-slate-300"
+                                    )}
+                                >
+                                    {TOUR_MEDIA_CATEGORY_SHORT_LABELS[category]}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
@@ -2325,7 +2363,7 @@ export default function TourCreator({
                                 </>
                             ) : (
                                 <>
-                                    <ImageIcon className="w-5 h-5" /> Guardar Tour
+                                    <ImageIcon className="w-5 h-5" /> Guardar Galería
                                 </>
                             )}
                         </button>

@@ -163,7 +163,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         { id: "reservas", label: "Reservas", icon: CalendarClock }, // ADDED
         { id: "masterplan", label: "Masterplan", icon: Layers },
         { id: "mapa", label: "Mapa Interactivo", icon: MapPin },
-        { id: "tour360", label: "Tour 360°", icon: Globe },
+        { id: "tour360", label: "Galería de Imágenes", icon: Globe },
         { id: "etapas", label: "Etapas y Manzanas", icon: Package },
         { id: "inventario", label: "Inventario", icon: Home },
         { id: "inversion", label: "Inversión & Escrow", icon: TrendingUp },

@@ -234,13 +234,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         {
             id: "tour360",
             num: 5,
-            label: "Tour 360",
-            desc: "Fotos y 360° geoposicionados",
+            label: "Galería de Imágenes",
+            desc: "Tour 360, reales, render y avance",
             required: false,
             icon: Camera,
             done: step5Done,
             guidance:
-                "Subí fotos, panorámicas o imágenes 360° y posicionálas en el mapa. Podés vincular cada imagen a un lote específico.",
+                "Subí imágenes 360, fotos reales, renders o avance de obra. El Tour 360 sigue funcionando igual y el resto del material se organiza por categorías.",
         },
         {
             id: "comercial",
@@ -1013,4 +1013,3 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         </div>
     );
 }
-

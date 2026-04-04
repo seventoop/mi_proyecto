@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { requireAuth, requireProjectOwnership, AuthError } from "@/lib/guards";
+import { toStoredTourSceneCategory } from "@/lib/tour-media";
 
 const updateTourSchema = z.object({
     nombre: z.string().min(3).optional(),
+    scenes: z.array(z.any()).optional(),
     escenas: z.array(z.any()).optional(),
 });
 
@@ -54,10 +56,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
         await requireProjectOwnership(existing.proyectoId);
 
-        const { nombre, escenas } = validation.data;
+        const { nombre } = validation.data;
+        const scenes = validation.data.scenes ?? validation.data.escenas;
 
         const tour = await db.$transaction(async (tx) => {
-            if (escenas) {
+            if (scenes) {
                 // Simplified sync: delete and recreate
                 await tx.tourScene.deleteMany({ where: { tourId: params.id } });
             }
@@ -67,11 +70,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
                 data: {
                     nombre,
                     estado: "PENDIENTE",
-                    scenes: escenas ? {
-                        create: escenas.map((s: any) => ({
+                    scenes: scenes ? {
+                        create: scenes.map((s: any) => ({
                             title: s.title,
                             imageUrl: s.imageUrl,
-                            category: (s.category || 'raw').toUpperCase(),
+                            category: toStoredTourSceneCategory(s.category),
                             isDefault: s.isDefault || false,
                             order: s.order || 0,
                             hotspots: {

@@ -139,7 +139,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         { id: "pagos", label: "Pagos", icon: DollarSign }, // New tab
         { id: "masterplan", label: "Masterplan", icon: Layers },
         { id: "mapa", label: "Mapa Interactivo", icon: MapPin },
-        { id: "tour360", label: "Tour 360°", icon: Globe },
+        { id: "tour360", label: "Galería de Imágenes", icon: Globe },
         { id: "etapas", label: "Etapas y Manzanas", icon: Package },
         { id: "inventario", label: "Inventario", icon: Home },
         { id: "metricas", label: "Métricas", icon: BarChart3 },

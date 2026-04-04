@@ -4,16 +4,21 @@ import { Metadata } from "next";
 import {
     ArrowRight, MapPin, Check, Building2, Trees, Shield,
     Globe, LayoutTemplate, Camera, ChevronDown, Compass,
-    TrendingUp, Users, Star, Play
+    TrendingUp, Users, Star, Play, Sparkles, Navigation
 } from "lucide-react";
 import { db } from "@/lib/db";
 import ContactForm from "@/components/public/contact-form";
 import PublicProjectGallery from "@/components/public/project-gallery";
+import {
+    normalizeTourMediaCategory,
+    TOUR_MEDIA_CATEGORY_LABELS,
+    type TourMediaCategory,
+} from "@/lib/tour-media";
 
 async function getProject(slug: string) {
     const include = {
         _count: { select: { leads: true, etapas: true } },
-        tours: { include: { scenes: { take: 1, orderBy: { order: "asc" as const } } } },
+        tours: { include: { scenes: { orderBy: { order: "asc" as const } } } },
         imagenes: { orderBy: { orden: "asc" as const } },
         etapas: {
             include: {
@@ -64,9 +69,19 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         P.imagenPortada ||
         "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2075&auto=format&fit=crop";
 
-    const hasTours = P.tours?.length > 0;
+    const allTourScenes = (P.tours ?? []).flatMap((tour: any) => tour.scenes ?? []);
+    const tour360Scenes = allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "tour360");
+    const galleryScenesByCategory: Record<Exclude<TourMediaCategory, "tour360">, any[]> = {
+        real: allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "real"),
+        render: allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "render"),
+        avance: allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "avance"),
+    };
+    const hasTours = tour360Scenes.length > 0;
     const hasMasterplan = !!(P.masterplanSVG || P.overlayUrl);
-    const firstTourThumb = P.tours?.[0]?.scenes?.[0]?.imageUrl;
+    const firstTourThumb = tour360Scenes[0]?.imageUrl;
+    const galleryCategories = (["real", "render", "avance"] as const).filter(
+        (category) => galleryScenesByCategory[category].length > 0
+    );
 
     const priceM2 = P.precioM2Inversor
         ? `USD ${Number(P.precioM2Inversor).toLocaleString("es-AR")}/m²`
@@ -301,6 +316,71 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 </div>
             </section>
 
+            {galleryCategories.length > 0 && (
+                <section className="py-8 px-6 sm:px-10 lg:px-16">
+                    <div className="mb-10">
+                        <span className="text-brand-400 text-sm font-bold uppercase tracking-widest">Galería del proyecto</span>
+                        <h2 className="text-3xl sm:text-4xl font-black text-foreground mt-2 tracking-tight">Imágenes organizadas por categoría</h2>
+                        <p className="text-muted-foreground mt-3 max-w-2xl text-lg leading-8">
+                            El Tour 360 se mantiene intacto y acá se muestra el resto del material visual separado por tipo.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        {galleryCategories.map((category) => {
+                            const scenes = galleryScenesByCategory[category].slice(0, 6);
+                            const Icon = category === "render" ? Sparkles : category === "avance" ? Navigation : Camera;
+                            return (
+                                <article
+                                    key={category}
+                                    className="rounded-3xl border border-border bg-card shadow-sm overflow-hidden"
+                                >
+                                    <div className="flex items-center justify-between p-6 border-b border-border">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-2xl bg-brand-500/10 flex items-center justify-center">
+                                                <Icon className="w-5 h-5 text-brand-400" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-black text-foreground">
+                                                    {TOUR_MEDIA_CATEGORY_LABELS[category]}
+                                                </h3>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {galleryScenesByCategory[category].length} imagen{galleryScenesByCategory[category].length === 1 ? "" : "es"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 p-3">
+                                        {scenes.map((scene: any) => (
+                                            <a
+                                                key={scene.id}
+                                                href={scene.imageUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted"
+                                            >
+                                                <img
+                                                    src={scene.imageUrl}
+                                                    alt={scene.title || TOUR_MEDIA_CATEGORY_LABELS[category]}
+                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                <div className="absolute inset-x-0 bottom-0 p-3">
+                                                    <p className="text-xs font-bold text-white truncate">
+                                                        {scene.title || TOUR_MEDIA_CATEGORY_LABELS[category]}
+                                                    </p>
+                                                </div>
+                                            </a>
+                                        ))}
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
+
             {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 ABOUT + LOCATION
             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
@@ -442,4 +522,3 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         </div>
     );
 }
-

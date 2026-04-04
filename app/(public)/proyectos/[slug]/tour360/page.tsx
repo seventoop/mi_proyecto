@@ -6,6 +6,7 @@ import prisma from "@/lib/db";
 import TourViewer, { Scene, Hotspot } from "@/components/tour360/tour-viewer";
 import { computeSvgViewBox } from "@/lib/geo-projection";
 import type { MasterplanUnit } from "@/lib/masterplan-store";
+import { isTour360Category, normalizeTourMediaCategory } from "@/lib/tour-media";
 
 // ─── Data Fetching (Server-Side) ───
 
@@ -175,7 +176,7 @@ function dbTourToScenes(tour: any): Scene[] {
         title: dbScene.title,
         imageUrl: dbScene.imageUrl,
         isDefault: dbScene.isDefault,
-        category: dbScene.category?.toLowerCase() || "raw",
+        category: normalizeTourMediaCategory(dbScene),
         masterplanOverlay: dbScene.masterplanOverlay ?? undefined,
         hotspots: (dbScene.hotspots || []).map((hs: any): Hotspot => ({
             id: hs.id,
@@ -218,7 +219,7 @@ export default async function PublicTour360Page({ params }: { params: { slug: st
     }
 
     const defaultTour = project.tours[0];
-    const scenes = dbTourToScenes(defaultTour);
+    const scenes = dbTourToScenes(defaultTour).filter((scene) => isTour360Category(scene));
     const overlayBounds = parseOverlayBounds(project.overlayBounds);
     const overlayUnits = mapProjectUnits(project);
     const overlaySvgViewBox = computeSvgViewBox(overlayUnits);
