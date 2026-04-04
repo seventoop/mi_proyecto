@@ -403,7 +403,7 @@ async function main() {
                         imageUrl: SCENE_IMAGE_URL,
                         isDefault: true,
                         order: 0,
-                        category: "RAW",
+                        category: "TOUR360",
                         masterplanOverlay: {
                             mode: "geo-calibrated",
                             imageUrl: previewUpload.url,
