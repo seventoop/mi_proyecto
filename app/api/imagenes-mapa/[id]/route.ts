@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyRole, handleApiGuardError } from "@/lib/guards";
 import prisma from "@/lib/db";
+import { normalizeImagenMapaTipoForWrite } from "@/types/imagen-mapa";
 
 // PUT /api/imagenes-mapa/[id]
 export async function PUT(
@@ -31,7 +32,7 @@ export async function PUT(
 
     const updateData: any = {};
     if (titulo !== undefined) updateData.titulo = titulo || null;
-    if (tipo !== undefined) updateData.tipo = tipo;
+    if (tipo !== undefined) updateData.tipo = normalizeImagenMapaTipoForWrite(tipo);
     if (lat !== undefined) updateData.lat = lat;
     if (lng !== undefined) updateData.lng = lng;
     if (unidadId !== undefined) updateData.unidadId = unidadId || null;
@@ -85,3 +86,4 @@ export async function DELETE(
     return handleApiGuardError(error);
   }
 }
+

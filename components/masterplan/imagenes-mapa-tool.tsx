@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useMasterplanStore } from "@/lib/masterplan-store";
-import { ImagenMapaItem, ImagenMapaTipo, IMAGEN_TIPO_CONFIG } from "@/types/imagen-mapa";
+import { ImagenMapaItem, ImagenMapaTipo, IMAGEN_TIPO_CONFIG, isImagenMapa360Like } from "@/types/imagen-mapa";
 import { SvgViewBox } from "@/lib/geo-projection";
 import dynamic from "next/dynamic";
 
@@ -426,7 +426,7 @@ export default function ImagenesMapaTool({
                   Tipo de imagen a subir
                 </label>
                 <div className="grid grid-cols-3 gap-1">
-                  {(["foto", "360", "panoramica"] as ImagenMapaTipo[]).map((t) => {
+                  {(["foto", "360"] as ImagenMapaTipo[]).map((t) => {
                     const cfg = IMAGEN_TIPO_CONFIG[t];
                     return (
                       <button
@@ -525,7 +525,7 @@ export default function ImagenesMapaTool({
                       onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value as ImagenMapaTipo }))}
                       className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                     >
-                      {(Object.entries(IMAGEN_TIPO_CONFIG) as [ImagenMapaTipo, any][]).map(
+                      {(Object.entries(IMAGEN_TIPO_CONFIG).filter(([key]) => key !== "panoramica") as [ImagenMapaTipo, any][]).map(
                         ([key, cfg]) => (
                           <option key={key} value={key}>
                             {cfg.emoji} {cfg.label}
@@ -555,7 +555,7 @@ export default function ImagenesMapaTool({
                   </div>
 
                   {/* 360°-only: altitude + heading */}
-                  {form.tipo === "360" && (
+                  {isImagenMapa360Like(form.tipo) && (
                     <>
                       <div className="space-y-1">
                         <label className="text-[11px] text-slate-400 uppercase tracking-wide flex items-center justify-between">
@@ -751,7 +751,7 @@ export default function ImagenesMapaTool({
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors"
                   >
                     <Globe className="w-3.5 h-3.5" />
-                    {selectedItem.tipo === "360" ? "Ver en 360°" : "Ver imagen"}
+                    {isImagenMapa360Like(selectedItem.tipo) ? "Ver en 360°" : "Ver imagen"}
                   </button>
                 </motion.div>
               )}

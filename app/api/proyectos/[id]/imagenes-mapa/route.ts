@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireAuth, requireAnyRole, handleApiGuardError } from "@/lib/guards";
+import { normalizeImagenMapaTipoForWrite } from "@/types/imagen-mapa";
 
 // GET /api/proyectos/[id]/imagenes-mapa
 export async function GET(
@@ -69,7 +70,7 @@ export async function POST(
       data: {
         proyectoId: params.id,
         url,
-        tipo,
+        tipo: normalizeImagenMapaTipoForWrite(tipo),
         titulo: titulo || null,
         lat,
         lng,
@@ -86,3 +87,4 @@ export async function POST(
     return handleApiGuardError(error);
   }
 }
+
