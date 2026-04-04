@@ -103,7 +103,7 @@ export async function getProyectos(params: {
             FROM unidades u
             JOIN manzanas m ON u."manzanaId" = m.id
             JOIN etapas e ON m."etapaId" = e.id
-            WHERE e."proyectoId" IN (${projectIds})
+            WHERE e."proyectoId" = ANY(${projectIds})
             GROUP BY e."proyectoId", u.estado
         `;
 

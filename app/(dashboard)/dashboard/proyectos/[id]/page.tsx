@@ -84,6 +84,10 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role || "INVITADO";
+    const backHref =
+        userRole === "ADMIN" || userRole === "SUPERADMIN" ? "/dashboard/admin/proyectos" :
+        userRole === "DESARROLLADOR" ? "/dashboard/developer/proyectos" :
+        "/dashboard/proyectos";
 
     const proyecto = await prisma.proyecto.findUnique({
         where: { id: params.id },
@@ -124,7 +128,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         return (
             <div className="p-20 text-center">
                 <h1 className="text-2xl font-bold">Proyecto no encontrado</h1>
-                <Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">
+                <Link href={backHref} className="text-brand-500 mt-4 block">
                     Volver
                 </Link>
             </div>
@@ -143,7 +147,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     No tienes permisos para ver los detalles de este proyecto.
                 </p>
                 <Link
-                    href="/dashboard/proyectos"
+                    href={backHref}
                     className="text-brand-500 mt-6 inline-block font-medium"
                 >
                     Volver a mis proyectos
@@ -295,7 +299,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 <div className="flex items-center gap-3 mb-3">
                     {/* LEFT — back button, more prominent */}
                     <Link
-                        href="/dashboard/proyectos"
+                        href={backHref}
                         className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-500 dark:hover:text-brand-400 bg-slate-100 dark:bg-slate-800 hover:bg-brand-500/10 dark:hover:bg-brand-500/15 px-3 py-1.5 rounded-lg transition-all shrink-0 border border-slate-200 dark:border-slate-700 hover:border-brand-500/30"
                     >
                         <ArrowLeft className="w-3.5 h-3.5" />

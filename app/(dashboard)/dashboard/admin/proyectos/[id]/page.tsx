@@ -114,7 +114,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     ]);
 
     if (!proyectoRaw) {
-        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
+        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/admin/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
     }
 
     const proyecto = proyectoRaw as any;
