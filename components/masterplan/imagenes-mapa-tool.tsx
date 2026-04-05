@@ -244,7 +244,7 @@ export default function ImagenesMapaTool({
       fd.append("projectId", proyectoId);
 
       // Use /api/upload/360 for 360° images, /api/upload for others
-      const endpoint = pendingTipo === "360" ? "/api/upload/360" : "/api/upload/360";
+      const endpoint = pendingTipo === "360" ? "/api/upload/360" : "/api/upload";
       const res = await fetch(endpoint, { method: "POST", body: fd });
       const data = await res.json();
 
