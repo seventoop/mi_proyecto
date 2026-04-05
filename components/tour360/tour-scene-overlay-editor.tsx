@@ -199,6 +199,27 @@ export default function TourSceneOverlayEditor({
     }, [draft]);
 
     useEffect(() => {
+        const body = document.body;
+        const html = document.documentElement;
+        const previousBodyOverflow = body.style.overflow;
+        const previousBodyOverscroll = body.style.overscrollBehavior;
+        const previousHtmlOverflow = html.style.overflow;
+        const previousHtmlOverscroll = html.style.overscrollBehavior;
+
+        body.style.overflow = "hidden";
+        body.style.overscrollBehavior = "none";
+        html.style.overflow = "hidden";
+        html.style.overscrollBehavior = "none";
+
+        return () => {
+            body.style.overflow = previousBodyOverflow;
+            body.style.overscrollBehavior = previousBodyOverscroll;
+            html.style.overflow = previousHtmlOverflow;
+            html.style.overscrollBehavior = previousHtmlOverscroll;
+        };
+    }, []);
+
+    useEffect(() => {
         setDraft(initial);
         setUndoStack([]);
         setRedoStack([]);
@@ -396,7 +417,7 @@ export default function TourSceneOverlayEditor({
     }, [onSaved, scene.id]);
 
     return (
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-black/90">
+        <div className="fixed inset-0 z-[9999] flex h-[100dvh] flex-col overflow-hidden overscroll-none bg-black/90">
             <div className="flex flex-shrink-0 items-center justify-between border-b border-white/10 bg-black/60 px-4 py-3 backdrop-blur-sm">
                 <div className="flex items-center gap-2">
                     <span className="text-lg">360</span>
@@ -408,14 +429,14 @@ export default function TourSceneOverlayEditor({
                 </button>
             </div>
 
-            <div className="relative flex-1 overflow-hidden">
+            <div className="relative flex-1 min-h-0 overflow-hidden overscroll-none">
                 {isLoading && (
                     <div className="absolute inset-0 z-20 flex items-center justify-center">
                         <Loader2 className="h-8 w-8 animate-spin text-white/40" />
                     </div>
                 )}
 
-                <div ref={viewerRef} className="h-full w-full" />
+                <div ref={viewerRef} className="h-full w-full overscroll-none" />
 
                 {viewerReady && draft.isVisible && (
                     <Viewer360LotesOverlay
@@ -606,7 +627,7 @@ function OverlayControls({
     }
 
     return (
-        <div className="absolute bottom-8 right-4 top-16 z-[9999] flex w-[360px] flex-col rounded-2xl border border-white/10 bg-black/85 shadow-2xl backdrop-blur-2xl pointer-events-auto">
+        <div className="pointer-events-auto absolute bottom-4 right-4 top-16 z-[9999] flex max-h-[calc(100dvh-5.5rem)] w-[360px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/85 shadow-2xl backdrop-blur-2xl">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
                     <h3 className="flex items-center gap-2 text-sm font-bold text-white">
@@ -620,7 +641,7 @@ function OverlayControls({
                 </button>
             </div>
 
-            <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <div className="flex-1 min-h-0 space-y-5 overflow-y-auto overscroll-contain p-5 pr-4">
                 <section className="space-y-3 rounded-2xl border border-white/5 bg-white/5 p-4">
                     <div className="flex items-center justify-between">
                         <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">

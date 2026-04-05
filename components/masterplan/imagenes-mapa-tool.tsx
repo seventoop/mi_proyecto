@@ -4,12 +4,16 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Camera, X, Upload, Trash2, Pencil, Loader2,
-  Check, ImageIcon, Globe, PanelRight,
+  Check, ImageIcon, Globe, PanelRight, ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useMasterplanStore } from "@/lib/masterplan-store";
-import { ImagenMapaItem, ImagenMapaTipo, IMAGEN_TIPO_CONFIG, isImagenMapa360Like } from "@/types/imagen-mapa";
+import {
+  ImagenMapaItem, ImagenMapaTipo, ImagenMapaCategoria,
+  IMAGEN_TIPO_CONFIG, IMAGEN_CATEGORIA_CONFIG,
+  isImagenMapa360Like, normalizeImagenMapaCategory, categoryToImagenMapaTipo,
+} from "@/types/imagen-mapa";
 import { SvgViewBox } from "@/lib/geo-projection";
 import dynamic from "next/dynamic";
 
@@ -75,6 +79,9 @@ export default function ImagenesMapaTool({
   // Detail / viewer
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewerItem, setViewerItem] = useState<ImagenMapaItem | null>(null);
+
+  // Gallery navigation
+  const [selectedCategory, setSelectedCategory] = useState<ImagenMapaCategoria | null>(null);
 
   // Leaflet refs
   const markersRef = useRef<Map<string, any>>(new Map());
@@ -419,46 +426,19 @@ export default function ImagenesMapaTool({
               </div>
             </div>
 
-            {/* Upload section */}
-            {uploadState === "idle" && (
-              <div className="px-4 py-3 border-b border-slate-700/50 flex-shrink-0 space-y-2">
-                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-                  Tipo de imagen a subir
-                </label>
-                <div className="grid grid-cols-3 gap-1">
-                  {(["foto", "360"] as ImagenMapaTipo[]).map((t) => {
-                    const cfg = IMAGEN_TIPO_CONFIG[t];
-                    return (
-                      <button
-                        key={t}
-                        onClick={() => setPendingTipo(t)}
-                        className={cn(
-                          "flex flex-col items-center gap-1 p-2 rounded-lg text-xs transition-all border",
-                          pendingTipo === t
-                            ? "border-indigo-500 bg-indigo-500/20 text-white"
-                            : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500"
-                        )}
-                      >
-                        <span className="text-base">{cfg.emoji}</span>
-                        <span>{cfg.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* Category back header */}
+            {selectedCategory !== null && uploadState === "idle" && (
+              <div className="px-3 py-2.5 border-b border-slate-700/50 flex items-center gap-2 flex-shrink-0">
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
+                  onClick={() => setSelectedCategory(null)}
+                  className="p-1 rounded-lg hover:bg-slate-700/60 text-slate-400 hover:text-white transition-colors"
                 >
-                  <Upload className="w-4 h-4" />
-                  Subir imagen
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
+                <span className="text-base">{IMAGEN_CATEGORIA_CONFIG[selectedCategory].emoji}</span>
+                <span className="text-sm font-semibold text-white flex-1 truncate">
+                  {IMAGEN_CATEGORIA_CONFIG[selectedCategory].label}
+                </span>
               </div>
             )}
 
@@ -632,91 +612,143 @@ export default function ImagenesMapaTool({
               )}
             </AnimatePresence>
 
-            {/* Items list */}
+            {/* Main content area */}
             <div className="flex-1 overflow-y-auto min-h-0">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
                 </div>
-              ) : items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-2">
-                  <ImageIcon className="w-8 h-8 text-slate-600" />
-                  <p className="text-sm text-slate-500">No hay imágenes aún</p>
-                  <p className="text-xs text-slate-600">
-                    Subí una imagen y hacé clic en el mapa para posicionarla.
+              ) : uploadState === "idle" && !showForm && selectedCategory === null ? (
+                /* ── Category grid (primary view) ── */
+                <div className="p-3 space-y-2">
+                  <p className="text-[11px] text-slate-500 uppercase tracking-wide font-medium px-1 pb-1">
+                    Galería de imágenes
                   </p>
-                </div>
-              ) : (
-                <div className="p-2 space-y-1">
-                  {items.map((item) => {
-                    const cfg = IMAGEN_TIPO_CONFIG[item.tipo] || IMAGEN_TIPO_CONFIG.foto;
-                    const isSelected = selectedId === item.id;
+                  {(Object.entries(IMAGEN_CATEGORIA_CONFIG) as [ImagenMapaCategoria, typeof IMAGEN_CATEGORIA_CONFIG[ImagenMapaCategoria]][]).map(([cat, cfg]) => {
+                    const count = items.filter((it) => normalizeImagenMapaCategory(it.tipo) === cat).length;
                     return (
-                      <div
-                        key={item.id}
-                        onClick={() => setSelectedId(isSelected ? null : item.id)}
-                        className={cn(
-                          "group flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-all border",
-                          isSelected
-                            ? "bg-indigo-500/20 border-indigo-500/50"
-                            : "bg-slate-800/50 border-transparent hover:bg-slate-800"
-                        )}
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-700/60 bg-slate-800/50 hover:bg-slate-800 hover:border-slate-600 transition-all text-left"
                       >
-                        {/* Thumbnail */}
-                        <div
-                          className="w-10 h-10 rounded-lg flex-shrink-0 overflow-hidden bg-slate-700 flex items-center justify-center"
-                        >
-                          <img
-                            src={item.url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = "none";
-                            }}
-                          />
-                        </div>
-
-                        {/* Info */}
+                        <span className="text-xl leading-none">{cfg.emoji}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-white truncate">
-                            {item.titulo || `${cfg.emoji} ${cfg.label}`}
-                          </p>
-                          <p className="text-[10px] text-slate-400">
-                            {cfg.label}
-                            {item.unidad && ` · Lote ${item.unidad.numero}`}
+                          <p className="text-sm font-semibold text-white">{cfg.label}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {count === 0 ? "Sin imágenes" : `${count} imagen${count !== 1 ? "es" : ""}`}
                           </p>
                         </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setViewerItem(item); }}
-                            className="p-1.5 rounded-lg bg-slate-700 hover:bg-indigo-600 text-slate-300 hover:text-white transition-colors"
-                            title="Ver imagen"
-                          >
-                            <PanelRight className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEditForm(item); }}
-                            className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
-                            title="Editar"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                            className="p-1.5 rounded-lg bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                        {count > 0 && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 flex-shrink-0">
+                            {count}
+                          </span>
+                        )}
+                      </button>
                     );
                   })}
                 </div>
-              )}
+              ) : uploadState === "idle" && !showForm && selectedCategory !== null ? (
+                /* ── Filtered items for selected category ── */
+                (() => {
+                  const filtered = items.filter((it) => normalizeImagenMapaCategory(it.tipo) === selectedCategory);
+                  return filtered.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-2">
+                      <ImageIcon className="w-8 h-8 text-slate-600" />
+                      <p className="text-sm text-slate-500">No hay imágenes en esta categoría</p>
+                      <p className="text-xs text-slate-600">
+                        Subí una nueva imagen para comenzar.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-2 space-y-1">
+                      {filtered.map((item) => {
+                        const cfg = IMAGEN_TIPO_CONFIG[item.tipo] || IMAGEN_TIPO_CONFIG.foto;
+                        const isSelected = selectedId === item.id;
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => setSelectedId(isSelected ? null : item.id)}
+                            className={cn(
+                              "group flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-all border",
+                              isSelected
+                                ? "bg-indigo-500/20 border-indigo-500/50"
+                                : "bg-slate-800/50 border-transparent hover:bg-slate-800"
+                            )}
+                          >
+                            <div className="w-10 h-10 rounded-lg flex-shrink-0 overflow-hidden bg-slate-700 flex items-center justify-center">
+                              <img
+                                src={item.url}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-white truncate">
+                                {item.titulo || `${cfg.emoji} ${cfg.label}`}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                {cfg.label}
+                                {item.unidad && ` · Lote ${item.unidad.numero}`}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setViewerItem(item); }}
+                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-indigo-600 text-slate-300 hover:text-white transition-colors"
+                                title="Ver imagen"
+                              >
+                                <PanelRight className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openEditForm(item); }}
+                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
+                                title="Editar"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white transition-colors"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              ) : null}
             </div>
+
+            {/* Upload button (secondary, per category) */}
+            {selectedCategory !== null && uploadState === "idle" && !showForm && (
+              <div className="px-4 py-3 border-t border-slate-700/50 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    setPendingTipo(categoryToImagenMapaTipo(selectedCategory));
+                    fileInputRef.current?.click();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-xl transition-colors border border-slate-600 hover:border-slate-500"
+                >
+                  <Upload className="w-4 h-4" />
+                  Subir nueva imagen
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+              </div>
+            )}
 
             {/* Detail panel for selected item */}
             <AnimatePresence>

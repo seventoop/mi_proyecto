@@ -3,10 +3,11 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import BlueprintEngine from "@/components/masterplan/blueprint-engine";
+import ProjectStepsDock from "@/components/dashboard/proyectos/project-steps-dock";
 import {
     ArrowLeft, MapPin, FileText, BarChart3, Layers, Home,
     Globe, DollarSign, Archive, AlertCircle, LayoutDashboard,
-    CheckCircle2, Info, ChevronRight, Camera, Edit3, Users,
+    CheckCircle2, Info, Camera, Edit3, Users,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -275,6 +276,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const prevStep = currentStepIdx > 0 ? steps[currentStepIdx - 1] : null;
     const nextStep =
         currentStepIdx < steps.length - 1 ? steps[currentStepIdx + 1] : null;
+    const isWorkspaceTab = activeTab === "mapa" || activeTab === "tour360";
 
     // Prepare Tour 360° markers for Paso 4 map (only lot-linked tours)
     const tours360ForMap = proyecto.tours
@@ -291,7 +293,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         }));
 
     return (
-        <div className="animate-fade-in pb-6">
+        <div className="animate-fade-in flex h-[calc(100dvh-6.5rem)] flex-col overflow-hidden lg:h-[calc(100dvh-7rem)]">
 
             {/* â”€â”€ Project header: 3-column layout â”€â”€ */}
             <div className="mb-4">
@@ -424,7 +426,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             </div>
 
                 {/* Content area — full width */}
-                <div className="w-full">
+                <div className="w-full flex min-h-0 flex-1 flex-col overflow-hidden">
                     {/* Active step guidance banner — only on non-visual steps */}
                     {(activeTab === "info" || activeTab === "comercial" || activeTab === "crm") && (
                     <div className="flex items-center gap-3 p-3 bg-brand-500/5 border border-brand-500/15 rounded-xl mb-4">
@@ -457,7 +459,14 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     )}
 
                     {/* Step content */}
-                    <div className="animate-fade-in space-y-4">
+                    <div
+                        className={cn(
+                            "animate-fade-in space-y-4 min-h-0 flex-1",
+                            isWorkspaceTab
+                                ? "flex flex-col overflow-hidden"
+                                : "overflow-y-auto overscroll-contain pr-1"
+                        )}
+                    >
 
                         {/* â”€â”€ PASO 1: INFORMACIÓN GENERAL â”€â”€ */}
                         {activeTab === "info" && (
@@ -673,12 +682,8 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                         {/* â”€â”€ PASO 5: IMÁGENES DEL PROYECTO â”€â”€ */}
                         {activeTab === "tour360" && (
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400">
-                                    <Info className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-                                    Subí fotos o panorámicas 360° y posicionálas en el mapa. Usá el botón <strong className="text-slate-700 dark:text-slate-300 mx-0.5">Imágenes</strong> en la barra del mapa.
-                                </div>
-                                <div className="glass-card p-4 md:p-6">
+                            <div className="flex min-h-0 flex-1 flex-col space-y-3 overflow-hidden">
+                                <div className="min-h-0 flex-1 overflow-hidden">
                                     <Tour360TabWrapper
                                         proyectoId={proyecto.id}
                                         tours={proyecto.tours || []}
@@ -690,7 +695,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                         {/* â”€â”€ PASO 4: MAPA INTERACTIVO â”€â”€ */}
                         {activeTab === "mapa" && (
-                            <div className="space-y-3">
+                            <div className="flex min-h-0 flex-1 flex-col space-y-3 overflow-hidden">
                                 {!step3Done && (
                                     <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/5 border border-amber-500/20 rounded-xl text-xs text-amber-600 dark:text-amber-400">
                                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -701,16 +706,18 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         para verlos en el mapa.
                                     </div>
                                 )}
-                                <ResizableContainer defaultHeight={700} minHeight={500}>
-                                    <MasterplanMap
-                                        proyectoId={proyecto.id}
-                                        modo="admin"
-                                        centerLat={proyecto.mapCenterLat ?? undefined}
-                                        centerLng={proyecto.mapCenterLng ?? undefined}
-                                        mapZoom={proyecto.mapZoom ?? undefined}
-                                        tours360={tours360ForMap}
-                                    />
-                                </ResizableContainer>
+                                <div className="min-h-0 flex-1 overflow-hidden">
+                                    <div className="h-full min-h-0 w-full overflow-hidden">
+                                        <MasterplanMap
+                                            proyectoId={proyecto.id}
+                                            modo="admin"
+                                            centerLat={proyecto.mapCenterLat ?? undefined}
+                                            centerLng={proyecto.mapCenterLng ?? undefined}
+                                            mapZoom={proyecto.mapZoom ?? undefined}
+                                            tours360={tours360ForMap}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -969,51 +976,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         )}
                     </div>
 
-                    {/* Step navigation footer */}
-                    <div className="flex items-center justify-between mt-8 pt-6 pb-4 px-1 border-t border-slate-200 dark:border-slate-800">
-                        {prevStep ? (
-                            <Link
-                                href={`?tab=${prevStep.id}`}
-                                className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-500 transition-colors"
-                                title={`Ir al Paso ${prevStep.num}: ${prevStep.label}`}
-                            >
-                                <ArrowLeft className="w-4 h-4" />
-                                Paso {prevStep.num}: {prevStep.label}
-                            </Link>
-                        ) : (
-                            <div />
-                        )}
-                        {nextStep ? (
-                            <Link
-                                href={`?tab=${nextStep.id}`}
-                                className="flex items-center gap-2 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 px-6 py-3 rounded-xl transition-colors shadow-md shadow-brand-500/20 mr-1"
-                                title={`Ir al Paso ${nextStep.num}: ${nextStep.label}`}
-                            >
-                                Paso {nextStep.num}: {nextStep.label}
-                                <ChevronRight className="w-4 h-4" />
-                            </Link>
-                        ) : (
-                            <span className="text-sm text-emerald-500 font-bold flex items-center gap-1.5">
-                                <CheckCircle2 className="w-4 h-4" />
-                                Todos los pasos revisados
-                            </span>
-                        )}
-                    </div>
                 </div>
-
-            {/* Minimal footer */}
-            <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
-                <a href="mailto:soporte@seventoop.com"
-                    title="Soporte técnico"
-                    className="text-xs text-slate-400 hover:text-brand-500 transition-colors">
-                    Soporte
-                </a>
-                <a href="mailto:feedback@seventoop.com?subject=Feedback del sistema"
-                    title="Envianos tu opinión"
-                    className="text-xs font-semibold text-brand-500 hover:text-brand-400 transition-colors">
-                    Feedback
-                </a>
-            </div>
+                <ProjectStepsDock
+                    prevStep={prevStep ? { id: prevStep.id, num: prevStep.num, label: prevStep.label } : null}
+                    nextStep={nextStep ? { id: nextStep.id, num: nextStep.num, label: nextStep.label } : null}
+                    className="mt-3 pb-1"
+                />
         </div>
     );
 }

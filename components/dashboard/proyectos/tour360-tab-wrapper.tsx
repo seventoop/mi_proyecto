@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Edit, Trash2, Eye, ImageIcon } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, ImageIcon, Info } from "lucide-react";
 import { createTour, updateTour, deleteTour, approveTour, rejectTour } from "@/lib/actions/tours";
 import { CheckCircle, XCircle, AlertCircle, Clock } from "lucide-react";
 import TourCreator from "@/components/tour360/tour-creator";
@@ -347,28 +347,33 @@ export default function Tour360TabWrapper({
 
     if (viewMode === "CREATE" || viewMode === "EDIT") {
         return (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300 h-full">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => setViewMode("LIST")} className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white uppercase tracking-wider">
-                            ← Volver
-                        </button>
-                        <input
-                            type="text"
-                            value={tourName}
-                            onChange={(e) => setTourName(e.target.value)}
-                            placeholder="Nombre de la Galería"
-                            className="bg-transparent text-xl font-bold border-none focus:ring-0 placeholder-slate-300 dark:placeholder-slate-700 text-slate-800 dark:text-white p-0"
-                        />
-                    </div>
-                    {isSaving && <span className="text-sm text-brand-500 animate-pulse font-bold">Guardando...</span>}
+            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300 h-full flex flex-col min-h-0">
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400">
+                    <Info className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                    <button
+                        onClick={() => setViewMode("LIST")}
+                        className="shrink-0 font-bold uppercase tracking-wider text-slate-600 transition-colors hover:text-brand-500 dark:text-slate-300"
+                    >
+                        {"<- Volver"}
+                    </button>
+                    <span className="h-3 w-px bg-slate-200 dark:bg-slate-700" />
+                    <p className="min-w-0 flex-1 truncate">
+                        Subi fotos o panoramicas 360 y posicionalas en el mapa desde el boton <strong className="mx-0.5 text-slate-700 dark:text-slate-200">Imagenes</strong>.
+                    </p>
+                    {isSaving && (
+                        <span className="shrink-0 font-bold text-brand-500 animate-pulse">
+                            Guardando...
+                        </span>
+                    )}
                 </div>
 
-                <TourCreator
-                    proyectoId={proyectoId}
-                    initialScenes={editorScenes as any}
-                    onSave={handleSaveTour}
-                />
+                <div className="min-h-0 flex-1">
+                    <TourCreator
+                        proyectoId={proyectoId}
+                        initialScenes={editorScenes as any}
+                        onSave={handleSaveTour}
+                    />
+                </div>
             </div>
         );
     }
