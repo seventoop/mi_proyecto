@@ -1,0 +1,65 @@
+Quiero ajustar y definir mejor la navegación de la landing.
+
+La landing debe funcionar como una one-page real, con navegación interna por secciones y no mandando la navegación principal a páginas separadas.
+
+Orden deseado de secciones en la landing:
+
+1. Inicio
+2. Proyectos
+3. Desarrolladores
+4. Cómo funciona
+5. Noticias
+6. Testimonios
+7. Contacto
+
+Cambios concretos que quiero:
+
+1. Navbar one-page
+
+* La navegación principal debe ir por hash/anclas dentro de la landing.
+* Quiero scroll suave entre secciones.
+* El item activo del navbar debe marcarse automáticamente según la sección visible actual.
+* “Blog” debe pasar a llamarse “Noticias”.
+* “Desarrolladores” debe aparecer antes que “Cómo funciona”.
+
+2. Sección Contacto / Footer
+
+* Aunque la parte de contacto/footer sea más baja o más chica, igual debe poder detectarse como sección activa.
+* Cuando el usuario llega a esa zona, el navbar debe marcar “Contacto”.
+
+3. Botón flotante para volver arriba
+
+* Quiero un botón flotante abajo a la derecha para volver al inicio/top.
+* Debe aparecer apenas el usuario baja un poco desde la parte más alta de la landing.
+* Debe funcionar bien tanto en desktop como en mobile.
+
+4. Navegación por flechas entre secciones
+   Quiero sumar navegación contextual entre secciones vecinas:
+
+* En Inicio: flecha para bajar a Proyectos
+* En Proyectos: flecha para subir a Inicio y bajar a Desarrolladores
+* En Desarrolladores: flecha para subir a Proyectos y bajar a Cómo funciona
+* En Cómo funciona: flecha para subir a Desarrolladores y bajar a Noticias
+* En Noticias: flecha para subir a Cómo funciona y bajar a Testimonios
+* En Testimonios: flecha para subir a Noticias y bajar a Contacto
+* En Contacto: flecha para subir a Testimonios y opción de volver arriba
+
+5. Sección Proyectos
+
+* Sigue siendo una sección prioritaria de la landing.
+* Quiero que quede integrada a la navegación one-page sin perder funcionalidad para explorar e ingresar a proyectos.
+
+Importante:
+
+* No tocar `/dashboard/proyectos` ni la parte interna que está trabajando Dani.
+* Foco total en la experiencia pública de la landing.
+
+Primero quiero que me digas:
+
+1. cómo implementarías esto sin romper la landing actual
+2. qué componentes/archivos tocarías
+3. cómo resolverías el scrollspy para que también detecte Contacto/Footer
+4. cómo harías la navegación por flechas entre secciones
+5. cuál sería el cambio mínimo pero sólido para empezar
+
+Después avanzamos con la implementación.
