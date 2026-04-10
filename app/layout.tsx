@@ -40,6 +40,7 @@ export const metadata: Metadata = {
 
 import { Providers } from "@/components/providers";
 import { LanguageProvider } from "@/components/providers/language-provider";
+import { Toaster } from "sonner";
 import { cookies } from "next/headers";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { i18n, type Locale } from "@/lib/i18n/config";
@@ -76,6 +77,13 @@ export default async function RootLayout({
         )}
         <LanguageProvider initialLocale={locale} initialDictionary={dictionary}>
           <Providers>{children}</Providers>
+          <Toaster
+            position="top-center"
+            richColors
+            toastOptions={{
+              className: "!bg-zinc-900 !border-white/10 !text-white",
+            }}
+          />
         </LanguageProvider>
       </body>
     </html>

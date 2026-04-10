@@ -9,6 +9,7 @@ import {
     Search, X, Check, LayoutList, HelpCircle, ChevronDown, ChevronUp, Grid3x3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { useMasterplanStore } from "@/lib/masterplan-store";
 import PlanGalleryPicker, { type PlanGalleryItem } from "@/components/plan-gallery/plan-gallery-picker";
 import {
@@ -433,7 +434,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
             setViewMode("blueprint");
             setShowPlanGallery(false);
         } catch {
-            alert("No se pudo abrir este plano de la galeria.");
+            toast.error("No se pudo abrir este plano de la galería.");
         }
     }, []);
 
@@ -719,7 +720,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
             throw new Error("Formato no soportado para este flujo");
         } catch (error: any) {
-            alert(`No se pudo procesar el plano: ${error.message || "Error inesperado"}`);
+            toast.error(`No se pudo procesar el plano: ${error.message || "Error inesperado"}`);
             resetBlueprintState();
             return;
         } finally {
@@ -781,56 +782,21 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
             if (res.ok) {
                 const data = await readJsonResponse(res);
-                alert(`${data.message || "Plano guardado con exito."}\n${data.created ?? 0} unidades creadas, ${data.updated ?? 0} actualizadas.`);
+                toast.success("Sincronización completada", {
+                    description: `Se procesó correctamente el plano.\n${data.lotesCreated ?? data.created ?? 0} lotes creados\n${data.unidadesCreated ?? data.created ?? 0} unidades creadas\n${data.updated ?? 0} registros actualizados`,
+                    duration: 6000,
+                });
                 return;
             }
 
             const err = await readJsonResponse(res).catch(() => ({}));
             throw new Error(err.error || "Error del servidor");
         } catch (e: any) {
-            alert(`Error al sincronizar: ${e.message}`);
-            return;
-        } finally {
-            setProcessing(false);
-        }
-
-        if (!svgContent || extractedPaths.length === 0) return;
-        setProcessing(true);
-        try {
-            // Build quick lookup: pathId → lot management data
-            const lotDataMap: Record<string, LotRecord> = {};
-            lotRecords.forEach(r => { lotDataMap[r.pathId] = r; });
-
-            const res = await fetch(`/api/proyectos/${proyectoId}/blueprint/sync`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    svgContent,
-                    paths: extractedPaths.map(p => {
-                        const ld = lotDataMap[p.id];
-                        return {
-                            internalId: p.internalId,
-                            lotNumber: p.lotNumber,
-                            pathData: p.pathData,
-                            center: p.center,
-                            areaSqm: p.areaSqm,
-                            estado: ld?.estado ?? "DISPONIBLE",
-                            precio: ld?.precio ? parseFloat(ld.precio) : null,
-                            frente: ld?.frente ? parseFloat(ld.frente) : null,
-                            fondo: ld?.fondo ? parseFloat(ld.fondo) : null,
-                        };
-                    }),
-                }),
+            toast.error("Error al sincronizar", {
+                description: e.message,
+                duration: 6000,
             });
-            if (res.ok) {
-                const data = await res.json();
-                alert(`Plano sincronizado con éxito.\n${data.created ?? 0} unidades creadas, ${data.updated ?? 0} actualizadas.`);
-            } else {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || "Error del servidor");
-            }
-        } catch (e: any) {
-            alert(`Error al sincronizar: ${e.message}`);
+            return;
         } finally {
             setProcessing(false);
         }

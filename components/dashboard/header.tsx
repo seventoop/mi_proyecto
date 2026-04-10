@@ -5,13 +5,17 @@ import { useTheme } from "next-themes";
 import { getInitials } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import NotificationBell from "./notification-bell";
 import Link from "next/link";
+
+const CUID_RE = /^c[a-z0-9]{20,}$/i;
 
 export default function Header() {
     const { theme, setTheme } = useTheme();
     const { data: session } = useSession();
     const pathname = usePathname();
+    const [projectNames, setProjectNames] = useState<Record<string, string>>({});
 
     const toggleTheme = () => {
         setTheme(theme === "dark" ? "light" : "dark");
@@ -29,7 +33,6 @@ export default function Header() {
     };
     const userRole = roleLabels[userRoleCode] || userRoleCode;
 
-    // Generate strict breadcrumbs based on pathname for logical SaaS nesting
     const generateBreadcrumbs = () => {
         if (!pathname) return [];
         const parts = pathname.split("/").filter(Boolean);
@@ -40,18 +43,41 @@ export default function Header() {
         
         for (let i = 0; i < parts.length; i++) {
             current += `/${parts[i]}`;
-            // Format label
             let label = parts[i].charAt(0).toUpperCase() + parts[i].slice(1).replace(/-/g, " ");
             
-            // Re-case known modules for visual fidelity
             if (label.toLowerCase() === "dashboard") label = "Dashboard";
             if (label.toLowerCase() === "crm") label = "CRM";
+
+            const isCuid = CUID_RE.test(parts[i]);
+            const prevPart = i > 0 ? parts[i - 1].toLowerCase() : "";
+            if (isCuid && prevPart === "proyectos") {
+                label = projectNames[parts[i]] || "Cargando...";
+            }
             
             paths.push({ label, href: current });
         }
         
         return paths;
     };
+
+    useEffect(() => {
+        if (!pathname) return;
+        const parts = pathname.split("/").filter(Boolean);
+        for (let i = 0; i < parts.length; i++) {
+            const seg = parts[i];
+            if (CUID_RE.test(seg) && i > 0 && parts[i - 1].toLowerCase() === "proyectos" && !projectNames[seg]) {
+                fetch(`/api/proyectos/${seg}`)
+                    .then((r) => r.ok ? r.json() : null)
+                    .then((data) => {
+                        const name = data?.nombre || "Proyecto";
+                        setProjectNames((prev) => ({ ...prev, [seg]: name }));
+                    })
+                    .catch(() => {
+                        setProjectNames((prev) => ({ ...prev, [seg]: "Proyecto" }));
+                    });
+            }
+        }
+    }, [pathname]);
 
     const breadcrumbs = generateBreadcrumbs();
 
