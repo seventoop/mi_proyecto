@@ -1,0 +1,239 @@
+Quiero que trabajes sobre mi proyecto actual en Next.js con deploy en Vercel, y que implementes una solución rápida y funcional usando Supabase (Auth + Postgres + Storage).
+
+## ⚠️ Antes de empezar (CRÍTICO)
+
+1. Verificá en qué rama estás actualmente.
+2. Quiero trabajar sobre la rama `juani-dev2`.
+3. Traé la última versión desde GitHub:
+
+   * fetch
+   * checkout a `juani-dev2`
+   * pull de `origin/juani-dev2`
+4. Confirmame:
+
+   * en qué rama estás
+   * si está actualizada
+
+No empieces cambios hasta confirmar esto.
+
+---
+
+## 🧠 Forma de trabajar (MUY IMPORTANTE)
+
+No ejecutes el prompt de forma literal solamente.
+
+Quiero que:
+
+* entiendas el problema completo,
+* interpretes lo que estamos intentando lograr,
+* adaptes las decisiones usando tu criterio técnico,
+* propongas mejoras si detectás algo mejor,
+* priorices no romper el sistema actual.
+
+---
+
+## 🎯 Objetivo real
+
+NO quiero rehacer la web ni cambiar lo visual.
+
+Quiero:
+
+* mantener la UI tal como está,
+* mantener flujos actuales visibles,
+* PERO reemplazar todo lo que hoy está hardcodeado o mal conectado por:
+
+  * base de datos real,
+  * auth real,
+  * storage real.
+
+El foco es:
+👉 conexiones internas
+👉 persistencia
+👉 flujo de datos correcto
+
+---
+
+## 🚫 Qué NO hacer
+
+* No cambiar diseño UI innecesariamente
+* No rehacer componentes visuales
+* No romper rutas existentes
+* No refactorizar masivamente sin necesidad
+
+---
+
+## ✅ Qué SÍ hacer
+
+Corregir y profesionalizar:
+
+* cómo se crea un proyecto
+* cómo se guarda un proyecto
+* cómo se cargan imágenes/archivos
+* cómo se relacionan datos entre componentes
+* cómo se leen esos datos en otras partes de la app
+* cómo se persisten usuarios, acciones y estados
+
+Quiero que todo esto:
+
+* fluya correctamente entre archivos
+* esté bien estructurado
+* no dependa de hardcodeo
+* funcione en producción
+
+---
+
+## 🧩 Stack obligatorio
+
+* Next.js (actual)
+* Vercel (deploy)
+* Supabase:
+
+  * Auth (login + sesión)
+  * Postgres (datos)
+  * Storage (archivos)
+
+No agregar servicios innecesarios.
+
+---
+
+## 👥 Roles (MUY IMPORTANTE)
+
+Antes de definir nada:
+
+1. Buscá en el código los roles existentes.
+2. Identificá los nombres reales.
+3. NO inventes nuevos roles sin revisar.
+
+Posibles (referencia, no obligatorios):
+
+* admin
+* user
+* buyer
+* investor
+
+Pero quiero que uses los que ya existen en el código.
+
+---
+
+## 🔐 Autenticación
+
+Implementar:
+
+* login actual (si sirve, mantenerlo)
+* botón “Continuar con Google”
+* sesiones persistentes
+* logout funcional
+
+Usar Supabase Auth.
+
+---
+
+## 🧱 Base de datos (mínima)
+
+Crear estructura basada en el código existente:
+
+* profiles
+* projects
+* interests
+* purchases
+* project_files (o equivalente)
+
+Adaptar nombres según lo que ya exista.
+
+---
+
+## 🔁 Migración de hardcodeo
+
+Buscar:
+
+* proyectos hardcodeados
+* usuarios hardcodeados
+
+Y:
+
+1. moverlos a base de datos
+2. reemplazar su uso en el frontend
+
+---
+
+## 📦 Storage
+
+Integrar Supabase Storage para:
+
+* imágenes
+* documentos
+* archivos del dashboard/admin
+
+---
+
+## 🧠 Dashboard / Admin
+
+Mantener lógica actual pero:
+
+* conectar a base de datos real
+* usar roles reales
+* persistir acciones
+
+---
+
+## ⚙️ Flujo de trabajo
+
+1. Analizá el proyecto completo
+2. Mostrame:
+
+   * estructura
+   * roles encontrados
+   * problemas actuales
+3. Proponé plan corto
+4. Implementá por etapas
+
+---
+
+## 📤 Entregables
+
+Quiero que me dejes:
+
+* resumen de lo que encontraste
+* roles reales detectados
+* esquema de tablas
+* cambios realizados
+* variables de entorno
+* pasos para Supabase
+* pasos para Google Auth
+* pasos para Vercel
+
+---
+
+## 🧠 Prioridad
+
+1. Rama correcta + código actualizado
+2. Auth + sesiones
+3. Base de datos real
+4. Eliminar hardcodeo
+5. Storage
+6. Ajustes finales
+
+---
+
+## 🎯 Resultado esperado
+
+Quiero poder:
+
+* loguearme con Google
+* mantener sesión
+* crear proyectos reales
+* guardar datos reales
+* subir archivos reales
+* probar con múltiples usuarios
+* mostrarlo funcionando en producción
+
+---
+
+## 🧨 IMPORTANTE FINAL
+
+Este cambio es fuerte.
+
+* priorizá no romper nada existente
+* hacé cambios incrementales
+* si hay riesgo, frená y consultá
+* mostrámelo antes de ejecutar cambios grandes
