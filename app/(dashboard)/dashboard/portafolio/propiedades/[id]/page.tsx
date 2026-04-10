@@ -46,7 +46,7 @@ export default async function PortafolioPropiedadDetallePage({ params }: Props) 
     const EstadoIcon = estadoInfo.icon;
 
     return (
-        <div className="p-6 max-w-5xl mx-auto space-y-8 animate-fade-in">
+        <div className="p-6 w-full space-y-8 animate-fade-in">
             <Link href="/dashboard/portafolio/propiedades" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-brand-500 transition-colors">
                 <ChevronLeft className="w-4 h-4" /> Volver a Mis Propiedades
             </Link>

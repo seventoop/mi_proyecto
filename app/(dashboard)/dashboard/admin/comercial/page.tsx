@@ -142,7 +142,7 @@ export default async function AdminComercialPage() {
     }).sort((a, b) => b.leads - a.leads);
 
     return (
-        <div className="space-y-6 p-6 max-w-[1600px] mx-auto">
+        <div className="space-y-6 p-6">
             <ModuleHelp content={MODULE_HELP_CONTENT.comercialAdmin} />
             <CommercialDashboardClient
                 leadsTimeline={leadsTimeline}

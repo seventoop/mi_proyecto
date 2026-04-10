@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireAnyRole, requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
+import { BlueprintEmbeddedMeta, withBlueprintMeta } from "@/lib/blueprint-utils";
+
+const MAX_BLUEPRINT_SYNC_PATHS = 5000;
+const MAX_BLUEPRINT_SVG_BYTES = 8 * 1024 * 1024;
 
 interface SyncPath {
     internalId?: number;
@@ -14,6 +18,18 @@ interface SyncPath {
     fondo?: number | null;
 }
 
+function normalizeFiniteNumber(value: unknown): number | null {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeLotNumber(value: unknown): string | undefined {
+    if (typeof value !== "string") return undefined;
+    const clean = value.trim().toUpperCase().slice(0, 40);
+    if (!clean) return undefined;
+    if (!/^[A-Z0-9._-]+$/.test(clean)) return undefined;
+    return clean;
+}
+
 export async function POST(
     request: Request,
     { params }: { params: { id: string } }
@@ -22,10 +38,20 @@ export async function POST(
         await requireAnyRole(["ADMIN", "SUPERADMIN", "DESARROLLADOR"]);
         await requireProjectOwnership(params.id);
         const body = await request.json();
-        const { paths, svgContent } = body as { paths: SyncPath[]; svgContent: string };
+        const { paths, svgContent, meta } = body as {
+            paths: SyncPath[];
+            svgContent: string;
+            meta?: BlueprintEmbeddedMeta;
+        };
 
         if (!paths || !Array.isArray(paths)) {
             return NextResponse.json({ error: "paths array is required" }, { status: 400 });
+        }
+        if (typeof svgContent !== "string" || Buffer.byteLength(svgContent, "utf8") > MAX_BLUEPRINT_SVG_BYTES) {
+            return NextResponse.json({ error: "El blueprint excede el tamaño máximo permitido" }, { status: 413 });
+        }
+        if (paths.length > MAX_BLUEPRINT_SYNC_PATHS) {
+            return NextResponse.json({ error: "El blueprint contiene demasiados elementos para sincronizar de forma segura" }, { status: 413 });
         }
 
         const project = await prisma.proyecto.findUnique({
@@ -46,7 +72,54 @@ export async function POST(
             return NextResponse.json({ error: "Proyecto no encontrado o sin acceso" }, { status: 404 });
         }
 
-        // 2. Ensure a manzana exists to place lots into
+        const safePaths = paths
+            .filter((path) =>
+                typeof path.pathData === "string" &&
+                path.pathData.trim().length > 0 &&
+                !/NaN|Infinity/.test(path.pathData) &&
+                !!path.center &&
+                Number.isFinite(path.center.x) &&
+                Number.isFinite(path.center.y)
+            )
+            .map((path) => ({
+                ...path,
+                lotNumber: normalizeLotNumber(path.lotNumber),
+                areaSqm: normalizeFiniteNumber(path.areaSqm),
+                precio: normalizeFiniteNumber(path.precio),
+                frente: normalizeFiniteNumber(path.frente),
+                fondo: normalizeFiniteNumber(path.fondo),
+            }));
+
+        const allowInventorySync = meta?.processingMode === "detected-lots";
+        const lotCandidates = allowInventorySync
+            ? safePaths.filter((p) => p.lotNumber || p.internalId)
+            : [];
+
+        // 2. Save updated SVG to project
+        await prisma.proyecto.update({
+            where: { id: params.id },
+            data: {
+                masterplanSVG: meta
+                    ? withBlueprintMeta(svgContent, {
+                        ...meta,
+                        detectedPaths: meta.detectedPaths ?? safePaths.length,
+                        detectedLots: meta.detectedLots ?? safePaths.filter((path) => !!path.lotNumber).length,
+                        savedAt: new Date().toISOString(),
+                    })
+                    : svgContent,
+            },
+        });
+
+        if (lotCandidates.length === 0) {
+            return NextResponse.json({
+                success: true,
+                message: "Base visual guardada sin lotes detectados automaticamente.",
+                created: 0,
+                updated: 0,
+            });
+        }
+
+        // 3. Ensure a manzana exists to place lots into
         let manzanaId: string;
         const firstEtapa = project.etapas[0];
 
@@ -72,14 +145,8 @@ export async function POST(
             manzanaId = firstEtapa.manzanas[0].id;
         }
 
-        // 3. Save updated SVG to project
-        await prisma.proyecto.update({
-            where: { id: params.id },
-            data: { masterplanSVG: svgContent },
-        });
-
         // 4. Compute SVG bounding box for proper coordinate projection
-        const lotPaths = paths.filter(p => p.center);
+        const lotPaths = safePaths.filter(p => p.center);
         let minCX = Infinity, minCY = Infinity, maxCX = -Infinity, maxCY = -Infinity;
         for (const p of lotPaths) {
             minCX = Math.min(minCX, p.center.x);
@@ -90,15 +157,41 @@ export async function POST(
         const svgW = maxCX - minCX || 1;
         const svgH = maxCY - minCY || 1;
 
-        const bounds = project.overlayBounds
-            ? (JSON.parse(project.overlayBounds) as [[number, number], [number, number]])
-            : null;
+        let bounds: [[number, number], [number, number]] | null = null;
+        if (project.overlayBounds) {
+            try {
+                const parsed = JSON.parse(project.overlayBounds);
+                bounds = Array.isArray(parsed)
+                    ? parsed as [[number, number], [number, number]]
+                    : Array.isArray(parsed?.bounds)
+                        ? parsed.bounds as [[number, number], [number, number]]
+                        : null;
+            } catch {
+                bounds = null;
+            }
+        }
+
+        const existingUnits = await prisma.unidad.findMany({
+            where: {
+                manzanaId,
+                numero: { in: lotCandidates.map((p) => p.lotNumber ?? `L${p.internalId}`) },
+            },
+            select: {
+                id: true,
+                numero: true,
+                superficie: true,
+                frente: true,
+                fondo: true,
+                precio: true,
+            },
+        });
+        const existingByNumero = new Map(existingUnits.map((unit) => [unit.numero, unit]));
 
         // 5. Upsert units — only paths that have a lotNumber or internalId
         let created = 0;
         let updated = 0;
 
-        for (const p of paths) {
+        for (const p of safePaths) {
             // Skip non-lot paths (lines, arcs without identifier)
             if (!p.lotNumber && !p.internalId) continue;
 
@@ -127,9 +220,7 @@ export async function POST(
             const validEstados = ["DISPONIBLE", "BLOQUEADO", "RESERVADO", "VENDIDO", "SUSPENDIDO"];
             const estado = validEstados.includes(p.estado ?? "") ? p.estado! : "DISPONIBLE";
 
-            const existing = await prisma.unidad.findFirst({
-                where: { manzanaId, numero },
-            });
+            const existing = existingByNumero.get(numero);
 
             if (existing) {
                 await prisma.unidad.update({

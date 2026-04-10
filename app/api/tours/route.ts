@@ -2,16 +2,25 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { requireAuth, requireProjectOwnership, AuthError } from "@/lib/guards";
+import { toStoredTourSceneCategory } from "@/lib/tour-media";
 
 const createTourSchema = z.object({
     proyectoId: z.string(),
     unidadId: z.string().optional().nullable(),
     nombre: z.string().min(3),
+    scenes: z.array(z.object({
+        id: z.string(),
+        title: z.string(),
+        imageUrl: z.string(),
+        category: z.string().optional(),
+        isDefault: z.boolean().optional(),
+        hotspots: z.array(z.any()).optional().default([]),
+    })).optional(),
     escenas: z.array(z.object({
         id: z.string(),
         title: z.string(),
         imageUrl: z.string(),
-        category: z.enum(["raw", "rendered"]).optional(),
+        category: z.string().optional(),
         isDefault: z.boolean().optional(),
         hotspots: z.array(z.any()).optional().default([]),
     })).optional().default([]),
@@ -72,7 +81,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ errors: validation.error.flatten() }, { status: 400 });
         }
 
-        const { proyectoId, unidadId, nombre, escenas } = validation.data;
+        const { proyectoId, unidadId, nombre } = validation.data;
+        const scenes = validation.data.scenes ?? validation.data.escenas ?? [];
 
         // Security: Require project ownership
         await requireProjectOwnership(proyectoId);
@@ -84,10 +94,10 @@ export async function POST(request: Request) {
                 nombre,
                 estado: "PENDIENTE",
                 scenes: {
-                    create: escenas.map((s: any) => ({
+                    create: scenes.map((s: any) => ({
                         title: s.title,
                         imageUrl: s.imageUrl,
-                        category: (s.category || 'raw').toUpperCase(),
+                        category: toStoredTourSceneCategory(s.category),
                         isDefault: s.isDefault || false,
                         order: s.order || 0,
                         hotspots: {

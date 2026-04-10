@@ -31,7 +31,7 @@ export default async function ConfiguracionPage() {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in max-w-5xl mx-auto pb-10">
+        <div className="space-y-6 animate-fade-in w-full pb-10">
             <div>
                 <h1 className="text-3xl font-bold gradient-text">Configuración</h1>
                 <p className="text-slate-600 dark:text-slate-400 mt-1">Gestión administrativa y personalización</p>

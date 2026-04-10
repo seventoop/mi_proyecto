@@ -1,3 +1,36 @@
+export type BlueprintSourceKind = "svg" | "dxf" | "dwg" | "pdf" | "image" | "unknown";
+export type BlueprintProcessingMode = "detected-lots" | "visual-only" | "source-only";
+
+export interface BlueprintEmbeddedMeta {
+    sourceKind: BlueprintSourceKind;
+    sourceName?: string;
+    sourceMime?: string;
+    sourceUrl?: string;
+    processingMode: BlueprintProcessingMode;
+    warnings?: string[];
+    detectedPaths?: number;
+    detectedLots?: number;
+    savedAt?: string;
+}
+
+const BLUEPRINT_META_MARKER = "SEVENTOOP_BLUEPRINT_META:";
+
+export interface BlueprintDetectionAssessment {
+    mode: "detected-lots" | "source-only";
+    usablePaths: ExtractedPath[];
+    warnings: string[];
+    syntheticLabelsApplied: boolean;
+    metrics: {
+        totalPaths: number;
+        closedPaths: number;
+        plausiblePolygons: number;
+        labeledPolygons: number;
+        usableRatio: number;
+        width: number;
+        height: number;
+    };
+}
+
 export interface ExtractedPath {
     id: string;
     /** Sequential 1-based ID assigned by spatial reading order (top-left → right → down) */
@@ -30,6 +63,348 @@ function cleanMText(raw: string): string {
         .replace(/\\~/g, ' ')          // non-breaking space
         .replace(/\\\\/g, '')
         .trim();
+}
+
+export function detectBlueprintSourceKind(file: { name?: string; type?: string }): BlueprintSourceKind {
+    const name = (file.name ?? "").toLowerCase();
+    const type = (file.type ?? "").toLowerCase();
+
+    if (name.endsWith(".svg") || type.includes("svg")) return "svg";
+    if (name.endsWith(".dxf") || type.includes("dxf")) return "dxf";
+    if (name.endsWith(".dwg") || type.includes("dwg") || type.includes("acad") || type.includes("autocad")) {
+        return "dwg";
+    }
+    if (name.endsWith(".pdf") || type.includes("pdf")) return "pdf";
+    if (
+        name.endsWith(".png") ||
+        name.endsWith(".jpg") ||
+        name.endsWith(".jpeg") ||
+        name.endsWith(".webp") ||
+        type.startsWith("image/")
+    ) {
+        return "image";
+    }
+
+    return "unknown";
+}
+
+export function sanitizeBlueprintSVG(svgString: string): string {
+    if (typeof window === "undefined") {
+        return svgString;
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgString, "image/svg+xml");
+    const svg = doc.documentElement;
+
+    if (!svg || svg.tagName.toLowerCase() !== "svg") {
+        throw new Error("El archivo SVG no tiene una estructura valida");
+    }
+
+    svg.querySelectorAll("script, foreignObject, iframe, object, embed").forEach((node) => node.remove());
+    svg.querySelectorAll("*").forEach((node) => {
+        Array.from(node.attributes).forEach((attr) => {
+            const attrName = attr.name.toLowerCase();
+            const attrValue = attr.value.trim().toLowerCase();
+            if (attrName.startsWith("on")) {
+                node.removeAttribute(attr.name);
+            }
+            if ((attrName === "href" || attrName === "xlink:href") && attrValue.startsWith("javascript:")) {
+                node.removeAttribute(attr.name);
+            }
+        });
+    });
+
+    return new XMLSerializer().serializeToString(svg);
+}
+
+export function withBlueprintMeta(svgString: string, meta: BlueprintEmbeddedMeta): string {
+    const cleanMeta = JSON.stringify(meta).replace(/-->/g, "--&gt;");
+    const stripped = svgString.replace(/<!--SEVENTOOP_BLUEPRINT_META:[\s\S]*?-->/g, "").trim();
+    return `<!--${BLUEPRINT_META_MARKER}${cleanMeta}-->\n${stripped}`;
+}
+
+export function extractBlueprintMeta(svgString: string | null | undefined): BlueprintEmbeddedMeta | null {
+    if (!svgString) return null;
+
+    const match = svgString.match(/<!--SEVENTOOP_BLUEPRINT_META:([\s\S]*?)-->/);
+    if (!match?.[1]) return null;
+
+    try {
+        return JSON.parse(match[1]) as BlueprintEmbeddedMeta;
+    } catch {
+        return null;
+    }
+}
+
+function escapeXml(value: string): string {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+}
+
+export function buildImageBlueprintSVG(options: {
+    imageUrl: string;
+    width: number;
+    height: number;
+    meta: BlueprintEmbeddedMeta;
+}): string {
+    const width = Math.max(1, Math.round(options.width));
+    const height = Math.max(1, Math.round(options.height));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">
+<rect width="${width}" height="${height}" fill="#0f172a" />
+<image href="${escapeXml(options.imageUrl)}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid meet" />
+</svg>`;
+
+    return withBlueprintMeta(svg, options.meta);
+}
+
+export function buildFallbackBlueprintSVG(options: {
+    title: string;
+    subtitle: string;
+    lines: string[];
+    meta: BlueprintEmbeddedMeta;
+}): string {
+    const lines = options.lines.slice(0, 4).map((line) => escapeXml(line));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+<rect width="1200" height="800" fill="#0f172a" />
+<rect x="80" y="80" width="1040" height="640" rx="28" fill="#111827" stroke="#334155" stroke-width="4" />
+<text x="120" y="190" fill="#f8fafc" font-size="46" font-family="Arial, sans-serif" font-weight="700">${escapeXml(options.title)}</text>
+<text x="120" y="250" fill="#94a3b8" font-size="28" font-family="Arial, sans-serif">${escapeXml(options.subtitle)}</text>
+${lines.map((line, index) => `<text x="120" y="${340 + index * 56}" fill="#cbd5e1" font-size="26" font-family="Arial, sans-serif">${line}</text>`).join("\n")}
+<text x="120" y="660" fill="#f97316" font-size="24" font-family="Arial, sans-serif">Se guardo una base segura para continuar despues.</text>
+</svg>`;
+
+    return withBlueprintMeta(svg, options.meta);
+}
+
+function extractPathBounds(pathData: string) {
+    const coords = pathData.match(/[-+]?[0-9]*\.?[0-9]+/g)?.map(Number) ?? [];
+    if (coords.length < 4) return null;
+
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (let i = 0; i + 1 < coords.length; i += 2) {
+        xs.push(coords[i]);
+        ys.push(coords[i + 1]);
+    }
+
+    if (!xs.length || !ys.length) return null;
+
+    return {
+        minX: Math.min(...xs),
+        minY: Math.min(...ys),
+        maxX: Math.max(...xs),
+        maxY: Math.max(...ys),
+    };
+}
+
+function sanitizeDetectedLotLabel(label?: string): string | null {
+    if (!label) return null;
+
+    const clean = label.trim().toUpperCase();
+    if (!clean || clean.length > 10) return null;
+    if (!/^[A-Z0-9\-_.\/]+$/.test(clean)) return null;
+    if (/^[A-Z]$/.test(clean)) return null;
+    if (/^\d{4,}$/.test(clean)) return null;
+
+    return clean;
+}
+
+export function assessBlueprintDetection(paths: ExtractedPath[]): BlueprintDetectionAssessment {
+    const closedPaths = paths.filter((path) => {
+        if (!path.pathData.includes("Z")) return false;
+        if (!Number.isFinite(path.center.x) || !Number.isFinite(path.center.y)) return false;
+        if (!path.areaSqm || !Number.isFinite(path.areaSqm) || path.areaSqm <= 0) return false;
+        return true;
+    });
+
+    if (closedPaths.length === 0) {
+        return {
+            mode: "source-only",
+            usablePaths: [],
+            warnings: ["No se detectaron poligonos cerrados utilizables."],
+            syntheticLabelsApplied: false,
+            metrics: {
+                totalPaths: paths.length,
+                closedPaths: 0,
+                plausiblePolygons: 0,
+                labeledPolygons: 0,
+                usableRatio: 0,
+                width: 0,
+                height: 0,
+            },
+        };
+    }
+
+    const sortedAreas = closedPaths.map((path) => path.areaSqm!).sort((a, b) => a - b);
+    const medianArea = sortedAreas[Math.floor(sortedAreas.length / 2)] ?? 0;
+    const plausiblePolygons = closedPaths.filter((path) => {
+        const area = path.areaSqm ?? 0;
+        // Very wide range: only exclude dust particles (< 1% median) and obvious full-sheet borders (> 80× median)
+        return medianArea > 0 && area >= medianArea * 0.01 && area <= medianArea * 80;
+    });
+
+    const bounds = plausiblePolygons.reduce((acc, path) => {
+        const pathBounds = extractPathBounds(path.pathData);
+        if (!pathBounds) return acc;
+        acc.minX = Math.min(acc.minX, pathBounds.minX);
+        acc.minY = Math.min(acc.minY, pathBounds.minY);
+        acc.maxX = Math.max(acc.maxX, pathBounds.maxX);
+        acc.maxY = Math.max(acc.maxY, pathBounds.maxY);
+        return acc;
+    }, {
+        minX: Infinity,
+        minY: Infinity,
+        maxX: -Infinity,
+        maxY: -Infinity,
+    });
+
+    const width = Number.isFinite(bounds.maxX - bounds.minX) ? bounds.maxX - bounds.minX : 0;
+    const height = Number.isFinite(bounds.maxY - bounds.minY) ? bounds.maxY - bounds.minY : 0;
+    const usableRatio = plausiblePolygons.length / Math.max(paths.length, 1);
+    const warnings: string[] = [];
+
+    const sanitized = plausiblePolygons.map((path) => ({
+        ...path,
+        lotNumber: sanitizeDetectedLotLabel(path.lotNumber),
+    }));
+
+    const numericLabels = sanitized
+        .map((path) => path.lotNumber)
+        .filter((label): label is string => !!label && /^\d+$/.test(label));
+    const suffixCounts = new Map<string, number>();
+    numericLabels.forEach((label) => {
+        const suffix = label.slice(-2);
+        suffixCounts.set(suffix, (suffixCounts.get(suffix) ?? 0) + 1);
+    });
+    const topSuffixCount = Math.max(...Array.from(suffixCounts.values()), 0);
+    const suspiciousLabelCluster = numericLabels.length >= 6 && topSuffixCount / numericLabels.length >= 0.7;
+
+    if (plausiblePolygons.length < 3) {
+        warnings.push("Se detectaron muy pocos poligonos cerrados para un loteo confiable.");
+    }
+    if (usableRatio < 0.05) {
+        warnings.push("La proporcion entre geometria util y trazos totales es demasiado baja para sincronizar inventario.");
+    }
+    if (width <= 0 || height <= 0) {
+        warnings.push("La geometria detectada no tiene una dispersion espacial util.");
+    }
+    if (suspiciousLabelCluster) {
+        warnings.push("Las etiquetas detectadas parecen venir de cotas o textos tecnicos, no de numeros de lote.");
+    }
+
+    const geometryReliable =
+        plausiblePolygons.length >= 3 &&
+        usableRatio >= 0.05 &&
+        width > 0 &&
+        height > 0;
+
+    if (!geometryReliable) {
+        return {
+            mode: "source-only",
+            usablePaths: [],
+            warnings,
+            syntheticLabelsApplied: false,
+            metrics: {
+                totalPaths: paths.length,
+                closedPaths: closedPaths.length,
+                plausiblePolygons: plausiblePolygons.length,
+                labeledPolygons: sanitized.filter((path) => !!path.lotNumber).length,
+                usableRatio,
+                width,
+                height,
+            },
+        };
+    }
+
+    const saneLabelCount = sanitized.filter((path) => !!path.lotNumber).length;
+    const shouldUseSyntheticLabels =
+        suspiciousLabelCluster || saneLabelCount < Math.max(5, Math.round(plausiblePolygons.length * 0.12));
+
+    const usablePaths = sanitized.map((path, index) => ({
+        ...path,
+        lotNumber: shouldUseSyntheticLabels
+            ? `L${path.internalId ?? index + 1}`
+            : path.lotNumber ?? `L${path.internalId ?? index + 1}`,
+    }));
+
+    if (shouldUseSyntheticLabels) {
+        warnings.push("Se reemplazaron etiquetas poco confiables por identificadores correlativos para evitar lotes basura.");
+    }
+
+    return {
+        mode: "detected-lots",
+        usablePaths,
+        warnings,
+        syntheticLabelsApplied: shouldUseSyntheticLabels,
+        metrics: {
+            totalPaths: paths.length,
+            closedPaths: closedPaths.length,
+            plausiblePolygons: plausiblePolygons.length,
+            labeledPolygons: saneLabelCount,
+            usableRatio,
+            width,
+            height,
+        },
+    };
+}
+
+export function buildDetectedLotsSVG(paths: ExtractedPath[]): string {
+    if (paths.length === 0) {
+        return buildFallbackBlueprintSVG({
+            title: "Plano recibido",
+            subtitle: "Sin geometria util",
+            lines: ["No se detectaron lotes confiables en esta pasada."],
+            meta: {
+                sourceKind: "dxf",
+                processingMode: "source-only",
+            },
+        });
+    }
+
+    const bounds = paths.reduce((acc, path) => {
+        const pathBounds = extractPathBounds(path.pathData);
+        if (!pathBounds) return acc;
+        acc.minX = Math.min(acc.minX, pathBounds.minX);
+        acc.minY = Math.min(acc.minY, pathBounds.minY);
+        acc.maxX = Math.max(acc.maxX, pathBounds.maxX);
+        acc.maxY = Math.max(acc.maxY, pathBounds.maxY);
+        return acc;
+    }, {
+        minX: Infinity,
+        minY: Infinity,
+        maxX: -Infinity,
+        maxY: -Infinity,
+    });
+
+    const width = Math.max(1, bounds.maxX - bounds.minX);
+    const height = Math.max(1, bounds.maxY - bounds.minY);
+    const padding = Math.max(width, height) * 0.06;
+
+    const pathElements = paths.map((path) => {
+        const dataAttrs = path.lotNumber
+            ? ` data-lot="${path.lotNumber}" data-area="${path.areaSqm?.toFixed(4) ?? ""}"`
+            : "";
+        return `<path d="${path.pathData}"${dataAttrs} fill="none" stroke="#10b981" stroke-width="${Math.max(width, height) / 1200}" vector-effect="non-scaling-stroke" />`;
+    });
+
+    const labelElements = paths.map((path) => {
+        if (!path.lotNumber) return "";
+        const pathBounds = extractPathBounds(path.pathData);
+        const lotWidth = pathBounds ? Math.max(0.1, pathBounds.maxX - pathBounds.minX) : width / 40;
+        const lotHeight = pathBounds ? Math.max(0.1, pathBounds.maxY - pathBounds.minY) : height / 40;
+        const fontSize = Math.max(0.18, Math.min(lotWidth * 0.42, lotHeight * 0.55, Math.min(width, height) / 32));
+        return `<text x="${path.center.x}" y="${path.center.y}" text-anchor="middle" dominant-baseline="central" font-size="${fontSize}" fill="#0f172a" font-family="monospace" font-weight="700">${escapeXml(path.lotNumber)}</text>`;
+    }).filter(Boolean);
+
+    return `<svg viewBox="${bounds.minX - padding} ${bounds.minY - padding} ${width + padding * 2} ${height + padding * 2}" xmlns="http://www.w3.org/2000/svg">
+${pathElements.join("\n")}
+${labelElements.join("\n")}
+</svg>`;
 }
 
 /**
@@ -116,7 +491,21 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
             const nextEntity = value;
             // Flush current entity
             if (currentEntity === "LWPOLYLINE" && vertices.length > 0) {
-                collectEntity("LWPOLYLINE", { vertices: [...vertices], isClosed });
+                // Also detect geometrically-closed polylines where the isClosed flag isn't set
+                // (some DXF exporters omit it and just repeat the first vertex at the end)
+                let geomClosed = isClosed;
+                let verts = [...vertices];
+                if (!geomClosed && verts.length >= 4) {
+                    const first = verts[0], last = verts[verts.length - 1];
+                    const epsilon = Math.max(0.001, Math.hypot(
+                        verts[1].x - verts[0].x, verts[1].y - verts[0].y
+                    ) * 0.01);
+                    if (Math.abs(first.x - last.x) < epsilon && Math.abs(first.y - last.y) < epsilon) {
+                        geomClosed = true;
+                        verts = verts.slice(0, -1); // remove duplicate closing vertex
+                    }
+                }
+                collectEntity("LWPOLYLINE", { vertices: verts, isClosed: geomClosed });
             } else if (currentEntity === "LINE") {
                 collectEntity("LINE", { x1: lx1, y1: ly1, x2: lx2, y2: ly2 });
             } else if (currentEntity === "CIRCLE" && cr > 0) {
@@ -173,6 +562,96 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
         }
     }
 
+    // ─── Topology reconstruction for segment-based DXFs (R12 style) ────────────
+    // AutoCAD R12 encodes each lot side as a separate POLYLINE entity (2 vertices).
+    // Chain these segments into closed polygons by following shared endpoints.
+    {
+        const hasRealPolygon = rawEntities.some(
+            (e) => e.type.includes("POLYLINE") && e.isClosed
+                && (e.vertices?.length ?? 0) >= 4
+                && shoelaceArea(e.vertices) > 0
+        );
+
+        if (!hasRealPolygon) {
+            interface TopoSeg { from: { x: number; y: number }; to: { x: number; y: number }; used: boolean; }
+            const segs: TopoSeg[] = [];
+
+            for (const e of rawEntities) {
+                if (e.type === "LINE") {
+                    const len = Math.hypot(e.x2 - e.x1, e.y2 - e.y1);
+                    if (len > 1e-10) segs.push({ from: { x: e.x1, y: e.y1 }, to: { x: e.x2, y: e.y2 }, used: false });
+                } else if (e.type.includes("POLYLINE") && (e.vertices?.length ?? 0) >= 2) {
+                    let verts: { x: number; y: number }[] = e.vertices;
+                    // Remove phantom closing vertex (R12 POLYLINE with flag=1 often repeats first vertex at end)
+                    if (verts.length > 2) {
+                        const f = verts[0], l = verts[verts.length - 1];
+                        if (Math.abs(f.x - l.x) < 1e-9 && Math.abs(f.y - l.y) < 1e-9) {
+                            verts = verts.slice(0, -1);
+                        }
+                    }
+                    if (verts.length === 2) {
+                        const len = Math.hypot(verts[1].x - verts[0].x, verts[1].y - verts[0].y);
+                        if (len > 1e-10) segs.push({ from: verts[0], to: verts[1], used: false });
+                    }
+                }
+            }
+
+            if (segs.length >= 4) {
+                // Tight epsilon: R12 exact endpoints match perfectly, inter-lot slop is ~0.003
+                const eps = 0.001;
+                const reconstructed: { x: number; y: number }[][] = [];
+
+                for (let si = 0; si < segs.length; si++) {
+                    if (segs[si].used) continue;
+                    const ring: { x: number; y: number }[] = [segs[si].from, segs[si].to];
+                    segs[si].used = true;
+
+                    let extended = true;
+                    while (extended && ring.length < 500) {
+                        extended = false;
+                        const tail = ring[ring.length - 1];
+                        const head = ring[0];
+
+                        // Closed?
+                        if (ring.length >= 3 && Math.hypot(tail.x - head.x, tail.y - head.y) < eps) {
+                            ring.pop();
+                            if (ring.length >= 3) reconstructed.push([...ring]);
+                            extended = true;
+                            break;
+                        }
+
+                        // Prefer forward continuation (seg.from ≈ tail) over reverse (seg.to ≈ tail)
+                        let bestJ = -1, bestReverse = false;
+                        for (let sj = 0; sj < segs.length; sj++) {
+                            if (segs[sj].used) continue;
+                            if (Math.hypot(segs[sj].from.x - tail.x, segs[sj].from.y - tail.y) < eps) {
+                                bestJ = sj; bestReverse = false; break;
+                            }
+                        }
+                        if (bestJ < 0) {
+                            for (let sj = 0; sj < segs.length; sj++) {
+                                if (segs[sj].used) continue;
+                                if (Math.hypot(segs[sj].to.x - tail.x, segs[sj].to.y - tail.y) < eps) {
+                                    bestJ = sj; bestReverse = true; break;
+                                }
+                            }
+                        }
+                        if (bestJ >= 0) {
+                            segs[bestJ].used = true;
+                            ring.push(bestReverse ? segs[bestJ].from : segs[bestJ].to);
+                            extended = true;
+                        }
+                    }
+                }
+
+                for (const verts of reconstructed) {
+                    rawEntities.push({ type: "POLYLINE", layer: "topo", vertices: verts, isClosed: true });
+                    verts.forEach((v) => updateViewbox(v.x, v.y));
+                }
+            }
+        }
+    }
+
     // ─── Coordinate transform setup ──────────────────────────────────────────
     const width = viewbox.maxX - viewbox.minX || 1000;
     const height = viewbox.maxY - viewbox.minY || 1000;
@@ -206,9 +685,9 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
     for (const label of textLabels) {
         const clean = cleanMText(label.text);
         if (!clean) continue;
-        // Must be a short identifier (≤6 chars), no spaces, no decimal measurements
-        if (clean.length > 6) continue;
-        if (!/^[A-Za-z0-9áéíóúÁÉÍÓÚ\-]+$/.test(clean)) continue;
+        // Must be a short identifier (≤10 chars), no spaces, no decimal measurements
+        if (clean.length > 10) continue;
+        if (!/^[A-Za-z0-9áéíóúÁÉÍÓÚ\-_./]+$/.test(clean)) continue;
         if (/^\d+\.\d+$/.test(clean)) continue;
 
         let minDist = Infinity, bestIdx = -1;
@@ -218,9 +697,9 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
         }
         if (bestIdx < 0) continue;
 
-        // Distance threshold: 1.5× polygon "radius"
+        // Distance threshold: 3.0× polygon "radius" (generous — labels can sit outside the polygon)
         const meta = closedPolyMeta.get(bestIdx)!;
-        if (minDist > Math.sqrt(meta.area) * 1.5 + 0.5) continue;
+        if (minDist > Math.sqrt(meta.area) * 3.0 + 0.5) continue;
 
         // Keep only the closest match per unique label value
         const existing = labelBestMatch.get(clean);

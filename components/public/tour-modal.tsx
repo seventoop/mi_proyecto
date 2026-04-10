@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import TourViewer, { Scene } from "@/components/tour360/tour-viewer";
 import { View } from "lucide-react";
+import { isTour360Category } from "@/lib/tour-media";
 
 interface TourModalProps {
     tours: {
@@ -48,7 +49,7 @@ export default function TourModal({ tours }: TourModalProps) {
 
                     {isOpen && (
                         <TourViewer
-                            scenes={selectedTour.scenes as Scene[]}
+                            scenes={(selectedTour.scenes as Scene[]).filter((scene) => isTour360Category(scene))}
                             className="w-full h-full rounded-none"
                             autoRotate={true}
                         />

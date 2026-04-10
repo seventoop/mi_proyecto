@@ -182,9 +182,24 @@ export async function createReserva(input: unknown) {
         }
         const proyectoId = unidad.manzana.etapa.proyectoId;
 
+        const lead = await prisma.lead.findUnique({
+            where: { id: data.leadId },
+            select: { id: true, orgId: true },
+        });
+        if (!lead) {
+            return { success: false, error: "Lead no encontrado" };
+        }
+
         // Permission check: requires RESERVAR (checks puedeReservarse flag + blocking states)
         const ctx = await getProjectAccess(user, proyectoId);
         assertPermission(ctx, ProjectPermission.RESERVAR);
+
+        const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
+        if (!isAdmin) {
+            if (!user.orgId || !lead.orgId || lead.orgId !== user.orgId) {
+                return { success: false, error: "Lead no encontrado" };
+            }
+        }
 
         const result = await prisma.$transaction(async (tx) => {
             // 1. Atomic logical lock: Try to update state only if it is "DISPONIBLE"

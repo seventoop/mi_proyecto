@@ -114,7 +114,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     ]);
 
     if (!proyectoRaw) {
-        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
+        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/admin/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
     }
 
     const proyecto = proyectoRaw as any;
@@ -163,7 +163,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         { id: "reservas", label: "Reservas", icon: CalendarClock }, // ADDED
         { id: "masterplan", label: "Masterplan", icon: Layers },
         { id: "mapa", label: "Mapa Interactivo", icon: MapPin },
-        { id: "tour360", label: "Tour 360°", icon: Globe },
+        { id: "tour360", label: "Galería de Imágenes", icon: Globe },
         { id: "etapas", label: "Etapas y Manzanas", icon: Package },
         { id: "inventario", label: "Inventario", icon: Home },
         { id: "inversion", label: "Inversión & Escrow", icon: TrendingUp },

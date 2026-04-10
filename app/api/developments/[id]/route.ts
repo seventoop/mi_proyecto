@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { requireProjectOwnership, handleApiGuardError } from "@/lib/guards";
 
 // GET /api/developments/[id]
 export async function GET(
@@ -7,6 +8,8 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
+        await requireProjectOwnership(params.id);
+
         const proyecto = await prisma.proyecto.findUnique({
             where: { id: params.id },
             include: {
@@ -40,11 +43,7 @@ export async function GET(
 
         return NextResponse.json(proyecto);
     } catch (error) {
-        console.error("Error fetching project:", error);
-        return NextResponse.json(
-            { error: "Error al obtener proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
@@ -54,6 +53,7 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        await requireProjectOwnership(params.id);
         const body = await request.json();
 
         const proyecto = await prisma.proyecto.update({
@@ -74,11 +74,7 @@ export async function PUT(
 
         return NextResponse.json(proyecto);
     } catch (error) {
-        console.error("Error updating project:", error);
-        return NextResponse.json(
-            { error: "Error al actualizar proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
@@ -88,16 +84,13 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
+        await requireProjectOwnership(params.id);
         await prisma.proyecto.delete({
             where: { id: params.id },
         });
 
         return NextResponse.json({ message: "Proyecto eliminado" });
     } catch (error) {
-        console.error("Error deleting project:", error);
-        return NextResponse.json(
-            { error: "Error al eliminar proyecto" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

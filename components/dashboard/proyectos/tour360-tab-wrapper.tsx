@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Edit, Trash2, Eye, ImageIcon } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, ImageIcon, Info } from "lucide-react";
 import { createTour, updateTour, deleteTour, approveTour, rejectTour } from "@/lib/actions/tours";
 import { CheckCircle, XCircle, AlertCircle, Clock } from "lucide-react";
 import TourCreator from "@/components/tour360/tour-creator";
 import TourViewer from "@/components/tour360/tour-viewer";
 import { Scene } from "@/components/tour360/tour-viewer"; // Import type
 import { toast } from "sonner";
+import { isTour360Category, toStoredTourSceneCategory } from "@/lib/tour-media";
 
 interface Tour360TabWrapperProps {
     proyectoId: string;
@@ -31,8 +32,12 @@ export default function Tour360TabWrapper({
     const [tourName, setTourName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
+    useEffect(() => {
+        setTours(initialTours || []);
+    }, [initialTours]);
+
     const handleCreateClick = () => {
-        setTourName("Nuevo Tour");
+        setTourName("Nueva Galería");
         setEditorScenes([]);
         setActiveTour(null);
         setViewMode("CREATE");
@@ -46,7 +51,7 @@ export default function Tour360TabWrapper({
     };
 
     const handleViewClick = (tour: any) => {
-        setEditorScenes(tour.scenes || []); // Viewer uses same Scene type structure
+        setEditorScenes((tour.scenes || []).filter((scene: any) => isTour360Category(scene)));
         setActiveTour(tour);
         setViewMode("VIEW");
     };
@@ -56,42 +61,73 @@ export default function Tour360TabWrapper({
             if (res.success) {
                 setTours(tours.filter(t => t.id !== tourId));
                 router.refresh();
-                return "Tour eliminado";
+                return "Galería eliminada";
             }
-            throw new Error(res.error || "Error al eliminar tour");
+            throw new Error(res.error || "Error al eliminar la galería");
         });
 
         toast.promise(deletePromise, {
-            loading: 'Eliminando tour...',
+            loading: 'Eliminando galería...',
             success: (data) => data,
             error: (err) => err.message
         });
     };
 
     const handleSaveTour = async (scenes: Scene[]) => {
-        if (!tourName) return alert("El nombre es obligatorio");
-        if (scenes.length === 0) return alert("Debes agregar al menos una escena");
+        if (!tourName.trim()) {
+            alert("El nombre de la galería es obligatorio");
+            return false;
+        }
+        if (scenes.length === 0) {
+            alert("Debés agregar al menos una escena");
+            return false;
+        }
 
         setIsSaving(true);
+
+        // Normalize scene data to match the Zod schema in lib/actions/tours.ts
+        const HOTSPOT_TYPE_MAP: Record<string, "INFO" | "SCENE" | "LINK" | "UNIT"> = {
+            info: "INFO", scene: "SCENE", link: "LINK", unit: "UNIT",
+            lot: "UNIT", check: "INFO", sold: "INFO", gallery: "INFO",
+            video: "LINK", arrow: "INFO", house: "INFO", tree: "INFO", camera: "INFO",
+        };
+
+        const normalizedScenes = scenes.map((s, idx) => ({
+            id: s.id?.startsWith("scene-") ? undefined : s.id,
+            title: s.title || "Sin título",
+            imageUrl: s.imageUrl,
+            masterplanOverlay: s.masterplanOverlay ?? null,
+            isDefault: s.isDefault || (idx === 0 && !scenes.some(sc => sc.isDefault)),
+            order: idx,
+            category: toStoredTourSceneCategory(s.category),
+            hotspots: (s.hotspots || []).map((h: any) => ({
+                unidadId: h.unidadId || null,
+                type: HOTSPOT_TYPE_MAP[h.type?.toLowerCase()] ?? "INFO",
+                pitch: h.pitch ?? 0,
+                yaw: h.yaw ?? 0,
+                text: h.text ?? null,
+                targetSceneId: h.targetSceneId ?? null,
+            })),
+        }));
 
         let res;
         if (viewMode === "CREATE") {
             res = await createTour({
                 proyectoId,
-                nombre: tourName,
-                scenes: scenes // Now passing the array directly
+                nombre: tourName.trim(),
+                scenes: normalizedScenes,
             });
         } else {
             res = await updateTour(activeTour.id, {
-                nombre: tourName,
-                scenes: scenes
+                nombre: tourName.trim(),
+                scenes: normalizedScenes,
             });
         }
 
         setIsSaving(false);
 
         if (res.success) {
-            toast.success(viewMode === "CREATE" ? "Tour creado con éxito" : "Tour actualizado con éxito");
+            toast.success(viewMode === "CREATE" ? "Galería creada con éxito" : "Galería actualizada con éxito");
 
             // Optimistic update for immediate feedback
             const tourData = (res as any).data;
@@ -103,8 +139,10 @@ export default function Tour360TabWrapper({
 
             router.refresh();
             setViewMode("LIST");
+            return true;
         } else {
             toast.error("error" in res ? String(res.error) : "Error");
+            return false;
         }
     };
 
@@ -118,14 +156,26 @@ export default function Tour360TabWrapper({
     const handleApprove = async (tourId: string) => {
         const approvePromise = approveTour(tourId).then((res) => {
             if (res.success) {
+                const approvedTour = (res as any).data;
+                setTours((prev) =>
+                    prev.map((tour) =>
+                        tour.id === tourId
+                            ? {
+                                ...tour,
+                                estado: approvedTour?.estado ?? "APROBADO",
+                                notasAdmin: approvedTour?.notasAdmin ?? null,
+                            }
+                            : tour
+                    )
+                );
                 router.refresh();
-                return "Tour aprobado";
+                return "Galería aprobada";
             }
-            throw new Error("error" in res ? String(res.error) : "Error al aprobar tour");
+            throw new Error("error" in res ? String(res.error) : "Error al aprobar la galería");
         });
 
         toast.promise(approvePromise, {
-            loading: 'Aprobando tour...',
+            loading: 'Aprobando galería...',
             success: (data) => data,
             error: (err) => err.message
         });
@@ -137,14 +187,26 @@ export default function Tour360TabWrapper({
 
         const rejectPromise = rejectTour(tourId, reason).then((res) => {
             if (res.success) {
+                const rejectedTour = (res as any).data;
+                setTours((prev) =>
+                    prev.map((tour) =>
+                        tour.id === tourId
+                            ? {
+                                ...tour,
+                                estado: rejectedTour?.estado ?? "RECHAZADO",
+                                notasAdmin: rejectedTour?.notasAdmin ?? reason.trim(),
+                            }
+                            : tour
+                    )
+                );
                 router.refresh();
-                return "Tour rechazado";
+                return "Galería rechazada";
             }
-            throw new Error("error" in res ? String(res.error) : "Error al rechazar tour");
+            throw new Error("error" in res ? String(res.error) : "Error al rechazar la galería");
         });
 
         toast.promise(rejectPromise, {
-            loading: 'Rechazando tour...',
+            loading: 'Rechazando galería...',
             success: (data) => data,
             error: (err) => err.message
         });
@@ -168,8 +230,8 @@ export default function Tour360TabWrapper({
             <div className="space-y-6 animate-in fade-in duration-300">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-white">Recorridos Virtuales 360°</h2>
-                        <p className="text-sm text-slate-500">Gestiona experiencias inmersivas para tus inversores.</p>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white">Galería de Imágenes</h2>
+                        <p className="text-sm text-slate-500">Organiza el Tour 360 y el resto del material visual del proyecto desde un solo lugar.</p>
                     </div>
                     {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && (
                         <button
@@ -177,7 +239,7 @@ export default function Tour360TabWrapper({
                             className="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-brand-500/20 transition-all"
                         >
                             <Plus className="w-4 h-4" />
-                            Nuevo Tour
+                            Nueva Galería
                         </button>
                     )}
                 </div>
@@ -187,13 +249,13 @@ export default function Tour360TabWrapper({
                         <ImageIcon className="w-16 h-16 mx-auto text-slate-300 mb-4" />
                         {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) ? (
                             <>
-                                <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">No hay tours creados</h3>
-                                <p className="text-sm text-slate-400 mb-6">Crea el primer recorrido virtual para impresionar a tus clientes.</p>
+                                <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">No hay galerías creadas</h3>
+                                <p className="text-sm text-slate-400 mb-6">Crea la primera galería y mantené el Tour 360 junto al resto del material visual.</p>
                             </>
                         ) : (
                             <>
-                                <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">No hay recorridos disponibles</h3>
-                                <p className="text-sm text-slate-400 mb-6">El desarrollador aún no ha cargado recorridos virtuales para este proyecto.</p>
+                                <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">No hay galerías disponibles</h3>
+                                <p className="text-sm text-slate-400 mb-6">El desarrollador aún no cargó material visual para este proyecto.</p>
                             </>
                         )}
                         {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && (
@@ -205,8 +267,9 @@ export default function Tour360TabWrapper({
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {tours.map(tour => {
-                            // Try to get thumbnail from first scene
-                            let thumbnail = tour.scenes?.[0]?.imageUrl;
+                            const tour360Scenes = (tour.scenes || []).filter((scene: any) => isTour360Category(scene));
+                            const thumbnail = tour360Scenes[0]?.imageUrl ?? tour.scenes?.[0]?.imageUrl;
+                            const canViewTour360 = tour360Scenes.length > 0;
 
                             return (
                                 <div key={tour.id} className="group relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all">
@@ -219,9 +282,11 @@ export default function Tour360TabWrapper({
                                             </div>
                                         )}
                                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                            <button onClick={() => handleViewClick(tour)} className="p-2 bg-white/20 rounded-full text-white hover:bg-white hover:text-brand-600 transition-colors" title="Ver Tour">
-                                                <Eye className="w-5 h-5" />
-                                            </button>
+                                            {canViewTour360 && (
+                                                <button onClick={() => handleViewClick(tour)} className="p-2 bg-white/20 rounded-full text-white hover:bg-white hover:text-brand-600 transition-colors" title="Ver Tour">
+                                                    <Eye className="w-5 h-5" />
+                                                </button>
+                                            )}
                                             {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && (
                                                 <>
                                                     <button onClick={() => handleEditClick(tour)} className="p-2 bg-white/20 rounded-full text-white hover:bg-white hover:text-blue-600 transition-colors" title="Editar">
@@ -282,28 +347,33 @@ export default function Tour360TabWrapper({
 
     if (viewMode === "CREATE" || viewMode === "EDIT") {
         return (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300 h-full">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => setViewMode("LIST")} className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white uppercase tracking-wider">
-                            ← Volver
-                        </button>
-                        <input
-                            type="text"
-                            value={tourName}
-                            onChange={(e) => setTourName(e.target.value)}
-                            placeholder="Nombre del Tour"
-                            className="bg-transparent text-xl font-bold border-none focus:ring-0 placeholder-slate-300 dark:placeholder-slate-700 text-slate-800 dark:text-white p-0"
-                        />
-                    </div>
-                    {isSaving && <span className="text-sm text-brand-500 animate-pulse font-bold">Guardando...</span>}
+            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300 h-full flex flex-col min-h-0">
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400">
+                    <Info className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                    <button
+                        onClick={() => setViewMode("LIST")}
+                        className="shrink-0 font-bold uppercase tracking-wider text-slate-600 transition-colors hover:text-brand-500 dark:text-slate-300"
+                    >
+                        {"<- Volver"}
+                    </button>
+                    <span className="h-3 w-px bg-slate-200 dark:bg-slate-700" />
+                    <p className="min-w-0 flex-1 truncate">
+                        Subi fotos o panoramicas 360 y posicionalas en el mapa desde el boton <strong className="mx-0.5 text-slate-700 dark:text-slate-200">Imagenes</strong>.
+                    </p>
+                    {isSaving && (
+                        <span className="shrink-0 font-bold text-brand-500 animate-pulse">
+                            Guardando...
+                        </span>
+                    )}
                 </div>
 
-                <TourCreator
-                    proyectoId={proyectoId}
-                    initialScenes={editorScenes as any}
-                    onSave={handleSaveTour}
-                />
+                <div className="min-h-0 flex-1">
+                    <TourCreator
+                        proyectoId={proyectoId}
+                        initialScenes={editorScenes as any}
+                        onSave={handleSaveTour}
+                    />
+                </div>
             </div>
         );
     }

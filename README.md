@@ -1,76 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SevenToop
 
-## Database Setup (Docker)
+> **Antes de modificar configuración de entorno, puertos, credenciales o red Docker: leer [`REPO_RULES.md`](./REPO_RULES.md).**
 
-To start the local database:
+## Entorno canonico local
+
+La unica fuente de verdad para desarrollo local es `.env.local`.
+
+- App local: `http://localhost:5000`
+- Postgres expuesto en host: `5433`
+- Puerto interno del contenedor Postgres: `5432`
+- Base de datos: `seventoop`
+- Usuario: `usuario`
+- Password: `password`
+- Contenedor DB: `seventoop-db`
+- Red Docker: `seventoop-net`
+
+`docker-compose.yml`, Prisma, scripts y documentacion deben respetar esta misma convencion.
+
+## Inicio rapido local
+
+1. Levantar Postgres:
 
 ```bash
 docker-compose up -d
 ```
 
-Then run migrations:
+2. Aplicar migraciones:
 
 ```bash
-npx prisma migrate dev
+npm run db:migrate:dev
 ```
 
-> **Pro-tip**: In development use `prisma migrate dev`. In production, always use `prisma migrate deploy`.
-
-## Getting Started
-
-First, run the development server:
+3. Levantar la app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Abrir:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:5000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Variables de entorno
 
-## Pre-requisitos
+- Local: `.env.local`
+- Plantilla: `.env.example`
+- Preview: variables configuradas en Vercel
+- Produccion: variables configuradas en Vercel
 
-- Node.js (v18 o superior)
-- **Docker Desktop** (Necesario para la base de datos local)
-- Git
+No uses otro `.env` como fuente principal para desarrollo local salvo que se pida explicitamente.
 
-## Learn More
+## Variables requeridas
 
-To learn more about Next.js, take a look at the following resources:
+| Variable | Uso |
+|---|---|
+| `DATABASE_URL` | En local sale de `.env.local`. En Vercel debe configurarse en Project Settings > Environment Variables. |
+| `DIRECT_URL` | En local sale de `.env.local`. En cloud solo si tu proveedor la requiere para conexiones directas. |
+| `NEXTAUTH_SECRET` | Secreto de autenticacion. |
+| `NEXTAUTH_URL` | URL base de la app. En local debe ser `http://localhost:5000`. |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Vercel no debe reutilizar valores de localhost ni credenciales locales.
 
-## Deploy on Vercel
+- `Preview`: variables propias de preview/staging
+- `Production`: variables reales de produccion
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+No mezclar:
 
-## Variables de Entorno Requeridas
+- `localhost`
+- `5433`
+- `usuario`
+- `password`
+- URLs o credenciales de Docker local
 
-| Variable | Descripción |
-|----------|-------------|
-| `DATABASE_URL` | URL de conexión al pooler (p. ej. Neon/Supabase). Suficiente para migraciones. |
-| `NEXTAUTH_SECRET` | Secreto para sesiones |
-| `NEXTAUTH_URL` | URL base de la app |
+## Base de datos local
 
-## Backups y Recuperación
+La base local se levanta con:
 
-### Automatización
-- **Neon**: Los backups son automáticos y point-in-time (ver sección *Backups* en el dashboard).
-- **Supabase**: Los backups se realizan diariamente.
+```yaml
+POSTGRES_USER=usuario
+POSTGRES_PASSWORD=password
+POSTGRES_DB=seventoop
+ports:
+  - "5433:5432"
+network:
+  - seventoop-net
+```
 
-### Recuperación ante Desastres
-1. Identificar el último snapshot válido en el proveedor.
-2. Restaurar a una nueva instancia si es necesario.
-3. Actualizar `DATABASE_URL` en la plataforma de deploy. Nota: `DATABASE_URL` es suficiente tanto para la ejecución como para las migraciones.
-4. Verificar integridad con `npx prisma migrate status`.
+## Notas de Prisma
+
+Prisma lee `DATABASE_URL` desde variables de entorno.
+
+- Local: `.env.local`
+- Vercel: Project Settings > Environment Variables
+
+Para desarrollo usar:
+
+```bash
+npm run db:migrate:dev
+```
+
+Para deploy:
+
+```bash
+npm run db:migrate:deploy
+```

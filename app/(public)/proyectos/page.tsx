@@ -46,7 +46,7 @@ export default async function ProjectsPage() {
 
     return (
         <div className="bg-white dark:bg-black min-h-screen pt-24 pb-12">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="w-full px-4 sm:px-6 lg:px-8">
                 {/* Header */}
                 <div className="mb-16 text-center max-w-3xl mx-auto space-y-6">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-orange/10 border border-brand-orange/20 shadow-lg">

@@ -4,6 +4,9 @@ import Link from "next/link";
 import { ArrowLeft, Share2 } from "lucide-react";
 import prisma from "@/lib/db";
 import TourViewer, { Scene, Hotspot } from "@/components/tour360/tour-viewer";
+import { computeSvgViewBox } from "@/lib/geo-projection";
+import type { MasterplanUnit } from "@/lib/masterplan-store";
+import { isTour360Category, normalizeTourMediaCategory } from "@/lib/tour-media";
 
 // ─── Data Fetching (Server-Side) ───
 
@@ -17,6 +20,9 @@ async function getProjectWithTour(slug: string) {
             slug: true,
             estado: true,
             visibilityStatus: true,
+            overlayBounds: true,
+            overlayRotation: true,
+            masterplanSVG: true,
             tours: {
                 include: {
                     scenes: {
@@ -39,6 +45,15 @@ async function getProjectWithTour(slug: string) {
                     }
                 },
                 take: 1
+            },
+            etapas: {
+                include: {
+                    manzanas: {
+                        include: {
+                            unidades: true,
+                        }
+                    }
+                }
             }
         }
     });
@@ -52,6 +67,9 @@ async function getProjectWithTour(slug: string) {
                 slug: true,
                 estado: true,
                 visibilityStatus: true,
+                overlayBounds: true,
+                overlayRotation: true,
+                masterplanSVG: true,
                 tours: {
                     include: {
                         scenes: {
@@ -74,12 +92,78 @@ async function getProjectWithTour(slug: string) {
                         }
                     },
                     take: 1
+                },
+                etapas: {
+                    include: {
+                        manzanas: {
+                            include: {
+                                unidades: true,
+                            }
+                        }
+                    }
                 }
             }
         });
     }
 
     return project;
+}
+
+function parseOverlayBounds(raw: string | null): [[number, number], [number, number]] | null {
+    if (!raw) return null;
+
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length === 2) {
+            return parsed as [[number, number], [number, number]];
+        }
+        if (parsed && typeof parsed === "object" && Array.isArray(parsed.bounds) && parsed.bounds.length === 2) {
+            return parsed.bounds as [[number, number], [number, number]];
+        }
+    } catch (error) {
+        console.error("Invalid project overlayBounds", error);
+    }
+
+    return null;
+}
+
+function mapProjectUnits(project: any): MasterplanUnit[] {
+    const unidades = project?.etapas?.flatMap((etapa: any) =>
+        etapa?.manzanas?.flatMap((manzana: any) =>
+            (manzana?.unidades ?? []).map((unidad: any) => {
+                let parsedCoords: any = null;
+                if (unidad.coordenadasMasterplan) {
+                    try {
+                        parsedCoords = JSON.parse(unidad.coordenadasMasterplan);
+                    } catch {}
+                }
+
+                return {
+                    id: unidad.id,
+                    numero: unidad.numero,
+                    tipo: unidad.tipo ?? "LOTE",
+                    superficie: unidad.superficie ?? null,
+                    frente: unidad.frente ?? null,
+                    fondo: unidad.fondo ?? null,
+                    esEsquina: unidad.esEsquina ?? false,
+                    orientacion: unidad.orientacion ?? null,
+                    precio: unidad.precio ?? null,
+                    moneda: unidad.moneda ?? "USD",
+                    estado: unidad.estado ?? "DISPONIBLE",
+                    etapaId: etapa?.id,
+                    etapaNombre: etapa?.nombre,
+                    manzanaId: manzana?.id,
+                    manzanaNombre: manzana?.nombre,
+                    path: parsedCoords?.path,
+                    cx: parsedCoords?.cx,
+                    cy: parsedCoords?.cy,
+                    geoJSON: unidad.coordenadasMasterplan ?? null,
+                } satisfies MasterplanUnit;
+            })
+        ) ?? []
+    ) ?? [];
+
+    return unidades.filter((unidad: MasterplanUnit) => !!unidad.path);
 }
 
 // ─── Security: Transform DB data to viewer-compatible format ───
@@ -92,7 +176,8 @@ function dbTourToScenes(tour: any): Scene[] {
         title: dbScene.title,
         imageUrl: dbScene.imageUrl,
         isDefault: dbScene.isDefault,
-        category: dbScene.category?.toLowerCase() || "raw",
+        category: normalizeTourMediaCategory(dbScene),
+        masterplanOverlay: dbScene.masterplanOverlay ?? undefined,
         hotspots: (dbScene.hotspots || []).map((hs: any): Hotspot => ({
             id: hs.id,
             type: hs.type?.toLowerCase() || "info",
@@ -134,7 +219,10 @@ export default async function PublicTour360Page({ params }: { params: { slug: st
     }
 
     const defaultTour = project.tours[0];
-    const scenes = dbTourToScenes(defaultTour);
+    const scenes = dbTourToScenes(defaultTour).filter((scene) => isTour360Category(scene));
+    const overlayBounds = parseOverlayBounds(project.overlayBounds);
+    const overlayUnits = mapProjectUnits(project);
+    const overlaySvgViewBox = computeSvgViewBox(overlayUnits);
 
     if (scenes.length === 0) {
         notFound();
@@ -172,6 +260,10 @@ export default async function PublicTour360Page({ params }: { params: { slug: st
                     proyectoId={project.id}
                     className="w-full h-full rounded-none"
                     autoRotate={true}
+                    overlayUnits={overlayUnits}
+                    overlayBounds={overlayBounds}
+                    overlayRotation={project.overlayRotation ?? 0}
+                    overlaySvgViewBox={overlaySvgViewBox}
                 />
             </div>
         </div>

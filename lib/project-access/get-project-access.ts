@@ -184,17 +184,30 @@ export async function getProjectAccess(
                 ? { ...row, estadoRelacion: "VENCIDA" }
                 : row;
         } else if (proyecto.creadoPorId === user.id) {
-            // Legacy fallback: creator without a ProyectoUsuario row
-            isLegacy = true;
-            relacion = {
-                tipoRelacion:                "OWNER",
-                estadoRelacion:              "ACTIVA",
-                permisoEditarProyecto:       true,
-                permisoSubirDocumentacion:   true,
-                permisoVerLeadsGlobales:     true,
-                permisoVerMetricasGlobales:  true,
-                mandatoVigenciaHasta:        null, // OWNER has no mandate
-            };
+            const explicitOwner = await prisma.proyectoUsuario.findFirst({
+                where: {
+                    proyectoId,
+                    tipoRelacion: "OWNER",
+                    estadoRelacion: "ACTIVA",
+                },
+                select: { userId: true },
+            });
+
+            // Hardened legacy fallback:
+            // only allow implicit OWNER when the project still has no explicit active OWNER
+            // or when the explicit OWNER row belongs to the same user.
+            if (!explicitOwner || explicitOwner.userId === user.id) {
+                isLegacy = true;
+                relacion = {
+                    tipoRelacion:                "OWNER",
+                    estadoRelacion:              "ACTIVA",
+                    permisoEditarProyecto:       true,
+                    permisoSubirDocumentacion:   true,
+                    permisoVerLeadsGlobales:     true,
+                    permisoVerMetricasGlobales:  true,
+                    mandatoVigenciaHasta:        null, // OWNER has no mandate
+                };
+            }
         }
         // else: no relation, no legacy match → can() will return false for most permissions
     }

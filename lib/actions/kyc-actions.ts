@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { requireAuth, requireAnyRole, requireRole, handleGuardError } from "@/lib/guards";
 import { revalidatePath } from "next/cache";
 import { createNotification } from "./notifications";
+import { clearDeveloperDemoProjects } from "./kyc-shared";
 
 // ─── Developer-only: fetch current user's KycProfile ───
 
@@ -175,10 +176,7 @@ export async function reviewDeveloperKyc(
                 });
 
                 // Upgrade demo projects to real projects
-                await tx.proyecto.updateMany({
-                    where: { creadoPorId: profile.userId, isDemo: true },
-                    data: { isDemo: false, demoExpiresAt: null },
-                });
+                await clearDeveloperDemoProjects(tx, profile.userId);
                 // Audit Log
                 await tx.auditLog.create({
                     data: {

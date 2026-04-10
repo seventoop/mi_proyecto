@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const API_URL = 'http://localhost:3000/api/webhooks';
+const API_URL = 'http://localhost:5000/api/webhooks';
 const META_VERIFY_TOKEN = 'test_token_123';
 const META_WEBHOOK_SECRET = 'test_secret_456';
 const TIKTOK_WEBHOOK_SECRET = 'tiktok_test_789';

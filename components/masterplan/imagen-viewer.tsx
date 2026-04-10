@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { X, Loader2, Layers, Check, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pencil, Eye, Move } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ImagenMapaItem, IMAGEN_TIPO_CONFIG } from "@/types/imagen-mapa";
+import { ImagenMapaItem, IMAGEN_TIPO_CONFIG, isImagenMapa360Like } from "@/types/imagen-mapa";
 import { MasterplanUnit } from "@/lib/masterplan-store";
 import { SvgViewBox, svgPathToLatLng, geoToPitchYaw } from "@/lib/geo-projection";
 import Viewer360LotesOverlay from "./viewer360-lotes-overlay";
@@ -84,7 +84,7 @@ export default function ImagenViewer({
   const isEditingRef = useRef(false);
   isEditingRef.current = isEditing;
 
-  const is360 = imagen.tipo === "360";
+  const is360 = isImagenMapa360Like(imagen.tipo);
   const tipoConfig = IMAGEN_TIPO_CONFIG[imagen.tipo];
 
   // Whether there is enough data to show the overlay

@@ -66,7 +66,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     try {
         context = await getProjectAccess(session.user as any, params.id);
     } catch (e) {
-        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
+        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/developer/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
     }
 
     const { proyecto: snapshot, relacion } = context;
@@ -87,7 +87,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     }) as any;
 
     if (!proyecto) {
-        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
+        return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/developer/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
     }
 
     // Admin/Owner-only: fetch full history
@@ -139,7 +139,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         { id: "pagos", label: "Pagos", icon: DollarSign }, // New tab
         { id: "masterplan", label: "Masterplan", icon: Layers },
         { id: "mapa", label: "Mapa Interactivo", icon: MapPin },
-        { id: "tour360", label: "Tour 360°", icon: Globe },
+        { id: "tour360", label: "Galería de Imágenes", icon: Globe },
         { id: "etapas", label: "Etapas y Manzanas", icon: Package },
         { id: "inventario", label: "Inventario", icon: Home },
         { id: "metricas", label: "Métricas", icon: BarChart3 },
@@ -152,7 +152,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
             {/* Header */}
             <div>
-                <Link href="/dashboard/proyectos" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4">
+                <Link href="/dashboard/developer/proyectos" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4">
                     <ArrowLeft className="w-4 h-4" />
                     Volver a Proyectos
                 </Link>

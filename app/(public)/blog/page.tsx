@@ -15,7 +15,7 @@ export default async function BlogPage() {
 
     return (
         <main className="min-h-screen bg-white dark:bg-black pt-24 pb-20">
-            <div className="max-w-7xl mx-auto px-6">
+            <div className="w-full px-6">
                 <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-orange/10 border border-brand-orange/20 shadow-lg">
                         <BookOpen className="w-4 h-4 text-brand-orange" />

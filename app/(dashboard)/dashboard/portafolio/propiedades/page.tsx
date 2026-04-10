@@ -35,7 +35,7 @@ export default async function PortafolioPropiedadesPage() {
     const reservadas = misUnidades.filter(u => u.estado === "RESERVADA").length;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-8 animate-fade-in">
+        <div className="p-6 w-full space-y-8 animate-fade-in">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex-1">
                     <ModuleHelp content={MODULE_HELP_CONTENT.investorPropiedades} />

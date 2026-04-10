@@ -151,7 +151,7 @@ export default function AdminValidacionesPage() {
     };
 
     return (
-        <div className="p-6 max-w-6xl mx-auto space-y-8 animate-fade-in uppercase-none">
+        <div className="p-6 w-full space-y-8 animate-fade-in uppercase-none">
             {/* Header */}
             <ModuleHelp content={MODULE_HELP_CONTENT.adminValidaciones} />
 

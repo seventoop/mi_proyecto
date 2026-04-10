@@ -48,7 +48,7 @@ export default async function DeveloperComercialPage() {
     // If developer has no projects, show empty dashboard
     if (allProyectoIds.length === 0) {
         return (
-            <div className="space-y-6 p-6 max-w-[1600px] mx-auto">
+            <div className="space-y-6 p-6">
                 <ModuleHelp content={MODULE_HELP_CONTENT.comercialDeveloper} />
                 <CommercialDashboardClient
                     leadsTimeline={[]}
@@ -189,7 +189,7 @@ export default async function DeveloperComercialPage() {
     }).sort((a, b) => b.leads - a.leads);
 
     return (
-        <div className="space-y-6 p-6 max-w-[1600px] mx-auto">
+        <div className="space-y-6 p-6">
             <ModuleHelp content={MODULE_HELP_CONTENT.comercialDeveloper} />
             <CommercialDashboardClient
                 leadsTimeline={leadsTimeline}

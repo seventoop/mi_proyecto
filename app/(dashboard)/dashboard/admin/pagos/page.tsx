@@ -51,7 +51,7 @@ export default function AdminPagosPage() {
     };
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+        <div className="p-6 space-y-6">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex-1">
                     <ModuleHelp content={MODULE_HELP_CONTENT.adminPagos} />

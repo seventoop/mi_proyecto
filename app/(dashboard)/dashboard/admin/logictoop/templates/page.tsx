@@ -28,7 +28,7 @@ export default async function TemplatesPage() {
     const categories = Array.from(new Set(templates.map((t: any) => t.category)));
 
     return (
-        <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto">
+        <div className="flex flex-col gap-6 p-6 w-full">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6">
                 <div>
                     <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3 italic uppercase">

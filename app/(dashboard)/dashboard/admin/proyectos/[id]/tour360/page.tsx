@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import TourCreator, { Scene } from "@/components/tour360/tour-creator";
 import { Loader2, Plus, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { normalizeTourMediaCategory } from "@/lib/tour-media";
 
 interface Tour {
     id: string;
@@ -16,7 +17,7 @@ function dbScenestoCreatorScenes(tour: Tour): Scene[] {
     if (tour.scenes && tour.scenes.length > 0) {
         return tour.scenes.map((s: any) => ({
             id: s.id, title: s.title, imageUrl: s.imageUrl, isDefault: s.isDefault,
-            category: s.category?.toLowerCase() || 'raw',
+            category: normalizeTourMediaCategory(s),
             hotspots: (s.hotspots || []).map((h: any) => ({
                 id: h.id, type: h.type?.toLowerCase() || 'info', pitch: h.pitch, yaw: h.yaw,
                 text: h.text || '', unidadId: h.unidadId || '', targetSceneId: h.targetSceneId,
@@ -78,7 +79,7 @@ export default function TourPage() {
     };
 
     const handleSaveScenes = async (scenes: Scene[]) => {
-        if (!selectedTour) return;
+        if (!selectedTour) return false;
 
         try {
             const res = await fetch(`/api/tours/${selectedTour.id}`, {
@@ -89,11 +90,14 @@ export default function TourPage() {
                 }),
             });
             const updatedTour = await res.json();
+            if (!res.ok) throw new Error(updatedTour?.error || "Error al guardar la galería");
             setTours(tours.map(t => t.id === updatedTour.id ? updatedTour : t));
-            alert("Tour guardado correctamente");
+            alert("Galería guardada correctamente");
+            return true;
         } catch (error) {
             console.error("Failed to save tour", error);
-            alert("Error al guardar");
+            alert("Error al guardar la galería");
+            return false;
         }
     };
 
@@ -127,24 +131,24 @@ export default function TourPage() {
         <div className="space-y-6 animate-fade-in">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Tours 360</h1>
-                    <p className="text-slate-500 mt-1">Gestiona los recorridos virtuales del proyecto.</p>
+                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Galería de Imágenes</h1>
+                    <p className="text-slate-500 mt-1">Organizá el Tour 360 y el resto del material visual del proyecto en un solo lugar.</p>
                 </div>
                 <button
                     onClick={() => setIsCreating(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors shadow-lg shadow-brand-500/20"
                 >
-                    <Plus className="w-4 h-4" /> Nuevo Tour
+                    <Plus className="w-4 h-4" /> Nueva Galería
                 </button>
             </div>
 
             {isCreating && (
                 <div className="glass-card p-4 animate-slide-up bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <h3 className="text-sm font-bold text-slate-700 dark:text-white mb-3">Crear Nuevo Tour</h3>
+                    <h3 className="text-sm font-bold text-slate-700 dark:text-white mb-3">Crear Nueva Galería</h3>
                     <div className="flex gap-3">
                         <input
                             type="text"
-                            placeholder="Nombre del tour (ej. Recorrido Principal)"
+                            placeholder="Nombre de la galería (ej. Recorrido Principal)"
                             value={newTourName}
                             onChange={(e) => setNewTourName(e.target.value)}
                             className="flex-1 px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/50"

@@ -1,137 +1,147 @@
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import dynamic from "next/dynamic";
+import { ArrowLeft, Globe, LayoutTemplate } from "lucide-react";
 import { db } from "@/lib/db";
 import MasterplanViewer from "@/components/masterplan/masterplan-viewer";
-import { MasterplanUnit } from "@/lib/masterplan-store";
 
-import { Prisma } from "@prisma/client";
+const MasterplanMap = dynamic(
+    () => import("@/components/masterplan/masterplan-map"),
+    { ssr: false, loading: () => <div className="flex-1 flex items-center justify-center text-slate-500">Cargando mapa...</div> }
+);
 
 async function getProject(slugOrId: string) {
-    const project = await db.proyecto.findFirst({
-        where: {
-            OR: [
-                { slug: slugOrId },
-                { id: slugOrId }
-            ]
-        },
-        include: {
-            etapas: {
-                include: {
-                    manzanas: {
-                        include: {
-                            unidades: true
-                        }
-                    }
+    return db.proyecto.findFirst({
+        where: { OR: [{ slug: slugOrId }, { id: slugOrId }] },
+        select: {
+            id: true,
+            nombre: true,
+            slug: true,
+            masterplanSVG: true,
+            overlayUrl: true,
+            mapCenterLat: true,
+            mapCenterLng: true,
+            mapZoom: true,
+            tours: {
+                select: {
+                    id: true,
+                    nombre: true,
+                    scenes: { take: 1, select: { imageUrl: true } }
                 }
             }
         }
     });
-
-    if (!project) return null;
-
-    // Flatten units for the component to use
-    const unidades = project.etapas.flatMap(etapa =>
-        etapa.manzanas.flatMap(manzana =>
-            manzana.unidades.map(unidad => ({
-                ...unidad,
-                etapa,
-                manzana
-            }))
-        )
-    );
-
-    return {
-        ...project,
-        unidades
-    };
 }
 
 export const metadata: Metadata = {
-    title: "Masterplan Interactivo | Seventoop",
+    title: "Masterplan | Seventoop",
 };
 
-export default async function PublicMasterplanPage({ params }: { params: { slug: string } }) {
+export default async function PublicMasterplanPage({
+    params,
+    searchParams,
+}: {
+    params: { slug: string };
+    searchParams: { view?: string };
+}) {
     const project = await getProject(params.slug);
+    if (!project) notFound();
 
-    if (!project) {
-        notFound();
-    }
+    // Default to "mapa" (Google Maps) when arriving from "Mapa Interactivo"
+    const view = searchParams.view === "plano" ? "plano" : "mapa";
 
-    // Transform DB units to MasterplanUnits
-    // Note: We need x, y, path, etc. stored in `masterplanConfig` or similar.
-    // For now, if no masterplanConfig exists, the Viewer will generate demo units if we pass empty array.
-    // However, if we want real data we need to map it.
-    // Since `masterplanConfig` is JSON, let's assume it holds the geometry data keyed by unit number or ID.
-
-    // Simplification for MVP: We pass empty array to let it generate demo units OR passed mapped units if available.
-    // Since I haven't implemented the geometry editor yet, I'll rely on the demo generator for visuals, 
-    // BUT mapped with real logic if possible.
-    // actually, let's just pass [] and let it generate demo units for now to show the UI working, 
-    // as I don't have real SVG paths in the DB yet.
-
-    // Better: I'll try to map what I can, but without paths it's useless.
-    // So I will fall back to the Demo Generator in the Viewer by passing undefined/empty.
-    // Once I have the editor, I'd fetch the paths from `masterplanConfig`.
-
-    const mappedUnits: MasterplanUnit[] = [];
-    // If I wanted to map real units:
-    /*
-    const geometryMap = project.masterplanConfig as Record<string, any> || {};
-    mappedUnits = project.unidades.map(u => ({
-        id: u.id,
-        numero: u.numero,
-        tipo: u.tipo,
-        estado: u.estado,
-        precio: u.precio,
-        moneda: u.moneda,
-        superficie: u.superficie,
-        // ... geometry from map based on unit ID
-        path: geometryMap[u.id]?.path || "",
-        cx: geometryMap[u.id]?.cx || 0,
-        cy: geometryMap[u.id]?.cy || 0,
-        // ...
+    const tours360ForMap = (project.tours ?? []).map((t: any) => ({
+        tourId: t.id,
+        nombre: t.nombre,
+        thumbnailUrl: t.scenes?.[0]?.imageUrl ?? null,
+        lat: null,
+        lng: null,
+        unidadId: "",
     }));
-    */
 
     return (
-        <div className="h-screen w-screen bg-slate-950 flex flex-col overflow-hidden">
-            {/* Minimal Header */}
-            <div className="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-slate-900 z-50">
-                <div className="flex items-center gap-4">
+        <div className="h-screen w-screen bg-[#080808] flex flex-col overflow-hidden">
+            {/* ── Header ── */}
+            <div className="h-14 flex-shrink-0 border-b border-white/8 flex items-center justify-between px-4 sm:px-6 bg-[#0E0E0E] z-50">
+                <div className="flex items-center gap-3 min-w-0">
                     <Link
                         href={`/proyectos/${params.slug}`}
-                        className="p-2 rounded-lg hover:bg-white/10 text-white transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors flex-shrink-0"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
-                    <div>
-                        <h1 className="text-lg font-bold text-white">{project.nombre}</h1>
-                        <p className="text-xs text-slate-400">Masterplan Interactivo</p>
+                    <div className="min-w-0">
+                        <p className="text-xs text-slate-500 truncate">{project.nombre}</p>
+                        <p className="text-sm font-bold text-white leading-tight">
+                            {view === "mapa" ? "Mapa Interactivo" : "Masterplan del Proyecto"}
+                        </p>
                     </div>
                 </div>
+
+                {/* Tab switcher */}
+                <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1 border border-white/8">
+                    <Link
+                        href={`/proyectos/${params.slug}/masterplan?view=mapa`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            view === "mapa"
+                                ? "bg-brand-500 text-white shadow-glow"
+                                : "text-slate-400 hover:text-white"
+                        }`}
+                    >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Mapa</span>
+                    </Link>
+                    <Link
+                        href={`/proyectos/${params.slug}/masterplan?view=plano`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            view === "plano"
+                                ? "bg-indigo-600 text-white"
+                                : "text-slate-400 hover:text-white"
+                        }`}
+                    >
+                        <LayoutTemplate className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Plano</span>
+                    </Link>
+                </div>
+
+                {/* Legend + CTA */}
                 <div className="flex items-center gap-3">
-                    <div className="hidden md:flex items-center gap-3 text-xs text-slate-400 mr-4">
-                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded bg-emerald-500"></div>Disponible</div>
-                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded bg-orange-500"></div>Reservado</div>
-                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded bg-red-500"></div>Vendido</div>
+                    <div className="hidden md:flex items-center gap-3 text-xs text-slate-400">
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />Disponible</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block" />Reservado</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block" />Vendido</span>
                     </div>
                     <Link
                         href={`/proyectos/${params.slug}#contacto`}
-                        className="px-4 py-2 rounded-lg gradient-brand text-white text-sm font-semibold shadow-glow"
+                        className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white text-xs font-bold shadow-glow transition-all"
                     >
-                        Consultar
+                        Reservar lote
                     </Link>
                 </div>
             </div>
 
-            <div className="flex-1 relative">
-                <MasterplanViewer
-                    proyectoId={project.id}
-                    modo="public"
-                    canEdit={false}
-                />
+            {/* ── Content ── */}
+            <div className="flex-1 relative overflow-hidden">
+                {view === "mapa" ? (
+                    <MasterplanMap
+                        proyectoId={project.id}
+                        modo="public"
+                        canEdit={false}
+                        centerLat={project.mapCenterLat ?? undefined}
+                        centerLng={project.mapCenterLng ?? undefined}
+                        mapZoom={project.mapZoom ?? undefined}
+                        tours360={tours360ForMap}
+                    />
+                ) : (
+                    <div className="w-full h-full">
+                        <MasterplanViewer
+                            proyectoId={project.id}
+                            modo="public"
+                            canEdit={false}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

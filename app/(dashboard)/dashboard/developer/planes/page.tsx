@@ -33,7 +33,7 @@ export default async function PlanesPage() {
     };
 
     return (
-        <div className="space-y-8 p-6 animate-fade-in max-w-7xl mx-auto">
+        <div className="space-y-8 p-6 animate-fade-in w-full">
             <div className="text-center space-y-4">
                 <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl gradient-text">
                     Planes y Límites

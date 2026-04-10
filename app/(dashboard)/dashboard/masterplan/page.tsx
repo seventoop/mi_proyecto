@@ -8,6 +8,11 @@ import { MapPin, ArrowRight, Building2, Eye } from "lucide-react";
 export default async function MasterplanIndexPage() {
     const session = await getServerSession(authOptions);
     if (!session) redirect("/login");
+    const userRole = (session?.user as any)?.role || "";
+    const proyectosHref =
+        userRole === "ADMIN" || userRole === "SUPERADMIN" ? "/dashboard/admin/proyectos" :
+        userRole === "DESARROLLADOR" ? "/dashboard/developer/proyectos" :
+        "/dashboard/proyectos";
 
     const projectsRaw = await prisma.proyecto.findMany({
         orderBy: { createdAt: "desc" },
@@ -34,7 +39,7 @@ export default async function MasterplanIndexPage() {
     }));
 
     return (
-        <div className="p-8 space-y-8 max-w-7xl mx-auto">
+        <div className="p-8 space-y-8 w-full">
             <div>
                 <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
                     Masterplans & Tours 360°
@@ -125,7 +130,7 @@ export default async function MasterplanIndexPage() {
                         </p>
                         <div className="mt-8">
                             <Link
-                                href="/dashboard/proyectos"
+                                href={proyectosHref}
                                 className="inline-flex items-center rounded-xl gradient-brand px-6 py-3 text-sm font-bold text-white shadow-glow hover:shadow-glow-lg transition-all"
                             >
                                 <Building2 className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />

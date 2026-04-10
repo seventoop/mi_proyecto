@@ -1,15 +1,16 @@
-"use server";
+﻿"use server";
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
+import { toStoredTourSceneCategory } from "@/lib/tour-media";
 
 // ─── Schemas ───
 
 const hotspotSchema = z.object({
     id: z.string().optional(),
-    unidadId: z.string().min(1, "unidadId requerido para hotspot"),
+    unidadId: z.string().optional().nullable(),
     type: z.enum(["INFO", "SCENE", "LINK", "UNIT"]),
     pitch: z.number(),
     yaw: z.number(),
@@ -17,13 +18,22 @@ const hotspotSchema = z.object({
     targetSceneId: z.string().optional().nullable(),
 });
 
+const imageUrlSchema = z
+    .string()
+    .min(1, "URL de imagen invalida")
+    .refine(
+        (value) => value.startsWith("/") || /^https?:\/\//i.test(value),
+        "URL de imagen invalida"
+    );
+
 const sceneSchema = z.object({
     id: z.string().optional(),
     title: z.string().min(1, "Título de escena requerido"),
-    imageUrl: z.string().url("URL de imagen inválida"),
+    imageUrl: imageUrlSchema,
+    masterplanOverlay: z.any().optional().nullable(),
     isDefault: z.boolean().default(false),
     order: z.number().default(0),
-    category: z.enum(["RAW", "RENDERED"]).default("RAW"),
+    category: z.string().default("TOUR360"),
     hotspots: z.array(hotspotSchema).default([]),
 });
 
@@ -170,9 +180,10 @@ export async function upsertTour(input: unknown) {
                         tourId: tour.id,
                         title: scene.title,
                         imageUrl: scene.imageUrl,
+                        masterplanOverlay: scene.masterplanOverlay ?? undefined,
                         isDefault: scene.isDefault,
                         order: scene.order,
-                        category: scene.category,
+                        category: toStoredTourSceneCategory(scene.category),
                     }
                 });
 
@@ -250,3 +261,4 @@ export async function rejectTour(id: string, reason: string) {
         return handleGuardError(error);
     }
 }
+

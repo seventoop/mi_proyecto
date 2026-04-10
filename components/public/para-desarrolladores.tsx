@@ -12,7 +12,7 @@ const PARTNERS = [
     { name: "GHX", color: "text-blue-800 dark:text-blue-200" },
     { name: "Bridge360", color: "text-emerald-700" },
     { name: "SevenToop", color: "text-brand-orange" },
-    { name: "InmoTech", color: "text-slate-400" },
+    { name: "InmoTech", color: "text-slate-600 dark:text-slate-300" },
     { name: "DataBridge", color: "text-indigo-600" },
 ];
 
@@ -43,7 +43,7 @@ export default function ParaDesarrolladores() {
             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-brand-orange/5 to-transparent pointer-events-none" />
             <div className="absolute -left-[10%] top-[20%] w-96 h-96 bg-brand-orange/10 rounded-full blur-[120px] pointer-events-none" />
 
-            <div className="max-w-7xl mx-auto px-6 relative z-10">
+            <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 xl:px-12 relative z-10">
                 <div className="text-center mb-16 md:mb-20">
                     <span className="text-brand-orange font-bold uppercase tracking-widest text-sm mb-4 block">
                         {t.forDevelopers.badge}

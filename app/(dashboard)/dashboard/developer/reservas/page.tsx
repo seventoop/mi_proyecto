@@ -18,7 +18,7 @@ export default async function ReservasPage() {
 
     if (!orgId) {
         return (
-            <div className="p-6 space-y-6 animate-fade-in max-w-[1600px] mx-auto">
+            <div className="p-6 space-y-6 animate-fade-in">
                 <ModuleHelp content={MODULE_HELP_CONTENT.reservas} />
                 <EmptyOrgState moduleName="Reservas" />
             </div>
@@ -64,7 +64,7 @@ export default async function ReservasPage() {
     const unidades = unidadesRes.success ? unidadesRes.data : [];
 
     return (
-        <div className="p-6 space-y-6 animate-fade-in max-w-[1600px] mx-auto">
+        <div className="p-6 space-y-6 animate-fade-in">
             <ModuleHelp content={MODULE_HELP_CONTENT.reservas} />
             <ReservasView
                 reservas={reservas as any[]}

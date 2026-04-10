@@ -56,6 +56,13 @@ interface LiveDelta {
   planRotDelta: number;
 }
 
+interface FrameData {
+  corners: ScreenPt[];
+  edgeMidpoints: ScreenPt[];
+  centroid: ScreenPt;
+  topEdgeMidpoint: ScreenPt;
+}
+
 export interface Viewer360LotesOverlayProps {
   viewer: any;
   units: MasterplanUnit[];
@@ -70,6 +77,18 @@ export interface Viewer360LotesOverlayProps {
   lngOffset: number;
   planRotation: number;
   planScale: number;
+  planScaleX?: number;
+  planScaleY?: number;
+  pitchBias?: number;
+  cameraRoll?: number;
+  opacity?: number;
+  showLabels?: boolean;
+  showPerimeter?: boolean;
+  cleanMode?: boolean;
+  transformLocked?: boolean;
+  alignmentGuides?: boolean;
+  flipX?: boolean;
+  flipY?: boolean;
   isEditing: boolean;
   onEnterEdit?: () => void;
   onExitEdit?: () => void;
@@ -124,6 +143,81 @@ function pointInPolygon(pt: ScreenPt, poly: ScreenPt[]): boolean {
   return inside;
 }
 
+function edgeMidpoints(points: ScreenPt[]): ScreenPt[] {
+  return points.map((point, index) => {
+    const next = points[(index + 1) % points.length];
+    return { x: (point.x + next.x) / 2, y: (point.y + next.y) / 2 };
+  });
+}
+
+function averagePoint(points: ScreenPt[]): ScreenPt {
+  return {
+    x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+    y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+  };
+}
+
+function rotatePoint(point: ScreenPt, angle: number): ScreenPt {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return {
+    x: point.x * cos - point.y * sin,
+    y: point.x * sin + point.y * cos,
+  };
+}
+
+function inverseRotatePoint(point: ScreenPt, angle: number): ScreenPt {
+  return rotatePoint(point, -angle);
+}
+
+function computeFrameFromHull(hull: ScreenPt[]): FrameData | null {
+  if (hull.length < 3) return null;
+
+  let bestArea = Infinity;
+  let bestAngle = 0;
+  let bestBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+
+  for (let i = 0; i < hull.length; i++) {
+    const current = hull[i];
+    const next = hull[(i + 1) % hull.length];
+    const angle = Math.atan2(next.y - current.y, next.x - current.x);
+    const rotated = hull.map((point) => inverseRotatePoint(point, angle));
+    const xs = rotated.map((point) => point.x);
+    const ys = rotated.map((point) => point.y);
+    const bounds = {
+      minX: Math.min(...xs),
+      maxX: Math.max(...xs),
+      minY: Math.min(...ys),
+      maxY: Math.max(...ys),
+    };
+    const area = (bounds.maxX - bounds.minX) * (bounds.maxY - bounds.minY);
+    if (area < bestArea) {
+      bestArea = area;
+      bestAngle = angle;
+      bestBounds = bounds;
+    }
+  }
+
+  const rotatedCorners = [
+    { x: bestBounds.minX, y: bestBounds.minY },
+    { x: bestBounds.maxX, y: bestBounds.minY },
+    { x: bestBounds.maxX, y: bestBounds.maxY },
+    { x: bestBounds.minX, y: bestBounds.maxY },
+  ];
+  const corners = rotatedCorners.map((point) => rotatePoint(point, bestAngle));
+  const centroid = averagePoint(corners);
+  const mids = edgeMidpoints(corners);
+  const topEdgeIndex = mids.reduce((bestIndex, point, index, list) =>
+    point.y < list[bestIndex].y ? index : bestIndex, 0);
+
+  return {
+    corners,
+    edgeMidpoints: mids,
+    centroid,
+    topEdgeMidpoint: mids[topEdgeIndex],
+  };
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Viewer360LotesOverlay({
@@ -132,6 +226,18 @@ export default function Viewer360LotesOverlay({
   camLat, camLng, camAlt, imageHeading,
   latOffset, lngOffset,
   planRotation, planScale,
+  planScaleX = 1,
+  planScaleY = 1,
+  pitchBias = 0,
+  cameraRoll = 0,
+  opacity = 0.55,
+  showLabels = true,
+  showPerimeter = true,
+  cleanMode = false,
+  transformLocked = false,
+  alignmentGuides = true,
+  flipX = false,
+  flipY = false,
   isEditing,
   onEnterEdit, onExitEdit, onParamsChange,
 }: Viewer360LotesOverlayProps) {
@@ -149,6 +255,18 @@ export default function Viewer360LotesOverlay({
   const lngOffsetRef     = useRef(lngOffset);
   const planRotRef       = useRef(planRotation);
   const planScaleRef     = useRef(planScale);
+  const planScaleXRef    = useRef(planScaleX);
+  const planScaleYRef    = useRef(planScaleY);
+  const pitchBiasRef     = useRef(pitchBias);
+  const cameraRollRef    = useRef(cameraRoll);
+  const opacityRef       = useRef(opacity);
+  const showLabelsRef    = useRef(showLabels);
+  const showPerimeterRef = useRef(showPerimeter);
+  const cleanModeRef     = useRef(cleanMode);
+  const lockedRef        = useRef(transformLocked);
+  const guidesRef        = useRef(alignmentGuides);
+  const flipXRef         = useRef(flipX);
+  const flipYRef         = useRef(flipY);
   const overlayBoundsRef = useRef(overlayBounds);
   const overlayRotRef    = useRef(overlayRotation);
   const svgViewBoxRef    = useRef(svgViewBox);
@@ -166,6 +284,18 @@ export default function Viewer360LotesOverlay({
   lngOffsetRef.current     = lngOffset;
   planRotRef.current       = planRotation;
   planScaleRef.current     = planScale;
+  planScaleXRef.current    = planScaleX;
+  planScaleYRef.current    = planScaleY;
+  pitchBiasRef.current     = pitchBias;
+  cameraRollRef.current    = cameraRoll;
+  opacityRef.current       = opacity;
+  showLabelsRef.current    = showLabels;
+  showPerimeterRef.current = showPerimeter;
+  cleanModeRef.current     = cleanMode;
+  lockedRef.current        = transformLocked;
+  guidesRef.current        = alignmentGuides;
+  flipXRef.current         = flipX;
+  flipYRef.current         = flipY;
   overlayBoundsRef.current = overlayBounds;
   overlayRotRef.current    = overlayRotation;
   svgViewBoxRef.current    = svgViewBox;
@@ -178,7 +308,7 @@ export default function Viewer360LotesOverlay({
   // State accessible from pointer handlers via refs
   const bboxRef        = useRef<Bbox | null>(null);
   const hullRef        = useRef<ScreenPt[]>([]);        // convex hull of all visible pts
-  const geoCornersRef  = useRef<ScreenPt[]>([]);        // 4 projected geo-bbox corners
+  const frameRef       = useRef<FrameData | null>(null);
   const centScreenRef  = useRef<ScreenPt | null>(null); // projected geo centroid (stable during rotation)
   const rotHandlePosRef= useRef<ScreenPt | null>(null); // cached rotation handle screen position
   const ROT_GAP        = 36;
@@ -201,23 +331,54 @@ export default function Viewer360LotesOverlay({
       const _editing  = isEditingRef.current;
       const delta     = liveDeltaRef.current;
 
-      const _alt      = camAltRef.current;
-      const _hdg      = imageHeadingRef.current + delta.hdgDelta;
-      const _planRot  = planRotRef.current + delta.planRotDelta;
-      const _planScale = planScaleRef.current * delta.scaleFactor;
-      const DEG       = Math.PI / 180;
-      const _camLat   = camLatRef.current + delta.latM / 111320;
-      const _camLng   = camLngRef.current + delta.lngM /
+      const _alt        = camAltRef.current;
+      const _hdg        = imageHeadingRef.current + delta.hdgDelta;
+      const _planRot    = planRotRef.current + delta.planRotDelta;
+      const _planScale  = planScaleRef.current * delta.scaleFactor;
+      const _planScaleX = planScaleXRef.current;
+      const _planScaleY = planScaleYRef.current;
+      const _pitchBias  = pitchBiasRef.current;
+      const _cameraRoll = cameraRollRef.current;
+      const _opacity    = opacityRef.current;
+      const _showLabels = showLabelsRef.current && !cleanModeRef.current;
+      const _showPerimeter = showPerimeterRef.current && !cleanModeRef.current;
+      const _showGuides = guidesRef.current && !cleanModeRef.current;
+      const _locked     = lockedRef.current;
+      const _flipX      = flipXRef.current ? -1 : 1;
+      const _flipY      = flipYRef.current ? -1 : 1;
+      const DEG         = Math.PI / 180;
+      const _camLat     = camLatRef.current + delta.latM / 111320;
+      const _camLng     = camLngRef.current + delta.lngM /
         (111320 * Math.cos(camLatRef.current * DEG));
 
-      svg.style.pointerEvents = _editing ? "all" : "none";
-      svg.style.cursor        = _editing ? "crosshair" : "default";
+      svg.style.pointerEvents = _editing && !_locked ? "all" : "none";
+      svg.style.cursor        = _editing && !_locked ? "crosshair" : "default";
 
       const viewPitch = viewer.getPitch() as number;
       const viewYaw   = viewer.getYaw()   as number;
       const hfov      = viewer.getHfov()  as number;
       const W = container.clientWidth;
       const H = container.clientHeight;
+
+      // Pre-compute roll correction constants (avoids per-point trig)
+      const cosRoll = Math.cos(_cameraRoll * DEG);
+      const sinRoll = Math.sin(_cameraRoll * DEG);
+      const halfW   = W / 2;
+      const halfH   = H / 2;
+
+      /** Projects a geo point to screen applying pitchBias and cameraRoll corrections. */
+      const projectGeo = (lat: number, lng: number): ScreenPt | null => {
+        const { pitch, yaw } = geoToPitchYaw(lat, lng, _camLat, _camLng, _alt, _hdg);
+        const raw = projectSphericalToScreen(pitch + _pitchBias, yaw, viewPitch, viewYaw, hfov, W, H);
+        if (!raw) return null;
+        if (_cameraRoll === 0) return raw;
+        const dx = raw.x - halfW;
+        const dy = raw.y - halfH;
+        return {
+          x: halfW + dx * cosRoll - dy * sinRoll,
+          y: halfH + dx * sinRoll + dy * cosRoll,
+        };
+      };
 
       svg.innerHTML = "";
 
@@ -229,9 +390,6 @@ export default function Viewer360LotesOverlay({
       const allLatLngs: [number, number][][] = [];
       let centLat = 0, centLng = 0, centCount = 0;
 
-      // Also track geo bbox BEFORE planRotation (for geo-corner handles)
-      let gMinLat = Infinity, gMinLng = Infinity, gMaxLat = -Infinity, gMaxLng = -Infinity;
-
       for (const unit of _units) {
         let svgPath = unit.path as string | undefined;
         if (!svgPath && (unit as any).coordenadasMasterplan) {
@@ -242,10 +400,6 @@ export default function Viewer360LotesOverlay({
         allLatLngs.push(latLngs);
         for (const [lat, lng] of latLngs) {
           centLat += lat; centLng += lng; centCount++;
-          if (lat < gMinLat) gMinLat = lat;
-          if (lng < gMinLng) gMinLng = lng;
-          if (lat > gMaxLat) gMaxLat = lat;
-          if (lng > gMaxLng) gMaxLng = lng;
         }
       }
       if (centCount > 0) { centLat /= centCount; centLng /= centCount; }
@@ -255,12 +409,7 @@ export default function Viewer360LotesOverlay({
       // Since planRotation rotates around this centroid, its screen position
       // does NOT change when the plan rotates (only when translated/zoomed).
       {
-        const { pitch: cPitch, yaw: cYaw } = geoToPitchYaw(
-          centLat, centLng, _camLat, _camLng, _alt, _hdg
-        );
-        centScreenRef.current = projectSphericalToScreen(
-          cPitch, cYaw, viewPitch, viewYaw, hfov, W, H
-        );
+        centScreenRef.current = projectGeo(centLat, centLng);
       }
 
       // ── Pass 1: apply plan transform, project to screen ───────────────────
@@ -273,24 +422,35 @@ export default function Viewer360LotesOverlay({
       const unitData: UnitData[] = [];
       let bbMinX = Infinity, bbMinY = Infinity, bbMaxX = -Infinity, bbMaxY = -Infinity;
       const allVisiblePts: ScreenPt[] = [];
+      // Independent per-axis scale applied in geo-space BEFORE rotation.
+      // effectiveScaleX/Y = uniform planScale × per-axis multiplier.
+      // When planScaleX = planScaleY = 1 this is identical to the previous
+      // uniform-scale-after-rotation formula (scalar multiplication commutes).
+      // Non-equal values correct the aspect-ratio mismatch between the SVG
+      // viewBox and the geographic bounding box, which is the root cause of
+      // diagonal corner divergence ("el plano queda cruzado").
+      const effectiveScaleEW = _planScale * _planScaleX; // East-West
+      const effectiveScaleNS = _planScale * _planScaleY; // North-South
+      const transformGeoPoint = (lat: number, lng: number): [number, number] => {
+        // Displacement from centroid in metres, flip applied
+        const dLat = (lat - centLat) * 111320 * _flipY;
+        const dLng = (lng - centLng) * 111320 * cosCent * _flipX;
+        // Scale independently per axis, then rotate
+        const dLatS = dLat * effectiveScaleNS;
+        const dLngS = dLng * effectiveScaleEW;
+        const rdLat = dLatS * cosPR - dLngS * sinPR;
+        const rdLng = dLatS * sinPR + dLngS * cosPR;
+        return [centLat + rdLat / 111320, centLng + rdLng / (111320 * cosCent)];
+      };
 
       for (let i = 0; i < _units.length; i++) {
         const unit = _units[i];
         const rawLatLngs = allLatLngs[i];
         if (!rawLatLngs || rawLatLngs.length < 3) continue;
 
-        const rotatedLatLngs: [number, number][] = rawLatLngs.map(([lat, lng]) => {
-          const dLat = (lat - centLat) * 111320;
-          const dLng = (lng - centLng) * 111320 * cosCent;
-          const rdLat = (dLat * cosPR - dLng * sinPR) * _planScale;
-          const rdLng = (dLat * sinPR + dLng * cosPR) * _planScale;
-          return [centLat + rdLat / 111320, centLng + rdLng / (111320 * cosCent)];
-        });
+        const rotatedLatLngs: [number, number][] = rawLatLngs.map(([lat, lng]) => transformGeoPoint(lat, lng));
 
-        const screenPts = rotatedLatLngs.map(([lat, lng]) => {
-          const { pitch, yaw } = geoToPitchYaw(lat, lng, _camLat, _camLng, _alt, _hdg);
-          return projectSphericalToScreen(pitch, yaw, viewPitch, viewYaw, hfov, W, H);
-        });
+        const screenPts = rotatedLatLngs.map(([lat, lng]) => projectGeo(lat, lng));
 
         const visiblePts = screenPts.filter(Boolean) as ScreenPt[];
         if (visiblePts.length < 3) continue;
@@ -322,7 +482,7 @@ export default function Viewer360LotesOverlay({
       const hull = allVisiblePts.length >= 3 ? convexHull(allVisiblePts) : [];
       hullRef.current = hull;
 
-      // AABB bbox (used only for centroid + rotation handle position)
+      // AABB bbox remains useful for drag center fallback and coarse hit area.
       if (unitData.length > 0 && isFinite(bbMinX)) {
         bboxRef.current = {
           minX: bbMinX, minY: bbMinY,
@@ -333,25 +493,7 @@ export default function Viewer360LotesOverlay({
         bboxRef.current = null;
       }
 
-      // Compute geo-bbox corners: 4 corners of unrotated bbox, apply planRotation+scale, project
-      let screenGeoCorners: ScreenPt[] = [];
-      if (isFinite(gMinLat)) {
-        const rawGeoCorners: [number, number][] = [
-          [gMinLat, gMinLng], [gMinLat, gMaxLng],
-          [gMaxLat, gMaxLng], [gMaxLat, gMinLng],
-        ];
-        screenGeoCorners = rawGeoCorners.map(([lat, lng]) => {
-          const dLat = (lat - centLat) * 111320;
-          const dLng = (lng - centLng) * 111320 * cosCent;
-          const rdLat = (dLat * cosPR - dLng * sinPR) * _planScale;
-          const rdLng = (dLat * sinPR + dLng * cosPR) * _planScale;
-          const rLat = centLat + rdLat / 111320;
-          const rLng = centLng + rdLng / (111320 * cosCent);
-          const { pitch, yaw } = geoToPitchYaw(rLat, rLng, _camLat, _camLng, _alt, _hdg);
-          return projectSphericalToScreen(pitch, yaw, viewPitch, viewYaw, hfov, W, H);
-        }).filter(Boolean) as ScreenPt[];
-      }
-      geoCornersRef.current = screenGeoCorners;
+      frameRef.current = computeFrameFromHull(hull);
 
       // Update hit-area div (enter-edit click target — only active when NOT editing)
       if (hitDiv) {
@@ -378,47 +520,68 @@ export default function Viewer360LotesOverlay({
         svg.appendChild(svgEl("path", {
           d,
           fill: color + (_editing ? "50" : "3d"),
+          "fill-opacity": _opacity,
           stroke: color,
+          "stroke-opacity": Math.max(0.35, _opacity),
           "stroke-width": _editing ? "2.5" : "2",
           "stroke-linejoin": "round",
         }));
 
-        const cx = (visiblePts.reduce((s, p) => s + p.x, 0) / visiblePts.length).toFixed(1);
-        const cy = (visiblePts.reduce((s, p) => s + p.y, 0) / visiblePts.length).toFixed(1);
-        const textAttrs = {
-          x: cx, y: cy,
-          "font-size": "13", "font-family": "Inter,system-ui,sans-serif",
-          "font-weight": "700", "text-anchor": "middle", "dominant-baseline": "middle",
-        };
+        if (_showLabels) {
+          const cx = (visiblePts.reduce((s, p) => s + p.x, 0) / visiblePts.length).toFixed(1);
+          const cy = (visiblePts.reduce((s, p) => s + p.y, 0) / visiblePts.length).toFixed(1);
+          const textAttrs = {
+            x: cx, y: cy,
+            "font-size": "13", "font-family": "Inter,system-ui,sans-serif",
+            "font-weight": "700", "text-anchor": "middle", "dominant-baseline": "middle",
+          };
 
-        const outline = svgEl("text", { ...textAttrs, fill: "none", stroke: "rgba(0,0,0,0.75)", "stroke-width": "4", "stroke-linejoin": "round" });
-        outline.textContent = numero;
-        svg.appendChild(outline);
+          const outline = svgEl("text", { ...textAttrs, fill: "none", stroke: "rgba(0,0,0,0.75)", "stroke-width": "4", "stroke-linejoin": "round" });
+          outline.textContent = numero;
+          svg.appendChild(outline);
 
-        const lbl = svgEl("text", { ...textAttrs, fill: "white" });
-        lbl.textContent = numero;
-        svg.appendChild(lbl);
+          const lbl = svgEl("text", { ...textAttrs, fill: "white" });
+          lbl.textContent = numero;
+          svg.appendChild(lbl);
+        }
       }
 
       // ── Pass 3: edit handles ─────────────────────────────────────────────
-      if (_editing && bboxRef.current && screenGeoCorners.length === 4) {
+      if (_showGuides && hull.length >= 3) {
+        const hullD = hull.map((point, index) =>
+          `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`
+        ).join(" ") + " Z";
+        svg.appendChild(svgEl("path", {
+          d: hullD,
+          fill: "none",
+          stroke: "rgba(255,255,255,0.18)",
+          "stroke-width": "1",
+          "stroke-dasharray": "5 4",
+        }));
+      }
+
+      if (_editing && frameRef.current) {
         // Rotation handle: midpoint of the two topmost screen corners (min Y),
         // offset perpendicularly outward from that edge by ROT_GAP.
         // Works at any plan rotation angle — "top" always means smallest Y.
-        const topTwo = [...screenGeoCorners].sort((a, b) => a.y - b.y).slice(0, 2);
-        const midX = (topTwo[0].x + topTwo[1].x) / 2;
-        const midY = (topTwo[0].y + topTwo[1].y) / 2;
+        const frameData = frameRef.current;
+        const topEdgeIndex = frameData.edgeMidpoints.reduce((bestIndex, point, index, list) =>
+          point.y < list[bestIndex].y ? index : bestIndex, 0);
+        const edgeStart = frameData.corners[topEdgeIndex];
+        const edgeEnd = frameData.corners[(topEdgeIndex + 1) % frameData.corners.length];
+        const midX = frameData.topEdgeMidpoint.x;
+        const midY = frameData.topEdgeMidpoint.y;
         // Edge direction, perpendicular options
-        const eDx = topTwo[1].x - topTwo[0].x;
-        const eDy = topTwo[1].y - topTwo[0].y;
+        const eDx = edgeEnd.x - edgeStart.x;
+        const eDy = edgeEnd.y - edgeStart.y;
         const eLen = Math.hypot(eDx, eDy) || 1;
         // Perpendicular candidates (±90°)
         const p1x = -eDy / eLen, p1y =  eDx / eLen;
         const p2x =  eDy / eLen, p2y = -eDx / eLen;
         // Choose the one pointing away from the plan centroid (outward)
-        const centSc = centScreenRef.current;
-        const ccX = centSc ? centSc.x : bboxRef.current.centX;
-        const ccY = centSc ? centSc.y : bboxRef.current.centY;
+        const centSc = centScreenRef.current ?? frameData.centroid;
+        const ccX = centSc.x;
+        const ccY = centSc.y;
         const dot1 = (midX - ccX) * p1x + (midY - ccY) * p1y;
         const outX = dot1 >= 0 ? p1x : p2x;
         const outY = dot1 >= 0 ? p1y : p2y;
@@ -428,15 +591,17 @@ export default function Viewer360LotesOverlay({
         rotHandlePosRef.current = { x: rhX, y: rhY };
 
         // Border: solid thin line connecting the 4 projected geo corners
-        const borderD = screenGeoCorners.map((p, i) =>
+        const borderD = frameData.corners.map((p, i) =>
           `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`
         ).join(" ") + " Z";
-        svg.appendChild(svgEl("path", {
-          d: borderD,
-          fill: "none",
-          stroke: "rgba(99,102,241,0.7)",
-          "stroke-width": "1.5",
-        }));
+        if (_showPerimeter) {
+          svg.appendChild(svgEl("path", {
+            d: borderD,
+            fill: "none",
+            stroke: "rgba(99,102,241,0.7)",
+            "stroke-width": "1.5",
+          }));
+        }
 
         // Line from top-edge midpoint to rotation handle
         svg.appendChild(svgEl("line", {
@@ -445,10 +610,17 @@ export default function Viewer360LotesOverlay({
         }));
 
         // Corner handles at geo-bbox projected corners
-        for (const { x: hx, y: hy } of screenGeoCorners) {
+        for (const { x: hx, y: hy } of frameData.corners) {
           svg.appendChild(svgEl("circle", {
             cx: hx, cy: hy, r: HANDLE_R,
             fill: "white", stroke: "#6366f1", "stroke-width": "2",
+          }));
+        }
+
+        for (const { x: hx, y: hy } of frameData.edgeMidpoints) {
+          svg.appendChild(svgEl("rect", {
+            x: hx - 5, y: hy - 5, width: 10, height: 10, rx: 3,
+            fill: "#eef2ff", stroke: "#6366f1", "stroke-width": "1.5",
           }));
         }
 
@@ -461,6 +633,8 @@ export default function Viewer360LotesOverlay({
           d: `M${rhX - 4},${rhY} a4,4 0 1,1 5,3`,
           fill: "none", stroke: "white", "stroke-width": "1.5", "stroke-linecap": "round",
         }));
+      } else {
+        rotHandlePosRef.current = null;
       }
 
       rafRef.current = requestAnimationFrame(frame);
@@ -496,19 +670,21 @@ export default function Viewer360LotesOverlay({
       const bb   = bboxRef.current;
       const pt   = localPt(e);
       const hull = hullRef.current;
-      const geoCorners = geoCornersRef.current;
+      const frame = frameRef.current;
       e.stopPropagation();
       e.preventDefault();
 
-      if (!bb) { onExitEditRef.current?.(); return; }
+      if (lockedRef.current) return;
+      if (!bb || !frame) { onExitEditRef.current?.(); return; }
 
       // Use the cached render position (midpoint of top edge + outward offset)
       const rotHandle = rotHandlePosRef.current ?? { x: bb.centX, y: bb.minY - 36 };
+      const scaleHandles = [...frame.corners, ...frame.edgeMidpoints];
 
       let mode: DragMode | null = null;
       if (dist(pt, rotHandle) <= HANDLE_HIT) {
         mode = "rotate";
-      } else if (geoCorners.some((c) => dist(pt, c) <= HANDLE_HIT)) {
+      } else if (scaleHandles.some((c) => dist(pt, c) <= HANDLE_HIT)) {
         mode = "scale";
       } else if (hull.length >= 3 && pointInPolygon(pt, hull)) {
         mode = "translate";
@@ -532,8 +708,8 @@ export default function Viewer360LotesOverlay({
         startViewYaw,
         startPlanRot: planRotRef.current,
         startPlanScale: planScaleRef.current,
-        startAngle: Math.atan2(pt.y - bb.centY, pt.x - bb.centX) * (180 / Math.PI),
-        centX: bb.centX, centY: bb.centY,
+        startAngle: Math.atan2(pt.y - frame.centroid.y, pt.x - frame.centroid.x) * (180 / Math.PI),
+        centX: frame.centroid.x, centY: frame.centroid.y,
       };
     };
 

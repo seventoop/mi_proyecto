@@ -202,6 +202,7 @@ model Proyecto {
   orgId                String?
   deletedAt            DateTime?
   tour360Url           String?
+  planGallery          String?                  // JSON: [{id,nombre,imageUrl,tipo,uploadedAt}]
   estadoValidacion     EstadoValidacionProyecto @default(BORRADOR)
   flagsOverrideAt      DateTime?
   flagsOverridePorId   String?
@@ -591,14 +592,14 @@ model TourScene {
 model Hotspot {
   id            String    @id @default(cuid())
   sceneId       String
-  unidadId      String
+  unidadId      String?
   type          String    @default("INFO")
   pitch         Float
   yaw           Float
   text          String?
   targetSceneId String?
   scene         TourScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
-  unidad        Unidad    @relation(fields: [unidadId], references: [id])
+  unidad        Unidad?   @relation(fields: [unidadId], references: [id])
 
   @@index([sceneId])
   @@index([unidadId])

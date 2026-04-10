@@ -18,7 +18,7 @@ export default async function AdminUsersPage({
     const res = await getUsers(page, 10, search, role, kyc);
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+        <div className="p-6 space-y-6">
             <ModuleHelp content={MODULE_HELP_CONTENT.adminUsers} />
 
             <Suspense fallback={

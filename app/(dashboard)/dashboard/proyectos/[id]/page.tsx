@@ -1,12 +1,13 @@
-import prisma from "@/lib/db";
+﻿import prisma from "@/lib/db";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import BlueprintEngine from "@/components/masterplan/blueprint-engine";
+import ProjectStepsDock from "@/components/dashboard/proyectos/project-steps-dock";
 import {
     ArrowLeft, MapPin, FileText, BarChart3, Layers, Home,
     Globe, DollarSign, Archive, AlertCircle, LayoutDashboard,
-    CheckCircle2, Info, ChevronRight, Camera, Edit3, Users,
+    CheckCircle2, Info, Camera, Edit3, Users,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -53,6 +54,10 @@ const MasterplanViewer = dynamic(
         ),
     }
 );
+const Tour360TabWrapper = dynamic(
+    () => import("@/components/dashboard/proyectos/tour360-tab-wrapper"),
+    { ssr: false }
+);
 
 const ResizableContainer = dynamic(
     () => import("@/components/ui/resizable-container"),
@@ -80,6 +85,10 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role || "INVITADO";
+    const backHref =
+        userRole === "ADMIN" || userRole === "SUPERADMIN" ? "/dashboard/admin/proyectos" :
+        userRole === "DESARROLLADOR" ? "/dashboard/developer/proyectos" :
+        "/dashboard/proyectos";
 
     const proyecto = await prisma.proyecto.findUnique({
         where: { id: params.id },
@@ -87,7 +96,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             etapas: {
                 include: {
                     manzanas: {
-                        include: { unidades: true },
+                        include: activeTab === "masterplan"
+                            ? { unidades: true }
+                            : { _count: { select: { unidades: true } } },
                     },
                 },
                 orderBy: { orden: "asc" },
@@ -106,11 +117,19 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         },
     });
 
+    // Stats via aggregation — avoids loading all unidades into memory
+    const statsRaw = await prisma.unidad.groupBy({
+        by: ["estado"],
+        where: { manzana: { etapa: { proyectoId: params.id } } },
+        _count: { _all: true },
+        _sum: { precio: true },
+    });
+
     if (!proyecto) {
         return (
             <div className="p-20 text-center">
                 <h1 className="text-2xl font-bold">Proyecto no encontrado</h1>
-                <Link href="/dashboard/proyectos" className="text-brand-500 mt-4 block">
+                <Link href={backHref} className="text-brand-500 mt-4 block">
                     Volver
                 </Link>
             </div>
@@ -129,7 +148,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     No tienes permisos para ver los detalles de este proyecto.
                 </p>
                 <Link
-                    href="/dashboard/proyectos"
+                    href={backHref}
                     className="text-brand-500 mt-6 inline-block font-medium"
                 >
                     Volver a mis proyectos
@@ -138,23 +157,19 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         );
     }
 
-    // Compute stats
+    // Compute stats from aggregation query
     let total = 0, disponibles = 0, reservadas = 0, vendidas = 0;
     let valorTotal = 0, valorVendido = 0, valorReservado = 0;
 
-    proyecto.etapas.forEach((etapa) => {
-        etapa.manzanas.forEach((manzana) => {
-            manzana.unidades.forEach((u) => {
-                total++;
-                if (u.estado === "DISPONIBLE") disponibles++;
-                if (u.estado === "RESERVADA") reservadas++;
-                if (u.estado === "VENDIDA") vendidas++;
-                valorTotal += u.precio || 0;
-                if (u.estado === "VENDIDA") valorVendido += u.precio || 0;
-                if (u.estado === "RESERVADA") valorReservado += u.precio || 0;
-            });
-        });
-    });
+    for (const row of statsRaw) {
+        const count = row._count._all;
+        const sum = Number(row._sum.precio ?? 0);
+        total += count;
+        valorTotal += sum;
+        if (row.estado === "DISPONIBLE") disponibles += count;
+        if (row.estado === "RESERVADA") { reservadas += count; valorReservado += sum; }
+        if (row.estado === "VENDIDA") { vendidas += count; valorVendido += sum; }
+    }
 
     const pctVendido =
         total > 0 ? Math.round(((vendidas + reservadas) / total) * 100) : 0;
@@ -164,7 +179,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const step2Done = !!proyecto.masterplanSVG;
     const step3Done = total > 0;
     const step4Done = !!proyecto.overlayBounds;
-    const step5Done = (proyecto._count as any).imagenesMapa > 0;
+    const step5Done = proyecto.tours.length > 0 || (proyecto._count as any).imagenesMapa > 0;
     const step6Done =
         proyecto.pagos.length > 0 || proyecto.documentacion.length > 0;
     const step7Done = proyecto._count.leads > 0;
@@ -192,12 +207,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             id: "blueprint",
             num: 2,
             label: "Plano del Proyecto",
-            desc: "Cargá el DXF o SVG del loteo",
+            desc: "Cargá el plano del loteo",
             required: false,
             icon: LayoutDashboard,
             done: step2Done,
             guidance:
-                "Subí el plano del loteo en formato DXF o SVG. Podés saltearlo por ahora y volver más adelante cuando tengas el archivo.",
+                "Subí el plano del loteo en DXF, DWG, SVG, PDF o imagen. El sistema intenta detectar lotes y, si no puede, guarda una base visual usable.",
         },
         {
             id: "masterplan",
@@ -224,13 +239,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         {
             id: "tour360",
             num: 5,
-            label: "Tour 360",
-            desc: "Fotos y 360° geoposicionados",
+            label: "Galería de Imágenes",
+            desc: "Tour 360, reales, render y avance",
             required: false,
             icon: Camera,
             done: step5Done,
             guidance:
-                "Subí fotos, panorámicas o imágenes 360° y posicionálas en el mapa. Podés vincular cada imagen a un lote específico.",
+                "Subí imágenes 360, fotos reales, renders o avance de obra. El Tour 360 sigue funcionando igual y el resto del material se organiza por categorías.",
         },
         {
             id: "comercial",
@@ -261,6 +276,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const prevStep = currentStepIdx > 0 ? steps[currentStepIdx - 1] : null;
     const nextStep =
         currentStepIdx < steps.length - 1 ? steps[currentStepIdx + 1] : null;
+    const isWorkspaceTab = activeTab === "mapa" || activeTab === "tour360";
 
     // Prepare Tour 360° markers for Paso 4 map (only lot-linked tours)
     const tours360ForMap = proyecto.tours
@@ -277,15 +293,15 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         }));
 
     return (
-        <div className="animate-fade-in pb-6">
+        <div className="animate-fade-in flex h-[calc(100dvh-6.5rem)] flex-col overflow-hidden lg:h-[calc(100dvh-7rem)]">
 
-            {/* ── Project header: 3-column layout ── */}
+            {/* â”€â”€ Project header: 3-column layout â”€â”€ */}
             <div className="mb-4">
                 {/* Row: Back · Title+Location · Progress */}
                 <div className="flex items-center gap-3 mb-3">
                     {/* LEFT — back button, more prominent */}
                     <Link
-                        href="/dashboard/proyectos"
+                        href={backHref}
                         className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-500 dark:hover:text-brand-400 bg-slate-100 dark:bg-slate-800 hover:bg-brand-500/10 dark:hover:bg-brand-500/15 px-3 py-1.5 rounded-lg transition-all shrink-0 border border-slate-200 dark:border-slate-700 hover:border-brand-500/30"
                     >
                         <ArrowLeft className="w-3.5 h-3.5" />
@@ -355,7 +371,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     </p>
                 )}
 
-                {/* ── Step bar with animated progress strip ── */}
+                {/* â”€â”€ Step bar with animated progress strip â”€â”€ */}
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900/50">
                     {/* Top progress strip */}
                     <div className="h-1 w-full bg-slate-200 dark:bg-slate-800">
@@ -395,7 +411,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                     : "bg-slate-200 dark:bg-slate-700 text-slate-500"
                                             )}
                                         >
-                                            {step.done && !isActive ? "✓" : step.num}
+                                            {step.done && !isActive ? "âœ“" : step.num}
                                         </span>
                                         {step.label}
                                         {step.required && !step.done && !isActive && (
@@ -410,7 +426,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             </div>
 
                 {/* Content area — full width */}
-                <div className="w-full">
+                <div className="w-full flex min-h-0 flex-1 flex-col overflow-hidden">
                     {/* Active step guidance banner — only on non-visual steps */}
                     {(activeTab === "info" || activeTab === "comercial" || activeTab === "crm") && (
                     <div className="flex items-center gap-3 p-3 bg-brand-500/5 border border-brand-500/15 rounded-xl mb-4">
@@ -443,9 +459,16 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     )}
 
                     {/* Step content */}
-                    <div className="animate-fade-in space-y-4">
+                    <div
+                        className={cn(
+                            "animate-fade-in space-y-4 min-h-0 flex-1",
+                            isWorkspaceTab
+                                ? "flex flex-col overflow-hidden"
+                                : "overflow-y-auto overscroll-contain pr-1"
+                        )}
+                    >
 
-                        {/* ── PASO 1: INFORMACIÓN GENERAL ── */}
+                        {/* â”€â”€ PASO 1: INFORMACIÓN GENERAL â”€â”€ */}
                         {activeTab === "info" && (
                             <div className="space-y-4">
                                 <div className="glass-card p-6">
@@ -540,7 +563,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                             Precio inversor:{" "}
                                                             <strong>
                                                                 {proyecto.precioM2Inversor
-                                                                    ? `${formatCurrency(Number(proyecto.precioM2Inversor))}/m²`
+                                                                    ? `${formatCurrency(Number(proyecto.precioM2Inversor))}/mÂ²`
                                                                     : "No definido"}
                                                             </strong>
                                                         </p>
@@ -548,7 +571,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                             Precio mercado:{" "}
                                                             <strong>
                                                                 {proyecto.precioM2Mercado
-                                                                    ? `${formatCurrency(Number(proyecto.precioM2Mercado))}/m²`
+                                                                    ? `${formatCurrency(Number(proyecto.precioM2Mercado))}/mÂ²`
                                                                     : "No definido"}
                                                             </strong>
                                                         </p>
@@ -590,14 +613,14 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* ── PASO 2: PLANO ── */}
+                        {/* â”€â”€ PASO 2: PLANO â”€â”€ */}
                         {activeTab === "blueprint" && (
                             <div className="animate-fade-in h-[calc(100vh-180px)] min-h-[640px]">
                                 <BlueprintEngine proyectoId={proyecto.id} />
                             </div>
                         )}
 
-                        {/* ── PASO 3: MASTERPLAN ── */}
+                        {/* â”€â”€ PASO 3: MASTERPLAN â”€â”€ */}
                         {activeTab === "masterplan" && (
                             <div className="space-y-6">
                                 {!step2Done && (
@@ -608,7 +631,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                 Plano no cargado
                                             </p>
                                             <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
-                                                Subí el plano DXF en el{" "}
+                                                Subí el plano del proyecto en el{" "}
                                                 <Link
                                                     href="?tab=blueprint"
                                                     className="underline font-bold"
@@ -637,7 +660,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
                                             <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                Todavía no hay unidades registradas. Cargá el plano DXF en el{" "}
+                                                Todavía no hay unidades registradas. Cargá el plano del proyecto en el{" "}
                                                 <Link href="?tab=blueprint" className="text-brand-500 font-semibold underline underline-offset-2">
                                                     Paso 2
                                                 </Link>{" "}
@@ -657,29 +680,22 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* ── PASO 5: IMÁGENES DEL PROYECTO ── */}
+                        {/* â”€â”€ PASO 5: IMÁGENES DEL PROYECTO â”€â”€ */}
                         {activeTab === "tour360" && (
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400">
-                                    <Info className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-                                    Subí fotos o panorámicas 360° y posicionálas en el mapa. Usá el botón <strong className="text-slate-700 dark:text-slate-300 mx-0.5">Imágenes</strong> en la barra del mapa.
-                                </div>
-                                <ResizableContainer defaultHeight={700} minHeight={500}>
-                                    <MasterplanMap
+                            <div className="flex min-h-0 flex-1 flex-col space-y-3 overflow-hidden">
+                                <div className="min-h-0 flex-1 overflow-hidden">
+                                    <Tour360TabWrapper
                                         proyectoId={proyecto.id}
-                                        modo="admin"
-                                        centerLat={proyecto.mapCenterLat ?? undefined}
-                                        centerLng={proyecto.mapCenterLng ?? undefined}
-                                        mapZoom={proyecto.mapZoom ?? undefined}
-                                        tours360={tours360ForMap}
+                                        tours={proyecto.tours || []}
+                                        userRole={userRole}
                                     />
-                                </ResizableContainer>
+                                </div>
                             </div>
                         )}
 
-                        {/* ── PASO 4: MAPA INTERACTIVO ── */}
+                        {/* â”€â”€ PASO 4: MAPA INTERACTIVO â”€â”€ */}
                         {activeTab === "mapa" && (
-                            <div className="space-y-3">
+                            <div className="flex min-h-0 flex-1 flex-col space-y-3 overflow-hidden">
                                 {!step3Done && (
                                     <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/5 border border-amber-500/20 rounded-xl text-xs text-amber-600 dark:text-amber-400">
                                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -690,20 +706,22 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         para verlos en el mapa.
                                     </div>
                                 )}
-                                <ResizableContainer defaultHeight={700} minHeight={500}>
-                                    <MasterplanMap
-                                        proyectoId={proyecto.id}
-                                        modo="admin"
-                                        centerLat={proyecto.mapCenterLat ?? undefined}
-                                        centerLng={proyecto.mapCenterLng ?? undefined}
-                                        mapZoom={proyecto.mapZoom ?? undefined}
-                                        tours360={tours360ForMap}
-                                    />
-                                </ResizableContainer>
+                                <div className="min-h-0 flex-1 overflow-hidden">
+                                    <div className="h-full min-h-0 w-full overflow-hidden">
+                                        <MasterplanMap
+                                            proyectoId={proyecto.id}
+                                            modo="admin"
+                                            centerLat={proyecto.mapCenterLat ?? undefined}
+                                            centerLng={proyecto.mapCenterLng ?? undefined}
+                                            mapZoom={proyecto.mapZoom ?? undefined}
+                                            tours360={tours360ForMap}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         )}
 
-                        {/* ── PASO 6: COMERCIAL ── */}
+                        {/* â”€â”€ PASO 6: COMERCIAL â”€â”€ */}
                         {activeTab === "comercial" && (
                             <div className="space-y-6">
                                 {/* Métricas */}
@@ -899,7 +917,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* ── PASO 7: CRM / GESTIÓN ── */}
+                        {/* â”€â”€ PASO 7: CRM / GESTIÓN â”€â”€ */}
                         {activeTab === "crm" && (
                             <div className="space-y-6">
                                 <div className="glass-card p-6">
@@ -958,51 +976,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         )}
                     </div>
 
-                    {/* Step navigation footer */}
-                    <div className="flex items-center justify-between mt-8 pt-6 pb-4 px-1 border-t border-slate-200 dark:border-slate-800">
-                        {prevStep ? (
-                            <Link
-                                href={`?tab=${prevStep.id}`}
-                                className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-500 transition-colors"
-                                title={`Ir al Paso ${prevStep.num}: ${prevStep.label}`}
-                            >
-                                <ArrowLeft className="w-4 h-4" />
-                                Paso {prevStep.num}: {prevStep.label}
-                            </Link>
-                        ) : (
-                            <div />
-                        )}
-                        {nextStep ? (
-                            <Link
-                                href={`?tab=${nextStep.id}`}
-                                className="flex items-center gap-2 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 px-6 py-3 rounded-xl transition-colors shadow-md shadow-brand-500/20 mr-1"
-                                title={`Ir al Paso ${nextStep.num}: ${nextStep.label}`}
-                            >
-                                Paso {nextStep.num}: {nextStep.label}
-                                <ChevronRight className="w-4 h-4" />
-                            </Link>
-                        ) : (
-                            <span className="text-sm text-emerald-500 font-bold flex items-center gap-1.5">
-                                <CheckCircle2 className="w-4 h-4" />
-                                Todos los pasos revisados
-                            </span>
-                        )}
-                    </div>
                 </div>
-
-            {/* Minimal footer */}
-            <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
-                <a href="mailto:soporte@seventoop.com"
-                    title="Soporte técnico"
-                    className="text-xs text-slate-400 hover:text-brand-500 transition-colors">
-                    Soporte
-                </a>
-                <a href="mailto:feedback@seventoop.com?subject=Feedback del sistema"
-                    title="Envianos tu opinión"
-                    className="text-xs font-semibold text-brand-500 hover:text-brand-400 transition-colors">
-                    Feedback
-                </a>
-            </div>
+                <ProjectStepsDock
+                    prevStep={prevStep ? { id: prevStep.id, num: prevStep.num, label: prevStep.label } : null}
+                    nextStep={nextStep ? { id: nextStep.id, num: nextStep.num, label: nextStep.label } : null}
+                    className="mt-3 pb-1"
+                />
         </div>
     );
 }
