@@ -191,10 +191,14 @@ export default function MasterplanMap({
         bounds: [[number, number], [number, number]];
         rotation: number;
     } | null>(null);
+    const contentBoundsRef = useRef<any | null>(null);
+    const hasAutoFitContentRef = useRef(false);
 
     // Reset selection state when entering Paso 4 (prevent bleedover from Paso 3)
     useEffect(() => {
         autoOpenedOverlayRef.current = false;
+        hasAutoFitContentRef.current = false;
+        contentBoundsRef.current = null;
         setSelectedUnitId(null);
         setHoveredUnitId(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -586,6 +590,7 @@ export default function MasterplanMap({
         const drawPolygons = async () => {
             const L = (await import("leaflet")).default;
             const map = leafletMapRef.current!;
+            const contentBounds = L.latLngBounds([]);
 
             // Clear old polygons
             polygonsRef.current.forEach((poly) => map.removeLayer(poly));
@@ -641,9 +646,10 @@ export default function MasterplanMap({
                     color: isSelected ? "#ffffff" : color,
                     fillColor: color,
                     fillOpacity: isFiltered ? 0.5 : 0.1,
-                    weight: isSelected ? 3 : 1,
+                    weight: isSelected ? 2.2 : 0.8,
                     className: "lot-polygon",
                 });
+                contentBounds.extend(polygon.getBounds());
 
                 // Tooltip
                 polygon.bindTooltip(
@@ -695,6 +701,20 @@ export default function MasterplanMap({
                         (Math.min(...cLats) + Math.max(...cLats)) / 2,
                         (Math.min(...cLngs) + Math.max(...cLngs)) / 2,
                     ];
+                    const projectedPoints = coords.map((coord) => map.latLngToContainerPoint(coord as any));
+                    const pixelWidth = Math.max(...projectedPoints.map((point) => point.x)) - Math.min(...projectedPoints.map((point) => point.x));
+                    const pixelHeight = Math.max(...projectedPoints.map((point) => point.y)) - Math.min(...projectedPoints.map((point) => point.y));
+                    const minSide = Math.max(8, Math.min(pixelWidth, pixelHeight));
+                    const textLengthFactor = Math.max(0.58, 1 - Math.max(labelText.length - 3, 0) * 0.12);
+                    const fontSize = Math.max(
+                        9,
+                        Math.min(
+                            minSide * 0.72 * textLengthFactor,
+                            pixelWidth * 0.78 / Math.max(labelText.length * 0.62, 1),
+                            pixelHeight * 0.76,
+                            26
+                        )
+                    );
                     const label = L.marker(centroid, {
                         icon: L.divIcon({
                             className: "",
@@ -702,10 +722,10 @@ export default function MasterplanMap({
                             // translate(-50%,-50%) perfectly centers the text regardless of its width
                             html: `<div style="
                                 transform: translate(-50%, -50%);
-                                font-size: 10px;
+                                font-size: ${fontSize.toFixed(1)}px;
                                 font-weight: 700;
                                 color: white;
-                                text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+                                text-shadow: 0 1px 2px rgba(0,0,0,0.72);
                                 pointer-events: none;
                                 white-space: nowrap;
                                 text-align: center;
@@ -722,6 +742,12 @@ export default function MasterplanMap({
                     polygonsRef.current.set(`label-${unit.id}`, label);
                 }
             });
+
+            contentBoundsRef.current = contentBounds.isValid() ? contentBounds : null;
+            if (!hasAutoFitContentRef.current && contentBounds.isValid()) {
+                hasAutoFitContentRef.current = true;
+                map.fitBounds(contentBounds, { padding: [40, 40], maxZoom: 19, animate: false });
+            }
         };
 
         drawPolygons();
@@ -926,7 +952,15 @@ export default function MasterplanMap({
     // Zoom controls
     const handleZoomIn = () => leafletMapRef.current?.zoomIn();
     const handleZoomOut = () => leafletMapRef.current?.zoomOut();
-    const handleResetView = () => leafletMapRef.current?.setView([centerLat, centerLng], mapZoom);
+    const handleResetView = useCallback(() => {
+        const map = leafletMapRef.current;
+        if (!map) return;
+        if (contentBoundsRef.current?.isValid?.()) {
+            map.fitBounds(contentBoundsRef.current, { padding: [40, 40], maxZoom: 19, animate: true });
+            return;
+        }
+        map.setView([centerLat, centerLng], mapZoom);
+    }, [centerLat, centerLng, mapZoom]);
 
     // Save current overlay config (bounds + rotation) from the toolbar
     const handleSavePlan = useCallback(async () => {

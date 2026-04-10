@@ -214,6 +214,127 @@ function sanitizeDetectedLotLabel(label?: string): string | null {
     return clean;
 }
 
+function formatDisplayedLotLabel(label?: string): string | null {
+    if (!label) return null;
+    const trimmed = label.trim();
+    const syntheticMatch = trimmed.match(/^L(\d+)$/i);
+    if (syntheticMatch) {
+        return syntheticMatch[1];
+    }
+    return trimmed;
+}
+
+function keepDominantBlueprintCluster(paths: ExtractedPath[]) {
+    if (paths.length < 8) {
+        return {
+            paths,
+            warning: null as string | null,
+        };
+    }
+
+    const entries = paths
+        .map((path, index) => {
+            const bounds = extractPathBounds(path.pathData);
+            if (!bounds) return null;
+            return {
+                index,
+                path,
+                bounds: {
+                    ...bounds,
+                    width: bounds.maxX - bounds.minX,
+                    height: bounds.maxY - bounds.minY,
+                    cx: (bounds.minX + bounds.maxX) / 2,
+                    cy: (bounds.minY + bounds.maxY) / 2,
+                },
+            };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => !!entry);
+
+    if (entries.length < 8) {
+        return {
+            paths,
+            warning: null as string | null,
+        };
+    }
+
+    const widths = entries.map((entry) => Math.max(entry.bounds.width, 0.001)).sort((a, b) => a - b);
+    const heights = entries.map((entry) => Math.max(entry.bounds.height, 0.001)).sort((a, b) => a - b);
+    const medianWidth = widths[Math.floor(widths.length / 2)] ?? 1;
+    const medianHeight = heights[Math.floor(heights.length / 2)] ?? 1;
+    const gap = Math.max(medianWidth, medianHeight) * 2.5;
+
+    const parent = entries.map((_, index) => index);
+    const find = (index: number): number => {
+        if (parent[index] === index) return index;
+        parent[index] = find(parent[index]);
+        return parent[index];
+    };
+    const union = (a: number, b: number) => {
+        const rootA = find(a);
+        const rootB = find(b);
+        if (rootA !== rootB) parent[rootB] = rootA;
+    };
+    const overlapsWithGap = (minA: number, maxA: number, minB: number, maxB: number) =>
+        Math.min(maxA, maxB) - Math.max(minA, minB) >= -gap;
+
+    for (let i = 0; i < entries.length; i++) {
+        for (let j = i + 1; j < entries.length; j++) {
+            const a = entries[i].bounds;
+            const b = entries[j].bounds;
+            if (Math.abs(a.cx - b.cx) > (a.width + b.width) / 2 + gap) continue;
+            if (Math.abs(a.cy - b.cy) > (a.height + b.height) / 2 + gap) continue;
+            if (overlapsWithGap(a.minX, a.maxX, b.minX, b.maxX) && overlapsWithGap(a.minY, a.maxY, b.minY, b.maxY)) {
+                union(i, j);
+            }
+        }
+    }
+
+    const clusters = new Map<number, typeof entries>();
+    entries.forEach((entry, index) => {
+        const root = find(index);
+        const cluster = clusters.get(root);
+        if (cluster) {
+            cluster.push(entry);
+        } else {
+            clusters.set(root, [entry]);
+        }
+    });
+
+    if (clusters.size <= 1) {
+        return {
+            paths,
+            warning: null as string | null,
+        };
+    }
+
+    const rankedClusters = Array.from(clusters.values()).sort((a, b) => b.length - a.length);
+    const dominantCluster = rankedClusters[0];
+    const dominantRatio = dominantCluster.length / paths.length;
+    const secondClusterSize = rankedClusters[1]?.length ?? 0;
+    const shouldKeepOnlyDominant =
+        dominantCluster.length >= 24 &&
+        dominantRatio >= 0.75 &&
+        secondClusterSize <= Math.max(12, Math.floor(dominantCluster.length * 0.15));
+
+    if (!shouldKeepOnlyDominant) {
+        return {
+            paths,
+            warning: null as string | null,
+        };
+    }
+
+    const keptIndexes = new Set(dominantCluster.map((entry) => entry.index));
+    const filteredPaths = paths.filter((_, index) => keptIndexes.has(index));
+
+    return {
+        paths: filteredPaths,
+        warning:
+            filteredPaths.length < paths.length
+                ? `Se descartaron ${paths.length - filteredPaths.length} poligonos desconectados para conservar el cuerpo principal del plano.`
+                : null,
+    };
+}
+
 export function assessBlueprintDetection(paths: ExtractedPath[]): BlueprintDetectionAssessment {
     const closedPaths = paths.filter((path) => {
         if (!path.pathData.includes("Z")) return false;
@@ -270,10 +391,15 @@ export function assessBlueprintDetection(paths: ExtractedPath[]): BlueprintDetec
 
     const sanitized = plausiblePolygons.map((path) => ({
         ...path,
-        lotNumber: sanitizeDetectedLotLabel(path.lotNumber),
+        lotNumber: sanitizeDetectedLotLabel(path.lotNumber) ?? undefined,
     }));
+    const dominantCluster = keepDominantBlueprintCluster(sanitized);
+    const clustered = dominantCluster.paths;
+    if (dominantCluster.warning) {
+        warnings.push(dominantCluster.warning);
+    }
 
-    const numericLabels = sanitized
+    const numericLabels = clustered
         .map((path) => path.lotNumber)
         .filter((label): label is string => !!label && /^\d+$/.test(label));
     const suffixCounts = new Map<string, number>();
@@ -321,11 +447,11 @@ export function assessBlueprintDetection(paths: ExtractedPath[]): BlueprintDetec
         };
     }
 
-    const saneLabelCount = sanitized.filter((path) => !!path.lotNumber).length;
+    const saneLabelCount = clustered.filter((path) => !!path.lotNumber).length;
     const shouldUseSyntheticLabels =
-        suspiciousLabelCluster || saneLabelCount < Math.max(5, Math.round(plausiblePolygons.length * 0.12));
+        suspiciousLabelCluster || saneLabelCount < Math.max(5, Math.round(clustered.length * 0.12));
 
-    const usablePaths = sanitized.map((path, index) => ({
+    const usablePaths = clustered.map((path, index) => ({
         ...path,
         lotNumber: shouldUseSyntheticLabels
             ? `L${path.internalId ?? index + 1}`
@@ -341,15 +467,15 @@ export function assessBlueprintDetection(paths: ExtractedPath[]): BlueprintDetec
         usablePaths,
         warnings,
         syntheticLabelsApplied: shouldUseSyntheticLabels,
-        metrics: {
-            totalPaths: paths.length,
-            closedPaths: closedPaths.length,
-            plausiblePolygons: plausiblePolygons.length,
-            labeledPolygons: saneLabelCount,
-            usableRatio,
-            width,
-            height,
-        },
+            metrics: {
+                totalPaths: paths.length,
+                closedPaths: closedPaths.length,
+                plausiblePolygons: plausiblePolygons.length,
+                labeledPolygons: saneLabelCount,
+                usableRatio,
+                width,
+                height,
+            },
     };
 }
 
@@ -389,16 +515,29 @@ export function buildDetectedLotsSVG(paths: ExtractedPath[]): string {
         const dataAttrs = path.lotNumber
             ? ` data-lot="${path.lotNumber}" data-area="${path.areaSqm?.toFixed(4) ?? ""}"`
             : "";
-        return `<path d="${path.pathData}"${dataAttrs} fill="none" stroke="#10b981" stroke-width="${Math.max(width, height) / 1200}" vector-effect="non-scaling-stroke" />`;
-    });
-
-    const labelElements = paths.map((path) => {
-        if (!path.lotNumber) return "";
         const pathBounds = extractPathBounds(path.pathData);
         const lotWidth = pathBounds ? Math.max(0.1, pathBounds.maxX - pathBounds.minX) : width / 40;
         const lotHeight = pathBounds ? Math.max(0.1, pathBounds.maxY - pathBounds.minY) : height / 40;
-        const fontSize = Math.max(0.18, Math.min(lotWidth * 0.42, lotHeight * 0.55, Math.min(width, height) / 32));
-        return `<text x="${path.center.x}" y="${path.center.y}" text-anchor="middle" dominant-baseline="central" font-size="${fontSize}" fill="#0f172a" font-family="monospace" font-weight="700">${escapeXml(path.lotNumber)}</text>`;
+        const strokeWidth = Math.max(0.5, Math.min(lotWidth, lotHeight) * 0.02);
+        return `<path d="${path.pathData}"${dataAttrs} fill="none" stroke="#10b981" stroke-width="${strokeWidth}" vector-effect="non-scaling-stroke" />`;
+    });
+
+    const labelElements = paths.map((path) => {
+        const displayLabel = formatDisplayedLotLabel(path.lotNumber);
+        if (!displayLabel) return "";
+        const pathBounds = extractPathBounds(path.pathData);
+        const lotWidth = pathBounds ? Math.max(0.1, pathBounds.maxX - pathBounds.minX) : width / 40;
+        const lotHeight = pathBounds ? Math.max(0.1, pathBounds.maxY - pathBounds.minY) : height / 40;
+        const minSide = Math.min(lotWidth, lotHeight);
+        const textLengthFactor = Math.max(0.58, 1 - Math.max(displayLabel.length - 3, 0) * 0.12);
+        const autoFontSize = Math.min(
+            minSide * 0.72 * textLengthFactor,
+            lotWidth * 0.78 / Math.max(displayLabel.length * 0.62, 1),
+            lotHeight * 0.76,
+            Math.min(width, height) / 12
+        );
+        const fontSize = Math.max(1.2, Math.min(autoFontSize, 3.8));
+        return `<text x="${path.center.x}" y="${path.center.y}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize}" fill="#f8fafc" stroke="rgba(15,23,42,0.56)" stroke-width="${Math.max(fontSize * 0.045, 0.05)}" paint-order="stroke fill" font-family="monospace" font-weight="700" letter-spacing="0" pointer-events="none">${escapeXml(displayLabel)}</text>`;
     }).filter(Boolean);
 
     return `<svg viewBox="${bounds.minX - padding} ${bounds.minY - padding} ${width + padding * 2} ${height + padding * 2}" xmlns="http://www.w3.org/2000/svg">
@@ -481,55 +620,66 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
         if (data.x !== undefined && data.text === undefined) updateViewbox(data.x, data.y);
     };
 
+    const resetEntityState = () => {
+        vertices = [];
+        isClosed = false;
+        lx1 = 0; ly1 = 0; lx2 = 0; ly2 = 0;
+        ccx = 0; ccy = 0; cr = 0;
+        ax = 0; ay = 0; ar = 0; aStart = 0; aEnd = 0;
+        tx = 0; ty = 0; txt = ""; tHeight = 2.5;
+        mx = 0; my = 0; mtxt = ""; mtHeight = 2.5;
+    };
+
+    const flushCurrentEntity = () => {
+        if (currentEntity === "LWPOLYLINE" && vertices.length > 0) {
+            // Also detect geometrically-closed polylines where the isClosed flag isn't set
+            // (some DXF exporters omit it and just repeat the first vertex at the end)
+            let geomClosed = isClosed;
+            let verts = [...vertices];
+            if (!geomClosed && verts.length >= 4) {
+                const first = verts[0], last = verts[verts.length - 1];
+                const epsilon = Math.max(0.001, Math.hypot(
+                    verts[1].x - verts[0].x, verts[1].y - verts[0].y
+                ) * 0.01);
+                if (Math.abs(first.x - last.x) < epsilon && Math.abs(first.y - last.y) < epsilon) {
+                    geomClosed = true;
+                    verts = verts.slice(0, -1); // remove duplicate closing vertex
+                }
+            }
+            collectEntity("LWPOLYLINE", { vertices: verts, isClosed: geomClosed });
+        } else if (currentEntity === "LINE") {
+            collectEntity("LINE", { x1: lx1, y1: ly1, x2: lx2, y2: ly2 });
+        } else if (currentEntity === "CIRCLE" && cr > 0) {
+            collectEntity("CIRCLE", { cx: ccx, cy: ccy, r: cr });
+        } else if (currentEntity === "ARC" && ar > 0) {
+            collectEntity("ARC", { cx: ax, cy: ay, r: ar, startAngle: aStart, endAngle: aEnd });
+        } else if (currentEntity === "TEXT" && txt.trim()) {
+            collectEntity("TEXT", { x: tx, y: ty, text: txt, height: tHeight });
+        } else if (currentEntity === "MTEXT" && mtxt.trim()) {
+            collectEntity("MTEXT", { x: mx, y: my, text: mtxt, height: mtHeight });
+        } else if (currentEntity === "SEQEND" && inPolyline && vertices.length > 0) {
+            collectEntity("POLYLINE", { vertices: [...vertices], isClosed });
+            inPolyline = false;
+        }
+
+        resetEntityState();
+    };
+
     // ─── Main DXF parse loop ──────────────────────────────────────────────────
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = 0; i < lines.length - 1; i += 2) {
         const code = lines[i].trim();
         const value = lines[i + 1]?.trim();
         if (value === undefined) break;
 
         if (code === "0") {
             const nextEntity = value;
-            // Flush current entity
-            if (currentEntity === "LWPOLYLINE" && vertices.length > 0) {
-                // Also detect geometrically-closed polylines where the isClosed flag isn't set
-                // (some DXF exporters omit it and just repeat the first vertex at the end)
-                let geomClosed = isClosed;
-                let verts = [...vertices];
-                if (!geomClosed && verts.length >= 4) {
-                    const first = verts[0], last = verts[verts.length - 1];
-                    const epsilon = Math.max(0.001, Math.hypot(
-                        verts[1].x - verts[0].x, verts[1].y - verts[0].y
-                    ) * 0.01);
-                    if (Math.abs(first.x - last.x) < epsilon && Math.abs(first.y - last.y) < epsilon) {
-                        geomClosed = true;
-                        verts = verts.slice(0, -1); // remove duplicate closing vertex
-                    }
-                }
-                collectEntity("LWPOLYLINE", { vertices: verts, isClosed: geomClosed });
-            } else if (currentEntity === "LINE") {
-                collectEntity("LINE", { x1: lx1, y1: ly1, x2: lx2, y2: ly2 });
-            } else if (currentEntity === "CIRCLE" && cr > 0) {
-                collectEntity("CIRCLE", { cx: ccx, cy: ccy, r: cr });
-            } else if (currentEntity === "ARC" && ar > 0) {
-                collectEntity("ARC", { cx: ax, cy: ay, r: ar, startAngle: aStart, endAngle: aEnd });
-                ar = 0;
-            } else if (currentEntity === "TEXT" && txt.trim()) {
-                collectEntity("TEXT", { x: tx, y: ty, text: txt, height: tHeight });
-                txt = "";
-            } else if (currentEntity === "MTEXT" && mtxt.trim()) {
-                collectEntity("MTEXT", { x: mx, y: my, text: mtxt, height: mtHeight });
-                mtxt = "";
-            } else if (currentEntity === "SEQEND" && inPolyline && vertices.length > 0) {
-                collectEntity("POLYLINE", { vertices: [...vertices], isClosed });
-                inPolyline = false;
-            }
-            vertices = []; isClosed = false;
+            flushCurrentEntity();
             if (nextEntity === "POLYLINE") inPolyline = true;
             currentEntity = nextEntity;
-            i++; continue;
+            continue;
         }
 
-        if (code === "8") { currentLayer = value; i++; continue; }
+        if (code === "8") { currentLayer = value; continue; }
 
         if (currentEntity === "LWPOLYLINE") {
             if (code === "10") vertices.push({ x: parseFloat(value), y: 0 });
@@ -552,15 +702,17 @@ export function parseBlueprintDXF(dxfString: string): { svg: string; paths: Extr
         } else if (currentEntity === "TEXT") {
             if (code === "10") tx = parseFloat(value); else if (code === "20") ty = parseFloat(value);
             else if (code === "40") tHeight = parseFloat(value);
-            else if (code === "1") { txt = value; i++; continue; } // skip value from being re-read as code
+            else if (code === "1") txt = value;
         } else if (currentEntity === "MTEXT") {
             if (code === "10") mx = parseFloat(value); else if (code === "20") my = parseFloat(value);
             else if (code === "40") mtHeight = parseFloat(value);
-            else if (code === "1" || code === "3") { mtxt += value; i++; continue; } // skip value
+            else if (code === "1" || code === "3") mtxt += value;
         } else if (currentEntity === "POLYLINE" && inPolyline) {
             if (code === "70") isClosed = (parseInt(value) & 1) === 1;
         }
     }
+
+    flushCurrentEntity();
 
     // ─── Topology reconstruction for segment-based DXFs (R12 style) ────────────
     // AutoCAD R12 encodes each lot side as a separate POLYLINE entity (2 vertices).
