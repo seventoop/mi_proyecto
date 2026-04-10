@@ -53,8 +53,9 @@ export async function requestPasswordReset(email: string) {
             };
         }
 
+        const normalizedEmail = parsed.data.email.toLowerCase().trim();
         const user = await prisma.user.findUnique({
-            where: { email: parsed.data.email },
+            where: { email: normalizedEmail },
         });
 
         if (!user) {

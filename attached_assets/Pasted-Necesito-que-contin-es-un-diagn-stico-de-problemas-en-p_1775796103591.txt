@@ -1,0 +1,86 @@
+Necesito que continúes un diagnóstico de problemas en producción y que vayas directo a resolver, sin frenar en explicaciones largas.
+
+Contexto actual:
+
+* En producción no estoy pudiendo iniciar sesión correctamente.
+
+* Probé con `dany76162@gmail.com` y la contraseña `Catalin@0112192122$`, y devuelve **“Credenciales inválidas”**.
+
+* Además, cuando intento acceder a la app (por ejemplo `/inicio`), aparece un error de frontend:
+
+  “An error occurred in the Server Components render…”
+
+  Esto indica que hay un fallo en el render del lado del servidor en producción (posiblemente Next.js), pero el detalle está oculto.
+
+* En local estas cosas básicas andaban, pero en producción no, así que hay que encontrar la diferencia real y corregirla.
+
+Prioridades:
+
+1. **Poder iniciar sesión en producción.**
+2. **Poder acceder a la app sin errores (resolver el Server Components error).**
+3. Luego poder usar los proyectos para testing.
+
+Quiero que trabajes con este orden:
+
+1. **Revisá la base de datos de producción**:
+
+   * Qué usuarios existen
+   * Qué emails hay
+   * Estado (activo/inactivo)
+   * Si las contraseñas están hasheadas correctamente
+
+2. Cuando digo “credenciales”, necesito:
+
+   * Mails reales de usuarios en producción
+   * Confirmación de si esas cuentas deberían poder loguear
+   * Si no se pueden recuperar contraseñas, proponé crear/resetear una con valor conocido para test
+
+3. Verificá el flujo de autenticación en producción:
+
+   * Endpoint de login
+   * Comparación de password (bcrypt u otro)
+   * Normalización de email (lowercase, trim, etc.)
+   * Variables de entorno (JWT_SECRET, AUTH_SECRET, etc.)
+   * Diferencias con local
+
+4. Si existen usuarios válidos pero no loguea:
+
+   * Debuggear directamente el login (backend)
+   * Ver logs reales en producción
+
+5. **Diagnosticar el error de Server Components (CRÍTICO)**:
+
+   * Revisar logs del servidor en producción (esto es clave, el error real está ahí)
+   * Identificar qué componente o fetch rompe en `/inicio`
+   * Ver si falla:
+
+     * conexión a la base de datos
+     * queries
+     * datos null/undefined no manejados
+     * dependencia de sesión/auth
+     * variables de entorno faltantes
+   * Comparar comportamiento con local
+
+6. Una vez resuelto:
+
+   * Confirmar que puedo iniciar sesión
+   * Confirmar que `/inicio` carga sin errores
+   * Confirmar que puedo acceder a datos reales (proyectos u otros)
+
+Importante:
+
+* No quiero teoría. Quiero diagnóstico real basado en código y entorno.
+* No asumas nada sin verificar en producción.
+* Si hay logs, mostrarlos.
+* Si algo rompe en Server Components, encontrar EXACTAMENTE dónde y por qué.
+* Si el problema es config, decir cuál y cómo corregirla.
+* Prioridad total: destrabar acceso a la app.
+
+Formato de respuesta esperado:
+
+* Qué verificaste
+* Qué encontraste
+* Usuarios/credenciales de prueba (o cómo generarlos)
+* Dónde está fallando exactamente
+* Qué cambio hay que hacer
+* Próximo paso inmediato

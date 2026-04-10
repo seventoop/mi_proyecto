@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { nombre, email, password, role } = parsed.data;
+    const { nombre, password, role } = parsed.data;
+    const email = parsed.data.email.toLowerCase().trim();
 
     // SECURITY: Whitelist of allowed roles from public registration
     const ALLOWED_ROLES = ["DESARROLLADOR", "VENDEDOR", "INVERSOR"];
