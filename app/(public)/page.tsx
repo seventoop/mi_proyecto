@@ -9,8 +9,7 @@ import ParaDesarrolladores from "@/components/public/para-desarrolladores";
 import Comunidad from "@/components/public/comunidad";
 import TestimonialsSection from "@/components/public/testimonials-section";
 import Noticias from "@/components/public/noticias";
-import SectionArrows from "@/components/public/section-arrows";
-import ScrollToTop from "@/components/public/scroll-to-top";
+import FloatingNav from "@/components/public/floating-nav";
 
 import { getBannersLanding } from "@/lib/actions/banners";
 import { getProyectosDestacados } from "@/lib/actions/proyectos";
@@ -38,28 +37,23 @@ export default async function HomePage() {
     return (
         <main className="min-h-screen bg-background text-foreground">
             <section id="inicio" className="relative pt-[72px] sm:pt-[80px]">
-                <div className="bg-black">
-                    <MediaBanner banners={banners} />
-                </div>
-                <div className="relative -mt-4 z-20">
+                <MediaBanner banners={banners} />
+                <div className="relative z-20">
                     <Hero
                         title={heroTitle?.value || undefined}
                         subtitle={heroSubtitle?.value || undefined}
                         ctaText={ctaText?.value || undefined}
                     />
                 </div>
-                <SectionArrows currentSection="inicio" />
             </section>
 
             <section id="proyectos">
                 <Exploracion />
                 <ProyectosDestacados proyectos={proyectos} />
-                <SectionArrows currentSection="proyectos" />
             </section>
 
             <section id="desarrolladores">
                 <ParaDesarrolladores />
-                <SectionArrows currentSection="desarrolladores" />
             </section>
 
             <section id="como-funciona">
@@ -67,21 +61,18 @@ export default async function HomePage() {
                 <div id="oportunidades">
                     <FormularioCaptura />
                 </div>
-                <SectionArrows currentSection="como-funciona" />
             </section>
 
             <section id="noticias">
                 <Noticias />
-                <SectionArrows currentSection="noticias" />
             </section>
 
             <section id="testimonios">
                 <Comunidad />
                 <TestimonialsSection />
-                <SectionArrows currentSection="testimonios" />
             </section>
 
-            <ScrollToTop />
+            <FloatingNav />
         </main>
     );
 }
