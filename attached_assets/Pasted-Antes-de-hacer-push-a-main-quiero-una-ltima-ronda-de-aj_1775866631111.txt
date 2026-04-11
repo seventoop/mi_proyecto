@@ -1,0 +1,101 @@
+Antes de hacer push a `main`, quiero una última ronda de ajustes sobre la landing, enfocada en rendimiento y navegación.
+
+## 1. Optimización / sensación de lentitud
+
+Estoy notando la landing algo lenta tanto en Replit como en producción:
+
+* transiciones algo pesadas
+* cierta demora al interactuar con botones o secciones
+* sensación general de que algunas animaciones acentúan la lentitud
+
+Quiero que hagas una pasada de optimización enfocada en UX percibida:
+
+* reducir o simplificar animaciones donde aporten poco
+* evitar renders innecesarios
+* revisar componentes públicos que puedan estar recalculando de más
+* revisar imágenes pesadas / lazy loading / prioridades
+* revisar si hay delays, waits o transiciones demasiado largas entre interacciones
+* priorizar fluidez por encima de efectos visuales
+
+No quiero una refactorización gigante; quiero mejoras concretas y seguras para que la landing se sienta más ágil.
+
+## 2. Flechas flotantes entre secciones — corregir comportamiento
+
+La lógica actual no está bien.
+
+Comportamiento deseado:
+
+* En la parte más alta de Inicio:
+
+  * debe aparecer solo la flecha para bajar a Proyectos
+* En secciones intermedias:
+
+  * deben aparecer dos flechas:
+
+    * una para subir a la sección anterior
+    * una para bajar a la sección siguiente
+* En la última sección / parte final (Contacto):
+
+  * debe aparecer solo la flecha para subir
+
+Orden exacto de secciones:
+
+1. Inicio
+2. Proyectos
+3. Desarrolladores
+4. Cómo funciona
+5. Noticias
+6. Testimonios
+7. Contacto
+
+Entonces:
+
+* Inicio: solo ↓ Proyectos
+* Proyectos: ↑ Inicio y ↓ Desarrolladores
+* Desarrolladores: ↑ Proyectos y ↓ Cómo funciona
+* Cómo funciona: ↑ Desarrolladores y ↓ Noticias
+* Noticias: ↑ Cómo funciona y ↓ Testimonios
+* Testimonios: ↑ Noticias y ↓ Contacto
+* Contacto: solo ↑ Testimonios
+
+Quiero que lo corrijas para que esto funcione sí o sí.
+
+## 3. Sacar el bloque entre Inicio y Proyectos
+
+El bloque que quiero mover es este (el del hero principal):
+
+"Infraestructura Inmobiliaria
+El ecosistema para acceder a las mejores oportunidades reales
+Conectamos inversores y compradores con desarrolladores verificados. Explorá proyectos de alta calidad, interactuá con tecnología avanzada y accedé al mercado antes que el resto.
+
+Descubrir oportunidades
+Soy Desarrollador"
+
+Ese bloque hoy está quedando duplicado o mal ubicado entre Inicio y Proyectos.
+
+Quiero que:
+
+* no interrumpa el flujo entre Inicio y Proyectos
+* Proyectos aparezca inmediatamente después del contenido visual principal
+* si ese bloque ya cumple el rol de hero, entonces no debe repetirse ni aparecer en otra parte
+* si está duplicado, eliminar la duplicación
+
+## 4. Prioridad de experiencia
+
+El flujo debe ser:
+
+* hero claro
+* impacto visual
+* proyectos inmediatamente visibles
+* navegación fluida
+
+## 5. Antes del push
+
+Antes de pushear a `main`, decime:
+
+* qué componentes tocaste
+* qué optimizaciones aplicaste
+* cómo quedó la lógica de flechas
+* qué hiciste con ese bloque
+
+Después reviso y recién ahí hacemos push.

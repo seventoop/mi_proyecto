@@ -126,7 +126,7 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
     useEffect(() => {
         if (!banners || banners.length <= 1) return;
         const tipo = banners[currentIndex]?.tipo || "IMAGEN";
-        const duration = tipo === "VIDEO" ? 35000 : 20000;
+        const duration = tipo === "VIDEO" ? 25000 : 8000;
         const timer = setTimeout(nextSlide, duration);
         return () => clearTimeout(timer);
     }, [banners, currentIndex, nextSlide]);
@@ -175,7 +175,7 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 1, ease: "easeInOut" }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
                     className="absolute inset-0 w-full h-full"
                 >
                     {currentBanner.tipo === "VIDEO" ? (
@@ -198,10 +198,10 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                             />
                             {(currentBanner.headline || currentBanner.titulo) && (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 30 }}
+                                    initial={{ opacity: 0, y: 16 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                    transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
                                     className="absolute inset-0 flex flex-col justify-end pb-20 px-8 sm:px-14 z-10"
                                 >
                                     {/* Only show darkened gradient if there is actual text content provided in props */}

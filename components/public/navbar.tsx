@@ -201,7 +201,7 @@ export default function Navbar() {
     return (
         <header
             className={cn(
-                "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ease-in-out",
+                "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-200 ease-out",
                 "border-b border-border/40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85",
                 "dark:border-white/10 dark:bg-[#1A1A2E]/95 dark:supports-[backdrop-filter]:bg-[#1A1A2E]/85",
                 scrolled ? "py-1 shadow-md" : "py-2 shadow-sm"

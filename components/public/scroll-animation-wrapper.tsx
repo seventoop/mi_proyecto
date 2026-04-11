@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { ReactNode } from "react";
+import { useRef, useEffect, useState, ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 interface ScrollAnimationWrapperProps {
     children: ReactNode;
@@ -16,33 +16,48 @@ export default function ScrollAnimationWrapper({
     delay = 0,
     direction = "up"
 }: ScrollAnimationWrapperProps) {
-    const variants = {
-        hidden: {
-            opacity: 0,
-            y: direction === "up" ? 20 : direction === "down" ? -20 : 0,
-            x: direction === "left" ? 20 : direction === "right" ? -20 : 0,
-        },
-        visible: {
-            opacity: 1,
-            y: 0,
-            x: 0,
-            transition: {
-                duration: 0.6,
-                delay,
-                ease: [0.21, 0.47, 0.32, 0.98] as any
-            }
-        }
+    const ref = useRef<HTMLDivElement>(null);
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                    observer.unobserve(el);
+                }
+            },
+            { rootMargin: "-60px", threshold: 0.1 }
+        );
+
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    const translateMap = {
+        up: "translate-y-4",
+        down: "-translate-y-4",
+        left: "translate-x-4",
+        right: "-translate-x-4",
+        none: "",
     };
 
     return (
-        <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={variants}
-            className={className}
+        <div
+            ref={ref}
+            className={cn(
+                "transition-all duration-500 ease-out",
+                isVisible
+                    ? "opacity-100 translate-y-0 translate-x-0"
+                    : `opacity-0 ${translateMap[direction]}`,
+                className
+            )}
+            style={delay > 0 ? { transitionDelay: `${delay * 1000}ms` } : undefined}
         >
             {children}
-        </motion.div>
+        </div>
     );
 }

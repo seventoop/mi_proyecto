@@ -37,24 +37,22 @@ export default async function HomePage() {
 
     return (
         <main className="min-h-screen bg-background text-foreground">
-            <section id="banner" className="relative pt-[72px] sm:pt-[80px] bg-black">
-                <MediaBanner banners={banners} />
-            </section>
-
-            <section id="inicio" className="relative -mt-4 z-20">
-                <Hero
-                    title={heroTitle?.value || undefined}
-                    subtitle={heroSubtitle?.value || undefined}
-                    ctaText={ctaText?.value || undefined}
-                />
+            <section id="inicio" className="relative pt-[72px] sm:pt-[80px]">
+                <div className="bg-black">
+                    <MediaBanner banners={banners} />
+                </div>
+                <div className="relative -mt-4 z-20">
+                    <Hero
+                        title={heroTitle?.value || undefined}
+                        subtitle={heroSubtitle?.value || undefined}
+                        ctaText={ctaText?.value || undefined}
+                    />
+                </div>
                 <SectionArrows next="proyectos" />
             </section>
 
-            <section id="exploracion">
-                <Exploracion />
-            </section>
-
             <section id="proyectos">
+                <Exploracion />
                 <ProyectosDestacados proyectos={proyectos} />
                 <SectionArrows prev="inicio" next="desarrolladores" />
             </section>
@@ -66,11 +64,10 @@ export default async function HomePage() {
 
             <section id="como-funciona">
                 <ComoFunciona />
+                <div id="oportunidades">
+                    <FormularioCaptura />
+                </div>
                 <SectionArrows prev="desarrolladores" next="noticias" />
-            </section>
-
-            <section id="oportunidades">
-                <FormularioCaptura />
             </section>
 
             <section id="noticias">
@@ -78,11 +75,8 @@ export default async function HomePage() {
                 <SectionArrows prev="como-funciona" next="testimonios" />
             </section>
 
-            <section id="comunidad">
-                <Comunidad />
-            </section>
-
             <section id="testimonios">
+                <Comunidad />
                 <TestimonialsSection />
                 <SectionArrows prev="noticias" next="contacto" />
             </section>

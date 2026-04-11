@@ -10,12 +10,14 @@ import {
     ArrowUpRight
 } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
+import SectionArrows from "./section-arrows";
 
 export default function Footer() {
     const { dictionary: t } = useLanguage();
 
     return (
-        <footer id="contacto" className="bg-background text-foreground/70 border-t border-border pt-16 pb-8 relative overflow-hidden">
+        <footer id="contacto" className="bg-background text-foreground/70 border-t border-border pt-8 pb-8 relative overflow-hidden">
+            <SectionArrows prev="testimonios" />
             <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-brand-orange/5 blur-[120px] rounded-full pointer-events-none" />
 
             <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 xl:px-12 relative z-10">
