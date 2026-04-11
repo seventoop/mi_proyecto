@@ -8,6 +8,9 @@ import ComoFunciona from "@/components/public/como-funciona";
 import ParaDesarrolladores from "@/components/public/para-desarrolladores";
 import Comunidad from "@/components/public/comunidad";
 import TestimonialsSection from "@/components/public/testimonials-section";
+import Noticias from "@/components/public/noticias";
+import SectionArrows from "@/components/public/section-arrows";
+import ScrollToTop from "@/components/public/scroll-to-top";
 
 import { getBannersLanding } from "@/lib/actions/banners";
 import { getProyectosDestacados } from "@/lib/actions/proyectos";
@@ -44,33 +47,47 @@ export default async function HomePage() {
                     subtitle={heroSubtitle?.value || undefined}
                     ctaText={ctaText?.value || undefined}
                 />
+                <SectionArrows next="proyectos" />
             </section>
 
             <section id="exploracion">
                 <Exploracion />
             </section>
 
-            <section id="oportunidades">
-                <FormularioCaptura />
-            </section>
-
             <section id="proyectos">
                 <ProyectosDestacados proyectos={proyectos} />
-            </section>
-
-            <section id="como-funciona">
-                <ComoFunciona />
+                <SectionArrows prev="inicio" next="desarrolladores" />
             </section>
 
             <section id="desarrolladores">
                 <ParaDesarrolladores />
+                <SectionArrows prev="proyectos" next="como-funciona" />
+            </section>
+
+            <section id="como-funciona">
+                <ComoFunciona />
+                <SectionArrows prev="desarrolladores" next="noticias" />
+            </section>
+
+            <section id="oportunidades">
+                <FormularioCaptura />
+            </section>
+
+            <section id="noticias">
+                <Noticias />
+                <SectionArrows prev="como-funciona" next="testimonios" />
             </section>
 
             <section id="comunidad">
                 <Comunidad />
             </section>
 
-            <TestimonialsSection />
+            <section id="testimonios">
+                <TestimonialsSection />
+                <SectionArrows prev="noticias" next="contacto" />
+            </section>
+
+            <ScrollToTop />
         </main>
     );
 }

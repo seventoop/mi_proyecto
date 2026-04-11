@@ -15,7 +15,7 @@ export default function Footer() {
     const { dictionary: t } = useLanguage();
 
     return (
-        <footer className="bg-background text-foreground/70 border-t border-border pt-16 pb-8 relative overflow-hidden">
+        <footer id="contacto" className="bg-background text-foreground/70 border-t border-border pt-16 pb-8 relative overflow-hidden">
             <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-brand-orange/5 blur-[120px] rounded-full pointer-events-none" />
 
             <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 xl:px-12 relative z-10">
@@ -40,7 +40,7 @@ export default function Footer() {
                                 { name: t.footer.links.featured, href: "/#proyectos" },
                                 { name: t.footer.links.howItWorks, href: "/#como-funciona" },
                                 { name: t.footer.links.developers, href: "/#desarrolladores" },
-                                { name: t.footer.links.blog, href: "/blog" }
+                                { name: t.footer.links.news, href: "/#noticias" }
                             ].map((link, i) => (
                                 <li key={i}>
                                     <Link href={link.href} className="flex items-center group hover:text-brand-orange transition-colors">

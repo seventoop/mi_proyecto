@@ -2,9 +2,9 @@
   "nav": {
     "inicio": "Home",
     "proyectos": "Projects",
-    "comoFunciona": "How it works",
     "desarrolladores": "Developers",
-    "blog": "Blog",
+    "comoFunciona": "How it works",
+    "noticias": "News",
     "testimonios": "Testimonials",
     "contacto": "Contact"
   },
@@ -367,6 +367,13 @@
     "engineLabel": "SevenToop Media Engine",
     "systemStatus": "DYNAMIC CONTENT SYSTEM V1.0"
   },
+  "news": {
+    "badge": "Updates",
+    "title": "News",
+    "titleHighlight": "& updates",
+    "description": "Latest updates on developments, technology and real estate market opportunities.",
+    "readMore": "Read more"
+  },
   "footer": {
     "platform": "Platform",
     "contact": "Contact",
@@ -376,7 +383,7 @@
       "featured": "Featured Projects",
       "howItWorks": "How it Works",
       "developers": "For Developers",
-      "blog": "Blog & News"
+      "news": "News"
     },
     "contactLabels": {
       "email": "Email",

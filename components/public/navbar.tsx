@@ -19,33 +19,27 @@ import { useLanguage } from "@/components/providers/language-provider";
 type NavItemKey =
     | "inicio"
     | "proyectos"
-    | "comoFunciona"
     | "desarrolladores"
-    | "blog"
+    | "comoFunciona"
+    | "noticias"
     | "testimonios"
     | "contacto";
 
-type NavItem =
-    | {
-        key: NavItemKey;
-        href: string;
-        type: "route";
-    }
-    | {
-        key: NavItemKey;
-        href: string;
-        type: "anchor";
-        anchor: "#inicio" | "#como-funciona" | "#testimonios";
-    };
+type NavItem = {
+    key: NavItemKey;
+    href: string;
+    type: "anchor";
+    anchor: string;
+};
 
 const NAV_ITEMS: NavItem[] = [
     { key: "inicio", href: "/#inicio", type: "anchor", anchor: "#inicio" },
-    { key: "proyectos", href: "/proyectos", type: "route" },
+    { key: "proyectos", href: "/#proyectos", type: "anchor", anchor: "#proyectos" },
+    { key: "desarrolladores", href: "/#desarrolladores", type: "anchor", anchor: "#desarrolladores" },
     { key: "comoFunciona", href: "/#como-funciona", type: "anchor", anchor: "#como-funciona" },
-    { key: "desarrolladores", href: "/desarrolladores", type: "route" },
-    { key: "blog", href: "/blog", type: "route" },
+    { key: "noticias", href: "/#noticias", type: "anchor", anchor: "#noticias" },
     { key: "testimonios", href: "/#testimonios", type: "anchor", anchor: "#testimonios" },
-    { key: "contacto", href: "/contacto", type: "route" },
+    { key: "contacto", href: "/#contacto", type: "anchor", anchor: "#contacto" },
 ];
 
 const HEADER_OFFSET = 96;
@@ -60,10 +54,7 @@ export default function Navbar() {
     const router = useRouter();
     const { data: session } = useSession();
 
-    const anchorItems = useMemo(
-        () => NAV_ITEMS.filter((item): item is Extract<NavItem, { type: "anchor" }> => item.type === "anchor"),
-        []
-    );
+    const anchorItems = useMemo(() => NAV_ITEMS, []);
 
     const changeLocale = useCallback((nextLocale: "es" | "en") => {
         setLanguage(nextLocale);
@@ -134,14 +125,25 @@ export default function Navbar() {
             },
             {
                 root: null,
-                rootMargin: `-${HEADER_OFFSET}px 0px -45% 0px`,
-                threshold: [0.2, 0.35, 0.5, 0.75],
+                rootMargin: `-${HEADER_OFFSET}px 0px -35% 0px`,
+                threshold: [0.05, 0.1, 0.2, 0.35, 0.5],
             }
         );
 
         sections.forEach((section) => observer.observe(section));
 
-        return () => observer.disconnect();
+        const handleScroll = () => {
+            const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100;
+            if (atBottom) {
+                setActiveSection("#contacto");
+            }
+        };
+        window.addEventListener("scroll", handleScroll, { passive: true });
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("scroll", handleScroll);
+        };
     }, [pathname, anchorItems]);
 
     useEffect(() => {
@@ -188,10 +190,6 @@ export default function Navbar() {
 
     const isItemActive = useCallback(
         (item: NavItem) => {
-            if (item.type === "route") {
-                return pathname === item.href;
-            }
-
             if (pathname !== "/") return false;
             return activeSection === item.anchor;
         },
@@ -231,28 +229,11 @@ export default function Navbar() {
                         const active = isItemActive(item);
                         const label = t.nav[item.key];
 
-                        if (item.type === "anchor") {
-                            return (
-                                <button
-                                    key={item.key}
-                                    type="button"
-                                    onClick={() => handleNavClick(item)}
-                                    className={cn(
-                                        "whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors",
-                                        "text-foreground/80 hover:bg-brand-orange/5 hover:text-brand-orange",
-                                        active && "bg-brand-orange/5 text-brand-orange"
-                                    )}
-                                    aria-current={active ? "page" : undefined}
-                                >
-                                    {label}
-                                </button>
-                            );
-                        }
-
                         return (
-                            <Link
+                            <button
                                 key={item.key}
-                                href={item.href}
+                                type="button"
+                                onClick={() => handleNavClick(item)}
                                 className={cn(
                                     "whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors",
                                     "text-foreground/80 hover:bg-brand-orange/5 hover:text-brand-orange",
@@ -261,7 +242,7 @@ export default function Navbar() {
                                 aria-current={active ? "page" : undefined}
                             >
                                 {label}
-                            </Link>
+                            </button>
                         );
                     })}
                 </nav>
@@ -360,38 +341,20 @@ export default function Navbar() {
                             const active = isItemActive(item);
                             const label = t.nav[item.key];
 
-                            if (item.type === "anchor") {
-                                return (
-                                    <button
-                                        key={item.key}
-                                        type="button"
-                                        onClick={() => handleNavClick(item)}
-                                        className={cn(
-                                            "w-full rounded-xl px-4 py-3.5 text-left text-base font-semibold transition-colors",
-                                            "text-foreground/90 hover:bg-brand-orange/5 hover:text-brand-orange",
-                                            active && "bg-brand-orange/5 text-brand-orange"
-                                        )}
-                                        aria-current={active ? "page" : undefined}
-                                    >
-                                        {label}
-                                    </button>
-                                );
-                            }
-
                             return (
-                                <Link
+                                <button
                                     key={item.key}
-                                    href={item.href}
-                                    onClick={() => setMobileMenuOpen(false)}
+                                    type="button"
+                                    onClick={() => handleNavClick(item)}
                                     className={cn(
-                                        "block rounded-xl px-4 py-3.5 text-base font-semibold transition-colors",
+                                        "w-full rounded-xl px-4 py-3.5 text-left text-base font-semibold transition-colors",
                                         "text-foreground/90 hover:bg-brand-orange/5 hover:text-brand-orange",
                                         active && "bg-brand-orange/5 text-brand-orange"
                                     )}
                                     aria-current={active ? "page" : undefined}
                                 >
                                     {label}
-                                </Link>
+                                </button>
                             );
                         })}
                     </div>

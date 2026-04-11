@@ -2,9 +2,9 @@
   "nav": {
     "inicio": "Inicio",
     "proyectos": "Proyectos",
-    "comoFunciona": "Cómo funciona",
     "desarrolladores": "Desarrolladores",
-    "blog": "Blog",
+    "comoFunciona": "Cómo funciona",
+    "noticias": "Noticias",
     "testimonios": "Testimonios",
     "contacto": "Contacto"
   },
@@ -367,6 +367,13 @@
     "engineLabel": "SevenToop Media Engine",
     "systemStatus": "SISTEMA DE CONTENIDOS DINÁMICOS V1.0"
   },
+  "news": {
+    "badge": "Novedades",
+    "title": "Noticias",
+    "titleHighlight": "del sector",
+    "description": "Últimas novedades sobre desarrollos, tecnología y oportunidades del mercado inmobiliario.",
+    "readMore": "Leer más"
+  },
   "footer": {
     "platform": "Plataforma",
     "contact": "Contacto",
@@ -376,7 +383,7 @@
       "featured": "Proyectos Destacados",
       "howItWorks": "Cómo Funciona",
       "developers": "Para Desarrolladores",
-      "blog": "Blog y Novedades"
+      "news": "Noticias"
     },
     "contactLabels": {
       "email": "Email",
