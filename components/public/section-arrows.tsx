@@ -5,7 +5,11 @@ import { cn } from "@/lib/utils";
 
 const HEADER_OFFSET = 96;
 
-function scrollToSection(id: string) {
+const SECTIONS = ["inicio", "proyectos", "desarrolladores", "como-funciona", "noticias", "testimonios", "contacto"] as const;
+
+type SectionId = (typeof SECTIONS)[number];
+
+function scrollToSection(id: SectionId) {
     const el = document.getElementById(id);
     if (!el) return;
     const top = Math.max(el.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET, 0);
@@ -13,34 +17,37 @@ function scrollToSection(id: string) {
 }
 
 interface SectionArrowsProps {
-    prev?: string;
-    next?: string;
+    currentSection: SectionId;
     className?: string;
 }
 
-export default function SectionArrows({ prev, next, className }: SectionArrowsProps) {
-    if (!prev && !next) return null;
+export default function SectionArrows({ currentSection, className }: SectionArrowsProps) {
+    const currentIndex = SECTIONS.indexOf(currentSection);
+    const hasPrev = currentIndex > 0;
+    const hasNext = currentIndex < SECTIONS.length - 1;
+
+    if (currentIndex === -1) return null;
 
     return (
-        <div className={cn("flex justify-center items-center gap-3 py-2", className)}>
-            {prev && (
+        <div className={cn("flex items-center justify-center gap-3 py-2", className)}>
+            {hasPrev && (
                 <button
                     type="button"
-                    onClick={() => scrollToSection(prev)}
+                    onClick={() => scrollToSection(SECTIONS[currentIndex - 1])}
                     aria-label="Sección anterior"
-                    className="w-10 h-10 rounded-full border border-border bg-background/80 backdrop-blur-sm text-foreground/50 hover:text-brand-orange hover:border-brand-orange/40 flex items-center justify-center transition-all duration-200 hover:scale-110"
+                    className="relative z-10 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background/90 text-foreground/70 shadow-sm transition-all duration-200 hover:scale-105 hover:border-brand-orange/40 hover:text-brand-orange"
                 >
-                    <ChevronUp className="w-5 h-5" />
+                    <ChevronUp className="h-5 w-5" />
                 </button>
             )}
-            {next && (
+            {hasNext && (
                 <button
                     type="button"
-                    onClick={() => scrollToSection(next)}
+                    onClick={() => scrollToSection(SECTIONS[currentIndex + 1])}
                     aria-label="Siguiente sección"
-                    className="w-10 h-10 rounded-full border border-border bg-background/80 backdrop-blur-sm text-foreground/50 hover:text-brand-orange hover:border-brand-orange/40 flex items-center justify-center transition-all duration-200 hover:scale-110"
+                    className="relative z-10 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background/90 text-foreground/70 shadow-sm transition-all duration-200 hover:scale-105 hover:border-brand-orange/40 hover:text-brand-orange"
                 >
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="h-5 w-5" />
                 </button>
             )}
         </div>

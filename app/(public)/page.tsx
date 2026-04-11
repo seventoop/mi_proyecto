@@ -48,18 +48,18 @@ export default async function HomePage() {
                         ctaText={ctaText?.value || undefined}
                     />
                 </div>
-                <SectionArrows next="proyectos" />
+                <SectionArrows currentSection="inicio" />
             </section>
 
             <section id="proyectos">
                 <Exploracion />
                 <ProyectosDestacados proyectos={proyectos} />
-                <SectionArrows prev="inicio" next="desarrolladores" />
+                <SectionArrows currentSection="proyectos" />
             </section>
 
             <section id="desarrolladores">
                 <ParaDesarrolladores />
-                <SectionArrows prev="proyectos" next="como-funciona" />
+                <SectionArrows currentSection="desarrolladores" />
             </section>
 
             <section id="como-funciona">
@@ -67,18 +67,18 @@ export default async function HomePage() {
                 <div id="oportunidades">
                     <FormularioCaptura />
                 </div>
-                <SectionArrows prev="desarrolladores" next="noticias" />
+                <SectionArrows currentSection="como-funciona" />
             </section>
 
             <section id="noticias">
                 <Noticias />
-                <SectionArrows prev="como-funciona" next="testimonios" />
+                <SectionArrows currentSection="noticias" />
             </section>
 
             <section id="testimonios">
                 <Comunidad />
                 <TestimonialsSection />
-                <SectionArrows prev="noticias" next="contacto" />
+                <SectionArrows currentSection="testimonios" />
             </section>
 
             <ScrollToTop />
