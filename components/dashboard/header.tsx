@@ -32,6 +32,16 @@ export default function Header() {
         INVITADO: "Invitado",
     };
     const userRole = roleLabels[userRoleCode] || userRoleCode;
+    const roleBadgeClass: Record<string, string> = {
+        SUPERADMIN: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300",
+        ADMIN: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+        DESARROLLADOR: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+        VENDEDOR: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+        INVERSOR: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+        CLIENTE: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+        INVITADO: "bg-slate-100 text-slate-700 dark:bg-white/[0.08] dark:text-slate-300",
+    };
+    const roleBadge = roleBadgeClass[userRoleCode] || roleBadgeClass.INVITADO;
 
     const generateBreadcrumbs = () => {
         if (!pathname) return [];
@@ -143,7 +153,10 @@ export default function Header() {
                             <span className="text-[13px] font-semibold text-slate-900 dark:text-zinc-100 leading-none mb-1">
                                 {userName}
                             </span>
-                            <span className="text-xs font-black text-brand-600 dark:text-brand-400 uppercase tracking-widest leading-none">
+                            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none mb-1">
+                                Rol actual
+                            </span>
+                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest leading-none ${roleBadge}`}>
                                 {userRole}
                             </span>
                         </div>

@@ -11,6 +11,7 @@ import AdminManagementPanel from "@/components/dashboard/admin/admin-management-
 import { cn } from "@/lib/utils";
 import ModuleHelp from "@/components/dashboard/module-help";
 import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
+import RoleCapabilitiesCard from "@/components/dashboard/role-capabilities-card";
 
 interface DashboardData {
     financials: {
@@ -96,6 +97,8 @@ export default async function AdminDashboard() {
                     </div>
                 ))}
             </div>
+
+            <RoleCapabilitiesCard role={userRole} />
 
             {/* Management Module (Financials & Queues) */}
             <AdminManagementPanel

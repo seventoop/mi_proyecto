@@ -14,6 +14,7 @@ import InvestorFinancialSummary from "@/components/dashboard/investor-financial-
 import InvestorMovementsTable from "@/components/dashboard/investor-movements-table";
 import ModuleHelp from "@/components/dashboard/module-help";
 import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
+import RoleCapabilitiesCard from "@/components/dashboard/role-capabilities-card";
 
 interface Props {
     user: { id: string; nombre: string; email: string; kycStatus: string; riskLevel: string; rol: string };
@@ -56,6 +57,8 @@ export default function PortafolioDashboardClient({ user, role, misUnidades, inv
             </div>
 
             {/* ─── SECCIÓN: MIS PROPIEDADES ─────────────────────────────── */}
+            <RoleCapabilitiesCard role={role} />
+
             <section className="space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">

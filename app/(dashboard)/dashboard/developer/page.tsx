@@ -15,6 +15,7 @@ import DeveloperFinancialPanel from "@/components/dashboard/developer-financial-
 import { getOrgPlanWithUsage } from "@/lib/actions/plan-actions";
 import UpgradePrompt from "@/components/saas/UpgradePrompt";
 import UsageMeter from "@/components/saas/UsageMeter";
+import RoleCapabilitiesCard from "@/components/dashboard/role-capabilities-card";
 
 export const dynamic = "force-dynamic";
 
@@ -138,6 +139,7 @@ export default async function DeveloperDashboard() {
     return (
         <div className="space-y-6 pb-12 animate-fade-in">
             <ModuleHelp content={MODULE_HELP_CONTENT.developerMain} />
+            <RoleCapabilitiesCard role={userRole} />
             
             {userRole === "VENDEDOR" && sellerData ? (
                 <SellerDashboardView 

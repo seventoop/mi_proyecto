@@ -7,6 +7,7 @@ import { Home, MapPin, Calendar, FileText, Eye, MapIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import ModuleHelp from "@/components/dashboard/module-help";
 import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
+import RoleCapabilitiesCard from "@/components/dashboard/role-capabilities-card";
 
 export default async function ClienteDashboardPage() {
     const session = await getServerSession(authOptions);
@@ -14,6 +15,7 @@ export default async function ClienteDashboardPage() {
     if (!session?.user) {
         redirect("/login");
     }
+    const userRole = (session.user as any).role as string | undefined;
 
     // Fetch client properties (units where they are responsible)
     const misUnidades = await prisma.unidad.findMany({
@@ -46,6 +48,8 @@ export default async function ClienteDashboardPage() {
                     <ModuleHelp content={MODULE_HELP_CONTENT.clientePropiedades} />
                 </div>
             </div>
+
+            <RoleCapabilitiesCard role={userRole} />
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
