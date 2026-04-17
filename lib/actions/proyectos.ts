@@ -7,6 +7,7 @@ import { z } from "zod";
 import { idSchema, slugSchema } from "@/lib/validations";
 import { audit } from "@/lib/actions/audit";
 import { flagsFromEstado } from "@/lib/project-access";
+import { buildPublicProjectWhere } from "@/lib/public-projects";
 
 // ─── Scemas ───
 
@@ -584,11 +585,7 @@ export async function setMainProyectoImagen(id: string, proyectoId: string) {
 export async function getProyectosDestacados() {
     try {
         const proyectos = await prisma.proyecto.findMany({
-            where: {
-                visibilityStatus: "PUBLICADO",
-                deletedAt: null,
-                estado: { not: "SUSPENDIDO" },
-            },
+            where: buildPublicProjectWhere(),
             select: {
                 id: true,
                 nombre: true,

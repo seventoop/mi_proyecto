@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import ProjectsFilter from "@/components/public/projects-filter";
 import { Building2, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { buildPublicProjectWhere } from "@/lib/public-projects";
 
 export const metadata: Metadata = {
     title: "Desarrollos | SevenToop — Infraestructura para Lanzamientos Inmobiliarios",
@@ -13,17 +14,7 @@ export const metadata: Metadata = {
 async function getProjects() {
     try {
         const projects = await db.proyecto.findMany({
-            where: {
-                visibilityStatus: "PUBLICADO",
-                estado: { not: "SUSPENDIDO" },
-                OR: [
-                    { isDemo: false },
-                    {
-                        isDemo: true,
-                        demoExpiresAt: { gt: new Date() }
-                    }
-                ]
-            },
+            where: buildPublicProjectWhere(),
             orderBy: { createdAt: "desc" },
         });
 

@@ -3,6 +3,7 @@
 import prisma from "@/lib/db";
 import { requireAuth, handleGuardError } from "@/lib/guards";
 import { idSchema } from "@/lib/validations";
+import { buildPublicProjectWhere } from "@/lib/public-projects";
 
 export async function getInversorDashboardData(userId: string) {
     try {
@@ -113,18 +114,11 @@ export async function getInversorDashboardData(userId: string) {
 export async function getInvestmentOpportunities() {
     try {
         const authUser = await requireAuth();
-        const now = new Date();
         const [opportunities, favoritos] = await Promise.all([
             prisma.proyecto.findMany({
                 where: {
-                    invertible: true,
-                    estado: { notIn: ['VENDIDO', 'SUSPENDIDO'] },
-                    visibilityStatus: 'PUBLICADO',
-                    deletedAt: null,
-                    OR: [
-                        { isDemo: false },
-                        { AND: [{ isDemo: true }, { demoExpiresAt: { gt: now } }] }
-                    ]
+                    ...buildPublicProjectWhere({ invertible: true }),
+                    estado: { notIn: ["VENDIDO", "SUSPENDIDO", "CANCELADO", "ELIMINADO", "DESACTIVADO"] },
                 },
                 include: {
                     hitosEscrow: true
@@ -149,6 +143,34 @@ export async function getInvestmentOpportunities() {
     }
 }
 
+export async function getAllPublicProjects() {
+    try {
+        const authUser = await requireAuth();
+        const [proyectos, favoritos] = await Promise.all([
+            prisma.proyecto.findMany({
+                where: buildPublicProjectWhere(),
+                select: {
+                    id: true, nombre: true, slug: true, ubicacion: true,
+                    descripcion: true, imagenPortada: true, tipo: true, estado: true,
+                    precioM2Inversor: true, precioM2Mercado: true,
+                    metaM2Objetivo: true, m2VendidosInversores: true,
+                    invertible: true, isDemo: true,
+                    _count: { select: { etapas: true } },
+                },
+                orderBy: { createdAt: "desc" },
+            }),
+            prisma.favoritoProyecto.findMany({
+                where: { userId: authUser.id },
+                select: { proyectoId: true },
+            }),
+        ]);
+        const favIds = new Set(favoritos.map(f => f.proyectoId));
+        return proyectos.map(p => ({ ...p, isFavorite: favIds.has(p.id) }));
+    } catch (error) {
+        console.error("[getAllPublicProjects]", error);
+        return [];
+    }
+}
 export async function toggleFavorito(proyectoId: string) {
     try {
         const authUser = await requireAuth();
