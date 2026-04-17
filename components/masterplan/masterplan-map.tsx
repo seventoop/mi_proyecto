@@ -137,6 +137,7 @@ export default function MasterplanMap({
     const [blueprintLoaded, setBlueprintLoaded] = useState(false);
     const [hasSavedBlueprint, setHasSavedBlueprint] = useState(false);
     const [blueprintMeta, setBlueprintMeta] = useState<BlueprintEmbeddedMeta | null>(null);
+    const [svgProjectionViewBox, setSvgProjectionViewBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
     const mapRef = useRef<HTMLDivElement>(null);
     const leafletMapRef = useRef<any>(null);
     const polygonsRef = useRef<Map<string, any>>(new Map());
@@ -190,6 +191,7 @@ export default function MasterplanMap({
     const overlayPreviewPayloadRef = useRef<{
         bounds: [[number, number], [number, number]];
         rotation: number;
+        corners: OverlayCorners | null;
     } | null>(null);
     const contentBoundsRef = useRef<any | null>(null);
     const hasAutoFitContentRef = useRef(false);
@@ -231,6 +233,25 @@ export default function MasterplanMap({
         loadPlanGallery();
     }, [loadPlanGallery]);
 
+    const extractSvgViewBox = useCallback((svgString: string | null | undefined) => {
+        if (!svgString || typeof window === "undefined") return null;
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, "image/svg+xml");
+            const svg = doc.documentElement;
+            if (!svg || svg.tagName.toLowerCase() !== "svg") return null;
+            const rawViewBox = svg.getAttribute("viewBox");
+            if (!rawViewBox) return null;
+            const values = rawViewBox.trim().split(/[\s,]+/).map(Number);
+            if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return null;
+            const [x, y, w, h] = values;
+            if (w <= 0 || h <= 0) return null;
+            return { x, y, w, h };
+        } catch {
+            return null;
+        }
+    }, []);
+
     const buildMapOverlaySvg = useCallback((svgString: string, meta: BlueprintEmbeddedMeta | null) => {
         if (typeof window === "undefined" || meta?.processingMode !== "detected-lots") {
             return svgString;
@@ -261,10 +282,10 @@ export default function MasterplanMap({
                 .map-overlay-root ellipse,
                 .map-overlay-root line {
                     paint-order: stroke fill markers;
-                    stroke: rgba(255,255,255,0.96) !important;
+                    stroke: rgba(255,255,255,0.82) !important;
                     stroke-linejoin: round;
                     stroke-linecap: round;
-                    filter: drop-shadow(0 0 2px rgba(0,0,0,0.95)) drop-shadow(0 0 5px rgba(0,0,0,0.7));
+                    filter: drop-shadow(0 0 1px rgba(0,0,0,0.32));
                     shape-rendering: geometricPrecision;
                 }
             `;
@@ -283,13 +304,13 @@ export default function MasterplanMap({
 
                 const currentStrokeWidth = parseFloat(node.getAttribute("stroke-width") || "0.8");
                 const nextStrokeWidth = Number.isFinite(currentStrokeWidth)
-                    ? Math.max(currentStrokeWidth * 2.8, 1.8)
-                    : 1.8;
+                    ? Math.max(currentStrokeWidth * 1.15, 0.7)
+                    : 0.7;
 
                 node.setAttribute("stroke-width", nextStrokeWidth.toFixed(2));
-                node.setAttribute("stroke-opacity", "1");
+                node.setAttribute("stroke-opacity", "0.9");
                 node.setAttribute("opacity", "1");
-                node.setAttribute("fill", isClosed ? "rgba(34,197,94,0.16)" : "none");
+                node.setAttribute("fill", isClosed ? "rgba(255,255,255,0.07)" : "none");
             });
 
             return new XMLSerializer().serializeToString(svg);
@@ -307,6 +328,7 @@ export default function MasterplanMap({
 
         const data = await readJsonResponse(res);
         setBlueprintMeta((data.blueprintMeta as BlueprintEmbeddedMeta | null) ?? null);
+        setSvgProjectionViewBox(extractSvgViewBox(data.masterplanSVG as string | null));
 
         if (!data.masterplanSVG) {
             setHasSavedBlueprint(false);
@@ -338,7 +360,7 @@ export default function MasterplanMap({
 
         if (openEditor) setIsEditingOverlay(true);
         return true;
-    }, [buildMapOverlaySvg, proyectoId, readJsonResponse]);
+    }, [buildMapOverlaySvg, extractSvgViewBox, proyectoId, readJsonResponse]);
 
     // Fetch blueprint data (units with SVG paths) — same source as Paso 3
     useEffect(() => {
@@ -532,6 +554,7 @@ export default function MasterplanMap({
 
     // ─── SVG viewBox computed from unit paths (needed for SVG→Geo transform) ──
     const svgViewBox = useMemo(() => {
+        if (svgProjectionViewBox) return svgProjectionViewBox;
         if (units.length === 0) return null;
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const u of units) {
@@ -552,7 +575,7 @@ export default function MasterplanMap({
         }
         if (minX === Infinity) return null;
         return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-    }, [units]);
+    }, [svgProjectionViewBox, units]);
 
     // Draw lot polygons on map
     useEffect(() => {
@@ -864,8 +887,9 @@ export default function MasterplanMap({
     const handleOverlayBoundsChange = useCallback((
         bounds: [[number, number], [number, number]],
         rotation: number,
+        corners: OverlayCorners | null,
     ) => {
-        overlayPreviewPayloadRef.current = { bounds, rotation };
+        overlayPreviewPayloadRef.current = { bounds, rotation, corners };
         if (overlayPreviewFrameRef.current != null) return;
 
         overlayPreviewFrameRef.current = window.requestAnimationFrame(() => {
@@ -876,10 +900,10 @@ export default function MasterplanMap({
             updatePolygonPositionsLive(
                 payload.bounds,
                 payload.rotation,
-                overlayConfig?.corners ?? null,
+                payload.corners,
             );
         });
-    }, [overlayConfig?.corners, updatePolygonPositionsLive]);
+    }, [updatePolygonPositionsLive]);
 
     useEffect(() => {
         return () => {
@@ -1418,6 +1442,13 @@ export default function MasterplanMap({
                                 setIsEditingOverlay(false);
                             }}
                             onCancel={() => {
+                                if (overlayConfig?.bounds) {
+                                    updatePolygonPositionsLive(
+                                        overlayConfig.bounds,
+                                        overlayConfig.rotation ?? 0,
+                                        overlayConfig.corners ?? null,
+                                    );
+                                }
                                 if (!overlayConfig?.bounds) setOverlayConfig(null);
                                 setIsEditingOverlay(false);
                             }}

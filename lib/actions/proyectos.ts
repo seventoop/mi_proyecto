@@ -17,7 +17,7 @@ const proyectoCreateSchema = z.object({
     ubicacion: z.string().max(200).optional(),
     estado: z.string().optional(),
     tipo: z.string().optional(),
-    imagenPortada: z.string().url("URL de imagen inválida").optional().or(z.literal("")),
+    imagenPortada: z.string().optional().or(z.literal("")),
     invertible: z.boolean().optional(),
     precioM2Inversor: z.number().positive().optional(),
     precioM2Mercado: z.number().positive().optional(),

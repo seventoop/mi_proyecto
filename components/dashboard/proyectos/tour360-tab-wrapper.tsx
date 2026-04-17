@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Edit, Trash2, Eye, ImageIcon, Info } from "lucide-react";
-import { createTour, updateTour, deleteTour, approveTour, rejectTour } from "@/lib/actions/tours";
+import { createTour, updateTour, deleteTour, approveTour, rejectTour, bootstrapTour360FromProjectAssets } from "@/lib/actions/tours";
 import { CheckCircle, XCircle, AlertCircle, Clock } from "lucide-react";
 import TourCreator from "@/components/tour360/tour-creator";
 import TourViewer from "@/components/tour360/tour-viewer";
@@ -31,10 +31,37 @@ export default function Tour360TabWrapper({
     const [editorScenes, setEditorScenes] = useState<Scene[]>([]);
     const [tourName, setTourName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [isBootstrapping, setIsBootstrapping] = useState(false);
 
     useEffect(() => {
         setTours(initialTours || []);
     }, [initialTours]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const runBootstrap = async () => {
+            if (isBootstrapping || (initialTours || []).length > 0) return;
+
+            setIsBootstrapping(true);
+            const res = await bootstrapTour360FromProjectAssets(proyectoId);
+
+            if (cancelled) return;
+
+            setIsBootstrapping(false);
+
+            if (res.success && (res as any).created) {
+                toast.success("Creé una escena base de Tour 360 usando la panorámica cargada y el plano de galería.");
+                router.refresh();
+            }
+        };
+
+        runBootstrap();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [initialTours, isBootstrapping, proyectoId, router]);
 
     const handleCreateClick = () => {
         setTourName("Nueva Galería");
@@ -247,6 +274,9 @@ export default function Tour360TabWrapper({
                 {tours.length === 0 ? (
                     <div className="text-center py-20 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
                         <ImageIcon className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                        {isBootstrapping && (
+                            <p className="text-sm text-brand-500 font-semibold mb-3">Creando escena base de Tour 360...</p>
+                        )}
                         {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) ? (
                             <>
                                 <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">No hay galerías creadas</h3>

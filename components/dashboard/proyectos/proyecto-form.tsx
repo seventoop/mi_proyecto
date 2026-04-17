@@ -9,7 +9,10 @@ import ProjectTechnicalFiles from "./project-technical-files";
 import ProjectGalleryManager from "./project-gallery-manager";
 import AIDescriptionModal from "./ai-description-modal";
 import { improveProjectDescription } from "@/lib/actions/ai";
+import { useSession } from "next-auth/react";
+import { type AuthUser } from "@/lib/auth-types";
 import { toast } from "sonner";
+
 import { Wand2, Sparkles, Loader2 } from "lucide-react";
 
 interface ProyectoFormProps {
@@ -31,7 +34,18 @@ const tipoOptions = [
     { value: "DEPARTAMENTOS", label: "Departamentos" },
 ];
 
-export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, riskLevel }: ProyectoFormProps) {
+export default function ProyectoForm({ proyecto, onClose, userRole: propUserRole, kycStatus: propKycStatus, riskLevel }: ProyectoFormProps) {
+    const { data: session } = useSession();
+    const user = session?.user as AuthUser | undefined;
+
+    // effective roles/status (prop override session)
+    const userRole = propUserRole || user?.role;
+    const kycStatus = propKycStatus || user?.kycStatus;
+
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPERADMIN";
+    const isVerified = kycStatus === "VERIFICADO" || isAdmin;
+
+
     const isNew = !proyecto;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -619,7 +633,7 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
 
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-                    {kycStatus !== "VERIFICADO" && !proyecto?.isDemo && (
+                    {!isVerified && !proyecto?.isDemo && (
                         <div className="flex-1 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
                             <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                             {isNew
@@ -641,10 +655,10 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                     </button>
                     <button
                         onClick={handleSave}
-                        disabled={loading || (kycStatus !== "VERIFICADO" && !isNew && !proyecto?.isDemo)}
+                        disabled={loading || (!isVerified && !isNew && !proyecto?.isDemo)}
                         className={cn(
                             "px-5 py-2.5 rounded-xl font-semibold text-sm shadow-glow transition-all disabled:opacity-50 flex items-center gap-2",
-                            (kycStatus === "VERIFICADO" || isNew || proyecto?.isDemo)
+                            (isVerified || isNew || proyecto?.isDemo)
                                 ? "gradient-brand text-white shadow-glow"
                                 : "bg-slate-200 dark:bg-slate-800 text-slate-400"
                         )}

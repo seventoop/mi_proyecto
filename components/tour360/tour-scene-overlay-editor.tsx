@@ -33,6 +33,8 @@ import Viewer360LotesOverlay from "@/components/masterplan/viewer360-lotes-overl
 import PlanGalleryPicker, { type PlanGalleryItem } from "@/components/plan-gallery/plan-gallery-picker";
 import {
     normalizeSceneOverlay,
+    TOUR_OVERLAY_CONTROL_POINT_COUNT,
+    type OverlayCornerAdjustment,
     type NormalizedSceneOverlayCalibration,
     type SceneOverlayCalibration,
 } from "@/lib/tour-overlay";
@@ -83,6 +85,7 @@ interface OverlayControlsProps {
     alignmentGuides: boolean;
     flipX: boolean;
     flipY: boolean;
+    onResetCornerWarp: () => void;
     onToggle: () => void;
     onAltChange: (value: number) => void;
     onHeadingChange: (value: number) => void;
@@ -276,6 +279,14 @@ export default function TourSceneOverlayEditor({
     const baseCosLat = Math.cos((baseLat * Math.PI) / 180) || 1;
     const camLat = baseLat + draft.latOffset / 111320;
     const camLng = baseLng + draft.lngOffset / (111320 * baseCosLat);
+    const resolvedSelectedPlanId =
+        planGalleryItems.find((item) => item.id === scene.masterplanOverlay?.selectedPlanId)?.id ??
+        scene.masterplanOverlay?.selectedPlanId ??
+        null;
+    const resolvedPlanImageUrl =
+        planGalleryItems.find((item) => item.id === resolvedSelectedPlanId)?.imageUrl ??
+        scene.masterplanOverlay?.imageUrl ??
+        ((draft as SceneOverlayCalibration & { imageUrl?: string }).imageUrl ?? null);
 
     useEffect(() => {
         loadPannellum(() => {
@@ -317,7 +328,9 @@ export default function TourSceneOverlayEditor({
             e.preventDefault();
             e.stopPropagation();
 
-            if (isEditing && !draftRef.current.transformLocked) {
+            // Default wheel behavior should zoom the panorama.
+            // Alt/Shift + wheel are reserved for altitude adjustments while editing.
+            if (isEditing && !draftRef.current.transformLocked && (e.altKey || e.shiftKey)) {
                 const factor = e.deltaY > 0 ? 1.08 : 0.925;
                 commitDraft((prev) => ({
                     ...prev,
@@ -384,7 +397,11 @@ export default function TourSceneOverlayEditor({
 
     const saveCalibration = useCallback(async () => {
         setIsSavingCalib(true);
-        const nextOverlay: SceneOverlayCalibration = { ...draftRef.current };
+        const nextOverlay: SceneOverlayCalibration & { imageUrl?: string; selectedPlanId?: string | null } = {
+            ...draftRef.current,
+            imageUrl: resolvedPlanImageUrl ?? undefined,
+            selectedPlanId: resolvedSelectedPlanId ?? undefined,
+        };
         const isTempScene = scene.id.startsWith("scene-");
         let persistedOverlay: SceneOverlayCalibration = nextOverlay;
 
@@ -414,7 +431,7 @@ export default function TourSceneOverlayEditor({
         } finally {
             setIsSavingCalib(false);
         }
-    }, [onSaved, scene.id]);
+    }, [onSaved, resolvedPlanImageUrl, resolvedSelectedPlanId, scene.id]);
 
     return (
         <div className="fixed inset-0 z-[9999] flex h-[100dvh] flex-col overflow-hidden overscroll-none bg-black/90">
@@ -442,6 +459,7 @@ export default function TourSceneOverlayEditor({
                     <Viewer360LotesOverlay
                         viewer={instanceRef.current}
                         units={units}
+                        overlayImageUrl={resolvedPlanImageUrl ?? undefined}
                         overlayBounds={overlayBounds}
                         overlayRotation={overlayRotation}
                         svgViewBox={svgViewBox}
@@ -455,6 +473,7 @@ export default function TourSceneOverlayEditor({
                         planScale={draft.planScale}
                         planScaleX={draft.planScaleX}
                         planScaleY={draft.planScaleY}
+                        planCornerAdjustments={draft.planCornerAdjustments}
                         pitchBias={draft.pitchBias}
                         cameraRoll={draft.cameraRoll}
                         opacity={draft.opacity}
@@ -468,7 +487,7 @@ export default function TourSceneOverlayEditor({
                         isEditing={isEditing}
                         onEnterEdit={() => setIsEditing(true)}
                         onExitEdit={() => setIsEditing(false)}
-                        onParamsChange={({ latOffset, lngOffset, camAlt, imageHeading, planRotation, planScale }) => {
+                        onParamsChange={({ latOffset, lngOffset, camAlt, imageHeading, planRotation, planScale, planScaleX, planScaleY, planCornerAdjustments }) => {
                             commitDraft((prev) => ({
                                 ...prev,
                                 latOffset: roundIfSnap(latOffset, SNAP_OFFSET),
@@ -477,6 +496,9 @@ export default function TourSceneOverlayEditor({
                                 imageHeading,
                                 planRotation: roundIfSnap(planRotation, SNAP_ROTATION),
                                 planScale: Math.max(MIN_PLAN_SCALE, roundIfSnap(planScale, SNAP_SCALE)),
+                                planScaleX: clamp(roundIfSnap(planScaleX ?? prev.planScaleX, SNAP_SCALE), 0.1, 5),
+                                planScaleY: clamp(roundIfSnap(planScaleY ?? prev.planScaleY, SNAP_SCALE), 0.1, 5),
+                                planCornerAdjustments: planCornerAdjustments ?? prev.planCornerAdjustments,
                             }));
                         }}
                     />
@@ -526,6 +548,12 @@ export default function TourSceneOverlayEditor({
                     onResetRotation={() => commitDraft({ planRotation: 0 })}
                     onResetScale={() => commitDraft({ planScale: 1, flipX: false, flipY: false })}
                     onResetAxisScale={() => commitDraft({ planScaleX: 1, planScaleY: 1 })}
+                    onResetCornerWarp={() => commitDraft({
+                        planCornerAdjustments: Array.from({ length: TOUR_OVERLAY_CONTROL_POINT_COUNT }, () => ({
+                            x: 0,
+                            y: 0,
+                        })) as OverlayCornerAdjustment[],
+                    })}
                     onResetAll={() => commitDraft(initial)}
                     onCenterPlan={() => commitDraft({ latOffset: 0, lngOffset: 0 })}
                     onUndo={undo}
@@ -587,6 +615,7 @@ function OverlayControls({
     onAlignmentGuidesChange,
     onFlipX,
     onFlipY,
+    onResetCornerWarp,
     onResetPosition,
     onResetRotation,
     onResetScale,
@@ -681,12 +710,20 @@ function OverlayControls({
                             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-300/80">
                                 Proporcion por eje
                             </p>
-                            <button onClick={onResetAxisScale} className="rounded-md border border-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-white/10">
-                                Reset ejes
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                                <button onClick={onResetAxisScale} className="rounded-md border border-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-white/10">
+                                    Reset ejes
+                                </button>
+                                <button onClick={onResetCornerWarp} className="rounded-md border border-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-white/10">
+                                    Reset esquinas
+                                </button>
+                            </div>
                         </div>
                         <p className="text-[10px] leading-relaxed text-slate-500">
                             Corrige el cruce diagonal entre esquinas. Ajusta la proporcion del plano en cada eje geografico por separado.
+                        </p>
+                        <p className="text-[10px] leading-relaxed text-slate-500">
+                            Tambien podes arrastrar cada esquina del plano directamente sobre la imagen para estirarlo y acomodarlo como en el mapa interactivo.
                         </p>
                         <div className="grid grid-cols-2 gap-3">
                             <NumericField label="Escala E-O" value={Number(planScaleX.toFixed(3))} step={0.01} onChange={onPlanScaleXChange} />

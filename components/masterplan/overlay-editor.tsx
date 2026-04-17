@@ -22,7 +22,7 @@ interface OverlayEditorProps {
     proyectoId: string;
     map: any;
     existingConfig: OverlayConfig | null;
-    onBoundsChange?: (bounds: [[number, number], [number, number]], rotation: number) => void;
+    onBoundsChange?: (bounds: [[number, number], [number, number]], rotation: number, corners: QuadCorners) => void;
     onSave: (config: OverlayConfig) => void;
     onCancel: () => void;
     onDelete: () => void;
@@ -31,7 +31,8 @@ interface OverlayEditorProps {
 type DragState =
     | { mode: "move"; startMouse: ScreenPoint; startCorners: ScreenCorners }
     | { mode: "rotate"; startMouse: ScreenPoint; startCorners: ScreenCorners }
-    | { mode: "corner"; cornerIndex: 0 | 1 | 2 | 3; startMouse: ScreenPoint; startCorners: ScreenCorners };
+    | { mode: "corner"; cornerIndex: 0 | 1 | 2 | 3; startMouse: ScreenPoint; startCorners: ScreenCorners }
+    | { mode: "edge"; edgeIndex: 0 | 1 | 2 | 3; startMouse: ScreenPoint; startCorners: ScreenCorners };
 
 function computeRotatedCorners(bounds: [LatLngTuple, LatLngTuple], rot: number): QuadCorners {
     const [[swLat, swLng], [neLat, neLng]] = bounds;
@@ -87,6 +88,185 @@ function rotatePoint(point: ScreenPoint, center: ScreenPoint, angleRad: number):
 
 function screenToString(points: ScreenCorners): string {
     return [points[3], points[2], points[1], points[0]].map((point) => `${point.x},${point.y}`).join(" ");
+}
+
+function edgeMidpoints(points: ScreenCorners): [ScreenPoint, ScreenPoint, ScreenPoint, ScreenPoint] {
+    return [
+        { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 }, // bottom
+        { x: (points[1].x + points[2].x) / 2, y: (points[1].y + points[2].y) / 2 }, // right
+        { x: (points[2].x + points[3].x) / 2, y: (points[2].y + points[3].y) / 2 }, // top
+        { x: (points[3].x + points[0].x) / 2, y: (points[3].y + points[0].y) / 2 }, // left
+    ];
+}
+
+function add(point: ScreenPoint, vec: ScreenPoint): ScreenPoint {
+    return { x: point.x + vec.x, y: point.y + vec.y };
+}
+
+function scaleVec(vec: ScreenPoint, factor: number): ScreenPoint {
+    return { x: vec.x * factor, y: vec.y * factor };
+}
+
+function sub(a: ScreenPoint, b: ScreenPoint): ScreenPoint {
+    return { x: a.x - b.x, y: a.y - b.y };
+}
+
+function dot(a: ScreenPoint, b: ScreenPoint): number {
+    return a.x * b.x + a.y * b.y;
+}
+
+function normalize(vec: ScreenPoint): ScreenPoint {
+    const len = Math.hypot(vec.x, vec.y) || 1;
+    return { x: vec.x / len, y: vec.y / len };
+}
+
+function buildRectFromAnchor(anchorIndex: 0 | 1 | 2 | 3, anchor: ScreenPoint, axisX: ScreenPoint, axisY: ScreenPoint, width: number, height: number): ScreenCorners {
+    if (anchorIndex === 0) {
+        const sw = anchor;
+        const se = add(anchor, scaleVec(axisX, width));
+        const nw = add(anchor, scaleVec(axisY, height));
+        const ne = add(se, scaleVec(axisY, height));
+        return [sw, se, ne, nw];
+    }
+    if (anchorIndex === 1) {
+        const se = anchor;
+        const sw = add(anchor, scaleVec(axisX, -width));
+        const ne = add(anchor, scaleVec(axisY, height));
+        const nw = add(sw, scaleVec(axisY, height));
+        return [sw, se, ne, nw];
+    }
+    if (anchorIndex === 2) {
+        const ne = anchor;
+        const nw = add(anchor, scaleVec(axisX, -width));
+        const se = add(anchor, scaleVec(axisY, -height));
+        const sw = add(nw, scaleVec(axisY, -height));
+        return [sw, se, ne, nw];
+    }
+    const nw = anchor;
+    const ne = add(anchor, scaleVec(axisX, width));
+    const sw = add(anchor, scaleVec(axisY, -height));
+    const se = add(sw, scaleVec(axisX, width));
+    return [sw, se, ne, nw];
+}
+
+function buildRectFromCenter(center: ScreenPoint, axisX: ScreenPoint, axisY: ScreenPoint, width: number, height: number): ScreenCorners {
+    const halfX = scaleVec(axisX, width / 2);
+    const halfY = scaleVec(axisY, height / 2);
+    const sw = sub(sub(center, halfX), halfY);
+    const se = add(sub(center, halfY), halfX);
+    const ne = add(add(center, halfX), halfY);
+    const nw = add(sub(center, halfX), halfY);
+    return [sw, se, ne, nw];
+}
+
+function rectMetrics(points: ScreenCorners) {
+    const sw = points[0];
+    const se = points[1];
+    const nw = points[3];
+    const axisX = normalize(sub(se, sw));
+    const axisY = normalize(sub(nw, sw));
+    const width = Math.hypot(se.x - sw.x, se.y - sw.y) || 1;
+    const height = Math.hypot(nw.x - sw.x, nw.y - sw.y) || 1;
+    return { axisX, axisY, width, height, aspect: width / height };
+}
+
+function resizeRectProportionally(
+    startCorners: ScreenCorners,
+    currentMouse: ScreenPoint,
+    handle: { type: "corner"; index: 0 | 1 | 2 | 3 } | { type: "edge"; index: 0 | 1 | 2 | 3 },
+): ScreenCorners {
+    const { axisX, axisY, width, height, aspect } = rectMetrics(startCorners);
+    const minScale = 0.1;
+
+    if (handle.type === "corner") {
+        const oppositeIndex = ([2, 3, 0, 1] as const)[handle.index];
+        const signs = [
+            { x: -1, y: -1 },
+            { x: 1, y: -1 },
+            { x: 1, y: 1 },
+            { x: -1, y: 1 },
+        ] as const;
+        const anchor = startCorners[oppositeIndex];
+        const rel = sub(currentMouse, anchor);
+        const projX = dot(rel, axisX) * signs[handle.index].x;
+        const projY = dot(rel, axisY) * signs[handle.index].y;
+        const scale = Math.max(minScale, Math.max(projX / width, projY / height));
+        return buildRectFromAnchor(oppositeIndex, anchor, axisX, axisY, width * scale, height * scale);
+    }
+
+    const mids = edgeMidpoints(startCorners);
+    const oppositeMid = mids[(handle.index + 2) % 4];
+
+    if (handle.index === 1) {
+        const projectedWidth = Math.max(minScale * width, dot(sub(currentMouse, oppositeMid), axisX));
+        const scale = projectedWidth / width;
+        const nextWidth = width * scale;
+        const nextHeight = height * scale;
+        const center = add(oppositeMid, scaleVec(axisX, nextWidth / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    if (handle.index === 3) {
+        const projectedWidth = Math.max(minScale * width, dot(sub(oppositeMid, currentMouse), axisX));
+        const scale = projectedWidth / width;
+        const nextWidth = width * scale;
+        const nextHeight = height * scale;
+        const center = sub(oppositeMid, scaleVec(axisX, nextWidth / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    if (handle.index === 2) {
+        const projectedHeight = Math.max(minScale * height, dot(sub(currentMouse, oppositeMid), axisY));
+        const scale = projectedHeight / height;
+        const nextHeight = height * scale;
+        const nextWidth = width * scale;
+        const center = add(oppositeMid, scaleVec(axisY, nextHeight / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    const projectedHeight = Math.max(minScale * height, dot(sub(oppositeMid, currentMouse), axisY));
+    const scale = projectedHeight / height;
+    const nextHeight = height * scale;
+    const nextWidth = width * scale;
+    const center = sub(oppositeMid, scaleVec(axisY, nextHeight / 2));
+    return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+}
+
+function resizeRectFromEdge(
+    startCorners: ScreenCorners,
+    currentMouse: ScreenPoint,
+    edgeIndex: 0 | 1 | 2 | 3,
+): ScreenCorners {
+    const { axisX, axisY, width, height } = rectMetrics(startCorners);
+    const mids = edgeMidpoints(startCorners);
+    const oppositeMid = mids[(edgeIndex + 2) % 4];
+    const minScale = 0.1;
+
+    if (edgeIndex === 1) {
+        const nextWidth = Math.max(width * minScale, dot(sub(currentMouse, oppositeMid), axisX));
+        const nextHeight = height;
+        const center = add(oppositeMid, scaleVec(axisX, nextWidth / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    if (edgeIndex === 3) {
+        const nextWidth = Math.max(width * minScale, dot(sub(oppositeMid, currentMouse), axisX));
+        const nextHeight = height;
+        const center = sub(oppositeMid, scaleVec(axisX, nextWidth / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    if (edgeIndex === 2) {
+        const nextHeight = Math.max(height * minScale, dot(sub(currentMouse, oppositeMid), axisY));
+        const nextWidth = width;
+        const center = add(oppositeMid, scaleVec(axisY, nextHeight / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    const nextHeight = Math.max(height * minScale, dot(sub(oppositeMid, currentMouse), axisY));
+    const nextWidth = width;
+    const center = sub(oppositeMid, scaleVec(axisY, nextHeight / 2));
+    return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
 }
 
 function solveLinearSystem(matrix: number[][], vector: number[]): number[] | null {
@@ -256,10 +436,11 @@ export default function OverlayEditor({
     const rotation = useMemo(() => deriveRotationFromCorners(corners), [corners]);
 
     useEffect(() => {
-        onBoundsChange?.(bounds, rotation);
-    }, [bounds, onBoundsChange, rotation]);
+        onBoundsChange?.(bounds, rotation, corners);
+    }, [bounds, corners, onBoundsChange, rotation]);
 
     const centerPoint = useMemo(() => centroid(screenCorners), [screenCorners]);
+    const sideMidPoints = useMemo(() => edgeMidpoints(screenCorners), [screenCorners]);
     const topMidPoint = useMemo<ScreenPoint>(() => ({
         x: (screenCorners[3].x + screenCorners[2].x) / 2,
         y: (screenCorners[3].y + screenCorners[2].y) / 2,
@@ -325,9 +506,16 @@ export default function OverlayEditor({
                 return;
             }
 
-            const next = [...state.startCorners] as ScreenCorners;
-            next[state.cornerIndex] = currentMouse;
-            applyScreenCorners(next);
+            if (state.mode === "corner") {
+                applyScreenCorners(
+                    resizeRectProportionally(state.startCorners, currentMouse, { type: "corner", index: state.cornerIndex })
+                );
+                return;
+            }
+
+            if (state.mode === "edge") {
+                applyScreenCorners(resizeRectFromEdge(state.startCorners, currentMouse, state.edgeIndex));
+            }
         };
 
         const handleUp = () => {
@@ -497,6 +685,36 @@ export default function OverlayEditor({
                             />
                         ))}
 
+                        {sideMidPoints.map((point, index) => (
+                            <button
+                                key={`edge-${index}`}
+                                type="button"
+                                onPointerDown={(event) => {
+                                    event.preventDefault();
+                                    beginDrag({
+                                        mode: "edge",
+                                        edgeIndex: index as 0 | 1 | 2 | 3,
+                                        startMouse: {
+                                            x: event.clientX - containerRect.screenLeft,
+                                            y: event.clientY - containerRect.screenTop,
+                                        },
+                                        startCorners: screenCorners,
+                                    });
+                                }}
+                                className="absolute rounded-full border-2 border-white bg-slate-100 shadow-lg"
+                                style={{
+                                    left: point.x - 11,
+                                    top: point.y - 4,
+                                    width: 22,
+                                    height: 8,
+                                    cursor: "grab",
+                                    pointerEvents: "auto",
+                                    transform: `rotate(${rotation}deg)`,
+                                    transformOrigin: "50% 50%",
+                                }}
+                            />
+                        ))}
+
                         <button
                             type="button"
                             onPointerDown={(event) => {
@@ -555,7 +773,7 @@ export default function OverlayEditor({
 
                 <div className="mb-3 space-y-1 rounded-xl bg-blue-50 p-2.5 text-[10px] leading-snug text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
                     <p><span style={{ color: "#6366f1", fontWeight: 700 }}>Azul</span> - mover todo el plano.</p>
-                    <p><span style={{ color: "#f97316", fontWeight: 700 }}>4 esquinas</span> - deformar y escuadrar.</p>
+                    <p><span style={{ color: "#f97316", fontWeight: 700 }}>Esquinas y lados</span> - escalar manteniendo la proporcion original.</p>
                     <p><span style={{ color: "#0ea5e9", fontWeight: 700 }}>Celeste</span> - rotar como en una herramienta gráfica.</p>
                 </div>
 

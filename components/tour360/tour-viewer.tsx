@@ -68,6 +68,7 @@ export interface FloatingLabel {
 export interface MasterplanOverlay {
     mode?: "geo-calibrated";
     imageUrl?: string;
+    imageKind?: "360" | "foto" | "panoramica";
     points?: { pitch: number; yaw: number }[];
     opacity?: number;
     isVisible: boolean;
@@ -294,6 +295,7 @@ function PanoramicOverlay({
                     <Viewer360LotesOverlay
                         viewer={viewer}
                         units={overlayUnits}
+                        overlayImageUrl={currentScene.masterplanOverlay?.imageUrl}
                         overlayBounds={overlayBounds}
                         overlayRotation={overlayRotation ?? 0}
                         svgViewBox={overlaySvgViewBox}
@@ -307,6 +309,7 @@ function PanoramicOverlay({
                         planScale={overlay.planScale}
                         planScaleX={overlay.planScaleX}
                         planScaleY={overlay.planScaleY}
+                        planCornerAdjustments={overlay.planCornerAdjustments}
                         pitchBias={overlay.pitchBias}
                         cameraRoll={overlay.cameraRoll}
                         opacity={overlay.opacity}
@@ -472,12 +475,19 @@ export default function TourViewer({
         return () => cancelAnimationFrame(rafId);
     }, [viewerReady]);
 
-    const startScene = initialSceneId
-        ? normalizedScenes.find((s) => s.id === initialSceneId)
-        : normalizedScenes.find((s) => s.isDefault) || normalizedScenes[0];
+    // Dynamic scenes state to handle real-time updates
+    const [dynamicScenes, setDynamicScenes] = useState<Scene[]>(normalizedScenes);
 
-    const currentScene = normalizedScenes.find((s) => s.id === currentSceneId) || startScene;
-    const currentIndex = normalizedScenes.findIndex((s) => s.id === currentSceneId);
+    useEffect(() => {
+        setDynamicScenes(normalizedScenes);
+    }, [normalizedScenes]);
+
+    const startScene = initialSceneId
+        ? dynamicScenes.find((s) => s.id === initialSceneId)
+        : dynamicScenes.find((s) => s.isDefault) || dynamicScenes[0];
+
+    const currentScene = dynamicScenes.find((s) => s.id === currentSceneId) || startScene;
+    const currentIndex = dynamicScenes.findIndex((s) => s.id === currentSceneId);
 
     // Initialize Pannellum
     useEffect(() => {
@@ -486,16 +496,6 @@ export default function TourViewer({
     }, [isLoaded, startScene]);
 
     // SVG Overlay Loop moved to PanoramicOverlay sub-component
-
-
-
-
-    // Dynamic scenes state to handle real-time updates
-    const [dynamicScenes, setDynamicScenes] = useState<Scene[]>(normalizedScenes);
-
-    useEffect(() => {
-        setDynamicScenes(normalizedScenes);
-    }, [normalizedScenes]);
 
     useEffect(() => {
         if (!proyectoId) return;

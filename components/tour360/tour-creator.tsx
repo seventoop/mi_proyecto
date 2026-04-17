@@ -1403,6 +1403,7 @@ export default function TourCreator({
                                             planScale={ov.planScale}
                                             planScaleX={ov.planScaleX}
                                             planScaleY={ov.planScaleY}
+                                            planCornerAdjustments={ov.planCornerAdjustments}
                                             pitchBias={ov.pitchBias}
                                             cameraRoll={ov.cameraRoll}
                                             opacity={ov.opacity}

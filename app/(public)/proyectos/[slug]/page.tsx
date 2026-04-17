@@ -9,6 +9,7 @@ import {
 import { db } from "@/lib/db";
 import ContactForm from "@/components/public/contact-form";
 import PublicProjectGallery from "@/components/public/project-gallery";
+import { buildFallbackTour360Scenes } from "@/lib/tour360-fallback";
 import {
     normalizeTourMediaCategory,
     TOUR_MEDIA_CATEGORY_LABELS,
@@ -70,7 +71,9 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2075&auto=format&fit=crop";
 
     const allTourScenes = (P.tours ?? []).flatMap((tour: any) => tour.scenes ?? []);
-    const tour360Scenes = allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "tour360");
+    const persistedTour360Scenes = allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "tour360");
+    const fallbackTour360Scenes = buildFallbackTour360Scenes(P);
+    const tour360Scenes = persistedTour360Scenes.length > 0 ? persistedTour360Scenes : fallbackTour360Scenes;
     const galleryScenesByCategory: Record<Exclude<TourMediaCategory, "tour360">, any[]> = {
         real: allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "real"),
         render: allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "render"),
@@ -299,7 +302,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                             </div>
                             <div className="relative mt-8 flex items-center justify-between">
                                 <div className="flex gap-2">
-                                    <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-muted/80 dark:bg-white/10 border border-border dark:border-white/20 text-foreground dark:text-white">{P.tours?.length} recorridos</span>
+                                    <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-muted/80 dark:bg-white/10 border border-border dark:border-white/20 text-foreground dark:text-white">{tour360Scenes.length} recorrido{tour360Scenes.length === 1 ? "" : "s"}</span>
                                 </div>
                                 <div className="w-10 h-10 rounded-full bg-background dark:bg-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                                     <Play className="w-4 h-4 text-foreground dark:text-black ml-0.5" />

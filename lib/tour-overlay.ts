@@ -3,6 +3,13 @@ export interface OverlayGuideMarkPoint {
   y: number;
 }
 
+export interface OverlayCornerAdjustment {
+  x: number;
+  y: number;
+}
+
+export const TOUR_OVERLAY_CONTROL_POINT_COUNT = 4;
+
 export interface OverlayGuideMark {
   id: string;
   type: "line" | "rect" | "zone";
@@ -45,6 +52,7 @@ export interface SceneOverlayCalibration {
   alignmentGuides?: boolean;
   flipX?: boolean;
   flipY?: boolean;
+  planCornerAdjustments?: OverlayCornerAdjustment[];
   marks?: OverlayGuideMark[];
 }
 
@@ -70,6 +78,7 @@ export interface NormalizedSceneOverlayCalibration {
   alignmentGuides: boolean;
   flipX: boolean;
   flipY: boolean;
+  planCornerAdjustments: OverlayCornerAdjustment[];
   marks: OverlayGuideMark[];
 }
 
@@ -95,8 +104,26 @@ export const DEFAULT_SCENE_OVERLAY: NormalizedSceneOverlayCalibration = {
   alignmentGuides: true,
   flipX: false,
   flipY: false,
+  planCornerAdjustments: [
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+  ],
   marks: [],
 };
+
+function normalizeCornerAdjustments(
+  adjustments?: OverlayCornerAdjustment[] | null
+): OverlayCornerAdjustment[] {
+  if (!Array.isArray(adjustments) || adjustments.length !== TOUR_OVERLAY_CONTROL_POINT_COUNT) {
+    return Array.from({ length: TOUR_OVERLAY_CONTROL_POINT_COUNT }, () => ({ x: 0, y: 0 }));
+  }
+  return Array.from({ length: TOUR_OVERLAY_CONTROL_POINT_COUNT }, (_, index) => ({
+    x: adjustments?.[index]?.x ?? 0,
+    y: adjustments?.[index]?.y ?? 0,
+  }));
+}
 
 export function normalizeSceneOverlay(
   overlay?: SceneOverlayCalibration | null
@@ -105,6 +132,7 @@ export function normalizeSceneOverlay(
     ...DEFAULT_SCENE_OVERLAY,
     ...(overlay ?? {}),
     mode: "geo-calibrated",
+    planCornerAdjustments: normalizeCornerAdjustments(overlay?.planCornerAdjustments),
     marks: Array.isArray(overlay?.marks) ? overlay!.marks : [],
   };
 }
@@ -129,6 +157,7 @@ export interface GeoOverlayViewerState {
   alignmentGuides: boolean;
   flipX: boolean;
   flipY: boolean;
+  planCornerAdjustments: OverlayCornerAdjustment[];
 }
 
 export function getGeoOverlayViewerState(
@@ -155,5 +184,6 @@ export function getGeoOverlayViewerState(
     alignmentGuides: normalized.alignmentGuides,
     flipX: normalized.flipX,
     flipY: normalized.flipY,
+    planCornerAdjustments: normalized.planCornerAdjustments,
   };
 }

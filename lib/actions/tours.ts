@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } from "@/lib/guards";
 import { z } from "zod";
 import { toStoredTourSceneCategory } from "@/lib/tour-media";
+import { buildFallbackTour360Scenes } from "@/lib/tour360-fallback";
 
 // ─── Schemas ───
 
@@ -131,6 +132,120 @@ export async function createTour(input: any) {
 
 export async function updateTour(id: string, input: any) {
     return upsertTour({ ...input, id });
+}
+
+export async function bootstrapTour360FromProjectAssets(proyectoId: string) {
+    try {
+        await requireProjectOwnership(proyectoId);
+
+        const project = await prisma.proyecto.findUnique({
+            where: { id: proyectoId },
+            select: {
+                id: true,
+                nombre: true,
+                slug: true,
+                planGallery: true,
+                tours: {
+                    include: {
+                        scenes: true,
+                    },
+                    orderBy: { updatedAt: "desc" },
+                },
+            },
+        });
+
+        if (!project) {
+            return { success: false, error: "Proyecto no encontrado" };
+        }
+
+        const fallbackScenes = buildFallbackTour360Scenes(project as any);
+        if (fallbackScenes.length === 0) {
+            return { success: false, error: "No encontré una imagen 360 local ni un plano para crear la escena base" };
+        }
+
+        const baseScene = fallbackScenes[0];
+        const expectedBootstrapTitle = project.nombre ? `${project.nombre} 360` : "Tour 360";
+        const existingTourWith360 = project.tours.find((tour) =>
+            (tour.scenes || []).some((scene) => String(scene.category || "").toUpperCase() === "TOUR360")
+        );
+
+        if (existingTourWith360) {
+            const existingScene = (existingTourWith360.scenes || []).find(
+                (scene) => String(scene.category || "").toUpperCase() === "TOUR360"
+            );
+
+            const isBootstrapScene =
+                !!existingScene &&
+                (existingTourWith360.scenes || []).length === 1 &&
+                existingScene.title === expectedBootstrapTitle;
+
+            if (existingScene && isBootstrapScene) {
+                await prisma.tourScene.update({
+                    where: { id: existingScene.id },
+                    data: {
+                        imageUrl: baseScene.imageUrl,
+                        thumbnailUrl: baseScene.thumbnailUrl,
+                        masterplanOverlay: (baseScene.masterplanOverlay ?? undefined) as any,
+                    },
+                });
+
+                await prisma.proyecto.update({
+                    where: { id: project.id },
+                    data: {
+                        tour360Url: `/proyectos/${project.slug || project.id}/tour360`,
+                    },
+                });
+
+                revalidatePath(`/dashboard/proyectos/${project.id}`);
+                revalidatePath(`/proyectos/${project.slug || project.id}`);
+                revalidatePath(`/proyectos/${project.slug || project.id}/tour360`);
+
+                return { success: true, data: existingTourWith360, created: false, updated: true };
+            }
+
+            return { success: true, data: existingTourWith360, created: false };
+        }
+
+        const created = await prisma.$transaction(async (tx: any) => {
+            const tour = await tx.tour360.create({
+                data: {
+                    proyectoId: project.id,
+                    nombre: "Tour 360",
+                },
+            });
+
+            await tx.tourScene.create({
+                data: {
+                    tourId: tour.id,
+                    title: baseScene.title,
+                    imageUrl: baseScene.imageUrl,
+                    thumbnailUrl: baseScene.thumbnailUrl,
+                    isDefault: true,
+                    order: 0,
+                    category: "TOUR360",
+                    masterplanOverlay: (baseScene.masterplanOverlay ?? undefined) as any,
+                },
+            });
+
+            await tx.proyecto.update({
+                where: { id: project.id },
+                data: {
+                    tour360Url: `/proyectos/${project.slug || project.id}/tour360`,
+                },
+            });
+
+            return tour;
+        });
+
+        revalidatePath(`/dashboard/proyectos/${project.id}`);
+        revalidatePath(`/proyectos/${project.slug || project.id}`);
+        revalidatePath(`/proyectos/${project.slug || project.id}/tour360`);
+
+        return { success: true, data: created, created: true };
+    } catch (error) {
+        console.error("Tour bootstrap error:", error);
+        return handleGuardError(error);
+    }
 }
 
 // ─── Mutations ───

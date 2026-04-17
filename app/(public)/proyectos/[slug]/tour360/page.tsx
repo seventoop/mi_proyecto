@@ -7,6 +7,7 @@ import TourViewer, { Scene, Hotspot } from "@/components/tour360/tour-viewer";
 import { computeSvgViewBox } from "@/lib/geo-projection";
 import type { MasterplanUnit } from "@/lib/masterplan-store";
 import { isTour360Category, normalizeTourMediaCategory } from "@/lib/tour-media";
+import { buildFallbackTour360Scenes } from "@/lib/tour360-fallback";
 
 // ─── Data Fetching (Server-Side) ───
 
@@ -23,6 +24,7 @@ async function getProjectWithTour(slug: string) {
             overlayBounds: true,
             overlayRotation: true,
             masterplanSVG: true,
+            planGallery: true,
             tours: {
                 include: {
                     scenes: {
@@ -70,6 +72,7 @@ async function getProjectWithTour(slug: string) {
                 overlayBounds: true,
                 overlayRotation: true,
                 masterplanSVG: true,
+                planGallery: true,
                 tours: {
                     include: {
                         scenes: {
@@ -214,12 +217,9 @@ export default async function PublicTour360Page({ params }: { params: { slug: st
         notFound();
     }
 
-    if (!project.tours || project.tours.length === 0) {
-        notFound();
-    }
-
-    const defaultTour = project.tours[0];
-    const scenes = dbTourToScenes(defaultTour).filter((scene) => isTour360Category(scene));
+    const defaultTour = project.tours?.[0];
+    const persistedScenes = defaultTour ? dbTourToScenes(defaultTour).filter((scene) => isTour360Category(scene)) : [];
+    const scenes = persistedScenes.length > 0 ? persistedScenes : buildFallbackTour360Scenes(project as any);
     const overlayBounds = parseOverlayBounds(project.overlayBounds);
     const overlayUnits = mapProjectUnits(project);
     const overlaySvgViewBox = computeSvgViewBox(overlayUnits);
