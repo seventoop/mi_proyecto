@@ -2,111 +2,16 @@ import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Share2 } from "lucide-react";
-import prisma from "@/lib/db";
 import TourViewer, { Scene, Hotspot } from "@/components/tour360/tour-viewer";
 import { computeSvgViewBox } from "@/lib/geo-projection";
 import type { MasterplanUnit } from "@/lib/masterplan-store";
 import { isTour360Category, normalizeTourMediaCategory } from "@/lib/tour-media";
+import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
 
 // ─── Data Fetching (Server-Side) ───
 
 async function getProjectWithTour(slug: string) {
-    // Try by slug first, then by ID
-    let project = await (prisma.proyecto as any).findUnique({
-        where: { slug },
-        select: {
-            id: true,
-            nombre: true,
-            slug: true,
-            estado: true,
-            visibilityStatus: true,
-            overlayBounds: true,
-            overlayRotation: true,
-            masterplanSVG: true,
-            tours: {
-                include: {
-                    scenes: {
-                        include: {
-                            hotspots: {
-                                include: {
-                                    unidad: {
-                                        select: {
-                                            id: true,
-                                            numero: true,
-                                            estado: true,
-                                            precio: true,
-                                            moneda: true,
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        orderBy: { order: "asc" }
-                    }
-                },
-                take: 1
-            },
-            etapas: {
-                include: {
-                    manzanas: {
-                        include: {
-                            unidades: true,
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    if (!project && slug.length === 25) {
-        project = await (prisma.proyecto as any).findUnique({
-            where: { id: slug },
-            select: {
-                id: true,
-                nombre: true,
-                slug: true,
-                estado: true,
-                visibilityStatus: true,
-                overlayBounds: true,
-                overlayRotation: true,
-                masterplanSVG: true,
-                tours: {
-                    include: {
-                        scenes: {
-                            include: {
-                                hotspots: {
-                                    include: {
-                                        unidad: {
-                                            select: {
-                                                id: true,
-                                                numero: true,
-                                                estado: true,
-                                                precio: true,
-                                                moneda: true,
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            orderBy: { order: "asc" }
-                        }
-                    },
-                    take: 1
-                },
-                etapas: {
-                    include: {
-                        manzanas: {
-                            include: {
-                                unidades: true,
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    return project;
+    return getPublicProjectShowcaseBySlug(slug);
 }
 
 function parseOverlayBounds(raw: string | null): [[number, number], [number, number]] | null {
@@ -128,9 +33,7 @@ function parseOverlayBounds(raw: string | null): [[number, number], [number, num
 }
 
 function mapProjectUnits(project: any): MasterplanUnit[] {
-    const unidades = project?.etapas?.flatMap((etapa: any) =>
-        etapa?.manzanas?.flatMap((manzana: any) =>
-            (manzana?.unidades ?? []).map((unidad: any) => {
+    const unidades = (project?.units ?? []).map((unidad: any) => {
                 let parsedCoords: any = null;
                 if (unidad.coordenadasMasterplan) {
                     try {
@@ -150,18 +53,16 @@ function mapProjectUnits(project: any): MasterplanUnit[] {
                     precio: unidad.precio ?? null,
                     moneda: unidad.moneda ?? "USD",
                     estado: unidad.estado ?? "DISPONIBLE",
-                    etapaId: etapa?.id,
-                    etapaNombre: etapa?.nombre,
-                    manzanaId: manzana?.id,
-                    manzanaNombre: manzana?.nombre,
+                    etapaId: unidad.etapaId,
+                    etapaNombre: unidad.etapaNombre,
+                    manzanaId: unidad.manzanaId,
+                    manzanaNombre: unidad.manzanaNombre,
                     path: parsedCoords?.path,
                     cx: parsedCoords?.cx,
                     cy: parsedCoords?.cy,
                     geoJSON: unidad.coordenadasMasterplan ?? null,
                 } satisfies MasterplanUnit;
-            })
-        ) ?? []
-    ) ?? [];
+            });
 
     return unidades.filter((unidad: MasterplanUnit) => !!unidad.path);
 }
@@ -206,11 +107,6 @@ export default async function PublicTour360Page({ params }: { params: { slug: st
 
     // Security: Only published projects are accessible
     if (!project) {
-        notFound();
-    }
-
-    const isPublished = project.visibilityStatus === "PUBLICADO" || project.estado === "PUBLICADO";
-    if (!isPublished) {
         notFound();
     }
 

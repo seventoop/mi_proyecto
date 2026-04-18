@@ -6,10 +6,10 @@ import {
     Globe, LayoutTemplate, Camera, ChevronDown, Compass,
     TrendingUp, Users, Star, Play, Sparkles, Navigation
 } from "lucide-react";
-import { db } from "@/lib/db";
 import ContactForm from "@/components/public/contact-form";
 import PublicProjectGallery from "@/components/public/project-gallery";
 import { normalizeUnitEstado, NORMALIZED_UNIT_ESTADO } from "@/lib/public-projects";
+import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
 import {
     normalizeTourMediaCategory,
     TOUR_MEDIA_CATEGORY_LABELS,
@@ -17,24 +17,25 @@ import {
 } from "@/lib/tour-media";
 
 async function getProject(slug: string) {
-    const include = {
-        _count: { select: { leads: true, etapas: true } },
-        tours: { include: { scenes: { orderBy: { order: "asc" as const } } } },
-        imagenes: { orderBy: { orden: "asc" as const } },
-        etapas: {
-            include: {
-                manzanas: {
-                    include: { unidades: true }
-                }
-            }
-        }
-    } as const;
+    const project = await getPublicProjectShowcaseBySlug(slug);
+    if (!project) return null;
 
-    let project = await db.proyecto.findUnique({ where: { slug }, include });
-    if (!project && slug.length >= 20) {
-        project = await db.proyecto.findUnique({ where: { id: slug }, include });
-    }
-    return project;
+    return {
+        ...project,
+        imagenes: project.images,
+        imagenPortada: project.imageUrl,
+        masterplanSVG: project.masterplanSvg,
+        precioM2Inversor: project.stats.minPrice,
+        etapas: [
+            {
+                manzanas: [
+                    {
+                        unidades: project.units,
+                    },
+                ],
+            },
+        ],
+    };
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {

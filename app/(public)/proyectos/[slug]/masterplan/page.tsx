@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowLeft, Globe, LayoutTemplate } from "lucide-react";
-import { db } from "@/lib/db";
+import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
 import MasterplanViewer from "@/components/masterplan/masterplan-viewer";
 
 const MasterplanMap = dynamic(
@@ -12,26 +12,7 @@ const MasterplanMap = dynamic(
 );
 
 async function getProject(slugOrId: string) {
-    return db.proyecto.findFirst({
-        where: { OR: [{ slug: slugOrId }, { id: slugOrId }] },
-        select: {
-            id: true,
-            nombre: true,
-            slug: true,
-            masterplanSVG: true,
-            overlayUrl: true,
-            mapCenterLat: true,
-            mapCenterLng: true,
-            mapZoom: true,
-            tours: {
-                select: {
-                    id: true,
-                    nombre: true,
-                    scenes: { take: 1, select: { imageUrl: true } }
-                }
-            }
-        }
-    });
+    return getPublicProjectShowcaseBySlug(slugOrId);
 }
 
 export const metadata: Metadata = {
@@ -54,7 +35,7 @@ export default async function PublicMasterplanPage({
     const tours360ForMap = (project.tours ?? []).map((t: any) => ({
         tourId: t.id,
         nombre: t.nombre,
-        thumbnailUrl: t.scenes?.[0]?.imageUrl ?? null,
+        thumbnailUrl: t.scenes?.[0]?.imageUrl ?? t.previewImages?.[0] ?? null,
         lat: null,
         lng: null,
         unidadId: "",

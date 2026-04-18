@@ -31,10 +31,14 @@ export const TOUR_MEDIA_CATEGORY_BADGE_STYLES: Record<TourMediaCategory, string>
 
 export function normalizeTourMediaCategory(input?: {
   category?: string | null;
-  masterplanOverlay?: { imageKind?: string | null } | null;
+  masterplanOverlay?: unknown;
 } | null): TourMediaCategory {
   const rawCategory = (input?.category || "").toLowerCase();
-  const imageKind = (input?.masterplanOverlay?.imageKind || "").toLowerCase();
+  const overlay =
+    input?.masterplanOverlay && typeof input.masterplanOverlay === "object"
+      ? (input.masterplanOverlay as { imageKind?: string | null })
+      : null;
+  const imageKind = (overlay?.imageKind || "").toLowerCase();
 
   if (rawCategory === "tour360") return "tour360";
   if (rawCategory === "real") return "real";
@@ -70,7 +74,7 @@ export function toStoredTourSceneCategory(category?: string | null): StoredTourS
 
 export function isTour360Category(input?: {
   category?: string | null;
-  masterplanOverlay?: { imageKind?: string | null } | null;
+  masterplanOverlay?: unknown;
 } | null): boolean {
   return normalizeTourMediaCategory(input) === "tour360";
 }

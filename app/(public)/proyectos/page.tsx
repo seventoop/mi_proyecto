@@ -1,9 +1,8 @@
 import { Metadata } from "next";
-import { db } from "@/lib/db";
 import ProjectsFilter from "@/components/public/projects-filter";
 import { Building2, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { buildPublicProjectWhere } from "@/lib/public-projects";
+import { listPublicProjectCards } from "@/lib/project-showcase";
 
 export const metadata: Metadata = {
     title: "Desarrollos | SevenToop — Infraestructura para Lanzamientos Inmobiliarios",
@@ -13,20 +12,7 @@ export const metadata: Metadata = {
 
 async function getProjects() {
     try {
-        const projects = await db.proyecto.findMany({
-            where: buildPublicProjectWhere(),
-            orderBy: { createdAt: "desc" },
-        });
-
-        const projectsWithPrices = await Promise.all(
-            projects.map(async (p) => ({
-                ...p,
-                _count: { unidades: 0 },
-                unidades: [],
-            }))
-        );
-
-        return projectsWithPrices;
+        return await listPublicProjectCards();
     } catch (error) {
         return [];
     }

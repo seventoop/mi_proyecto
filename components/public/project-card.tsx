@@ -2,22 +2,23 @@
 
 import Link from "next/link";
 import { ArrowRight, MapPin, TrendingUp } from "lucide-react";
-import { Proyecto } from "@prisma/client";
 import { useLanguage } from "@/components/providers/language-provider";
+import type { PublicProjectCard } from "@/lib/project-showcase";
 
 interface ProjectCardProps {
-    project: Proyecto & {
-        unidades?: { precio: number; moneda: string }[];
-    };
+    project: PublicProjectCard;
 }
 
 export default function ProjectCard({ project }: ProjectCardProps) {
     const { dictionary: t } = useLanguage();
-    const minPrice = project.unidades?.length
-        ? Math.min(...project.unidades.map((u) => u.precio))
+    const pricedUnits = (project.inventoryPreview ?? []).filter(
+        (unit) => typeof unit.precio === "number"
+    );
+    const minPrice = pricedUnits.length
+        ? Math.min(...pricedUnits.map((u) => u.precio as number))
         : 0;
-    const currency = project.unidades?.[0]?.moneda || "USD";
-    const unitCount = project.unidades?.length || 0;
+    const currency = pricedUnits[0]?.moneda || project.inventoryPreview?.[0]?.moneda || "USD";
+    const unitCount = project.availableUnits || 0;
 
     return (
         <Link
@@ -28,7 +29,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             <div className="aspect-[4/3] overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
                 <img
-                    src={project.imagenPortada || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop"}
+                    src={project.imageUrl || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop"}
                     alt={project.nombre}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                 />

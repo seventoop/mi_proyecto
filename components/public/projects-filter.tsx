@@ -2,16 +2,13 @@
 
 import { useState } from "react";
 import { Search, SlidersHorizontal, ArrowDownUp } from "lucide-react";
-import { Proyecto } from "@prisma/client";
 import { motion, AnimatePresence } from "framer-motion";
 import ProjectCard from "./project-card";
 import { useLanguage } from "@/components/providers/language-provider";
+import type { PublicProjectCard } from "@/lib/project-showcase";
 
 interface ProjectsFilterProps {
-    initialProjects: (Proyecto & {
-        _count: { unidades: number };
-        unidades: { precio: number; moneda: string }[];
-    })[];
+    initialProjects: PublicProjectCard[];
 }
 
 export default function ProjectsFilter({ initialProjects }: ProjectsFilterProps) {

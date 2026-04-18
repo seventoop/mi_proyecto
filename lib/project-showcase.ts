@@ -5,6 +5,7 @@ import {
     NORMALIZED_UNIT_ESTADO,
     normalizeUnitEstado,
 } from "@/lib/public-projects";
+import { normalizeTourMediaCategory } from "@/lib/tour-media";
 
 const fallbackImage =
     "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop";
@@ -23,6 +24,10 @@ export type ProjectShowcaseData = {
     mapCenterLat: number | null;
     mapCenterLng: number | null;
     mapZoom: number | null;
+    masterplanSvg: string | null;
+    overlayUrl: string | null;
+    overlayBounds: string | null;
+    overlayRotation: number | null;
     masterplanAvailable: boolean;
     leadCaptureEnabled: boolean;
     reservationEnabled: boolean;
@@ -52,17 +57,74 @@ export type ProjectShowcaseData = {
         esEsquina: boolean;
         orientacion: string | null;
     }>;
+    units: Array<{
+        id: string;
+        numero: string;
+        tipo: string;
+        estado: string;
+        superficie: number | null;
+        frente: number | null;
+        fondo: number | null;
+        esEsquina: boolean;
+        orientacion: string | null;
+        precio: number | null;
+        moneda: string;
+        coordenadasMasterplan: string | null;
+        manzanaId: string;
+        manzanaNombre: string;
+        etapaId: string;
+        etapaNombre: string;
+        tour360Url: string | null;
+    }>;
     images: Array<{
         id: string;
         url: string;
         categoria: string;
         esPrincipal: boolean;
     }>;
+    mapImages: Array<{
+        id: string;
+        url: string;
+        tipo: string;
+        titulo: string | null;
+        lat: number;
+        lng: number;
+        orden: number;
+        altitudM: number | null;
+        imageHeading: number | null;
+        unidadId: string | null;
+        unidadNumero: string | null;
+    }>;
     tours: Array<{
         id: string;
         nombre: string;
         sceneCount: number;
         previewImages: string[];
+        scenes: Array<{
+            id: string;
+            title: string;
+            imageUrl: string;
+            thumbnailUrl: string | null;
+            isDefault: boolean;
+            order: number;
+            category: string;
+            masterplanOverlay: unknown;
+            hotspots: Array<{
+                id: string;
+                type: string;
+                pitch: number;
+                yaw: number;
+                text: string | null;
+                targetSceneId: string | null;
+                unidad: {
+                    id: string;
+                    numero: string;
+                    estado: string;
+                    precio: number | null;
+                    moneda: string;
+                } | null;
+            }>;
+        }>;
     }>;
     infrastructures: Array<{
         id: string;
@@ -129,6 +191,14 @@ export type ProjectShowcasePayload = {
     editorSnapshot: ProjectWorkspaceSnapshot;
 };
 
+export type PublicProjectShowcase = ProjectShowcasePayload["project"];
+export type PublicProjectCard = Pick<
+    PublicProjectShowcase,
+    "id" | "slug" | "nombre" | "descripcion" | "ubicacion" | "tipo" | "estado" | "imageUrl" | "inventoryPreview"
+> & {
+    availableUnits: number;
+};
+
 function toNumber(value: unknown): number | null {
     if (value == null) return null;
     const numberValue = Number(value);
@@ -167,6 +237,22 @@ export async function getProjectShowcasePayload(options: {
         where,
         include: {
             organization: { select: { nombre: true } },
+            imagenesMapa: {
+                orderBy: [{ orden: "asc" }, { createdAt: "asc" }],
+                select: {
+                    id: true,
+                    url: true,
+                    tipo: true,
+                    titulo: true,
+                    lat: true,
+                    lng: true,
+                    orden: true,
+                    altitudM: true,
+                    imageHeading: true,
+                    unidadId: true,
+                    unidad: { select: { numero: true } },
+                },
+            },
             imagenes: {
                 orderBy: [{ esPrincipal: "desc" }, { orden: "asc" }],
                 select: { id: true, url: true, categoria: true, esPrincipal: true },
@@ -175,7 +261,35 @@ export async function getProjectShowcasePayload(options: {
                 include: {
                     scenes: {
                         orderBy: { order: "asc" },
-                        select: { id: true, title: true, imageUrl: true, thumbnailUrl: true },
+                        select: {
+                            id: true,
+                            title: true,
+                            imageUrl: true,
+                            thumbnailUrl: true,
+                            isDefault: true,
+                            order: true,
+                            category: true,
+                            masterplanOverlay: true,
+                            hotspots: {
+                                select: {
+                                    id: true,
+                                    type: true,
+                                    pitch: true,
+                                    yaw: true,
+                                    text: true,
+                                    targetSceneId: true,
+                                    unidad: {
+                                        select: {
+                                            id: true,
+                                            numero: true,
+                                            estado: true,
+                                            precio: true,
+                                            moneda: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     },
                 },
                 orderBy: { createdAt: "desc" },
@@ -195,6 +309,7 @@ export async function getProjectShowcasePayload(options: {
                                 select: {
                                     id: true,
                                     numero: true,
+                                    tipo: true,
                                     estado: true,
                                     superficie: true,
                                     precio: true,
@@ -203,6 +318,8 @@ export async function getProjectShowcasePayload(options: {
                                     fondo: true,
                                     esEsquina: true,
                                     orientacion: true,
+                                    coordenadasMasterplan: true,
+                                    tour360Url: true,
                                 },
                             },
                         },
@@ -281,6 +398,12 @@ export async function getProjectShowcasePayload(options: {
                 estado: normalizeUnitEstado(unit.estado),
                 superficie: toNumber(unit.superficie),
                 precio: toNumber(unit.precio),
+                coordenadasMasterplan: unit.coordenadasMasterplan,
+                tour360Url: unit.tour360Url,
+                manzanaId: block.id,
+                manzanaNombre: block.nombre,
+                etapaId: stage.id,
+                etapaNombre: stage.nombre,
             }))
         )
     );
@@ -339,6 +462,10 @@ export async function getProjectShowcasePayload(options: {
             mapCenterLat: project.mapCenterLat,
             mapCenterLng: project.mapCenterLng,
             mapZoom: project.mapZoom,
+            masterplanSvg: project.masterplanSVG,
+            overlayUrl: project.overlayUrl,
+            overlayBounds: project.overlayBounds,
+            overlayRotation: project.overlayRotation,
             masterplanAvailable: Boolean(project.masterplanSVG) || totalUnits > 0,
             leadCaptureEnabled: Boolean((project as any).puedeCaptarLeads),
             reservationEnabled: Boolean((project as any).puedeReservarse),
@@ -357,7 +484,21 @@ export async function getProjectShowcasePayload(options: {
                 maxSurface: surfaceMax,
             },
             inventoryPreview,
+            units,
             images: project.imagenes,
+            mapImages: project.imagenesMapa.map((image) => ({
+                id: image.id,
+                url: image.url,
+                tipo: image.tipo,
+                titulo: image.titulo,
+                lat: image.lat,
+                lng: image.lng,
+                orden: image.orden,
+                altitudM: image.altitudM,
+                imageHeading: image.imageHeading,
+                unidadId: image.unidadId,
+                unidadNumero: image.unidad?.numero ?? null,
+            })),
             tours: project.tours.map((tour) => ({
                 id: tour.id,
                 nombre: tour.nombre,
@@ -366,6 +507,34 @@ export async function getProjectShowcasePayload(options: {
                     .map((scene) => scene.thumbnailUrl || scene.imageUrl)
                     .filter((value): value is string => Boolean(value))
                     .slice(0, 4),
+                scenes: tour.scenes.map((scene) => ({
+                    id: scene.id,
+                    title: scene.title,
+                    imageUrl: scene.imageUrl,
+                    thumbnailUrl: scene.thumbnailUrl,
+                    isDefault: scene.isDefault,
+                    order: scene.order,
+                    category: normalizeTourMediaCategory(scene),
+                    masterplanOverlay:
+                        scene.masterplanOverlay && typeof scene.masterplanOverlay === "object"
+                            ? scene.masterplanOverlay
+                            : null,
+                    hotspots: scene.hotspots.map((hotspot) => ({
+                        id: hotspot.id,
+                        type: hotspot.type,
+                        pitch: hotspot.pitch,
+                        yaw: hotspot.yaw,
+                        text: hotspot.text,
+                        targetSceneId: hotspot.targetSceneId,
+                        unidad: hotspot.unidad ? {
+                            id: hotspot.unidad.id,
+                            numero: hotspot.unidad.numero,
+                            estado: normalizeUnitEstado(hotspot.unidad.estado),
+                            precio: toNumber(hotspot.unidad.precio),
+                            moneda: hotspot.unidad.moneda,
+                        } : null,
+                    })),
+                })),
             })),
             infrastructures: project.infraestructuras,
             stages: project.etapas.map((stage) => ({
@@ -430,4 +599,46 @@ export async function getProjectShowcasePayload(options: {
             visibilityStatus: project.visibilityStatus,
         },
     } satisfies ProjectShowcasePayload;
+}
+
+export async function getPublicProjectShowcaseBySlug(
+    slugOrId: string
+): Promise<PublicProjectShowcase | null> {
+    const payload = await getProjectShowcasePayload({
+        slugOrId,
+        includeUnpublished: false,
+    });
+
+    return payload?.project ?? null;
+}
+
+export async function listPublicProjectShowcases(): Promise<PublicProjectShowcase[]> {
+    const projects = await db.proyecto.findMany({
+        where: buildPublicProjectWhere(),
+        orderBy: { createdAt: "desc" },
+        select: { id: true, slug: true },
+    });
+
+    const payloads = await Promise.all(
+        projects.map((project) => getPublicProjectShowcaseBySlug(project.slug || project.id))
+    );
+
+    return payloads.filter((project): project is PublicProjectShowcase => project !== null);
+}
+
+export async function listPublicProjectCards(): Promise<PublicProjectCard[]> {
+    const projects = await listPublicProjectShowcases();
+
+    return projects.map((project) => ({
+        id: project.id,
+        slug: project.slug,
+        nombre: project.nombre,
+        descripcion: project.descripcion,
+        ubicacion: project.ubicacion,
+        tipo: project.tipo,
+        estado: project.estado,
+        imageUrl: project.imageUrl,
+        inventoryPreview: project.inventoryPreview,
+        availableUnits: project.stats.availableUnits,
+    }));
 }
