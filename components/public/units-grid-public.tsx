@@ -239,7 +239,7 @@ export default function UnitsGridPublic({
                         return (
                             <article
                                 key={unit.id}
-                                className="group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-brand-500/40 hover:shadow-xl hover:shadow-brand-500/10"
+                                className="group relative flex flex-col overflow-hidden rounded-3xl border-2 border-border/80 bg-card shadow-sm ring-1 ring-brand-500/10 transition-all duration-200 hover:-translate-y-1 hover:border-brand-500/50 hover:ring-brand-500/30 hover:shadow-xl hover:shadow-brand-500/15 dark:border-slate-700/80 dark:ring-brand-500/20"
                             >
                                 {/* Top accent bar (state color) */}
                                 <div className={`h-1.5 w-full ${tone.dot}`} aria-hidden="true" />

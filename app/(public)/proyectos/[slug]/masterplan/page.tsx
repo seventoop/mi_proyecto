@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
+import { stripSvgLabels } from "@/lib/svg-strip-labels";
 import MasterplanCanvas from "@/components/public/masterplan-canvas";
 import UnitsGridPublic, { type PublicUnitItem } from "@/components/public/units-grid-public";
 import ContactForm from "@/components/public/contact-form";
@@ -19,9 +20,12 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
     const hasMap = project.mapCenterLat != null && project.mapCenterLng != null;
     const hasTour360 = project.tours.some((tour) => tour.sceneCount > 0);
 
-    // Single source of truth for the plan asset.
-    const planAsset = project.masterplanSvg
-        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(project.masterplanSvg)}`
+    // Single source of truth for the plan asset. Strip <text>/labels and
+    // colored fills from the SVG so it never duplicates the colored unit
+    // polygons that are drawn on top of it.
+    const cleanedSvg = stripSvgLabels(project.masterplanSvg);
+    const planAsset = cleanedSvg
+        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanedSvg)}`
         : project.overlayUrl || null;
 
     const initialUnits: MasterplanUnit[] = project.units.map((unit): MasterplanUnit => {

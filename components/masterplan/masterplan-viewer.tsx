@@ -548,7 +548,7 @@ export default function MasterplanViewer({
                                 width={vbW}
                                 height={vbH}
                                 preserveAspectRatio="xMidYMid meet"
-                                opacity={0.92}
+                                opacity={0.55}
                             />
                         )}
                         {/* Grid covers the full computed viewBox — not a fixed 1000×800 */}

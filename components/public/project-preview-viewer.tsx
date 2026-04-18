@@ -133,7 +133,7 @@ export default function ProjectPreviewViewer({
             // Image overlay (the masterplan SVG drawing)
             if (hasOverlay && parsedBounds) {
                 const overlay = L.imageOverlay(planAsset!, parsedBounds, {
-                    opacity: 0.78,
+                    opacity: 0.55,
                     interactive: false,
                     className: "preview-svg-overlay",
                 });
@@ -177,10 +177,20 @@ export default function ProjectPreviewViewer({
                     if (coords.length < 3) return;
                     const color = STATUS_COLORS[u.estado] || "#94a3b8";
                     L.polygon(coords, {
+                        color: "#ffffff",
+                        fillColor: color,
+                        fillOpacity: 0.7,
+                        weight: 1.5,
+                        opacity: 0.95,
+                        interactive: false,
+                    }).addTo(polyGroup);
+                    // Inner colored stroke to give a strong, defined edge
+                    L.polygon(coords, {
                         color,
                         fillColor: color,
-                        fillOpacity: 0.45,
-                        weight: 1,
+                        fillOpacity: 0,
+                        weight: 2.5,
+                        opacity: 1,
                         interactive: false,
                     }).addTo(polyGroup);
                     drawnAny = true;
@@ -361,19 +371,19 @@ export default function ProjectPreviewViewer({
             </div>
 
             {/* Visor */}
-            <div className="relative h-[640px] w-full bg-slate-100">
+            <div className="relative h-[640px] w-full" style={{ background: "#1e1e1e" }}>
                 <div
                     ref={grayBgRef}
-                    className="pointer-events-none absolute inset-0 z-[1] bg-slate-200 transition-opacity duration-200"
-                    style={{ opacity: 0 }}
+                    className="pointer-events-none absolute inset-0 z-[1] transition-opacity duration-200"
+                    style={{ opacity: 0, background: "#1e1e1e" }}
                     aria-hidden
                 />
                 <div ref={containerRef} className="absolute inset-0 z-[2]" />
                 {!ready && (
-                    <div className="absolute inset-0 z-[3] flex items-center justify-center bg-slate-100">
+                    <div className="absolute inset-0 z-[3] flex items-center justify-center" style={{ background: "#1e1e1e" }}>
                         <div className="flex flex-col items-center gap-3">
                             <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-                            <p className="text-sm font-bold text-slate-500">Cargando vista del proyecto…</p>
+                            <p className="text-sm font-bold text-slate-300">Cargando vista del proyecto…</p>
                         </div>
                     </div>
                 )}
@@ -382,7 +392,9 @@ export default function ProjectPreviewViewer({
             <style jsx global>{`
                 .preview-svg-overlay {
                     pointer-events: none;
-                    mix-blend-mode: multiply;
+                    /* Slight contrast boost so streets/plazas read against satellite imagery
+                       without making the overlay compete with the colored lots. */
+                    filter: contrast(1.1) saturate(0.85);
                 }
                 .leaflet-container {
                     background: transparent !important;

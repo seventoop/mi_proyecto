@@ -1,0 +1,129 @@
+Tenemos el visor unificado funcionando, pero hay varios problemas reales de render y consistencia que hay que resolver antes de seguir mejorando UI.
+
+==================================================
+PRIORIDAD 1 — BUG CRÍTICO: PLANOS DUPLICADOS
+==================================================
+
+En el proyecto (ej: Barrio Capinota) se están renderizando múltiples planos superpuestos.
+
+Síntomas:
+- se ven 2 o 3 layouts distintos al mismo tiempo
+- apagar "Plano" no elimina todo
+- también ocurre en el masterplan interactivo
+
+Esto indica que hay más de una fuente activa:
+- masterplanSvg
+- overlayUrl
+- u otros fallbacks
+
+### SOLUCIÓN
+
+Debe existir UNA SOLA fuente de plano:
+
+const planAsset = masterplanSvg ?? overlayUrl ?? null
+
+Y garantizar:
+- solo se renderiza una imagenOverlay
+- al apagar "Plano" desaparece completamente
+- no quedan residuos visuales
+
+Esto aplica tanto a:
+- project-preview-viewer
+- masterplan interactivo
+
+==================================================
+PRIORIDAD 2 — CORREGIR CAPAS (PLANO vs LOTES)
+==================================================
+
+Hoy Plano y Lotes se ven prácticamente iguales → esto es incorrecto.
+
+Separación correcta:
+
+Plano:
+- SVG base (calles, infraestructura, layout)
+- opacidad media (ej: 0.6)
+
+Lotes:
+- polígonos dinámicos
+- colores por estado (verde, amarillo, rojo)
+- bordes definidos
+
+### SOLUCIÓN
+
+- bajar opacidad del plano
+- aumentar contraste de lotes
+- asegurar que visualmente sean capas distintas
+
+==================================================
+PRIORIDAD 3 — FONDO Y LEGIBILIDAD
+==================================================
+
+Cuando se apaga el mapa:
+- queda un fondo gris demasiado claro
+- los números del plano no se ven
+
+### SOLUCIÓN
+
+- usar fondo gris oscuro (#1e1e1e aprox)
+- asegurar contraste alto con SVG
+- verificar legibilidad de números
+
+==================================================
+PRIORIDAD 4 — INFRAESTRUCTURA
+==================================================
+
+Hoy la infraestructura no se percibe claramente.
+
+Sabemos que viene dentro del SVG, pero:
+
+- no se distingue bien
+- no tiene protagonismo
+
+### SOLUCIÓN
+
+- mejorar contraste del SVG
+- asegurar que calles/plazas se vean claramente
+- no crear toggle falso, pero sí mejorar visibilidad
+
+==================================================
+PRIORIDAD 5 — CONSISTENCIA CON MASTERPLAN INTERACTIVO
+==================================================
+
+El problema de planos duplicados también aparece en:
+
+/proyectos/[slug]/masterplan
+
+### SOLUCIÓN
+
+Aplicar la misma lógica:
+- una sola fuente de plano
+- limpiar overlays duplicados
+- revisar render de imageOverlay
+
+==================================================
+PRIORIDAD 6 — CARDS DE LOTES (UI)
+==================================================
+
+En modo oscuro:
+- no tienen borde visible
+- se ven planas/desprolijas
+
+### SOLUCIÓN
+
+- agregar borde base a todas las cards (ej: border-orange-500/30)
+- mantener color superior por estado
+- mejorar contraste en dark mode
+- no depender solo del hover
+
+==================================================
+ENTREGA
+==================================================
+
+Explicame:
+
+1. cómo resolviste el problema de múltiples planos
+2. qué fuente quedó como única (masterplanSvg vs overlayUrl)
+3. cómo separaste visualmente plano vs lotes
+4. cómo corregiste el fondo y contraste
+5. qué cambios aplicaste en cards
+6. cómo validaste que el bug también quedó resuelto en el masterplan interactivo

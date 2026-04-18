@@ -29,6 +29,7 @@ import {
     getPublicProjectShowcaseBySlug,
     type PublicProjectShowcase,
 } from "@/lib/project-showcase";
+import { stripSvgLabels } from "@/lib/svg-strip-labels";
 
 const DUMMY_CONTENT_PATTERN = /(dummy|demo|brochure|placeholder|sample|test|archivo de ejemplo|pdf file)/i;
 
@@ -147,8 +148,12 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         : null;
 
     // Single source for the static plan thumbnail (no double layer)
-    const planThumbnail = project.masterplanSvg
-        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(project.masterplanSvg)}`
+    // Single plano source: prefer the embedded SVG. We strip <text> nodes and
+    // neutralize fills so the SVG only contributes structural context (streets,
+    // outlines) and never duplicates the colored polygons / lot numbers.
+    const cleanedSvg = stripSvgLabels(project.masterplanSvg);
+    const planThumbnail = cleanedSvg
+        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanedSvg)}`
         : project.overlayUrl || null;
 
     const gridUnits: PublicUnitItem[] = project.units.map((u) => ({

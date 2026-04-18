@@ -47,6 +47,7 @@ Next.js 14 real estate management platform with Prisma ORM and PostgreSQL (Neon 
 - FloatingNav replaces all inline SectionArrows + ScrollToTop with single fixed bottom-right component
 - MediaBanner rewritten: removed framer-motion, object-cover (no black bars), CSS opacity transitions
 - ScrollAnimationWrapper, Hero, ComoFunciona migrated from framer-motion to CSS+IntersectionObserver
+- Added `lib/svg-strip-labels.ts` to strip `<text>`/`<tspan>` and neutralize fills (attribute, single-quoted, and inline `style="fill:..."`) on path/polygon/polyline/rect/circle/ellipse from masterplan SVGs. Applied at both `/proyectos/[slug]` and `/proyectos/[slug]/masterplan` so the SVG only contributes structural outlines and never duplicates the colored unit polygons drawn on top of it.
 
 ## Slug Migration Note
 Projects already have a `slug` field populated (e.g., `barrio-capinota`). A future improvement could migrate routes from `/proyectos/[id]` to `/proyectos/[slug]` for cleaner URLs. This would require updating all links, API routes, and the breadcrumb logic. Assess impact before proceeding.
