@@ -3,6 +3,8 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Camera, Globe, LayoutTemplate, MapPin } from "lucide-react";
 import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
+import MasterplanViewer from "@/components/masterplan/masterplan-viewer";
+import type { MasterplanUnit } from "@/lib/masterplan-store";
 
 function formatCurrency(value: number | null, currency = "USD") {
     if (value == null || !Number.isFinite(value)) return "Consultar";
@@ -49,8 +51,9 @@ export default async function PublicMasterplanPage({
     const view = searchParams.view === "mapa" ? "mapa" : "plano";
     const hasMap = project.mapCenterLat != null && project.mapCenterLng != null;
     const hasTours = project.tours.some((tour) => tour.sceneCount > 0);
-    const planAsset = project.masterplanSvg || project.overlayUrl || null;
-    const planAssetIsSvg = Boolean(project.masterplanSvg);
+    const planAsset = project.masterplanSvg
+        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(project.masterplanSvg)}`
+        : project.overlayUrl || null;
     const visibleUnits = [...project.units].sort((a, b) => {
         const byStage = (a.etapaNombre || "").localeCompare(b.etapaNombre || "", "es");
         if (byStage !== 0) return byStage;
@@ -66,7 +69,7 @@ export default async function PublicMasterplanPage({
                     <div className="min-w-0">
                         <div className="mb-3 flex items-center gap-3">
                             <Link
-                                href={`/proyectos/${params.slug}`}
+                                href={`/proyectos/${project.id}`}
                                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
                             >
                                 <ArrowLeft className="w-4 h-4" />
@@ -86,7 +89,7 @@ export default async function PublicMasterplanPage({
 
                     <div className="flex items-center gap-2 rounded-2xl border border-border bg-card p-1">
                         <Link
-                            href={`/proyectos/${params.slug}/masterplan?view=plano`}
+                            href={`/proyectos/${project.id}/masterplan?view=plano`}
                             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
                                 view === "plano"
                                     ? "bg-brand-500 text-white"
@@ -98,7 +101,7 @@ export default async function PublicMasterplanPage({
                         </Link>
                         {hasMap && (
                             <Link
-                                href={`/proyectos/${params.slug}/masterplan?view=mapa`}
+                                href={`/proyectos/${project.id}/masterplan?view=mapa`}
                                 className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
                                     view === "mapa"
                                         ? "bg-brand-500 text-white"
@@ -139,21 +142,33 @@ export default async function PublicMasterplanPage({
                                         Se muestra el plano real publicado desde el dashboard del proyecto.
                                     </p>
                                 </div>
-                                <div className="flex min-h-[560px] items-center justify-center bg-slate-950/95 p-4">
+                                <div className="min-h-[560px] bg-slate-950/95 p-4">
                                     {planAsset ? (
-                                        planAssetIsSvg ? (
-                                            <iframe
-                                                src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(planAsset)}`}
-                                                title={`Plano de ${project.nombre}`}
-                                                className="h-[72vh] min-h-[520px] w-full rounded-2xl bg-white"
+                                        <div className="h-[72vh] min-h-[520px] overflow-hidden rounded-2xl bg-white">
+                                            <MasterplanViewer
+                                                proyectoId={project.id}
+                                                modo="public"
+                                                canEdit={false}
+                                                initialUnits={project.units.map((unit): MasterplanUnit => {
+                                                    let parsedCoords: any = null;
+                                                    if (unit.coordenadasMasterplan) {
+                                                        try {
+                                                            parsedCoords = JSON.parse(unit.coordenadasMasterplan);
+                                                        } catch {}
+                                                    }
+
+                                                    return {
+                                                        ...unit,
+                                                        estado: unit.estado as MasterplanUnit["estado"],
+                                                        path: parsedCoords?.path,
+                                                        cx: parsedCoords?.cx ?? parsedCoords?.center?.x,
+                                                        cy: parsedCoords?.cy ?? parsedCoords?.center?.y,
+                                                        geoJSON: unit.coordenadasMasterplan,
+                                                    };
+                                                })}
+                                                backgroundAssetUrl={planAsset}
                                             />
-                                        ) : (
-                                            <img
-                                                src={planAsset}
-                                                alt={`Plano de ${project.nombre}`}
-                                                className="max-h-[72vh] w-full rounded-2xl object-contain"
-                                            />
-                                        )
+                                        </div>
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center rounded-2xl border border-dashed border-slate-700 text-slate-400">
                                             Este proyecto aún no tiene un plano público visible.
@@ -177,7 +192,7 @@ export default async function PublicMasterplanPage({
                                             visibleUnits.map((unit) => (
                                                 <Link
                                                     key={unit.id}
-                                                    href={`/proyectos/${params.slug}/unidades/${unit.id}`}
+                                                    href={`/proyectos/${project.id}/unidades/${unit.id}`}
                                                     className="block rounded-2xl border border-border bg-background p-4 transition-colors hover:bg-muted"
                                                 >
                                                     <div className="flex items-start justify-between gap-3">
@@ -246,7 +261,7 @@ export default async function PublicMasterplanPage({
                                 </p>
                             </div>
                             <Link
-                                href={`/proyectos/${params.slug}/masterplan?view=plano`}
+                                href={`/proyectos/${project.id}/masterplan?view=plano`}
                                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-500 px-5 py-3 font-bold text-white transition-colors hover:bg-brand-400"
                             >
                                 <LayoutTemplate className="w-4 h-4" />
@@ -254,7 +269,7 @@ export default async function PublicMasterplanPage({
                             </Link>
                             {hasTours && (
                                 <Link
-                                    href={`/proyectos/${params.slug}/tour360`}
+                                    href={`/proyectos/${project.id}/tour360`}
                                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 font-bold text-foreground transition-colors hover:bg-muted"
                                 >
                                     <Camera className="w-4 h-4" />
@@ -262,7 +277,7 @@ export default async function PublicMasterplanPage({
                                 </Link>
                             )}
                             <a
-                                href={`/proyectos/${params.slug}#contacto`}
+                                href={`/proyectos/${project.id}#contacto`}
                                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 font-bold text-foreground transition-colors hover:bg-muted"
                             >
                                 <MapPin className="w-4 h-4" />

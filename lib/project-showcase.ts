@@ -226,15 +226,15 @@ export async function getProjectShowcasePayload(options: {
 
     const where: any = includeUnpublished
         ? {
-            OR: [{ slug: slugOrId }, { id: slugOrId }],
+            id: slugOrId,
             deletedAt: null,
         }
         : {
-            OR: [{ slug: slugOrId }, { id: slugOrId }],
+            id: slugOrId,
             ...buildPublicProjectWhere(),
         };
 
-    const project = await db.proyecto.findFirst({
+    const project = await db.proyecto.findUnique({
         where,
         include: {
             organization: { select: { nombre: true } },
@@ -608,6 +608,8 @@ export async function getPublicProjectShowcaseBySlug(
     const trimmed = slugOrId.trim();
     if (!trimmed) return null;
 
+    console.info("[public-project] resolve:start", { input: trimmed });
+
     const looksLikeId = /^[a-z0-9]{20,}$/i.test(trimmed) || /^[0-9a-f-]{24,}$/i.test(trimmed);
 
     if (looksLikeId) {
@@ -616,9 +618,24 @@ export async function getPublicProjectShowcaseBySlug(
             includeUnpublished: false,
         });
         if (payloadById?.project?.id === trimmed) {
+            console.info("[public-project] resolve:by-id", {
+                input: trimmed,
+                id: payloadById.project.id,
+                slug: payloadById.project.slug,
+                nombre: payloadById.project.nombre,
+            });
             return payloadById.project;
         }
     }
+
+    const duplicateSlugs = await db.proyecto.groupBy({
+        by: ["slug"],
+        where: {
+            ...buildPublicProjectWhere(),
+            slug: trimmed,
+        },
+        _count: { slug: true },
+    });
 
     const project = await db.proyecto.findFirst({
         where: {
@@ -626,7 +643,13 @@ export async function getPublicProjectShowcaseBySlug(
             slug: trimmed,
         },
         orderBy: { createdAt: "desc" },
-        select: { id: true },
+        select: { id: true, slug: true, nombre: true },
+    });
+
+    console.info("[public-project] resolve:by-slug", {
+        input: trimmed,
+        duplicateSlugCount: duplicateSlugs[0]?._count.slug ?? 0,
+        found: project ? { id: project.id, slug: project.slug, nombre: project.nombre } : null,
     });
 
     if (!project) return null;
@@ -636,6 +659,15 @@ export async function getPublicProjectShowcaseBySlug(
         includeUnpublished: false,
     });
 
+    if (payload?.project) {
+        console.info("[public-project] resolve:final", {
+            input: trimmed,
+            id: payload.project.id,
+            slug: payload.project.slug,
+            nombre: payload.project.nombre,
+        });
+    }
+
     return payload?.project ?? null;
 }
 
@@ -643,11 +675,11 @@ export async function listPublicProjectShowcases(): Promise<PublicProjectShowcas
     const projects = await db.proyecto.findMany({
         where: buildPublicProjectWhere(),
         orderBy: { createdAt: "desc" },
-        select: { id: true, slug: true },
+        select: { id: true },
     });
 
     const payloads = await Promise.all(
-        projects.map((project) => getPublicProjectShowcaseBySlug(project.slug || project.id))
+        projects.map((project) => getPublicProjectShowcaseBySlug(project.id))
     );
 
     return payloads.filter((project): project is PublicProjectShowcase => project !== null);

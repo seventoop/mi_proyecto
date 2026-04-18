@@ -132,11 +132,19 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function ProjectLandingPage({ params }: { params: { slug: string } }) {
+    console.info("[public-project-page] request", { routeParam: params.slug });
     const project = await getProject(params.slug);
 
     if (!project) {
         notFound();
     }
+
+    console.info("[public-project-page] resolved", {
+        routeParam: params.slug,
+        id: project.id,
+        slug: project.slug,
+        nombre: project.nombre,
+    });
 
     const inventory = getInventorySummary(project);
     const highlights = getProjectHighlights(project);

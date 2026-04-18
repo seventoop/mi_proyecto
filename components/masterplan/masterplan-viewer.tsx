@@ -260,9 +260,17 @@ interface MasterplanViewerProps {
     proyectoId: string;
     modo: "admin" | "public";
     canEdit?: boolean;
+    initialUnits?: MasterplanUnit[];
+    backgroundAssetUrl?: string | null;
 }
 
-export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: MasterplanViewerProps) {
+export default function MasterplanViewer({
+    proyectoId,
+    modo,
+    canEdit = false,
+    initialUnits = [],
+    backgroundAssetUrl = null,
+}: MasterplanViewerProps) {
     const {
         setUnits,
         updateUnitState,
@@ -323,6 +331,11 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
     useEffect(() => {
         const fetchProjectUnits = async () => {
             setLoading(true);
+            if (initialUnits.length > 0) {
+                setUnits(initialUnits);
+                setLoading(false);
+                return;
+            }
             const res = await getProjectBlueprintData(proyectoId);
             if (res.success && res.data) {
                 setUnits(res.data as any);
@@ -330,7 +343,7 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
             setLoading(false);
         };
         fetchProjectUnits();
-    }, [proyectoId, setUnits]);
+    }, [initialUnits, proyectoId, setUnits]);
 
     // 2. Implementation of Real-time sync via Pusher
     useEffect(() => {
@@ -527,6 +540,17 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
                                 <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-slate-700" />
                             </pattern>
                         </defs>
+                        {backgroundAssetUrl && (
+                            <image
+                                href={backgroundAssetUrl}
+                                x={vbX}
+                                y={vbY}
+                                width={vbW}
+                                height={vbH}
+                                preserveAspectRatio="xMidYMid meet"
+                                opacity={0.92}
+                            />
+                        )}
                         {/* Grid covers the full computed viewBox — not a fixed 1000×800 */}
                         <rect x={vbX} y={vbY} width={vbW} height={vbH} fill="url(#mp-grid)" />
 
