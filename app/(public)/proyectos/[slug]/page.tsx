@@ -8,6 +8,8 @@ import {
     CheckCircle2,
     FileText,
     Globe,
+    Image as ImageIcon,
+    LayoutGrid,
     MapPin,
     MessageSquare,
     Quote,
@@ -17,6 +19,7 @@ import {
 import ContactActions from "@/components/public/contact-actions";
 import ContactForm from "@/components/public/contact-form";
 import PublicProjectGallery from "@/components/public/project-gallery";
+import UnitsGridPublic, { type PublicUnitItem } from "@/components/public/units-grid-public";
 import {
     NORMALIZED_UNIT_ESTADO,
     type NormalizedUnitEstado,
@@ -50,12 +53,10 @@ function getInventorySummary(project: PublicProjectShowcase) {
         [NORMALIZED_UNIT_ESTADO.BLOQUEADA]: 0,
         [NORMALIZED_UNIT_ESTADO.SUSPENDIDO]: 0,
     };
-
     for (const unit of project.units) {
         const estado = unit.estado as NormalizedUnitEstado;
         summary[estado] = (summary[estado] ?? 0) + 1;
     }
-
     return {
         total: project.stats.totalUnits,
         available: summary[NORMALIZED_UNIT_ESTADO.DISPONIBLE],
@@ -68,28 +69,13 @@ function getInventorySummary(project: PublicProjectShowcase) {
 }
 
 function getProjectHighlights(project: PublicProjectShowcase) {
-    const highlights: Array<{
-        label: string;
-        value: string;
-        icon: typeof Building2;
-    }> = [];
-
+    const highlights: Array<{ label: string; value: string; icon: typeof Building2 }> = [];
     if (project.stats.totalUnits > 0) {
-        highlights.push({
-            label: "Unidades publicadas",
-            value: `${project.stats.totalUnits}`,
-            icon: Building2,
-        });
+        highlights.push({ label: "Unidades publicadas", value: `${project.stats.totalUnits}`, icon: Building2 });
     }
-
     if (project.stats.availableUnits > 0) {
-        highlights.push({
-            label: "Disponibles hoy",
-            value: `${project.stats.availableUnits}`,
-            icon: CheckCircle2,
-        });
+        highlights.push({ label: "Disponibles hoy", value: `${project.stats.availableUnits}`, icon: CheckCircle2 });
     }
-
     if (project.stats.minPrice != null) {
         highlights.push({
             label: "Precio desde",
@@ -97,15 +83,9 @@ function getProjectHighlights(project: PublicProjectShowcase) {
             icon: ShieldCheck,
         });
     }
-
     if (project.stats.minSurface != null) {
-        highlights.push({
-            label: "Superficie desde",
-            value: `${project.stats.minSurface} m²`,
-            icon: Trees,
-        });
+        highlights.push({ label: "Superficie desde", value: `${project.stats.minSurface} m²`, icon: Trees });
     }
-
     return highlights.slice(0, 4);
 }
 
@@ -115,29 +95,20 @@ async function getProject(slugOrId: string) {
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
     const project = await getProject(params.slug);
-
-    if (!project) {
-        return { title: "Proyecto no encontrado | Seventoop" };
-    }
-
+    if (!project) return { title: "Proyecto no encontrado | Seventoop" };
     return {
         title: `${project.nombre} | Seventoop`,
         description:
             project.descripcion?.slice(0, 160) ||
             `Conocé ${project.nombre}${project.ubicacion ? ` en ${project.ubicacion}` : ""}.`,
-        openGraph: {
-            images: [project.imageUrl],
-        },
+        openGraph: { images: [project.imageUrl] },
     };
 }
 
 export default async function ProjectLandingPage({ params }: { params: { slug: string } }) {
     console.info("[public-project-page] request", { routeParam: params.slug });
     const project = await getProject(params.slug);
-
-    if (!project) {
-        notFound();
-    }
+    if (!project) notFound();
 
     console.info("[public-project-page] resolved", {
         routeParam: params.slug,
@@ -147,33 +118,20 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         masterplanSvgBytes: project.masterplanSvg?.length ?? 0,
         overlayUrl: project.overlayUrl ?? null,
         mapCenter: project.mapCenterLat != null && project.mapCenterLng != null
-            ? `${project.mapCenterLat},${project.mapCenterLng}`
-            : null,
+            ? `${project.mapCenterLat},${project.mapCenterLng}` : null,
         unitsTotal: project.units.length,
         unitsAvailable: project.stats.availableUnits,
-        mapImages: project.mapImages.length,
         infrastructures: project.infrastructures.length,
         masterplanAvailable: project.masterplanAvailable,
     });
 
     const inventory = getInventorySummary(project);
     const highlights = getProjectHighlights(project);
-    const usefulMapImages = project.mapImages.filter(
-        (image) =>
-            !isLikelyDummyContent(image.url) &&
-            (Boolean(image.unidadId) || Boolean(image.titulo?.trim()))
-    );
     const realDocuments = project.documents.filter(
-        (document) =>
-            !isLikelyDummyContent(document.title) &&
-            !isLikelyDummyContent(document.url) &&
-            Boolean(document.url?.trim())
+        (d) => !isLikelyDummyContent(d.title) && !isLikelyDummyContent(d.url) && Boolean(d.url?.trim()),
     );
     const realTestimonials = project.testimonials.filter(
-        (testimonial) =>
-            !isLikelyDummyContent(testimonial.author) &&
-            !isLikelyDummyContent(testimonial.text) &&
-            Boolean(testimonial.text?.trim())
+        (t) => !isLikelyDummyContent(t.author) && !isLikelyDummyContent(t.text) && Boolean(t.text?.trim()),
     );
     const hasMap = project.mapCenterLat != null && project.mapCenterLng != null;
     const hasInfrastructure = project.infrastructures.length > 0;
@@ -182,25 +140,39 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
     const hasTours = project.tours.some((tour) => tour.sceneCount > 0);
     const hasDocuments = realDocuments.length > 0;
     const hasTestimonials = realTestimonials.length > 0;
-    const hasCommercialActions = hasMasterplan || hasTours;
+    const hasUnits = project.units.length > 0;
     const mapSrc = hasMap
         ? `https://maps.google.com/maps?q=${project.mapCenterLat},${project.mapCenterLng}&z=${project.mapZoom || 16}&output=embed`
         : null;
 
+    // Single source for the static plan thumbnail (no double layer)
+    const planThumbnail = project.masterplanSvg
+        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(project.masterplanSvg)}`
+        : project.overlayUrl || null;
+
+    const gridUnits: PublicUnitItem[] = project.units.map((u) => ({
+        id: u.id,
+        numero: u.numero,
+        estado: u.estado,
+        superficie: u.superficie,
+        precio: u.precio,
+        moneda: u.moneda,
+        orientacion: u.orientacion,
+        esEsquina: u.esEsquina,
+        etapaNombre: u.etapaNombre,
+        manzanaNombre: u.manzanaNombre,
+    }));
+
     return (
         <div className="bg-background text-foreground">
+            {/* 1. HERO */}
             <section className="relative overflow-hidden border-b border-border">
                 <div className="absolute inset-0">
-                    <img
-                        src={project.imageUrl}
-                        alt={project.imageAlt}
-                        className="h-full w-full object-cover"
-                    />
+                    <img src={project.imageUrl} alt={project.imageAlt} className="h-full w-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-background/35" />
                     <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/15" />
                 </div>
-
-                <div className="relative mx-auto flex min-h-[560px] max-w-7xl flex-col justify-end px-6 py-14 sm:px-10 lg:px-16">
+                <div className="relative mx-auto flex min-h-[480px] max-w-7xl flex-col justify-end px-6 py-14 sm:px-10 lg:px-16">
                     <div className="max-w-3xl space-y-6">
                         <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
                             <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 uppercase tracking-[0.18em] text-white/90 backdrop-blur">
@@ -212,7 +184,6 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                 </span>
                             )}
                         </div>
-
                         <div className="space-y-4">
                             <p className="flex items-center gap-2 text-sm text-white/80 sm:text-base">
                                 <MapPin className="h-4 w-4 flex-shrink-0 text-brand-400" />
@@ -227,27 +198,13 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                 </p>
                             )}
                         </div>
-
                         <div className="flex flex-wrap gap-3">
-                            {hasMasterplan && (
-                                <Link
-                                    href={`/proyectos/${params.slug}/masterplan?view=plano`}
-                                    className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-6 py-3.5 font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
-                                >
-                                    <Globe className="h-4 w-4" />
-                                    Ver masterplan
-                                    <ArrowRight className="h-4 w-4" />
-                                </Link>
-                            )}
-                            {hasTours && (
-                                <Link
-                                    href={`/proyectos/${params.slug}/tour360`}
-                                    className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-6 py-3.5 font-bold text-white backdrop-blur transition-all hover:scale-[1.02] hover:bg-white/15"
-                                >
-                                    <Camera className="h-4 w-4" />
-                                    Recorrer tour 360
-                                </Link>
-                            )}
+                            <a
+                                href="#cta-experiencias"
+                                className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-6 py-3.5 font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
+                            >
+                                Explorar el proyecto <ArrowRight className="h-4 w-4" />
+                            </a>
                             <a
                                 href="#contacto"
                                 className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 font-bold text-white/90 transition-all hover:scale-[1.02] hover:border-white/30 hover:text-white"
@@ -260,197 +217,282 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 </div>
             </section>
 
-            {highlights.length > 0 && (
-                <section className="border-b border-border bg-card/40">
-                    <div className="mx-auto grid max-w-7xl gap-4 px-6 py-8 sm:grid-cols-2 sm:px-10 lg:grid-cols-4 lg:px-16">
-                        {highlights.map((item) => (
-                            <div key={item.label} className="rounded-3xl border border-border bg-background/70 p-5 shadow-sm">
-                                <item.icon className="mb-4 h-5 w-5 text-brand-400" />
-                                <p className="text-2xl font-black text-foreground">{item.value}</p>
-                                <p className="mt-1 text-sm text-muted-foreground">{item.label}</p>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
-                <div className="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-                    <div className="space-y-8">
-                        <div className="space-y-4">
+            {/* 2. RESUMEN COMERCIAL */}
+            <section className="border-b border-border bg-card/40">
+                <div className="mx-auto max-w-7xl px-6 py-12 sm:px-10 lg:px-16">
+                    {highlights.length > 0 && (
+                        <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            {highlights.map((item) => (
+                                <div key={item.label} className="rounded-3xl border border-border bg-background/70 p-5 shadow-sm">
+                                    <item.icon className="mb-4 h-5 w-5 text-brand-400" />
+                                    <p className="text-2xl font-black text-foreground">{item.value}</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">{item.label}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="grid gap-10 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)]">
+                        <div className="space-y-3">
                             <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                Descripción general
+                                Resumen comercial
                             </p>
                             <h2 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                                Información general del proyecto
+                                Información general
                             </h2>
                             <p className="text-base leading-8 text-muted-foreground sm:text-lg">
                                 {project.descripcion ||
                                     "Este proyecto ya está publicado y listo para recibir consultas desde la experiencia pública."}
                             </p>
                         </div>
-
-                        {hasInfrastructure && (
-                            <div className="space-y-5">
-                                <h3 className="text-2xl font-black text-foreground">Infraestructura cargada</h3>
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    {project.infrastructures.map((item) => (
-                                        <article
-                                            key={item.id}
-                                            className="rounded-3xl border border-border bg-card p-5 shadow-sm"
-                                        >
-                                            <div className="mb-3 flex items-start justify-between gap-3">
-                                                <div>
-                                                    <p className="text-lg font-bold text-foreground">{item.nombre}</p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {[item.categoria, item.tipo].filter(Boolean).join(" · ")}
-                                                    </p>
-                                                </div>
-                                                <span className="rounded-full bg-brand-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-500">
-                                                    {item.estado.replace(/_/g, " ")}
-                                                </span>
-                                            </div>
-                                            {item.descripcion && (
-                                                <p className="mb-4 text-sm leading-7 text-muted-foreground">
-                                                    {item.descripcion}
-                                                </p>
-                                            )}
-                                            <div>
-                                                <div className="mb-2 flex items-center justify-between text-sm">
-                                                    <span className="text-muted-foreground">Avance</span>
-                                                    <span className="font-semibold text-foreground">
-                                                        {item.porcentajeAvance}%
-                                                    </span>
-                                                </div>
-                                                <div className="h-2 rounded-full bg-muted">
-                                                    <div
-                                                        className="h-2 rounded-full bg-brand-500"
-                                                        style={{ width: `${Math.max(0, Math.min(100, item.porcentajeAvance))}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </article>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="space-y-6">
                         {inventory.total > 0 && (
-                            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                            <div className="rounded-3xl border border-border bg-background p-6 shadow-sm">
                                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                    Resumen de inventario
+                                    Inventario
                                 </p>
-                                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
                                     {[
                                         { label: "Disponibles", value: inventory.available, tone: "text-emerald-500" },
                                         { label: "Reservados", value: inventory.reserved, tone: "text-amber-500" },
                                         { label: "Vendidos", value: inventory.sold, tone: "text-rose-500" },
                                         { label: "No disponibles", value: inventory.blocked, tone: "text-slate-500" },
                                     ]
-                                        .filter((item) => item.value > 0)
-                                        .map((item) => (
-                                            <div key={item.label} className="rounded-2xl bg-background p-4">
-                                                <p className={`text-2xl font-black ${item.tone}`}>{item.value}</p>
-                                                <p className="text-sm text-muted-foreground">{item.label}</p>
+                                        .filter((it) => it.value > 0)
+                                        .map((it) => (
+                                            <div key={it.label} className="rounded-2xl bg-card p-3">
+                                                <p className={`text-xl font-black ${it.tone}`}>{it.value}</p>
+                                                <p className="text-xs text-muted-foreground">{it.label}</p>
                                             </div>
                                         ))}
                                 </div>
-                                <p className="mt-5 text-sm text-muted-foreground">
+                                <p className="mt-4 text-xs text-muted-foreground">
                                     {inventory.total} unidades publicadas en total.
                                 </p>
-                            </div>
-                        )}
-
-                        {project.inventoryPreview.length > 0 && (
-                            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                    Unidades destacadas
-                                </p>
-                                <div className="mt-5 space-y-3">
-                                    {project.inventoryPreview.map((unit) => (
-                                        <Link
-                                            key={unit.id}
-                                            href={`/proyectos/${params.slug}/unidades/${unit.id}`}
-                                            className="flex items-center justify-between gap-4 rounded-2xl bg-background p-4 transition-colors hover:bg-brand-500/5"
-                                        >
-                                            <div>
-                                                <p className="font-bold text-foreground">Lote {unit.numero}</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {[
-                                                        unit.superficie ? `${unit.superficie} m²` : null,
-                                                        unit.orientacion,
-                                                        unit.esEsquina ? "Esquina" : null,
-                                                    ]
-                                                        .filter(Boolean)
-                                                        .join(" · ") || "Datos en carga"}
-                                                </p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-bold text-foreground">
-                                                    {formatCurrency(unit.precio, unit.moneda) || "Consultar"}
-                                                </p>
-                                                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                    {unit.estado.replace(/_/g, " ")}
-                                                </p>
-                                            </div>
-                                        </Link>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {hasCommercialActions && (
-                            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                    Experiencias disponibles
-                                </p>
-                                <div className="mt-5 space-y-3">
-                                    {hasMasterplan && (
-                                        <Link
-                                            href={`/proyectos/${params.slug}/masterplan?view=plano`}
-                                            className="flex items-center justify-between rounded-2xl bg-background px-4 py-4 transition-colors hover:border-brand-500/20 hover:bg-brand-500/5"
-                                        >
-                                            <div>
-                                                <p className="font-bold text-foreground">Masterplan interactivo</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    Ver mapa, plano y estados de lotes.
-                                                </p>
-                                            </div>
-                                            <ArrowRight className="h-4 w-4 text-brand-500" />
-                                        </Link>
-                                    )}
-                                    {hasTours && (
-                                        <Link
-                                            href={`/proyectos/${params.slug}/tour360`}
-                                            className="flex items-center justify-between rounded-2xl bg-background px-4 py-4 transition-colors hover:border-brand-500/20 hover:bg-brand-500/5"
-                                        >
-                                            <div>
-                                                <p className="font-bold text-foreground">Tour 360</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    Recorrido inmersivo con escenas reales cargadas.
-                                                </p>
-                                            </div>
-                                            <ArrowRight className="h-4 w-4 text-brand-500" />
-                                        </Link>
-                                    )}
-                                </div>
                             </div>
                         )}
                     </div>
                 </div>
             </section>
 
-            {hasGallery && (
-                <section className="border-y border-border bg-card/20">
+            {/* 3. MAPA + PLANO RESUMIDO (no interactivo) */}
+            {(hasMap || planThumbnail) && (
+                <section className="border-b border-border">
                     <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
                         <div className="mb-8 max-w-2xl">
                             <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                Galería de imágenes
+                                Ubicación y plano
                             </p>
                             <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                                Material visual cargado desde dashboard
+                                Mapa y plano del proyecto
+                            </h2>
+                            <p className="mt-3 text-base text-muted-foreground">
+                                Vista general estática. Para explorar lotes uno por uno, abrí el masterplan interactivo.
+                            </p>
+                        </div>
+                        <div className="grid gap-6 lg:grid-cols-2">
+                            {hasMap ? (
+                                <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+                                    <div className="border-b border-border px-5 py-4">
+                                        <p className="text-sm font-bold text-foreground">Ubicación</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {project.ubicacion || "Punto georreferenciado"}
+                                        </p>
+                                    </div>
+                                    <iframe
+                                        src={mapSrc ?? undefined}
+                                        className="pointer-events-none h-[420px] w-full border-0"
+                                        loading="lazy"
+                                        title={`Mapa de ${project.nombre}`}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center">
+                                    <MapPin className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
+                                    <p className="font-bold text-foreground">Sin coordenadas cargadas</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                        Cargá lat/lng desde el dashboard para mostrar el mapa.
+                                    </p>
+                                </div>
+                            )}
+                            {planThumbnail ? (
+                                <div className="overflow-hidden rounded-3xl border border-border bg-slate-950 shadow-sm">
+                                    <div className="border-b border-border bg-card px-5 py-4">
+                                        <p className="text-sm font-bold text-foreground">Plano resumido</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Vista estática · sin interacción
+                                        </p>
+                                    </div>
+                                    <div className="flex h-[420px] items-center justify-center bg-white">
+                                        <img
+                                            src={planThumbnail}
+                                            alt={`Plano de ${project.nombre}`}
+                                            className="max-h-full max-w-full object-contain"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center">
+                                    <LayoutGrid className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
+                                    <p className="font-bold text-foreground">Sin plano público</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                        Sincronizá el masterplan desde el dashboard.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* 4. INFRAESTRUCTURA */}
+            {hasInfrastructure && (
+                <section className="border-b border-border bg-card/40">
+                    <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
+                        <div className="mb-8 max-w-2xl">
+                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                Infraestructura
+                            </p>
+                            <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                                Avance de obras
+                            </h2>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {project.infrastructures.map((item) => (
+                                <article key={item.id} className="rounded-3xl border border-border bg-background p-5 shadow-sm">
+                                    <div className="mb-3 flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-lg font-bold text-foreground">{item.nombre}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {[item.categoria, item.tipo].filter(Boolean).join(" · ")}
+                                            </p>
+                                        </div>
+                                        <span className="rounded-full bg-brand-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-500">
+                                            {item.estado.replace(/_/g, " ")}
+                                        </span>
+                                    </div>
+                                    {item.descripcion && (
+                                        <p className="mb-4 text-sm leading-7 text-muted-foreground">{item.descripcion}</p>
+                                    )}
+                                    <div>
+                                        <div className="mb-2 flex items-center justify-between text-sm">
+                                            <span className="text-muted-foreground">Avance</span>
+                                            <span className="font-semibold text-foreground">{item.porcentajeAvance}%</span>
+                                        </div>
+                                        <div className="h-2 rounded-full bg-muted">
+                                            <div
+                                                className="h-2 rounded-full bg-brand-500"
+                                                style={{ width: `${Math.max(0, Math.min(100, item.porcentajeAvance))}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* 5. CTAs */}
+            <section id="cta-experiencias" className="border-b border-border">
+                <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
+                    <div className="mb-8 max-w-2xl">
+                        <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                            Cómo seguir
+                        </p>
+                        <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                            Explorá el proyecto
+                        </h2>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-3">
+                        {hasMasterplan && (
+                            <Link
+                                href={`/proyectos/${params.slug}/masterplan?view=plano`}
+                                className="group flex flex-col gap-3 rounded-3xl border border-border bg-card p-6 transition-all hover:border-brand-500/40 hover:bg-brand-500/5"
+                            >
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500">
+                                    <Globe className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <p className="text-lg font-bold text-foreground">Masterplan interactivo</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Plano completo, zoom y estado de cada lote.
+                                    </p>
+                                </div>
+                                <span className="mt-auto inline-flex items-center gap-1 text-sm font-bold text-brand-500 group-hover:text-brand-400">
+                                    Abrir <ArrowRight className="h-4 w-4" />
+                                </span>
+                            </Link>
+                        )}
+                        {hasUnits && (
+                            <a
+                                href="#lotes"
+                                className="group flex flex-col gap-3 rounded-3xl border border-border bg-card p-6 transition-all hover:border-brand-500/40 hover:bg-brand-500/5"
+                            >
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500">
+                                    <LayoutGrid className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <p className="text-lg font-bold text-foreground">Ver lotes</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        {inventory.total} unidades publicadas con precio y superficie.
+                                    </p>
+                                </div>
+                                <span className="mt-auto inline-flex items-center gap-1 text-sm font-bold text-brand-500 group-hover:text-brand-400">
+                                    Ir al listado <ArrowRight className="h-4 w-4" />
+                                </span>
+                            </a>
+                        )}
+                        {hasGallery && (
+                            <a
+                                href="#galeria"
+                                className="group flex flex-col gap-3 rounded-3xl border border-border bg-card p-6 transition-all hover:border-brand-500/40 hover:bg-brand-500/5"
+                            >
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500">
+                                    <ImageIcon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <p className="text-lg font-bold text-foreground">Ver galería</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Imágenes y material visual del proyecto.
+                                    </p>
+                                </div>
+                                <span className="mt-auto inline-flex items-center gap-1 text-sm font-bold text-brand-500 group-hover:text-brand-400">
+                                    Ver imágenes <ArrowRight className="h-4 w-4" />
+                                </span>
+                            </a>
+                        )}
+                        {hasTours && (
+                            <Link
+                                href={`/proyectos/${params.slug}/tour360`}
+                                className="group flex flex-col gap-3 rounded-3xl border border-border bg-card p-6 transition-all hover:border-brand-500/40 hover:bg-brand-500/5"
+                            >
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500">
+                                    <Camera className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <p className="text-lg font-bold text-foreground">Tour 360</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Recorrido inmersivo con escenas reales.
+                                    </p>
+                                </div>
+                                <span className="mt-auto inline-flex items-center gap-1 text-sm font-bold text-brand-500 group-hover:text-brand-400">
+                                    Recorrer <ArrowRight className="h-4 w-4" />
+                                </span>
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            </section>
+
+            {/* 6. GALERÍA */}
+            {hasGallery && (
+                <section id="galeria" className="border-b border-border bg-card/20">
+                    <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
+                        <div className="mb-8 max-w-2xl">
+                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                Galería
+                            </p>
+                            <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                                Material visual del proyecto
                             </h2>
                         </div>
                     </div>
@@ -458,231 +500,38 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 </section>
             )}
 
-            <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
-                <div className="mb-8 max-w-2xl">
-                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                        Plano del proyecto
-                    </p>
-                    <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                        Vista previa del masterplan
-                    </h2>
-                    <p className="mt-3 text-base text-muted-foreground">
-                        Plano público sincronizado desde el dashboard del proyecto.
-                    </p>
-                </div>
-                {project.masterplanSvg ? (
-                    <div className="overflow-hidden rounded-3xl border border-border bg-slate-950 shadow-sm">
-                        <img
-                            src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(project.masterplanSvg)}`}
-                            alt={`Plano de ${project.nombre}`}
-                            className="h-auto max-h-[640px] w-full object-contain"
-                        />
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-5 py-4">
-                            <p className="text-sm text-muted-foreground">
-                                {inventory.total} lotes publicados · {inventory.available} disponibles
-                            </p>
-                            <Link
-                                href={`/proyectos/${params.slug}/masterplan?view=plano`}
-                                className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-400"
-                            >
-                                <Globe className="h-4 w-4" />
-                                Abrir masterplan interactivo
-                                <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        </div>
-                    </div>
-                ) : project.overlayUrl ? (
-                    <div className="overflow-hidden rounded-3xl border border-border bg-slate-950 shadow-sm">
-                        <img
-                            src={project.overlayUrl}
-                            alt={`Overlay de ${project.nombre}`}
-                            className="h-auto max-h-[640px] w-full object-contain"
-                        />
-                    </div>
-                ) : (
-                    <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
-                        <p className="text-base font-bold text-foreground">
-                            Este proyecto aún no tiene un plano público disponible.
-                        </p>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                            El equipo comercial puede sincronizar el plano desde el dashboard del proyecto.
-                        </p>
-                    </div>
-                )}
-            </section>
-
-            {project.units.length > 0 ? (
-                <section className="border-y border-border bg-card/20">
-                    <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
+            {/* 7. LISTADO COMPACTO DE UNIDADES */}
+            {hasUnits && (
+                <section id="lotes" className="border-b border-border">
+                    <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
                         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
                             <div className="max-w-2xl">
                                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
                                     Lotes y unidades
                                 </p>
                                 <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                                    Listado público de unidades
+                                    Selección destacada
                                 </h2>
-                                <p className="mt-3 text-base text-muted-foreground">
-                                    {inventory.total} unidades publicadas · {inventory.available} disponibles ·{" "}
-                                    {inventory.reserved} reservadas · {inventory.sold} vendidas
+                                <p className="mt-3 text-sm text-muted-foreground">
+                                    {inventory.total} unidades publicadas. Abrí el listado completo para filtrar y ordenar.
                                 </p>
                             </div>
-                            <Link
-                                href={`/proyectos/${params.slug}/masterplan?view=plano`}
-                                className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
-                            >
-                                <Globe className="h-4 w-4" />
-                                Ver en plano interactivo
-                            </Link>
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {[...project.units]
-                                .sort((a, b) => {
-                                    const aAvailable = a.estado === NORMALIZED_UNIT_ESTADO.DISPONIBLE ? 0 : 1;
-                                    const bAvailable = b.estado === NORMALIZED_UNIT_ESTADO.DISPONIBLE ? 0 : 1;
-                                    if (aAvailable !== bAvailable) return aAvailable - bAvailable;
-                                    return a.numero.localeCompare(b.numero, "es", { numeric: true });
-                                })
-                                .map((unit) => {
-                                    const tone =
-                                        unit.estado === NORMALIZED_UNIT_ESTADO.DISPONIBLE
-                                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                                            : unit.estado === NORMALIZED_UNIT_ESTADO.RESERVADA
-                                                ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                                                : unit.estado === NORMALIZED_UNIT_ESTADO.VENDIDA
-                                                    ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
-                                                    : "bg-slate-500/10 text-slate-500 border-slate-500/20";
-                                    return (
-                                        <Link
-                                            key={unit.id}
-                                            href={`/proyectos/${params.slug}/unidades/${unit.id}`}
-                                            className="group flex flex-col justify-between gap-3 rounded-2xl border border-border bg-background p-5 transition-all hover:border-brand-500/30 hover:bg-brand-500/5"
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <p className="truncate font-bold text-foreground">Lote {unit.numero}</p>
-                                                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                                                        {[unit.etapaNombre, unit.manzanaNombre]
-                                                            .filter(Boolean)
-                                                            .join(" · ") || "Inventario público"}
-                                                    </p>
-                                                </div>
-                                                <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${tone}`}>
-                                                    {unit.estado.replace(/_/g, " ")}
-                                                </span>
-                                            </div>
-                                            <div className="space-y-1 text-sm">
-                                                <p className="text-muted-foreground">
-                                                    Superficie:{" "}
-                                                    <span className="font-semibold text-foreground">
-                                                        {unit.superficie ? `${unit.superficie} m²` : "Consultar"}
-                                                    </span>
-                                                </p>
-                                                <p className="text-muted-foreground">
-                                                    Precio:{" "}
-                                                    <span className="font-semibold text-foreground">
-                                                        {formatCurrency(unit.precio, unit.moneda) || "Consultar"}
-                                                    </span>
-                                                </p>
-                                                {(unit.orientacion || unit.esEsquina) && (
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {[unit.orientacion, unit.esEsquina ? "Esquina" : null]
-                                                            .filter(Boolean)
-                                                            .join(" · ")}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center justify-end gap-1 text-xs font-bold text-brand-500 transition-colors group-hover:text-brand-400">
-                                                Consultar lote <ArrowRight className="h-3 w-3" />
-                                            </div>
-                                        </Link>
-                                    );
-                                })}
-                        </div>
-                    </div>
-                </section>
-            ) : (
-                <section className="border-y border-border bg-card/20">
-                    <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
-                        <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
-                            <p className="text-base font-bold text-foreground">
-                                Aún no hay lotes o unidades públicas para este proyecto.
-                            </p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                El inventario se publicará cuando el equipo comercial lo cargue desde el dashboard.
-                            </p>
-                        </div>
+                        <UnitsGridPublic
+                            units={gridUnits}
+                            slug={params.slug}
+                            mode="compact"
+                            pageSize={8}
+                            seeAllHref={`/proyectos/${params.slug}/masterplan?view=plano`}
+                        />
                     </div>
                 </section>
             )}
 
-            <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
-                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-                    {hasMap ? (
-                        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-                            <div className="border-b border-border px-6 py-5">
-                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                    Ubicación
-                                </p>
-                                <h2 className="mt-2 text-2xl font-black text-foreground">
-                                    Mapa del proyecto
-                                </h2>
-                                <p className="mt-2 text-sm text-muted-foreground">
-                                    {project.ubicacion || "Punto georreferenciado del proyecto"}
-                                </p>
-                            </div>
-                            <iframe
-                                src={mapSrc ?? undefined}
-                                className="h-[420px] w-full border-0"
-                                loading="lazy"
-                                title={`Mapa de ${project.nombre}`}
-                            />
-                        </div>
-                    ) : (
-                        <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
-                            <p className="text-base font-bold text-foreground">
-                                Este proyecto aún no tiene una ubicación georreferenciada cargada.
-                            </p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                Cargá las coordenadas desde el dashboard para que aparezca el mapa público.
-                            </p>
-                        </div>
-                    )}
-
-                    {usefulMapImages.length > 0 && (
-                        <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                Imágenes vinculadas al mapa
-                            </p>
-                            <div className="mt-5 space-y-4">
-                                {usefulMapImages.slice(0, 4).map((image) => (
-                                    <article key={image.id} className="overflow-hidden rounded-2xl bg-background">
-                                        <img
-                                            src={image.url}
-                                            alt={image.titulo || image.unidadNumero || "Imagen del mapa"}
-                                            className="h-40 w-full object-cover"
-                                        />
-                                        <div className="p-4">
-                                            <p className="font-bold text-foreground">
-                                                {image.titulo || `Punto ${image.orden + 1}`}
-                                            </p>
-                                            <p className="mt-1 text-sm text-muted-foreground">
-                                                {[image.tipo, image.unidadNumero ? `Unidad ${image.unidadNumero}` : null]
-                                                    .filter(Boolean)
-                                                    .join(" · ")}
-                                            </p>
-                                        </div>
-                                    </article>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </section>
-
+            {/* 8. DOCUMENTACIÓN + TESTIMONIOS */}
             {(hasDocuments || hasTestimonials) && (
-                <section className="border-y border-border bg-card/20">
-                    <div className="mx-auto grid max-w-7xl gap-8 px-6 py-16 sm:px-10 lg:grid-cols-2 lg:px-16">
+                <section className="border-b border-border bg-card/20">
+                    <div className="mx-auto grid max-w-7xl gap-8 px-6 py-14 sm:px-10 lg:grid-cols-2 lg:px-16">
                         {hasDocuments && (
                             <div className="rounded-3xl border border-border bg-background p-6 shadow-sm">
                                 <div className="mb-5 flex items-center gap-3">
@@ -710,7 +559,6 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                 </div>
                             </div>
                         )}
-
                         {hasTestimonials && (
                             <div className="rounded-3xl border border-border bg-background p-6 shadow-sm">
                                 <div className="mb-5 flex items-center gap-3">
@@ -734,6 +582,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 </section>
             )}
 
+            {/* 9. CONTACTO */}
             <section id="contacto" className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                     <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
@@ -765,7 +614,6 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                             <ContactActions />
                         </div>
                     </div>
-
                     <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
                         <ContactForm proyectoId={project.id} origen="WEB_PROYECTO_PUBLICO" />
                     </div>

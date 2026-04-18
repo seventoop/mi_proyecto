@@ -1,0 +1,151 @@
+Ahora la base técnica está funcionando (routing, plano, lotes, login).
+
+Quiero una refactorización completa de la UX del masterplan y la landing del proyecto.
+
+No quiero agregar features nuevas todavía. Quiero ordenar lo que ya existe.
+
+----------------------------------
+1. MASTERPLAN – LAYOUT PRINCIPAL
+----------------------------------
+
+Problema:
+El plano es chico, hay espacio vacío, y el listado lateral rompe la experiencia.
+
+Quiero:
+
+- El plano debe ocupar el 80–90% del ancho
+- Altura grande (mínimo 70vh)
+- Centrado
+- Sin scroll interno dentro del plano
+
+Eliminar:
+- listado lateral derecho
+
+----------------------------------
+2. LISTADO DE LOTES
+----------------------------------
+
+Mover completamente el listado:
+
+- Sacarlo del lateral derecho
+- Llevarlo debajo del plano
+
+Nuevo formato:
+- grilla responsive (3–4 columnas)
+- con paginación o "ver más"
+- sin hacer la página infinita
+
+Agregar:
+- filtro por estado (disponible / reservado / vendido)
+- ordenar por precio o superficie (simple)
+
+----------------------------------
+3. MODAL DE LOTE (CRÍTICO)
+----------------------------------
+
+Problema:
+El modal se superpone mal y queda debajo o mezclado con el plano.
+
+Arreglar:
+- usar overlay real (position: fixed)
+- fondo oscuro semitransparente
+- z-index alto
+- centrar el modal
+
+Debe:
+- bloquear interacción con el plano
+- cerrarse correctamente
+
+----------------------------------
+4. PLANO DUPLICADO / CAPAS
+----------------------------------
+
+Problema:
+Se están renderizando múltiples capas:
+- plano base
+- overlay
+- mini planos internos
+
+Quiero:
+- SOLO una capa principal visible
+- eliminar duplicados
+- validar qué fuente usar:
+  - masterplanSvg
+  - overlayUrl
+
+Nunca ambas superpuestas incorrectamente
+
+----------------------------------
+5. LANDING DEL PROYECTO (REORDENAR)
+----------------------------------
+
+Orden correcto:
+
+1. Hero
+2. Resumen comercial
+3. MAPA + PLANO RESUMIDO (NO interactivo)
+4. Infraestructura
+5. CTA:
+   - Ver masterplan interactivo
+   - Ver lotes
+   - Ver galería
+6. Galería
+7. Listado de unidades (compacto, no gigante)
+8. Contacto
+
+Eliminar:
+- duplicación de botones a masterplan
+- bloques repetidos
+
+----------------------------------
+6. MAPA EN LANDING
+----------------------------------
+
+Quiero:
+- mapa de Google visible
+- plano dibujado arriba (sin interacción)
+- colores por estado
+- sin popups
+
+Esto es solo vista general
+
+----------------------------------
+7. LISTADO DE UNIDADES (LANDING)
+----------------------------------
+
+Problema:
+Ocupa demasiado espacio y es poco usable
+
+Cambiar a:
+- tabla o grilla compacta
+- máximo 8–12 visibles
+- botón "ver todas"
+
+----------------------------------
+8. UX GENERAL
+----------------------------------
+
+Objetivo:
+- más limpio
+- más comercial
+- más claro
+- menos scroll innecesario
+- menos duplicación
+
+----------------------------------
+IMPORTANTE
+----------------------------------
+
+- no romper lógica existente
+- no agregar backend nuevo
+- no usar auth en público
+- no crear datos dummy
+
+----------------------------------
+ENTREGA
+----------------------------------
+
+Quiero que me digas:
+- qué componentes tocaste
+- qué cambiaste en layout
+- cómo probar cada mejora

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ interface SharedSidePanelProps {
     className?: string;
     bodyClassName?: string;
     tone?: "dark" | "light";
+    variant?: "side" | "modal";
 }
 
 export default function SharedSidePanel({
@@ -29,22 +30,41 @@ export default function SharedSidePanel({
     className,
     bodyClassName,
     tone = "dark",
+    variant = "side",
 }: SharedSidePanelProps) {
     const isDark = tone === "dark";
+    const isModal = variant === "modal";
 
-    return (
+    useEffect(() => {
+        if (!isModal) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        document.addEventListener("keydown", onKey);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            document.body.style.overflow = prevOverflow;
+        };
+    }, [isModal, onClose]);
+
+    const card = (
         <motion.div
-            initial={{ x: "100%", opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "100%", opacity: 0 }}
+            initial={isModal ? { y: 24, opacity: 0, scale: 0.98 } : { x: "100%", opacity: 0 }}
+            animate={isModal ? { y: 0, opacity: 1, scale: 1 } : { x: 0, opacity: 1 }}
+            exit={isModal ? { y: 24, opacity: 0, scale: 0.98 } : { x: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 28, stiffness: 320 }}
             className={cn(
-                "absolute top-0 right-0 bottom-0 z-[1100] flex w-[360px] max-w-[calc(100vw-1rem)] flex-col border-l shadow-2xl",
+                isModal
+                    ? "relative z-[10001] flex max-h-[88vh] w-[min(560px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border shadow-2xl"
+                    : "absolute top-0 right-0 bottom-0 z-[1100] flex w-[360px] max-w-[calc(100vw-1rem)] flex-col border-l shadow-2xl",
                 isDark
                     ? "bg-slate-950/95 border-slate-700/60 text-white backdrop-blur-xl"
                     : "bg-white/95 border-slate-200 text-slate-900 backdrop-blur-xl dark:bg-slate-900/95 dark:border-slate-700 dark:text-white",
                 className,
             )}
+            onClick={(e) => e.stopPropagation()}
         >
             <div
                 className={cn(
@@ -91,6 +111,24 @@ export default function SharedSidePanel({
                     {footer}
                 </div>
             ) : null}
+        </motion.div>
+    );
+
+    if (!isModal) return card;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+        >
+            {card}
         </motion.div>
     );
 }

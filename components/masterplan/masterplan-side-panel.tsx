@@ -269,6 +269,7 @@ export default function MasterplanSidePanel({ unit, modo, canEdit, onClose }: Si
                 title={`Lote ${unit.numero}`}
                 subtitle={modo === "admin" && internalId != null ? `ID interno #${internalId}` : unit.tipo || "Unidad"}
                 tone="light"
+                variant={modo === "public" ? "modal" : "side"}
                 onClose={onClose}
                 icon={(
                     <div
