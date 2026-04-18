@@ -197,6 +197,7 @@ export type PublicProjectCard = Pick<
     "id" | "slug" | "nombre" | "descripcion" | "ubicacion" | "tipo" | "estado" | "imageUrl" | "inventoryPreview"
 > & {
     availableUnits: number;
+    publicPath: string;
 };
 
 function toNumber(value: unknown): number | null {
@@ -604,8 +605,34 @@ export async function getProjectShowcasePayload(options: {
 export async function getPublicProjectShowcaseBySlug(
     slugOrId: string
 ): Promise<PublicProjectShowcase | null> {
+    const trimmed = slugOrId.trim();
+    if (!trimmed) return null;
+
+    const looksLikeId = /^[a-z0-9]{20,}$/i.test(trimmed) || /^[0-9a-f-]{24,}$/i.test(trimmed);
+
+    if (looksLikeId) {
+        const payloadById = await getProjectShowcasePayload({
+            slugOrId: trimmed,
+            includeUnpublished: false,
+        });
+        if (payloadById?.project?.id === trimmed) {
+            return payloadById.project;
+        }
+    }
+
+    const project = await db.proyecto.findFirst({
+        where: {
+            ...buildPublicProjectWhere(),
+            slug: trimmed,
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+    });
+
+    if (!project) return null;
+
     const payload = await getProjectShowcasePayload({
-        slugOrId,
+        slugOrId: project.id,
         includeUnpublished: false,
     });
 
@@ -640,5 +667,6 @@ export async function listPublicProjectCards(): Promise<PublicProjectCard[]> {
         imageUrl: project.imageUrl,
         inventoryPreview: project.inventoryPreview,
         availableUnits: project.stats.availableUnits,
+        publicPath: `/proyectos/${project.id}`,
     }));
 }

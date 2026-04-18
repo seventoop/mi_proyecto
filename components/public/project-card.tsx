@@ -22,7 +22,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 
     return (
         <Link
-            href={`/proyectos/${project.slug || project.id}`}
+            href={project.publicPath}
             className="group block relative rounded-[2rem] overflow-hidden bg-white dark:bg-black border border-slate-200 dark:border-white/5 hover:border-brand-orange/50 transition-all duration-500 hover:shadow-2xl hover:shadow-brand-orange/10 h-full flex flex-col"
         >
             {/* Image */}

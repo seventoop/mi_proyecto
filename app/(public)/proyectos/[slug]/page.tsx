@@ -26,6 +26,8 @@ import {
     type PublicProjectShowcase,
 } from "@/lib/project-showcase";
 
+const DUMMY_CONTENT_PATTERN = /(dummy|demo|brochure|placeholder|sample|test|archivo de ejemplo|pdf file)/i;
+
 function formatCurrency(value: number | null, currency = "USD") {
     if (value == null || !Number.isFinite(value)) return null;
     return new Intl.NumberFormat("es-AR", {
@@ -33,6 +35,11 @@ function formatCurrency(value: number | null, currency = "USD") {
         currency,
         maximumFractionDigits: 0,
     }).format(value);
+}
+
+function isLikelyDummyContent(value: string | null | undefined) {
+    if (!value) return false;
+    return DUMMY_CONTENT_PATTERN.test(value);
 }
 
 function getInventorySummary(project: PublicProjectShowcase) {
@@ -133,13 +140,30 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
 
     const inventory = getInventorySummary(project);
     const highlights = getProjectHighlights(project);
+    const usefulMapImages = project.mapImages.filter(
+        (image) =>
+            !isLikelyDummyContent(image.url) &&
+            (Boolean(image.unidadId) || Boolean(image.titulo?.trim()))
+    );
+    const realDocuments = project.documents.filter(
+        (document) =>
+            !isLikelyDummyContent(document.title) &&
+            !isLikelyDummyContent(document.url) &&
+            Boolean(document.url?.trim())
+    );
+    const realTestimonials = project.testimonials.filter(
+        (testimonial) =>
+            !isLikelyDummyContent(testimonial.author) &&
+            !isLikelyDummyContent(testimonial.text) &&
+            Boolean(testimonial.text?.trim())
+    );
     const hasMap = project.mapCenterLat != null && project.mapCenterLng != null;
     const hasInfrastructure = project.infrastructures.length > 0;
     const hasGallery = project.images.length > 0;
     const hasMasterplan = project.masterplanAvailable || Boolean(project.overlayUrl);
     const hasTours = project.tours.some((tour) => tour.sceneCount > 0);
-    const hasDocuments = project.documents.length > 0;
-    const hasTestimonials = project.testimonials.length > 0;
+    const hasDocuments = realDocuments.length > 0;
+    const hasTestimonials = realTestimonials.length > 0;
     const hasCommercialActions = hasMasterplan || hasTours;
     const mapSrc = hasMap
         ? `https://maps.google.com/maps?q=${project.mapCenterLat},${project.mapCenterLng}&z=${project.mapZoom || 16}&output=embed`
@@ -189,7 +213,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                         <div className="flex flex-wrap gap-3">
                             {hasMasterplan && (
                                 <Link
-                                    href={`/proyectos/${params.slug}/masterplan?view=mapa`}
+                                    href={`/proyectos/${params.slug}/masterplan?view=plano`}
                                     className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-6 py-3.5 font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
                                 >
                                     <Globe className="h-4 w-4" />
@@ -240,7 +264,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                 Descripción general
                             </p>
                             <h2 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                                Información real del proyecto
+                                Información general del proyecto
                             </h2>
                             <p className="text-base leading-8 text-muted-foreground sm:text-lg">
                                 {project.descripcion ||
@@ -324,7 +348,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                         {project.inventoryPreview.length > 0 && (
                             <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
                                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                    Lotes destacados
+                                    Unidades destacadas
                                 </p>
                                 <div className="mt-5 space-y-3">
                                     {project.inventoryPreview.map((unit) => (
@@ -366,7 +390,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                 <div className="mt-5 space-y-3">
                                     {hasMasterplan && (
                                         <Link
-                                            href={`/proyectos/${params.slug}/masterplan?view=mapa`}
+                                            href={`/proyectos/${params.slug}/masterplan?view=plano`}
                                             className="flex items-center justify-between rounded-2xl bg-background px-4 py-4 transition-colors hover:border-brand-500/20 hover:bg-brand-500/5"
                                         >
                                             <div>
@@ -415,7 +439,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 </section>
             )}
 
-            {(hasMap || project.mapImages.length > 0) && (
+            {(hasMap || usefulMapImages.length > 0) && (
                 <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
                     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
                         {hasMap && (
@@ -440,13 +464,13 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                             </div>
                         )}
 
-                        {project.mapImages.length > 0 && (
+                        {usefulMapImages.length > 0 && (
                             <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
                                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
                                     Imágenes vinculadas al mapa
                                 </p>
                                 <div className="mt-5 space-y-4">
-                                    {project.mapImages.slice(0, 4).map((image) => (
+                                    {usefulMapImages.slice(0, 4).map((image) => (
                                         <article key={image.id} className="overflow-hidden rounded-2xl bg-background">
                                             <img
                                                 src={image.url}
@@ -482,7 +506,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                     <h2 className="text-2xl font-black text-foreground">Documentación</h2>
                                 </div>
                                 <div className="space-y-3">
-                                    {project.documents.slice(0, 6).map((document) => (
+                                    {realDocuments.slice(0, 6).map((document) => (
                                         <a
                                             key={document.id}
                                             href={document.url}
@@ -510,7 +534,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                     <h2 className="text-2xl font-black text-foreground">Testimonios</h2>
                                 </div>
                                 <div className="space-y-4">
-                                    {project.testimonials.slice(0, 3).map((testimonial) => (
+                                    {realTestimonials.slice(0, 3).map((testimonial) => (
                                         <article key={testimonial.id} className="rounded-2xl border border-border bg-card p-5">
                                             <p className="text-base leading-7 text-foreground">“{testimonial.text}”</p>
                                             <div className="mt-4">

@@ -466,14 +466,18 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
 
                 <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1" />
 
-                <button
-                    onClick={handleExportExcel}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg backdrop-blur-sm bg-emerald-500 text-white hover:bg-emerald-600 transition-all"
-                >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />Exportar Excel
-                </button>
+                {modo === "admin" && (
+                    <>
+                        <button
+                            onClick={handleExportExcel}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg backdrop-blur-sm bg-emerald-500 text-white hover:bg-emerald-600 transition-all"
+                        >
+                            <FileSpreadsheet className="w-3.5 h-3.5" />Exportar Excel
+                        </button>
 
-                <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1" />
+                        <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1" />
+                    </>
+                )}
                 <button ref={zoomInRef} title="Acercar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
                     <ZoomIn className="w-4 h-4" />
                 </button>
