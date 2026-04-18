@@ -1,529 +1,568 @@
-﻿import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
-    ArrowRight, MapPin, Check, Building2, Trees, Shield,
-    Globe, LayoutTemplate, Camera, ChevronDown, Compass,
-    TrendingUp, Users, Star, Play, Sparkles, Navigation
+    ArrowRight,
+    Building2,
+    Camera,
+    CheckCircle2,
+    FileText,
+    Globe,
+    MapPin,
+    MessageSquare,
+    Quote,
+    ShieldCheck,
+    Trees,
 } from "lucide-react";
+import ContactActions from "@/components/public/contact-actions";
 import ContactForm from "@/components/public/contact-form";
 import PublicProjectGallery from "@/components/public/project-gallery";
-import { normalizeUnitEstado, NORMALIZED_UNIT_ESTADO } from "@/lib/public-projects";
-import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
 import {
-    normalizeTourMediaCategory,
-    TOUR_MEDIA_CATEGORY_LABELS,
-    type TourMediaCategory,
-} from "@/lib/tour-media";
+    NORMALIZED_UNIT_ESTADO,
+    type NormalizedUnitEstado,
+} from "@/lib/public-projects";
+import {
+    getPublicProjectShowcaseBySlug,
+    type PublicProjectShowcase,
+} from "@/lib/project-showcase";
 
-async function getProject(slug: string) {
-    const project = await getPublicProjectShowcaseBySlug(slug);
-    if (!project) return null;
+function formatCurrency(value: number | null, currency = "USD") {
+    if (value == null || !Number.isFinite(value)) return null;
+    return new Intl.NumberFormat("es-AR", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+    }).format(value);
+}
+
+function getInventorySummary(project: PublicProjectShowcase) {
+    const summary: Record<NormalizedUnitEstado, number> = {
+        [NORMALIZED_UNIT_ESTADO.DISPONIBLE]: 0,
+        [NORMALIZED_UNIT_ESTADO.RESERVADA]: 0,
+        [NORMALIZED_UNIT_ESTADO.VENDIDA]: 0,
+        [NORMALIZED_UNIT_ESTADO.BLOQUEADA]: 0,
+        [NORMALIZED_UNIT_ESTADO.SUSPENDIDO]: 0,
+    };
+
+    for (const unit of project.units) {
+        const estado = unit.estado as NormalizedUnitEstado;
+        summary[estado] = (summary[estado] ?? 0) + 1;
+    }
 
     return {
-        ...project,
-        imagenes: project.images,
-        imagenPortada: project.imageUrl,
-        masterplanSVG: project.masterplanSvg,
-        precioM2Inversor: project.stats.minPrice,
-        etapas: [
-            {
-                manzanas: [
-                    {
-                        unidades: project.units,
-                    },
-                ],
-            },
-        ],
+        total: project.stats.totalUnits,
+        available: summary[NORMALIZED_UNIT_ESTADO.DISPONIBLE],
+        reserved: summary[NORMALIZED_UNIT_ESTADO.RESERVADA],
+        sold: summary[NORMALIZED_UNIT_ESTADO.VENDIDA],
+        blocked:
+            summary[NORMALIZED_UNIT_ESTADO.BLOQUEADA] +
+            summary[NORMALIZED_UNIT_ESTADO.SUSPENDIDO],
     };
+}
+
+function getProjectHighlights(project: PublicProjectShowcase) {
+    const highlights: Array<{
+        label: string;
+        value: string;
+        icon: typeof Building2;
+    }> = [];
+
+    if (project.stats.totalUnits > 0) {
+        highlights.push({
+            label: "Unidades publicadas",
+            value: `${project.stats.totalUnits}`,
+            icon: Building2,
+        });
+    }
+
+    if (project.stats.availableUnits > 0) {
+        highlights.push({
+            label: "Disponibles hoy",
+            value: `${project.stats.availableUnits}`,
+            icon: CheckCircle2,
+        });
+    }
+
+    if (project.stats.minPrice != null) {
+        highlights.push({
+            label: "Precio desde",
+            value: formatCurrency(project.stats.minPrice) ?? "Consultar",
+            icon: ShieldCheck,
+        });
+    }
+
+    if (project.stats.minSurface != null) {
+        highlights.push({
+            label: "Superficie desde",
+            value: `${project.stats.minSurface} m²`,
+            icon: Trees,
+        });
+    }
+
+    return highlights.slice(0, 4);
+}
+
+async function getProject(slugOrId: string) {
+    return getPublicProjectShowcaseBySlug(slugOrId);
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
     const project = await getProject(params.slug);
-    if (!project) return { title: "Proyecto no encontrado" };
+
+    if (!project) {
+        return { title: "Proyecto no encontrado | Seventoop" };
+    }
+
     return {
         title: `${project.nombre} | Seventoop`,
-        description: project.descripcion?.slice(0, 160) || `Conoce ${project.nombre} en ${project.ubicacion}.`,
+        description:
+            project.descripcion?.slice(0, 160) ||
+            `Conocé ${project.nombre}${project.ubicacion ? ` en ${project.ubicacion}` : ""}.`,
         openGraph: {
-            images: [project.imagenPortada || ""],
+            images: [project.imageUrl],
         },
     };
 }
 
 export default async function ProjectLandingPage({ params }: { params: { slug: string } }) {
     const project = await getProject(params.slug);
-    if (!project) notFound();
 
-    const P = project as any;
+    if (!project) {
+        notFound();
+    }
 
-    // â”€â”€ Derived stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    const allUnits: any[] = P.etapas?.flatMap((e: any) =>
-        e.manzanas?.flatMap((m: any) => m.unidades ?? []) ?? []
-    ) ?? [];
-    const totalUnits = allUnits.length;
-    const normalizedUnits = allUnits.map((u) => ({ ...u, estado: normalizeUnitEstado(u.estado) }));
-    const disponibles = normalizedUnits.filter((u) => u.estado === NORMALIZED_UNIT_ESTADO.DISPONIBLE).length;
-    const vendidas = normalizedUnits.filter((u) =>
-        [NORMALIZED_UNIT_ESTADO.VENDIDA, NORMALIZED_UNIT_ESTADO.RESERVADA].includes(u.estado)
-    ).length;
-    const pctVendidas = totalUnits > 0 ? Math.round((vendidas / totalUnits) * 100) : 0;
-
-    const heroImage =
-        P.imagenes?.find((i: any) => i.esPrincipal)?.url ||
-        P.imagenes?.[0]?.url ||
-        P.imagenPortada ||
-        "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2075&auto=format&fit=crop";
-
-    const allTourScenes = (P.tours ?? []).flatMap((tour: any) => tour.scenes ?? []);
-    const tour360Scenes = allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "tour360");
-    const galleryScenesByCategory: Record<Exclude<TourMediaCategory, "tour360">, any[]> = {
-        real: allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "real"),
-        render: allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "render"),
-        avance: allTourScenes.filter((scene: any) => normalizeTourMediaCategory(scene) === "avance"),
-    };
-    const hasTours = tour360Scenes.length > 0;
-    const hasMasterplan = !!(P.masterplanSVG || P.overlayUrl);
-    const firstTourThumb = tour360Scenes[0]?.imageUrl;
-    const galleryCategories = (["real", "render", "avance"] as const).filter(
-        (category) => galleryScenesByCategory[category].length > 0
-    );
-
-    const priceM2 = P.precioM2Inversor
-        ? `USD ${Number(P.precioM2Inversor).toLocaleString("es-AR")}/m²`
+    const inventory = getInventorySummary(project);
+    const highlights = getProjectHighlights(project);
+    const hasMap = project.mapCenterLat != null && project.mapCenterLng != null;
+    const hasInfrastructure = project.infrastructures.length > 0;
+    const hasGallery = project.images.length > 0;
+    const hasMasterplan = project.masterplanAvailable || Boolean(project.overlayUrl);
+    const hasTours = project.tours.some((tour) => tour.sceneCount > 0);
+    const hasDocuments = project.documents.length > 0;
+    const hasTestimonials = project.testimonials.length > 0;
+    const hasCommercialActions = hasMasterplan || hasTours;
+    const mapSrc = hasMap
+        ? `https://maps.google.com/maps?q=${project.mapCenterLat},${project.mapCenterLng}&z=${project.mapZoom || 16}&output=embed`
         : null;
 
     return (
-        <div className="bg-background text-foreground selection:bg-brand-500/30 overflow-x-hidden">
-
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                HERO — Full screen with parallax image
-            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            <section className="relative h-screen min-h-[680px] flex flex-col justify-end overflow-hidden">
-                {/* Parallax background */}
-                <div className="absolute inset-0 z-0">
+        <div className="bg-background text-foreground">
+            <section className="relative overflow-hidden border-b border-border">
+                <div className="absolute inset-0">
                     <img
-                        src={heroImage}
-                        alt={P.nombre}
-                        className="w-full h-full object-cover animate-zoom-in"
+                        src={project.imageUrl}
+                        alt={project.imageAlt}
+                        className="h-full w-full object-cover"
                     />
-                    {/* Layered gradients for depth */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent dark:via-background/50" />
-                    <div className="absolute inset-0 bg-gradient-to-r from-background/75 via-background/25 to-transparent dark:from-background/60" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-background/35" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/15" />
                 </div>
 
-                {/* Floating type + status badges */}
-                <div className="absolute top-8 left-8 z-20 flex items-center gap-3">
-                    <span className="px-3.5 py-2 rounded-full bg-brand-500/20 backdrop-blur-md border border-brand-500/30 text-brand-400 text-[13px] font-bold uppercase tracking-widest">
-                        {P.tipo?.replace(/_/g, " ")}
-                    </span>
-                    {disponibles > 0 && (
-                        <span className="px-3.5 py-2 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-[13px] font-bold">
-                            {disponibles} disponibles
-                        </span>
-                    )}
-                </div>
+                <div className="relative mx-auto flex min-h-[560px] max-w-7xl flex-col justify-end px-6 py-14 sm:px-10 lg:px-16">
+                    <div className="max-w-3xl space-y-6">
+                        <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
+                            <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 uppercase tracking-[0.18em] text-white/90 backdrop-blur">
+                                {project.tipo.replace(/_/g, " ")}
+                            </span>
+                            {inventory.available > 0 && (
+                                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/15 px-4 py-2 text-emerald-200 backdrop-blur">
+                                    {inventory.available} disponibles
+                                </span>
+                            )}
+                        </div>
 
-                {/* Hero content */}
-                <div className="relative z-20 px-6 sm:px-10 lg:px-16 pb-16 sm:pb-24">
-                    <div className="max-w-4xl">
-                        <p className="flex items-center gap-2 text-muted-foreground text-base mb-4 animate-fade-in-up">
-                            <MapPin className="w-4 h-4 text-brand-400 flex-shrink-0" />
-                            {P.ubicacion || "Ubicación por definir"}
-                        </p>
-                        <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tighter text-foreground dark:text-white leading-[0.9] mb-8 animate-fade-in-up">
-                            {P.nombre}
-                        </h1>
+                        <div className="space-y-4">
+                            <p className="flex items-center gap-2 text-sm text-white/80 sm:text-base">
+                                <MapPin className="h-4 w-4 flex-shrink-0 text-brand-400" />
+                                {project.ubicacion || "Ubicación a confirmar"}
+                            </p>
+                            <h1 className="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-6xl lg:text-7xl">
+                                {project.nombre}
+                            </h1>
+                            {project.descripcion && (
+                                <p className="max-w-2xl text-base leading-8 text-white/80 sm:text-lg">
+                                    {project.descripcion}
+                                </p>
+                            )}
+                        </div>
 
-                        {/* Three main CTAs */}
-                        <div className="flex flex-wrap gap-3 animate-fade-in-up-delay">
+                        <div className="flex flex-wrap gap-3">
                             {hasMasterplan && (
                                 <Link
                                     href={`/proyectos/${params.slug}/masterplan?view=mapa`}
-                                    className="group flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-brand-500 hover:bg-brand-400 text-white font-bold text-base shadow-glow hover:shadow-glow-lg transition-all hover:scale-105 active:scale-95"
+                                    className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-6 py-3.5 font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
                                 >
-                                    <Globe className="w-4 h-4" />
-                                    Mapa Interactivo
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </Link>
-                            )}
-                            {hasMasterplan && (
-                                <Link
-                                    href={`/proyectos/${params.slug}/masterplan?view=plano`}
-                                    className="group flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-background/75 dark:bg-white/10 hover:bg-background/90 dark:hover:bg-white/20 backdrop-blur-md border border-border dark:border-white/20 text-foreground dark:text-white font-bold text-base transition-all hover:scale-105 active:scale-95"
-                                >
-                                    <LayoutTemplate className="w-4 h-4" />
-                                    Masterplan
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    <Globe className="h-4 w-4" />
+                                    Ver masterplan
+                                    <ArrowRight className="h-4 w-4" />
                                 </Link>
                             )}
                             {hasTours && (
                                 <Link
                                     href={`/proyectos/${params.slug}/tour360`}
-                                    className="group flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-background/75 dark:bg-white/10 hover:bg-background/90 dark:hover:bg-white/20 backdrop-blur-md border border-border dark:border-white/20 text-foreground dark:text-white font-bold text-base transition-all hover:scale-105 active:scale-95"
+                                    className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-6 py-3.5 font-bold text-white backdrop-blur transition-all hover:scale-[1.02] hover:bg-white/15"
                                 >
-                                    <Camera className="w-4 h-4" />
-                                    Tour 360°
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    <Camera className="h-4 w-4" />
+                                    Recorrer tour 360
                                 </Link>
                             )}
                             <a
                                 href="#contacto"
-                                className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl border border-border dark:border-white/20 text-muted-foreground dark:text-white/80 hover:text-foreground dark:hover:text-white hover:border-foreground/20 dark:hover:border-white/40 font-semibold text-base transition-all hover:scale-105"
+                                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 font-bold text-white/90 transition-all hover:scale-[1.02] hover:border-white/30 hover:text-white"
                             >
-                                Solicitar info
+                                <MessageSquare className="h-4 w-4" />
+                                Consultar proyecto
                             </a>
                         </div>
                     </div>
                 </div>
-
-                {/* Scroll hint */}
-                <div className="absolute bottom-6 right-8 z-20 flex flex-col items-center gap-1 text-foreground/30 dark:text-white/30 animate-float">
-                    <span className="text-[10px] uppercase tracking-widest">Scroll</span>
-                    <ChevronDown className="w-4 h-4" />
-                </div>
             </section>
 
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                STATS STRIP
-            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            {totalUnits > 0 && (
-                <section className="border-y border-border bg-muted/30 backdrop-blur-sm">
-                    <div className="px-6 sm:px-10 lg:px-16 py-7 grid grid-cols-2 sm:grid-cols-4 gap-6 divide-x divide-border">
-                        {[
-                            { label: "Lotes totales", value: totalUnits.toString(), icon: Building2 },
-                            { label: "Disponibles", value: disponibles.toString(), icon: Check, color: "text-emerald-400" },
-                            { label: "Reservados / Vendidos", value: `${pctVendidas}%`, icon: TrendingUp, color: "text-brand-400" },
-                            { label: "Precio desde", value: priceM2 || "Consultar", icon: Star, color: "text-amber-400" },
-                        ].map((stat, i) => (
-                            <div key={i} className="pl-6 first:pl-0">
-                                <stat.icon className={`w-5 h-5 mb-2 ${stat.color || "text-muted-foreground"}`} />
-                                <p className="text-3xl sm:text-4xl font-black text-foreground leading-none">{stat.value}</p>
-                                <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
+            {highlights.length > 0 && (
+                <section className="border-b border-border bg-card/40">
+                    <div className="mx-auto grid max-w-7xl gap-4 px-6 py-8 sm:grid-cols-2 sm:px-10 lg:grid-cols-4 lg:px-16">
+                        {highlights.map((item) => (
+                            <div key={item.label} className="rounded-3xl border border-border bg-background/70 p-5 shadow-sm">
+                                <item.icon className="mb-4 h-5 w-5 text-brand-400" />
+                                <p className="text-2xl font-black text-foreground">{item.value}</p>
+                                <p className="mt-1 text-sm text-muted-foreground">{item.label}</p>
                             </div>
                         ))}
                     </div>
                 </section>
             )}
 
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                THREE INTERACTIVE EXPERIENCES
-            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            <section className="py-24 px-6 sm:px-10 lg:px-16">
-                <div className="mb-14">
-                    <span className="text-brand-400 text-sm font-bold uppercase tracking-widest">Explorá el proyecto</span>
-                    <h2 className="text-4xl sm:text-5xl font-black text-foreground mt-2 tracking-tight">Herramientas interactivas</h2>
-                    <p className="text-muted-foreground mt-3 max-w-xl text-lg leading-8">
-                        Tres formas de conocer el proyecto antes de decidir tu inversión.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                    {/* Card 1 — Mapa Interactivo */}
-                    <Link
-                        href={`/proyectos/${params.slug}/masterplan?view=mapa`}
-                        className="group relative overflow-hidden rounded-3xl bg-card border border-border shadow-sm hover:border-brand-500/40 transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-brand-500/10 min-h-[320px] flex flex-col justify-between p-8"
-                    >
-                        <div>
-                            <div className="w-14 h-14 rounded-2xl bg-brand-500/15 border border-brand-500/20 flex items-center justify-center mb-6">
-                                <Globe className="w-7 h-7 text-brand-400" />
-                            </div>
-                            <h3 className="text-[1.8rem] font-black text-foreground mb-3">Mapa Interactivo</h3>
-                            <p className="text-base text-muted-foreground leading-7">
-                                Google Maps con el plano superpuesto. Marcá tu ubicación en tiempo real, explorá los lotes disponibles y realizá tu reserva directo desde el mapa.
+            <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
+                <div className="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+                    <div className="space-y-8">
+                        <div className="space-y-4">
+                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                Descripción general
+                            </p>
+                            <h2 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                                Información real del proyecto
+                            </h2>
+                            <p className="text-base leading-8 text-muted-foreground sm:text-lg">
+                                {project.descripcion ||
+                                    "Este proyecto ya está publicado y listo para recibir consultas desde la experiencia pública."}
                             </p>
                         </div>
-                        <div className="mt-8 flex items-center justify-between">
-                            <div className="flex gap-2">
-                                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-muted border border-border text-foreground/80">GPS en vivo</span>
-                                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-muted border border-border text-foreground/80">Lotes coloreados</span>
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <ArrowRight className="w-4 h-4 text-white" />
-                            </div>
-                        </div>
-                        {/* Ambient glow on hover */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-brand-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                    </Link>
 
-                    {/* Card 2 — Masterplan del Proyecto */}
-                    <Link
-                        href={`/proyectos/${params.slug}/masterplan?view=plano`}
-                        className="group relative overflow-hidden rounded-3xl bg-card border border-border shadow-sm hover:border-indigo-500/40 transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/10 min-h-[320px] flex flex-col justify-between p-8"
-                    >
-                        {/* Background map preview if available */}
-                        {P.overlayUrl && (
-                            <div className="absolute inset-0 opacity-10 group-hover:opacity-15 transition-opacity">
-                                <img src={P.overlayUrl} alt="" className="w-full h-full object-cover" />
+                        {hasInfrastructure && (
+                            <div className="space-y-5">
+                                <h3 className="text-2xl font-black text-foreground">Infraestructura cargada</h3>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    {project.infrastructures.map((item) => (
+                                        <article
+                                            key={item.id}
+                                            className="rounded-3xl border border-border bg-card p-5 shadow-sm"
+                                        >
+                                            <div className="mb-3 flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="text-lg font-bold text-foreground">{item.nombre}</p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {[item.categoria, item.tipo].filter(Boolean).join(" · ")}
+                                                    </p>
+                                                </div>
+                                                <span className="rounded-full bg-brand-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-500">
+                                                    {item.estado.replace(/_/g, " ")}
+                                                </span>
+                                            </div>
+                                            {item.descripcion && (
+                                                <p className="mb-4 text-sm leading-7 text-muted-foreground">
+                                                    {item.descripcion}
+                                                </p>
+                                            )}
+                                            <div>
+                                                <div className="mb-2 flex items-center justify-between text-sm">
+                                                    <span className="text-muted-foreground">Avance</span>
+                                                    <span className="font-semibold text-foreground">
+                                                        {item.porcentajeAvance}%
+                                                    </span>
+                                                </div>
+                                                <div className="h-2 rounded-full bg-muted">
+                                                    <div
+                                                        className="h-2 rounded-full bg-brand-500"
+                                                        style={{ width: `${Math.max(0, Math.min(100, item.porcentajeAvance))}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
                             </div>
                         )}
-                        <div className="relative">
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center mb-6">
-                                <LayoutTemplate className="w-7 h-7 text-indigo-400" />
-                            </div>
-                            <h3 className="text-[1.8rem] font-black text-foreground mb-3">Masterplan del Proyecto</h3>
-                            <p className="text-base text-muted-foreground leading-7">
-                                El plano completo del desarrollo con todos los lotes, sectores y amenities. Seleccioná tu lote ideal y consultá disponibilidad.
-                            </p>
-                        </div>
-                        <div className="relative mt-8 flex items-center justify-between">
-                            <div className="flex gap-2">
-                                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-muted border border-border text-foreground/80">Plano HD</span>
-                                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-muted border border-border text-foreground/80">Reserva online</span>
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <ArrowRight className="w-4 h-4 text-white" />
-                            </div>
-                        </div>
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                    </Link>
-
-                    {/* Card 3 - Tour Virtual 360° */}
-                    {hasTours ? (
-                        <Link
-                            href={`/proyectos/${params.slug}/tour360`}
-                            className="group relative overflow-hidden rounded-3xl border border-border bg-card shadow-sm hover:border-foreground/15 transition-all hover:-translate-y-1 hover:shadow-2xl min-h-[320px] flex flex-col justify-between p-8"
-                        >
-                            {/* Thumbnail background */}
-                            {firstTourThumb ? (
-                                <>
-                                    <img src={firstTourThumb} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
-                                </>
-                            ) : (
-                                <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800" />
-                            )}
-                            <div className="relative">
-                                    <div className="w-14 h-14 rounded-2xl bg-muted/80 dark:bg-white/10 backdrop-blur border border-border dark:border-white/20 flex items-center justify-center mb-6">
-                                        <Camera className="w-7 h-7 text-foreground dark:text-white" />
-                                    </div>
-                                <h3 className="text-[1.8rem] font-black text-foreground dark:text-white mb-3">Tour Virtual 360°</h3>
-                                <p className="text-base text-muted-foreground dark:text-slate-300 leading-7">
-                                    Viví una experiencia inmersiva del proyecto. Recorrelo como si estuvieras ahí, desde cualquier dispositivo.
-                                </p>
-                            </div>
-                            <div className="relative mt-8 flex items-center justify-between">
-                                <div className="flex gap-2">
-                                    <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-muted/80 dark:bg-white/10 border border-border dark:border-white/20 text-foreground dark:text-white">{P.tours?.length} recorridos</span>
-                                </div>
-                                <div className="w-10 h-10 rounded-full bg-background dark:bg-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-                                    <Play className="w-4 h-4 text-foreground dark:text-black ml-0.5" />
-                                </div>
-                            </div>
-                        </Link>
-                    ) : (
-                        <div className="relative overflow-hidden rounded-3xl bg-muted/30 dark:bg-slate-900/50 border border-dashed border-border min-h-[320px] flex flex-col items-center justify-center p-8 text-center">
-                            <Camera className="w-12 h-12 text-muted-foreground mb-4" />
-                            <h3 className="text-2xl font-bold text-foreground mb-2">Tour 360° próximamente</h3>
-                            <p className="text-base text-muted-foreground leading-7">El desarrollador está preparando el recorrido virtual.</p>
-                        </div>
-                    )}
-                </div>
-            </section>
-
-            {galleryCategories.length > 0 && (
-                <section className="py-8 px-6 sm:px-10 lg:px-16">
-                    <div className="mb-10">
-                        <span className="text-brand-400 text-sm font-bold uppercase tracking-widest">Galería del proyecto</span>
-                        <h2 className="text-3xl sm:text-4xl font-black text-foreground mt-2 tracking-tight">Imágenes organizadas por categoría</h2>
-                        <p className="text-muted-foreground mt-3 max-w-2xl text-lg leading-8">
-                            El Tour 360 se mantiene intacto y acá se muestra el resto del material visual separado por tipo.
-                        </p>
                     </div>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                        {galleryCategories.map((category) => {
-                            const scenes = galleryScenesByCategory[category].slice(0, 6);
-                            const Icon = category === "render" ? Sparkles : category === "avance" ? Navigation : Camera;
-                            return (
-                                <article
-                                    key={category}
-                                    className="rounded-3xl border border-border bg-card shadow-sm overflow-hidden"
-                                >
-                                    <div className="flex items-center justify-between p-6 border-b border-border">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-2xl bg-brand-500/10 flex items-center justify-center">
-                                                <Icon className="w-5 h-5 text-brand-400" />
+                    <div className="space-y-6">
+                        {inventory.total > 0 && (
+                            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                    Resumen de inventario
+                                </p>
+                                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                                    {[
+                                        { label: "Disponibles", value: inventory.available, tone: "text-emerald-500" },
+                                        { label: "Reservados", value: inventory.reserved, tone: "text-amber-500" },
+                                        { label: "Vendidos", value: inventory.sold, tone: "text-rose-500" },
+                                        { label: "No disponibles", value: inventory.blocked, tone: "text-slate-500" },
+                                    ]
+                                        .filter((item) => item.value > 0)
+                                        .map((item) => (
+                                            <div key={item.label} className="rounded-2xl bg-background p-4">
+                                                <p className={`text-2xl font-black ${item.tone}`}>{item.value}</p>
+                                                <p className="text-sm text-muted-foreground">{item.label}</p>
                                             </div>
+                                        ))}
+                                </div>
+                                <p className="mt-5 text-sm text-muted-foreground">
+                                    {inventory.total} unidades publicadas en total.
+                                </p>
+                            </div>
+                        )}
+
+                        {project.inventoryPreview.length > 0 && (
+                            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                    Lotes destacados
+                                </p>
+                                <div className="mt-5 space-y-3">
+                                    {project.inventoryPreview.map((unit) => (
+                                        <div
+                                            key={unit.id}
+                                            className="flex items-center justify-between gap-4 rounded-2xl bg-background p-4"
+                                        >
                                             <div>
-                                                <h3 className="text-xl font-black text-foreground">
-                                                    {TOUR_MEDIA_CATEGORY_LABELS[category]}
-                                                </h3>
+                                                <p className="font-bold text-foreground">Lote {unit.numero}</p>
                                                 <p className="text-sm text-muted-foreground">
-                                                    {galleryScenesByCategory[category].length} imagen{galleryScenesByCategory[category].length === 1 ? "" : "es"}
+                                                    {[
+                                                        unit.superficie ? `${unit.superficie} m²` : null,
+                                                        unit.orientacion,
+                                                        unit.esEsquina ? "Esquina" : null,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(" · ") || "Datos en carga"}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-foreground">
+                                                    {formatCurrency(unit.precio, unit.moneda) || "Consultar"}
+                                                </p>
+                                                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                    {unit.estado.replace(/_/g, " ")}
                                                 </p>
                                             </div>
                                         </div>
-                                    </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
-                                    <div className="grid grid-cols-2 gap-2 p-3">
-                                        {scenes.map((scene: any) => (
-                                            <a
-                                                key={scene.id}
-                                                href={scene.imageUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted"
-                                            >
-                                                <img
-                                                    src={scene.imageUrl}
-                                                    alt={scene.title || TOUR_MEDIA_CATEGORY_LABELS[category]}
-                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                <div className="absolute inset-x-0 bottom-0 p-3">
-                                                    <p className="text-xs font-bold text-white truncate">
-                                                        {scene.title || TOUR_MEDIA_CATEGORY_LABELS[category]}
-                                                    </p>
-                                                </div>
-                                            </a>
-                                        ))}
-                                    </div>
-                                </article>
-                            );
-                        })}
+                        {hasCommercialActions && (
+                            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                    Experiencias disponibles
+                                </p>
+                                <div className="mt-5 space-y-3">
+                                    {hasMasterplan && (
+                                        <Link
+                                            href={`/proyectos/${params.slug}/masterplan?view=mapa`}
+                                            className="flex items-center justify-between rounded-2xl bg-background px-4 py-4 transition-colors hover:border-brand-500/20 hover:bg-brand-500/5"
+                                        >
+                                            <div>
+                                                <p className="font-bold text-foreground">Masterplan interactivo</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Ver mapa, plano y estados de lotes.
+                                                </p>
+                                            </div>
+                                            <ArrowRight className="h-4 w-4 text-brand-500" />
+                                        </Link>
+                                    )}
+                                    {hasTours && (
+                                        <Link
+                                            href={`/proyectos/${params.slug}/tour360`}
+                                            className="flex items-center justify-between rounded-2xl bg-background px-4 py-4 transition-colors hover:border-brand-500/20 hover:bg-brand-500/5"
+                                        >
+                                            <div>
+                                                <p className="font-bold text-foreground">Tour 360</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Recorrido inmersivo con escenas reales cargadas.
+                                                </p>
+                                            </div>
+                                            <ArrowRight className="h-4 w-4 text-brand-500" />
+                                        </Link>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </section>
+
+            {hasGallery && (
+                <section className="border-y border-border bg-card/20">
+                    <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
+                        <div className="mb-8 max-w-2xl">
+                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                Galería de imágenes
+                            </p>
+                            <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                                Material visual cargado desde dashboard
+                            </h2>
+                        </div>
+                    </div>
+                    <PublicProjectGallery imagenes={project.images} />
+                </section>
+            )}
+
+            {(hasMap || project.mapImages.length > 0) && (
+                <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
+                    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+                        {hasMap && (
+                            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+                                <div className="border-b border-border px-6 py-5">
+                                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                        Ubicación
+                                    </p>
+                                    <h2 className="mt-2 text-2xl font-black text-foreground">
+                                        Mapa del proyecto
+                                    </h2>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                        {project.ubicacion || "Punto georreferenciado del proyecto"}
+                                    </p>
+                                </div>
+                                <iframe
+                                    src={mapSrc ?? undefined}
+                                    className="h-[420px] w-full border-0"
+                                    loading="lazy"
+                                    title={`Mapa de ${project.nombre}`}
+                                />
+                            </div>
+                        )}
+
+                        {project.mapImages.length > 0 && (
+                            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                    Imágenes vinculadas al mapa
+                                </p>
+                                <div className="mt-5 space-y-4">
+                                    {project.mapImages.slice(0, 4).map((image) => (
+                                        <article key={image.id} className="overflow-hidden rounded-2xl bg-background">
+                                            <img
+                                                src={image.url}
+                                                alt={image.titulo || image.unidadNumero || "Imagen del mapa"}
+                                                className="h-40 w-full object-cover"
+                                            />
+                                            <div className="p-4">
+                                                <p className="font-bold text-foreground">
+                                                    {image.titulo || `Punto ${image.orden + 1}`}
+                                                </p>
+                                                <p className="mt-1 text-sm text-muted-foreground">
+                                                    {[image.tipo, image.unidadNumero ? `Unidad ${image.unidadNumero}` : null]
+                                                        .filter(Boolean)
+                                                        .join(" · ")}
+                                                </p>
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </section>
             )}
 
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                ABOUT + LOCATION
-            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            <section className="py-20 px-6 sm:px-10 lg:px-16">
-                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.98fr)] gap-12 xl:gap-16 items-stretch">
-                    {/* Description */}
-                    <div className="h-full">
-                        <span className="text-brand-400 text-sm font-bold uppercase tracking-widest">El proyecto</span>
-                        <h2 className="text-3xl sm:text-4xl font-black text-foreground mt-2 mb-6 tracking-tight">
-                            {P.nombre}
-                        </h2>
-                        <p className="text-muted-foreground text-lg leading-relaxed mb-10">
-                            {P.descripcion || "El desarrollador está preparando la descripción del proyecto."}
-                        </p>
-
-                        {/* Feature grid — real data when available, tasteful defaults otherwise */}
-                        <div className="grid grid-cols-2 gap-4">
-                            {[
-                                { icon: Trees, label: "Espacios Verdes", text: "Áreas naturales integradas" },
-                                { icon: Shield, label: "Seguridad 24hs", text: "Control de acceso perimetral" },
-                                { icon: Compass, label: "Conectividad", text: "Acceso a rutas principales" },
-                                { icon: Check, label: "Escritura Inmediata", text: "Seguridad jurídica total" },
-                            ].map((f, i) => (
-                                <div key={i} className="flex gap-4 p-5 rounded-2xl bg-card border border-border shadow-sm hover:border-brand-500/20 transition-colors">
-                                    <div className="w-11 h-11 rounded-xl bg-brand-500/10 flex items-center justify-center flex-shrink-0">
-                                        <f.icon className="w-5 h-5 text-brand-400" />
-                                    </div>
-                                    <div>
-                                        <p className="text-lg font-bold text-foreground">{f.label}</p>
-                                        <p className="text-sm text-muted-foreground mt-1 leading-6">{f.text}</p>
-                                    </div>
+            {(hasDocuments || hasTestimonials) && (
+                <section className="border-y border-border bg-card/20">
+                    <div className="mx-auto grid max-w-7xl gap-8 px-6 py-16 sm:px-10 lg:grid-cols-2 lg:px-16">
+                        {hasDocuments && (
+                            <div className="rounded-3xl border border-border bg-background p-6 shadow-sm">
+                                <div className="mb-5 flex items-center gap-3">
+                                    <FileText className="h-5 w-5 text-brand-400" />
+                                    <h2 className="text-2xl font-black text-foreground">Documentación</h2>
                                 </div>
-                            ))}
-                        </div>
-
-                        {totalUnits > 0 && (
-                            <div className="rounded-2xl bg-card border border-border shadow-sm p-6 mt-6">
-                                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Estado de lotes</p>
-                                <div className="flex flex-wrap gap-4 mb-4">
-                                    {[
-                                        { label: "Disponibles", count: disponibles, color: "bg-emerald-500" },
-                                        { label: "Reservados/Vendidos", count: vendidas, color: "bg-rose-500" },
-                                        { label: "Otros", count: totalUnits - disponibles - vendidas, color: "bg-slate-600" },
-                                    ].filter(s => s.count > 0).map((s, i) => (
-                                        <div key={i} className="flex items-center gap-2">
-                                            <span className={`w-2.5 h-2.5 rounded-full ${s.color}`} />
-                                            <span className="text-sm text-muted-foreground">{s.label} <strong className="text-foreground text-base">{s.count}</strong></span>
-                                        </div>
+                                <div className="space-y-3">
+                                    {project.documents.slice(0, 6).map((document) => (
+                                        <a
+                                            key={document.id}
+                                            href={document.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-4 transition-colors hover:bg-brand-500/5"
+                                        >
+                                            <div>
+                                                <p className="font-bold text-foreground">{document.title}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {document.type} · {document.source}
+                                                </p>
+                                            </div>
+                                            <ArrowRight className="h-4 w-4 text-brand-500" />
+                                        </a>
                                     ))}
                                 </div>
-                                <div className="w-full h-2 rounded-full bg-muted overflow-hidden flex">
-                                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(disponibles / totalUnits) * 100}%` }} />
-                                    <div className="h-full bg-rose-500 transition-all" style={{ width: `${(vendidas / totalUnits) * 100}%` }} />
+                            </div>
+                        )}
+
+                        {hasTestimonials && (
+                            <div className="rounded-3xl border border-border bg-background p-6 shadow-sm">
+                                <div className="mb-5 flex items-center gap-3">
+                                    <Quote className="h-5 w-5 text-brand-400" />
+                                    <h2 className="text-2xl font-black text-foreground">Testimonios</h2>
                                 </div>
-                                <p className="text-sm text-muted-foreground mt-3">{totalUnits} lotes en total</p>
+                                <div className="space-y-4">
+                                    {project.testimonials.slice(0, 3).map((testimonial) => (
+                                        <article key={testimonial.id} className="rounded-2xl border border-border bg-card p-5">
+                                            <p className="text-base leading-7 text-foreground">“{testimonial.text}”</p>
+                                            <div className="mt-4">
+                                                <p className="font-bold text-foreground">{testimonial.author}</p>
+                                                <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
+                </section>
+            )}
 
-                    {/* Location map */}
-                    <div className="h-full">
-                        <div className="rounded-3xl overflow-hidden border border-border relative bg-card shadow-sm h-full min-h-[320px]">
-                            {P.mapCenterLat && P.mapCenterLng ? (
-                                <iframe
-                                    src={`https://maps.google.com/maps?q=${P.mapCenterLat},${P.mapCenterLng}&z=${P.mapZoom || 16}&output=embed&t=k`}
-                                    className="absolute inset-0 w-full h-full border-0"
-                                    loading="lazy"
-                                    title="Ubicación del proyecto"
-                                />
-                            ) : (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
-                                    <MapPin className="w-12 h-12 mb-3" />
-                                    <p className="font-medium">Ubicación por confirmar</p>
+            <section id="contacto" className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                    <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
+                        <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                            CTA comercial
+                        </p>
+                        <h2 className="mt-3 text-3xl font-black tracking-tight text-foreground">
+                            Consultá por {project.nombre}
+                        </h2>
+                        <p className="mt-4 text-base leading-8 text-muted-foreground">
+                            Completá el formulario para recibir disponibilidad, precios actualizados y asesoramiento comercial.
+                        </p>
+                        <div className="mt-8 space-y-4">
+                            <div className="rounded-2xl bg-background p-4">
+                                <p className="font-bold text-foreground">Proyecto</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {project.nombre}
+                                    {project.organizationName ? ` · ${project.organizationName}` : ""}
+                                </p>
+                            </div>
+                            {inventory.total > 0 && (
+                                <div className="rounded-2xl bg-background p-4">
+                                    <p className="font-bold text-foreground">Inventario visible</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {inventory.available} disponibles, {inventory.reserved} reservados y {inventory.sold} vendidos.
+                                    </p>
                                 </div>
                             )}
-                        </div>
-
-                    </div>
-                </div>
-            </section>
-
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                GALLERY
-            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            <section className="py-12">
-                <div className="px-6 sm:px-10 lg:px-16 mb-10">
-                    <span className="text-brand-400 text-sm font-bold uppercase tracking-widest">Imágenes</span>
-                    <h2 className="text-3xl sm:text-4xl font-black text-foreground mt-2 tracking-tight">Galería del proyecto</h2>
-                </div>
-                <PublicProjectGallery imagenes={P.imagenes || []} />
-            </section>
-
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                CONTACT
-            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            <section id="contacto" className="py-24 px-6 sm:px-10 lg:px-16 relative overflow-hidden">
-                {/* Ambient glow */}
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-500/8 blur-[120px] pointer-events-none" />
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-600/5 blur-[120px] pointer-events-none" />
-
-                <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-                    {/* Info */}
-                    <div className="lg:sticky lg:top-8">
-                        <span className="text-brand-400 text-sm font-bold uppercase tracking-widest">Hablemos</span>
-                        <h2 className="text-4xl sm:text-5xl font-black text-foreground mt-2 mb-5 tracking-tight leading-tight">
-                            Invertí en {P.nombre}
-                        </h2>
-                        <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-                            Completá el formulario y un asesor te contactará con la lista de precios actualizada y toda la información del proyecto.
-                        </p>
-                        <div className="space-y-3">
-                            {[
-                                { icon: Check, title: "Asesoramiento personalizado", desc: "Nuestro equipo te guía en cada paso." },
-                                { icon: Shield, title: "Inversión segura", desc: "Respaldo legal y financiero en cada operación." },
-                                { icon: Users, title: "Comunidad de inversores", desc: "Formá parte de nuestra red exclusiva." },
-                            ].map((item, i) => (
-                                <div key={i} className="flex gap-4 p-5 rounded-2xl bg-card border border-border shadow-sm">
-                                    <div className="w-11 h-11 rounded-xl bg-brand-500/10 flex items-center justify-center flex-shrink-0">
-                                        <item.icon className="w-5 h-5 text-brand-400" />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-foreground text-lg">{item.title}</p>
-                                        <p className="text-sm text-muted-foreground mt-1 leading-6">{item.desc}</p>
-                                    </div>
-                                </div>
-                            ))}
+                            <ContactActions />
                         </div>
                     </div>
 
-                    {/* Form */}
-                    <div className="rounded-3xl bg-card/95 border border-border shadow-lg p-8 backdrop-blur-sm">
-                        <h3 className="text-2xl font-black text-foreground mb-2">Consulta sobre {P.nombre}</h3>
-                        <p className="text-base text-muted-foreground mb-7 leading-7">Sin compromiso. Te respondemos en menos de 24 horas.</p>
-                        <ContactForm proyectoId={P.id} />
+                    <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
+                        <ContactForm proyectoId={project.id} origen="WEB_PROYECTO_PUBLICO" />
                     </div>
                 </div>
             </section>
-
         </div>
     );
 }
