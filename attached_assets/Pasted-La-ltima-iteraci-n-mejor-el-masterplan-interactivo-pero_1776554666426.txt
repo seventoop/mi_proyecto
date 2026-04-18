@@ -1,0 +1,199 @@
+La última iteración mejoró el masterplan interactivo, pero desordenó partes importantes de la landing pública del proyecto. Necesito una nueva pasada enfocada en jerarquía, acceso al masterplan y calidad visual del bloque de unidades.
+
+==================================================
+1. RECUPERAR UN CTA CLARO AL MASTERPLAN
+==================================================
+
+Problema:
+Antes había una forma mucho más clara de llegar al masterplan. Ahora ya no se entiende bien dónde entrar.
+
+Quiero que vuelva a haber un acceso claro y visible al masterplan interactivo.
+
+### Reglas:
+- el botón/CTA al masterplan debe estar arriba, visible, cerca del hero o del resumen comercial
+- no puede quedar escondido al fondo del bloque de unidades
+- no quiero que el usuario tenga que descubrirlo abajo en "Ver todas las unidades"
+
+### Objetivo:
+Que sea obvio cómo entrar al masterplan interactivo.
+
+Podés resolverlo con uno o más de estos:
+- botón principal en hero
+- card CTA clara en el bloque de resumen
+- acceso destacado en la sección de mapa/plano
+
+Pero debe quedar MUY claro.
+
+==================================================
+2. REORDENAR LA LANDING DEL PROYECTO
+==================================================
+
+Ahora la landing quedó rara en jerarquía.
+
+Quiero esta estructura:
+
+1. Hero
+   - nombre
+   - ubicación
+   - CTA principal
+   - CTA a masterplan
+
+2. Resumen comercial
+   - unidades publicadas
+   - disponibles
+   - precio desde
+   - superficie desde
+
+3. Bloque “Mapa y plano del proyecto”
+   - más protagonista
+   - más ancho/alto útil
+   - mejor equilibrio entre mapa y plano
+   - debe verse como una vista general del proyecto
+
+4. Infraestructura
+
+5. CTA / navegación interna
+   - Ver masterplan interactivo
+   - Ver unidades
+   - Ver galería
+   - Cómo llegar
+
+6. Selección destacada de unidades (compacta y linda)
+
+7. Galería
+
+8. Contacto
+
+No quiero que el listado de unidades se coma la página ni que compita visualmente con el masterplan.
+
+==================================================
+3. BLOQUE “MAPA Y PLANO DEL PROYECTO”
+==================================================
+
+Problema:
+Ahora el plano ocupa menos y el bloque perdió fuerza.
+
+Quiero:
+- que el bloque vuelva a ser visualmente importante
+- que el plano resumido tenga mejor tamaño
+- que el mapa y el plano se vean equilibrados
+- que el usuario entienda que ahí está viendo una vista general, no el masterplan interactivo
+
+### Importante:
+Desde este bloque debería haber un CTA claro tipo:
+- Ver masterplan interactivo
+
+==================================================
+4. SELECCIÓN DESTACADA DE UNIDADES (LANDING)
+==================================================
+
+Problema:
+El bloque actual de unidades quedó raro:
+- visualmente feo
+- textos rotos
+- números montados
+- sin filtros visibles
+- CTA “Ver todas las unidades” abajo de todo y mal ubicado
+
+Quiero redefinir este bloque con una lógica mucho más clara.
+
+### Objetivo:
+En la landing NO quiero el listado completo con filtros avanzados.
+Quiero una selección destacada, premium, compacta y linda.
+
+### Reglas:
+- mostrar 6 a 8 unidades destacadas máximo
+- cada card debe verse bien, sin textos superpuestos
+- datos bien jerarquizados:
+  - código
+  - estado
+  - superficie
+  - precio
+  - etapa/manzana si suma
+- botón:
+  - Ver detalle
+  - Consultar
+
+### Muy importante:
+- arreglar el problema de overflow / textos montados / números larguísimos
+- formatear mejor superficie y precio
+- si hace falta, redondear o mostrar menos decimales
+- mejorar tipografía, espaciado y contraste
+- que las cards se vean premium
+
+### CTA correcto:
+El acceso al listado completo o masterplan NO puede quedar escondido al fondo.
+Ponelo arriba del bloque o como encabezado del bloque:
+- “Ver masterplan interactivo”
+- “Explorar todas las unidades”
+
+==================================================
+5. SEPARAR MEJOR LANDING VS MASTERPLAN
+==================================================
+
+Ahora siento que se mezcló demasiado la lógica de landing con la del masterplan.
+
+Quiero que quede claro:
+
+### Landing
+- vista comercial resumida
+- bonita
+- clara
+- con highlights
+- sin exceso de controles
+
+### Masterplan
+- experiencia completa
+- filtros
+- búsqueda
+- orden
+- exploración de lotes
+- contacto por lote
+
+No quiero que la landing intente ser también el masterplan.
+
+==================================================
+6. DISEÑO DE LAS CARDS DE LOTES
+==================================================
+
+Las cards actuales no están lindas.
+
+Mejorarlas:
+- fondo distinto al fondo general
+- borde siempre visible
+- mejor badge de estado
+- mejor contraste
+- mejor manejo de textos largos
+- hover elegante
+- espaciado interno más prolijo
+- botones mejor alineados
+
+Quiero que se vean más “producto inmobiliario premium” y menos “bloque técnico improvisado”.
+
+==================================================
+7. FORMATO DE DATOS
+==================================================
+
+Hay datos que se ven mal, por ejemplo superficies con muchos decimales.
+
+Arreglar:
+- superficie con formato humano (ej: 320 m² o 320.5 m²)
+- precio con formato claro
+- evitar números interminables
+- evitar texto montado
+
+==================================================
+8. ENTREGA
+==================================================
+
+Decime:
+- qué componentes tocaste
+- cómo recuperaste el CTA al masterplan
+- cómo reordenaste la landing
+- cómo diferenciás ahora landing vs masterplan
+- cómo mejoraste las cards y el formato de datos
+- cómo probar:
+  - acceso al masterplan
+  - bloque mapa/plano
+  - selección destacada
+  - detalle/consulta de unidad

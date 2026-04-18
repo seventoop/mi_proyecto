@@ -51,6 +51,13 @@ function formatCurrency(value: number | null, currency = "USD") {
     }).format(value);
 }
 
+function formatSurface(value: number | null) {
+    if (value == null || !Number.isFinite(value)) return "Consultar";
+    const rounded = Math.round(value * 10) / 10;
+    const display = Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
+    return `${display.replace(".", ",")} m²`;
+}
+
 function naturalCompareCode(a: string, b: string) {
     return a.localeCompare(b, "es", { numeric: true, sensitivity: "base" });
 }
@@ -239,17 +246,19 @@ export default function UnitsGridPublic({
 
                                 <div className="flex flex-1 flex-col gap-4 p-5">
                                     <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                                                <Hash className="h-3 w-3" />
-                                                {unit.etapaNombre || "Lote"}
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-1.5 truncate text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                                <Hash className="h-3 w-3 shrink-0" />
+                                                <span className="truncate">{unit.etapaNombre || "Lote"}</span>
                                             </div>
-                                            <p className="mt-1 truncate text-xl font-black text-foreground">
+                                            <p className="mt-1 truncate text-xl font-black tabular-nums text-foreground">
                                                 {unit.numero}
                                             </p>
                                             {unit.manzanaNombre && (
                                                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                                                    Manzana {unit.manzanaNombre}
+                                                    {/^manzana\s/i.test(unit.manzanaNombre)
+                                                        ? unit.manzanaNombre
+                                                        : `Manzana ${unit.manzanaNombre}`}
                                                 </p>
                                             )}
                                         </div>
@@ -267,7 +276,7 @@ export default function UnitsGridPublic({
                                                 Superficie
                                             </div>
                                             <p className="mt-1 text-sm font-extrabold text-foreground">
-                                                {unit.superficie ? `${unit.superficie} m²` : "Consultar"}
+                                                {formatSurface(unit.superficie)}
                                             </p>
                                         </div>
                                         <div>

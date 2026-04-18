@@ -199,15 +199,18 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                             )}
                         </div>
                         <div className="flex flex-wrap gap-3">
-                            <a
-                                href="#cta-experiencias"
-                                className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-6 py-3.5 font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
-                            >
-                                Explorar el proyecto <ArrowRight className="h-4 w-4" />
-                            </a>
+                            {hasMasterplan && (
+                                <Link
+                                    href={`/proyectos/${params.slug}/masterplan`}
+                                    className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-6 py-3.5 font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
+                                >
+                                    <Globe className="h-4 w-4" />
+                                    Ver masterplan interactivo
+                                </Link>
+                            )}
                             <a
                                 href="#contacto"
-                                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 font-bold text-white/90 transition-all hover:scale-[1.02] hover:border-white/30 hover:text-white"
+                                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-6 py-3.5 font-bold text-white/90 backdrop-blur transition-all hover:scale-[1.02] hover:border-white/30 hover:text-white"
                             >
                                 <MessageSquare className="h-4 w-4" />
                                 Consultar proyecto
@@ -275,22 +278,34 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
 
             {/* 3. MAPA + PLANO RESUMIDO (no interactivo) */}
             {(hasMap || planThumbnail) && (
-                <section className="border-b border-border">
+                <section id="mapa" className="border-b border-border">
                     <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
-                        <div className="mb-8 max-w-2xl">
-                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                Ubicación y plano
-                            </p>
-                            <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                                Mapa y plano del proyecto
-                            </h2>
-                            <p className="mt-3 text-base text-muted-foreground">
-                                Vista general estática. Para explorar lotes uno por uno, abrí el masterplan interactivo.
-                            </p>
+                        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+                            <div className="max-w-2xl">
+                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                    Ubicación y plano
+                                </p>
+                                <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                                    Mapa y plano del proyecto
+                                </h2>
+                                <p className="mt-3 text-base text-muted-foreground">
+                                    Vista general del emplazamiento y del trazado de lotes. Para explorar cada
+                                    unidad, entrá al masterplan interactivo.
+                                </p>
+                            </div>
+                            {hasMasterplan && (
+                                <Link
+                                    href={`/proyectos/${params.slug}/masterplan`}
+                                    className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-5 py-3 font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
+                                >
+                                    <Globe className="h-4 w-4" />
+                                    Ver masterplan interactivo
+                                </Link>
+                            )}
                         </div>
-                        <div className="grid gap-6 lg:grid-cols-2">
+                        <div className="grid gap-6 lg:grid-cols-5">
                             {hasMap ? (
-                                <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+                                <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm lg:col-span-2">
                                     <div className="border-b border-border px-5 py-4">
                                         <p className="text-sm font-bold text-foreground">Ubicación</p>
                                         <p className="text-xs text-muted-foreground">
@@ -299,13 +314,13 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                     </div>
                                     <iframe
                                         src={mapSrc ?? undefined}
-                                        className="pointer-events-none h-[420px] w-full border-0"
+                                        className="pointer-events-none h-[520px] w-full border-0"
                                         loading="lazy"
                                         title={`Mapa de ${project.nombre}`}
                                     />
                                 </div>
                             ) : (
-                                <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center">
+                                <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center lg:col-span-2">
                                     <MapPin className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
                                     <p className="font-bold text-foreground">Sin coordenadas cargadas</p>
                                     <p className="mt-2 text-sm text-muted-foreground">
@@ -314,14 +329,24 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                 </div>
                             )}
                             {planThumbnail ? (
-                                <div className="overflow-hidden rounded-3xl border border-border bg-slate-950 shadow-sm">
-                                    <div className="border-b border-border bg-card px-5 py-4">
-                                        <p className="text-sm font-bold text-foreground">Plano resumido</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            Vista estática · sin interacción
-                                        </p>
+                                <div className="overflow-hidden rounded-3xl border border-border bg-slate-950 shadow-sm lg:col-span-3">
+                                    <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-5 py-4">
+                                        <div>
+                                            <p className="text-sm font-bold text-foreground">Plano del proyecto</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Vista general · sin interacción
+                                            </p>
+                                        </div>
+                                        {hasMasterplan && (
+                                            <Link
+                                                href={`/proyectos/${params.slug}/masterplan`}
+                                                className="inline-flex items-center gap-1 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-1.5 text-xs font-bold text-brand-500 transition-colors hover:bg-brand-500/15"
+                                            >
+                                                Abrir interactivo <ArrowRight className="h-3 w-3" />
+                                            </Link>
+                                        )}
                                     </div>
-                                    <div className="flex h-[420px] items-center justify-center bg-white">
+                                    <div className="flex h-[520px] items-center justify-center bg-white p-4">
                                         <img
                                             src={planThumbnail}
                                             alt={`Plano de ${project.nombre}`}
@@ -330,7 +355,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                     </div>
                                 </div>
                             ) : (
-                                <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center">
+                                <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center lg:col-span-3">
                                     <LayoutGrid className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
                                     <p className="font-bold text-foreground">Sin plano público</p>
                                     <p className="mt-2 text-sm text-muted-foreground">
@@ -391,7 +416,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 </section>
             )}
 
-            {/* 5. CTAs */}
+            {/* 5. CTAs DE NAVEGACIÓN INTERNA */}
             <section id="cta-experiencias" className="border-b border-border">
                 <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
                     <div className="mb-8 max-w-2xl">
@@ -401,8 +426,11 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                         <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
                             Explorá el proyecto
                         </h2>
+                        <p className="mt-3 text-sm text-muted-foreground">
+                            Atajos directos a cada experiencia: masterplan interactivo, lotes destacados, galería y ubicación.
+                        </p>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                         {hasMasterplan && (
                             <Link
                                 href={`/proyectos/${params.slug}/masterplan`}
@@ -460,49 +488,34 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                 </span>
                             </a>
                         )}
-                        {hasTours && (
-                            <Link
-                                href={`/proyectos/${params.slug}/tour360`}
+                        {hasMap && (
+                            <a
+                                href={`https://maps.google.com/?q=${project.mapCenterLat},${project.mapCenterLng}`}
+                                target="_blank"
+                                rel="noreferrer"
                                 className="group flex flex-col gap-3 rounded-3xl border border-border bg-card p-6 transition-all hover:border-brand-500/40 hover:bg-brand-500/5"
                             >
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500">
-                                    <Camera className="h-5 w-5" />
+                                    <MapPin className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <p className="text-lg font-bold text-foreground">Tour 360</p>
+                                    <p className="text-lg font-bold text-foreground">Cómo llegar</p>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                        Recorrido inmersivo con escenas reales.
+                                        Abrí la ruta en Google Maps desde tu ubicación.
                                     </p>
                                 </div>
                                 <span className="mt-auto inline-flex items-center gap-1 text-sm font-bold text-brand-500 group-hover:text-brand-400">
-                                    Recorrer <ArrowRight className="h-4 w-4" />
+                                    Ver ruta <ArrowRight className="h-4 w-4" />
                                 </span>
-                            </Link>
+                            </a>
                         )}
                     </div>
                 </div>
             </section>
 
-            {/* 6. GALERÍA */}
-            {hasGallery && (
-                <section id="galeria" className="border-b border-border bg-card/20">
-                    <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
-                        <div className="mb-8 max-w-2xl">
-                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                Galería
-                            </p>
-                            <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                                Material visual del proyecto
-                            </h2>
-                        </div>
-                    </div>
-                    <PublicProjectGallery imagenes={project.images} />
-                </section>
-            )}
-
-            {/* 7. LISTADO COMPACTO DE UNIDADES */}
+            {/* 6. SELECCIÓN DESTACADA DE UNIDADES (compacto, sin filtros) */}
             {hasUnits && (
-                <section id="lotes" className="border-b border-border">
+                <section id="lotes" className="border-b border-border bg-card/20">
                     <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
                         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
                             <div className="max-w-2xl">
@@ -513,24 +526,42 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                     Selección destacada
                                 </h2>
                                 <p className="mt-3 text-sm text-muted-foreground">
-                                    {inventory.total} unidades publicadas. Abrí el listado completo para filtrar y ordenar.
+                                    Una vista rápida del inventario. Para filtrar, ordenar o consultar lote por lote, abrí el masterplan.
                                 </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {hasMasterplan && (
+                                    <Link
+                                        href={`/proyectos/${params.slug}/masterplan`}
+                                        className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-4 py-2.5 text-sm font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
+                                    >
+                                        <Globe className="h-4 w-4" />
+                                        Ver masterplan interactivo
+                                    </Link>
+                                )}
+                                <Link
+                                    href={`/proyectos/${params.slug}/masterplan#lotes`}
+                                    className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
+                                >
+                                    <LayoutGrid className="h-4 w-4" />
+                                    Explorar todas las unidades
+                                </Link>
                             </div>
                         </div>
                         <UnitsGridPublic
                             units={gridUnits}
                             slug={params.slug}
                             mode="compact"
-                            pageSize={8}
+                            pageSize={6}
                             seeAllHref={`/proyectos/${params.slug}/masterplan`}
                         />
                     </div>
                 </section>
             )}
 
-            {/* 8. DOCUMENTACIÓN + TESTIMONIOS */}
+            {/* Material complementario: documentación + testimonios (antes de la galería) */}
             {(hasDocuments || hasTestimonials) && (
-                <section className="border-b border-border bg-card/20">
+                <section className="border-b border-border">
                     <div className="mx-auto grid max-w-7xl gap-8 px-6 py-14 sm:px-10 lg:grid-cols-2 lg:px-16">
                         {hasDocuments && (
                             <div className="rounded-3xl border border-border bg-background p-6 shadow-sm">
@@ -582,7 +613,24 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 </section>
             )}
 
-            {/* 9. CONTACTO */}
+            {/* 7. GALERÍA */}
+            {hasGallery && (
+                <section id="galeria" className="border-b border-border bg-card/20">
+                    <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
+                        <div className="mb-8 max-w-2xl">
+                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                Galería
+                            </p>
+                            <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                                Material visual del proyecto
+                            </h2>
+                        </div>
+                    </div>
+                    <PublicProjectGallery imagenes={project.images} />
+                </section>
+            )}
+
+            {/* 8. CONTACTO */}
             <section id="contacto" className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                     <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
