@@ -1,0 +1,122 @@
+La última iteración ordenó bien la landing y recuperó CTAs importantes, pero todavía no resolvió el punto principal que vengo marcando:
+
+el bloque “Mapa y plano del proyecto” sigue mal planteado porque muestra dos paneles separados:
+- Ubicación
+- Plano resumido
+
+Y eso NO es lo que quiero.
+
+==================================================
+OBJETIVO DE ESTA ITERACIÓN
+==================================================
+
+Quiero reemplazar ese bloque doble por un SOLO visor unificado de preview del proyecto.
+
+No quiero:
+- un panel de mapa por un lado
+- un panel de plano por otro lado
+
+Quiero:
+- un único visor grande
+- con el mapa como base
+- el plano encima
+- la infraestructura encima
+- imágenes/capas encima si existen
+- toggles para prender/apagar capas
+
+Esto debe funcionar como una preview pública no interactiva del masterplan.
+
+==================================================
+COMPORTAMIENTO ESPERADO
+==================================================
+
+### Base visual
+- usar el mapa/ubicación real cargado en el proyecto
+- encima renderizar el plano
+- encima renderizar la infraestructura
+- encima renderizar fotos o markers si existen
+
+### Capas/toggles
+Agregar controles visibles para:
+- Mostrar mapa
+- Mostrar plano
+- Mostrar infraestructura
+- Mostrar imágenes
+
+Reglas:
+- si apago mapa → queda el plano sobre fondo gris/neutro
+- si apago plano → queda solo mapa
+- si apago infraestructura → desaparecen calles/plazas/etc
+- si apago imágenes → desaparecen markers/fotos
+
+==================================================
+IMPORTANTE
+==================================================
+
+Este visor en la landing NO debe ser interactivo:
+- no click en lotes
+- no reservar
+- no panel lateral
+- no modal
+- no filtros complejos
+
+Es solo una vista potente para entender el proyecto.
+
+La interacción completa sigue viviendo en:
+`/proyectos/[slug]/masterplan`
+
+==================================================
+UBICACIÓN EN LA LANDING
+==================================================
+
+Este bloque tiene que ir inmediatamente después del hero o como mínimo antes de infraestructura.
+Debe ser uno de los bloques más protagonistas de toda la landing.
+
+Quiero que se vea como:
+“esto es el proyecto real, implantado en su ubicación”
+
+==================================================
+CTA
+==================================================
+
+Dentro de ese mismo bloque debe vivir un CTA claro:
+- Ver masterplan interactivo
+
+Ese botón sí lleva a la URL del masterplan interactivo.
+
+==================================================
+FUENTES DE DATOS
+==================================================
+
+Usar únicamente datos reales del proyecto:
+- coordenadas / mapa
+- masterplanSvg
+- units con estado
+- infraestructura
+- imágenes vinculadas
+
+No inventar datos ni usar contenido dummy.
+
+==================================================
+RESULTADO VISUAL ESPERADO
+==================================================
+
+Un solo bloque grande donde el usuario vea:
+- el mapa real
+- el plano encima
+- lotes coloreados por estado
+- infraestructura dibujada
+- imágenes o puntos si existen
+
+Y que entienda el proyecto sin entrar todavía al masterplan interactivo.
+
+==================================================
+ENTREGA
+==================================================
+
+Decime:
+- qué componente nuevo o refactor hiciste
+- cómo resolviste el visor unificado
+- cómo funcionan los toggles de capas
+- qué capas se muestran
+- cómo probar el bloque nuevo en la landing

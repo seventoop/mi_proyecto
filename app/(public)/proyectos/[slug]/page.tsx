@@ -19,6 +19,7 @@ import {
 import ContactActions from "@/components/public/contact-actions";
 import ContactForm from "@/components/public/contact-form";
 import PublicProjectGallery from "@/components/public/project-gallery";
+import ProjectPreviewViewer from "@/components/public/project-preview-viewer";
 import UnitsGridPublic, { type PublicUnitItem } from "@/components/public/units-grid-public";
 import {
     NORMALIZED_UNIT_ESTADO,
@@ -276,94 +277,45 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 </div>
             </section>
 
-            {/* 3. MAPA + PLANO RESUMIDO (no interactivo) */}
+            {/* 3. PREVIEW UNIFICADA (mapa + plano + lotes + imágenes) */}
             {(hasMap || planThumbnail) && (
                 <section id="mapa" className="border-b border-border">
                     <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
-                        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-                            <div className="max-w-2xl">
-                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                    Ubicación y plano
-                                </p>
-                                <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                                    Mapa y plano del proyecto
-                                </h2>
-                                <p className="mt-3 text-base text-muted-foreground">
-                                    Vista general del emplazamiento y del trazado de lotes. Para explorar cada
-                                    unidad, entrá al masterplan interactivo.
-                                </p>
-                            </div>
-                            {hasMasterplan && (
-                                <Link
-                                    href={`/proyectos/${params.slug}/masterplan`}
-                                    className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-5 py-3 font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
-                                >
-                                    <Globe className="h-4 w-4" />
-                                    Ver masterplan interactivo
-                                </Link>
-                            )}
+                        <div className="mb-8 max-w-3xl">
+                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                El proyecto, implantado en su ubicación
+                            </p>
+                            <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                                Vista previa del proyecto
+                            </h2>
+                            <p className="mt-3 text-base text-muted-foreground">
+                                Un único visor combina el mapa real, el plano del masterplan, los lotes coloreados por estado
+                                y las imágenes vinculadas. Activá o desactivá cada capa según lo que quieras ver.
+                            </p>
                         </div>
-                        <div className="grid gap-6 lg:grid-cols-5">
-                            {hasMap ? (
-                                <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm lg:col-span-2">
-                                    <div className="border-b border-border px-5 py-4">
-                                        <p className="text-sm font-bold text-foreground">Ubicación</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {project.ubicacion || "Punto georreferenciado"}
-                                        </p>
-                                    </div>
-                                    <iframe
-                                        src={mapSrc ?? undefined}
-                                        className="pointer-events-none h-[520px] w-full border-0"
-                                        loading="lazy"
-                                        title={`Mapa de ${project.nombre}`}
-                                    />
-                                </div>
-                            ) : (
-                                <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center lg:col-span-2">
-                                    <MapPin className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
-                                    <p className="font-bold text-foreground">Sin coordenadas cargadas</p>
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                        Cargá lat/lng desde el dashboard para mostrar el mapa.
-                                    </p>
-                                </div>
-                            )}
-                            {planThumbnail ? (
-                                <div className="overflow-hidden rounded-3xl border border-border bg-slate-950 shadow-sm lg:col-span-3">
-                                    <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-5 py-4">
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">Plano del proyecto</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                Vista general · sin interacción
-                                            </p>
-                                        </div>
-                                        {hasMasterplan && (
-                                            <Link
-                                                href={`/proyectos/${params.slug}/masterplan`}
-                                                className="inline-flex items-center gap-1 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-1.5 text-xs font-bold text-brand-500 transition-colors hover:bg-brand-500/15"
-                                            >
-                                                Abrir interactivo <ArrowRight className="h-3 w-3" />
-                                            </Link>
-                                        )}
-                                    </div>
-                                    <div className="flex h-[520px] items-center justify-center bg-white p-4">
-                                        <img
-                                            src={planThumbnail}
-                                            alt={`Plano de ${project.nombre}`}
-                                            className="max-h-full max-w-full object-contain"
-                                        />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center lg:col-span-3">
-                                    <LayoutGrid className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
-                                    <p className="font-bold text-foreground">Sin plano público</p>
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                        Sincronizá el masterplan desde el dashboard.
-                                    </p>
-                                </div>
-                            )}
-                        </div>
+                        <ProjectPreviewViewer
+                            slug={params.slug}
+                            projectName={project.nombre}
+                            planAsset={planThumbnail}
+                            mapCenterLat={project.mapCenterLat ?? null}
+                            mapCenterLng={project.mapCenterLng ?? null}
+                            mapZoom={project.mapZoom ?? null}
+                            overlayBounds={project.overlayBounds ?? null}
+                            overlayRotation={project.overlayRotation ?? null}
+                            units={project.units.map((u) => ({
+                                id: u.id,
+                                estado: u.estado,
+                                coordenadasMasterplan: u.coordenadasMasterplan ?? null,
+                            }))}
+                            mapImages={project.mapImages.map((m) => ({
+                                id: m.id,
+                                url: m.url,
+                                titulo: m.titulo,
+                                lat: m.lat,
+                                lng: m.lng,
+                                tipo: m.tipo,
+                            }))}
+                        />
                     </div>
                 </section>
             )}
