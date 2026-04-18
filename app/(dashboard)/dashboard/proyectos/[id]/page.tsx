@@ -415,9 +415,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                     : "bg-slate-200 dark:bg-slate-700 text-slate-500"
                                             )}
                                         >
-                                            {step.done && !isActive ? "âœ“" : step.num}
+                                            {step.num}
                                         </span>
                                         <span className="min-w-0 truncate">{step.label}</span>
+                                        {step.done && !isActive && (
+                                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                                        )}
                                         {step.required && !step.done && !isActive && (
                                             <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
                                         )}

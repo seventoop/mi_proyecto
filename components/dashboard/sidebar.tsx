@@ -27,7 +27,9 @@ import {
     CreditCard,
     UserCheck,
     Workflow,
-    ArrowUpCircle
+    ArrowUpCircle,
+    PanelLeftClose,
+    PanelLeftOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
@@ -181,7 +183,8 @@ export default function Sidebar() {
             >
                 {/* Logo & Plan */}
                 <div className="flex flex-col items-center justify-center p-5 border-b border-white/[0.04] space-y-5">
-                    <Link href="/dashboard" className="flex items-center gap-3 w-full justify-center group opacity-90 hover:opacity-100 transition-opacity">
+                    <div className="flex w-full items-center justify-between gap-3">
+                        <Link href="/dashboard" className="flex items-center gap-3 flex-1 justify-center group opacity-90 hover:opacity-100 transition-opacity min-w-0">
                         {sidebarOpen ? (
                             <Image
                                 src="/logo.png"
@@ -196,7 +199,21 @@ export default function Sidebar() {
                                 <Building2 className="w-5 h-5 text-white" strokeWidth={2.5} />
                             </div>
                         )}
-                    </Link>
+                        </Link>
+
+                        <button
+                            onClick={toggleSidebar}
+                            className="hidden lg:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/70 transition-all hover:bg-white/[0.08] hover:text-white"
+                            aria-label={sidebarOpen ? "Colapsar menú lateral" : "Expandir menú lateral"}
+                            title={sidebarOpen ? "Colapsar menú lateral" : "Expandir menú lateral"}
+                        >
+                            {sidebarOpen ? (
+                                <PanelLeftClose className="h-4 w-4" />
+                            ) : (
+                                <PanelLeftOpen className="h-4 w-4" />
+                            )}
+                        </button>
+                    </div>
 
                     {sidebarOpen && planData && (
                         <div className="w-full animate-in fade-in duration-500 flex flex-col gap-3">
