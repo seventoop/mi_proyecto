@@ -144,6 +144,16 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         id: project.id,
         slug: project.slug,
         nombre: project.nombre,
+        masterplanSvgBytes: project.masterplanSvg?.length ?? 0,
+        overlayUrl: project.overlayUrl ?? null,
+        mapCenter: project.mapCenterLat != null && project.mapCenterLng != null
+            ? `${project.mapCenterLat},${project.mapCenterLng}`
+            : null,
+        unitsTotal: project.units.length,
+        unitsAvailable: project.stats.availableUnits,
+        mapImages: project.mapImages.length,
+        infrastructures: project.infrastructures.length,
+        masterplanAvailable: project.masterplanAvailable,
     });
 
     const inventory = getInventorySummary(project);
@@ -360,9 +370,10 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                 </p>
                                 <div className="mt-5 space-y-3">
                                     {project.inventoryPreview.map((unit) => (
-                                        <div
+                                        <Link
                                             key={unit.id}
-                                            className="flex items-center justify-between gap-4 rounded-2xl bg-background p-4"
+                                            href={`/proyectos/${params.slug}/unidades/${unit.id}`}
+                                            className="flex items-center justify-between gap-4 rounded-2xl bg-background p-4 transition-colors hover:bg-brand-500/5"
                                         >
                                             <div>
                                                 <p className="font-bold text-foreground">Lote {unit.numero}</p>
@@ -384,7 +395,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                                     {unit.estado.replace(/_/g, " ")}
                                                 </p>
                                             </div>
-                                        </div>
+                                        </Link>
                                     ))}
                                 </div>
                             </div>
@@ -447,62 +458,227 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                 </section>
             )}
 
-            {(hasMap || usefulMapImages.length > 0) && (
-                <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
-                    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-                        {hasMap && (
-                            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-                                <div className="border-b border-border px-6 py-5">
-                                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                        Ubicación
-                                    </p>
-                                    <h2 className="mt-2 text-2xl font-black text-foreground">
-                                        Mapa del proyecto
-                                    </h2>
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                        {project.ubicacion || "Punto georreferenciado del proyecto"}
-                                    </p>
-                                </div>
-                                <iframe
-                                    src={mapSrc ?? undefined}
-                                    className="h-[420px] w-full border-0"
-                                    loading="lazy"
-                                    title={`Mapa de ${project.nombre}`}
-                                />
-                            </div>
-                        )}
+            <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
+                <div className="mb-8 max-w-2xl">
+                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                        Plano del proyecto
+                    </p>
+                    <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                        Vista previa del masterplan
+                    </h2>
+                    <p className="mt-3 text-base text-muted-foreground">
+                        Plano público sincronizado desde el dashboard del proyecto.
+                    </p>
+                </div>
+                {project.masterplanSvg ? (
+                    <div className="overflow-hidden rounded-3xl border border-border bg-slate-950 shadow-sm">
+                        <img
+                            src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(project.masterplanSvg)}`}
+                            alt={`Plano de ${project.nombre}`}
+                            className="h-auto max-h-[640px] w-full object-contain"
+                        />
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-5 py-4">
+                            <p className="text-sm text-muted-foreground">
+                                {inventory.total} lotes publicados · {inventory.available} disponibles
+                            </p>
+                            <Link
+                                href={`/proyectos/${params.slug}/masterplan?view=plano`}
+                                className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-400"
+                            >
+                                <Globe className="h-4 w-4" />
+                                Abrir masterplan interactivo
+                                <ArrowRight className="h-4 w-4" />
+                            </Link>
+                        </div>
+                    </div>
+                ) : project.overlayUrl ? (
+                    <div className="overflow-hidden rounded-3xl border border-border bg-slate-950 shadow-sm">
+                        <img
+                            src={project.overlayUrl}
+                            alt={`Overlay de ${project.nombre}`}
+                            className="h-auto max-h-[640px] w-full object-contain"
+                        />
+                    </div>
+                ) : (
+                    <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
+                        <p className="text-base font-bold text-foreground">
+                            Este proyecto aún no tiene un plano público disponible.
+                        </p>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            El equipo comercial puede sincronizar el plano desde el dashboard del proyecto.
+                        </p>
+                    </div>
+                )}
+            </section>
 
-                        {usefulMapImages.length > 0 && (
-                            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+            {project.units.length > 0 ? (
+                <section className="border-y border-border bg-card/20">
+                    <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
+                        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+                            <div className="max-w-2xl">
                                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                                    Imágenes vinculadas al mapa
+                                    Lotes y unidades
                                 </p>
-                                <div className="mt-5 space-y-4">
-                                    {usefulMapImages.slice(0, 4).map((image) => (
-                                        <article key={image.id} className="overflow-hidden rounded-2xl bg-background">
-                                            <img
-                                                src={image.url}
-                                                alt={image.titulo || image.unidadNumero || "Imagen del mapa"}
-                                                className="h-40 w-full object-cover"
-                                            />
-                                            <div className="p-4">
-                                                <p className="font-bold text-foreground">
-                                                    {image.titulo || `Punto ${image.orden + 1}`}
-                                                </p>
-                                                <p className="mt-1 text-sm text-muted-foreground">
-                                                    {[image.tipo, image.unidadNumero ? `Unidad ${image.unidadNumero}` : null]
-                                                        .filter(Boolean)
-                                                        .join(" · ")}
-                                                </p>
-                                            </div>
-                                        </article>
-                                    ))}
-                                </div>
+                                <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                                    Listado público de unidades
+                                </h2>
+                                <p className="mt-3 text-base text-muted-foreground">
+                                    {inventory.total} unidades publicadas · {inventory.available} disponibles ·{" "}
+                                    {inventory.reserved} reservadas · {inventory.sold} vendidas
+                                </p>
                             </div>
-                        )}
+                            <Link
+                                href={`/proyectos/${params.slug}/masterplan?view=plano`}
+                                className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
+                            >
+                                <Globe className="h-4 w-4" />
+                                Ver en plano interactivo
+                            </Link>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {[...project.units]
+                                .sort((a, b) => {
+                                    const aAvailable = a.estado === NORMALIZED_UNIT_ESTADO.DISPONIBLE ? 0 : 1;
+                                    const bAvailable = b.estado === NORMALIZED_UNIT_ESTADO.DISPONIBLE ? 0 : 1;
+                                    if (aAvailable !== bAvailable) return aAvailable - bAvailable;
+                                    return a.numero.localeCompare(b.numero, "es", { numeric: true });
+                                })
+                                .map((unit) => {
+                                    const tone =
+                                        unit.estado === NORMALIZED_UNIT_ESTADO.DISPONIBLE
+                                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                            : unit.estado === NORMALIZED_UNIT_ESTADO.RESERVADA
+                                                ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                                : unit.estado === NORMALIZED_UNIT_ESTADO.VENDIDA
+                                                    ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                                                    : "bg-slate-500/10 text-slate-500 border-slate-500/20";
+                                    return (
+                                        <Link
+                                            key={unit.id}
+                                            href={`/proyectos/${params.slug}/unidades/${unit.id}`}
+                                            className="group flex flex-col justify-between gap-3 rounded-2xl border border-border bg-background p-5 transition-all hover:border-brand-500/30 hover:bg-brand-500/5"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="truncate font-bold text-foreground">Lote {unit.numero}</p>
+                                                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                                                        {[unit.etapaNombre, unit.manzanaNombre]
+                                                            .filter(Boolean)
+                                                            .join(" · ") || "Inventario público"}
+                                                    </p>
+                                                </div>
+                                                <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${tone}`}>
+                                                    {unit.estado.replace(/_/g, " ")}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1 text-sm">
+                                                <p className="text-muted-foreground">
+                                                    Superficie:{" "}
+                                                    <span className="font-semibold text-foreground">
+                                                        {unit.superficie ? `${unit.superficie} m²` : "Consultar"}
+                                                    </span>
+                                                </p>
+                                                <p className="text-muted-foreground">
+                                                    Precio:{" "}
+                                                    <span className="font-semibold text-foreground">
+                                                        {formatCurrency(unit.precio, unit.moneda) || "Consultar"}
+                                                    </span>
+                                                </p>
+                                                {(unit.orientacion || unit.esEsquina) && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {[unit.orientacion, unit.esEsquina ? "Esquina" : null]
+                                                            .filter(Boolean)
+                                                            .join(" · ")}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center justify-end gap-1 text-xs font-bold text-brand-500 transition-colors group-hover:text-brand-400">
+                                                Consultar lote <ArrowRight className="h-3 w-3" />
+                                            </div>
+                                        </Link>
+                                    );
+                                })}
+                        </div>
+                    </div>
+                </section>
+            ) : (
+                <section className="border-y border-border bg-card/20">
+                    <div className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
+                        <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
+                            <p className="text-base font-bold text-foreground">
+                                Aún no hay lotes o unidades públicas para este proyecto.
+                            </p>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                El inventario se publicará cuando el equipo comercial lo cargue desde el dashboard.
+                            </p>
+                        </div>
                     </div>
                 </section>
             )}
+
+            <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+                    {hasMap ? (
+                        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+                            <div className="border-b border-border px-6 py-5">
+                                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                    Ubicación
+                                </p>
+                                <h2 className="mt-2 text-2xl font-black text-foreground">
+                                    Mapa del proyecto
+                                </h2>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    {project.ubicacion || "Punto georreferenciado del proyecto"}
+                                </p>
+                            </div>
+                            <iframe
+                                src={mapSrc ?? undefined}
+                                className="h-[420px] w-full border-0"
+                                loading="lazy"
+                                title={`Mapa de ${project.nombre}`}
+                            />
+                        </div>
+                    ) : (
+                        <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
+                            <p className="text-base font-bold text-foreground">
+                                Este proyecto aún no tiene una ubicación georreferenciada cargada.
+                            </p>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                Cargá las coordenadas desde el dashboard para que aparezca el mapa público.
+                            </p>
+                        </div>
+                    )}
+
+                    {usefulMapImages.length > 0 && (
+                        <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
+                                Imágenes vinculadas al mapa
+                            </p>
+                            <div className="mt-5 space-y-4">
+                                {usefulMapImages.slice(0, 4).map((image) => (
+                                    <article key={image.id} className="overflow-hidden rounded-2xl bg-background">
+                                        <img
+                                            src={image.url}
+                                            alt={image.titulo || image.unidadNumero || "Imagen del mapa"}
+                                            className="h-40 w-full object-cover"
+                                        />
+                                        <div className="p-4">
+                                            <p className="font-bold text-foreground">
+                                                {image.titulo || `Punto ${image.orden + 1}`}
+                                            </p>
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                {[image.tipo, image.unidadNumero ? `Unidad ${image.unidadNumero}` : null]
+                                                    .filter(Boolean)
+                                                    .join(" · ")}
+                                            </p>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </section>
 
             {(hasDocuments || hasTestimonials) && (
                 <section className="border-y border-border bg-card/20">

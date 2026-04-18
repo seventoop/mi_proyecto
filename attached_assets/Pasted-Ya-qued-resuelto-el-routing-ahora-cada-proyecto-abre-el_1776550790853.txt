@@ -1,0 +1,129 @@
+Ya quedó resuelto el routing: ahora cada proyecto abre el suyo correctamente.
+
+El problema que sigue es otro y quiero que lo ataques de forma técnica y directa:
+
+## Estado actual
+- los proyectos correctos ya abren bien
+- desde dashboard volví a cargar y sincronizar el plano en varios proyectos
+- la sincronización dice “completa”
+- PERO en la parte pública sigo sin ver:
+  - el plano
+  - el mapa
+  - el listado de lotes/unidades
+  - CTA sobre lotes
+
+## Conclusión
+Ahora el problema ya NO es de routing.
+El problema está en la cadena:
+dashboard -> persistencia -> capa pública -> render público
+
+Quiero que depures exactamente eso.
+
+# Objetivo de esta iteración
+
+## 1. Encontrar por qué el plano no aparece
+Quiero que revises en detalle:
+
+- qué campo exacto guarda el dashboard al “cargar y sincronizar” el plano
+- en qué tabla/campo queda persistido
+- qué campo lee `lib/project-showcase.ts`
+- qué campo consume:
+  - `app/(public)/proyectos/[slug]/page.tsx`
+  - `app/(public)/proyectos/[slug]/masterplan/page.tsx`
+  - `components/masterplan/masterplan-viewer.tsx`
+
+Necesito verificar si estamos leyendo el mismo dato o si hay desalineación.
+
+### Quiero debugging explícito:
+Agregar logs temporales que muestren, para cada proyecto:
+- id
+- nombre
+- slug
+- masterplanSvg
+- overlayUrl
+- cualquier otro asset de plano/mapa disponible
+- cantidad de units/lotes que llegan
+- cantidad de infraestructura/imágenes-mapa si existen
+
+No quiero suposiciones. Quiero ver qué datos reales llegan.
+
+## 2. Si el plano está guardado, mostrarlo sí o sí
+Quiero que la página pública del masterplan tenga esta lógica:
+
+### Caso A: hay plano real cargado
+- mostrarlo visible en pantalla
+- no dejar contenedor vacío
+
+### Caso B: no hay plano real cargado
+- mostrar un estado vacío honesto tipo:
+  “Este proyecto aún no tiene plano público disponible”
+
+### Caso C: hay mapa pero no plano
+- mostrar mapa como fallback útil
+
+No quiero espacios vacíos oscuros sin explicación.
+
+## 3. Mostrar listado de lotes/unidades sí o sí
+Aunque el plano todavía no quede perfecto, quiero que el cliente vea al menos un listado útil de lotes.
+
+Debe mostrarse:
+- código / nombre del lote
+- estado
+- superficie
+- precio
+- orientación si existe
+- etapa/manzana si existe
+- botón o link para consultar ese lote
+
+Si no hay unidades reales:
+- mostrar un estado vacío claro
+- pero no ocultar silenciosamente todo
+
+## 4. Validar si las unidades están en la capa pública
+Revisá especialmente:
+- `lib/project-showcase.ts`
+
+Quiero confirmar:
+- si `units` realmente se están cargando
+- si están filtradas por estado/publicación de forma incorrecta
+- si se pierden en el mapping
+- si la página pública las recibe pero no las renderiza
+
+## 5. Quiero una solución mínima pero funcional
+No quiero todavía una mega experiencia visual.
+Primero quiero esto funcionando:
+
+### mínimo obligatorio
+- proyecto correcto
+- plano visible si existe
+- mapa visible si existe
+- listado de lotes visible si existe
+- CTA por lote
+
+## 6. Archivos a revisar sí o sí
+- `lib/project-showcase.ts`
+- `app/(public)/proyectos/[slug]/page.tsx`
+- `app/(public)/proyectos/[slug]/masterplan/page.tsx`
+- `components/masterplan/masterplan-viewer.tsx`
+- cualquier acción o helper que tome el plano desde dashboard
+- cualquier ruta/API que sincronice el plano o overlay
+
+## 7. Qué necesito que me devuelvas
+Al terminar, explicame:
+
+1. en qué campo/tabla se estaba guardando realmente el plano
+2. qué campo estaba leyendo la capa pública
+3. por qué no coincidían (si no coincidían)
+4. por qué no aparecían las unidades/lotes
+5. qué archivos tocaste
+6. cómo probar:
+   - que el plano se vea
+   - que el mapa se vea
+   - que los lotes aparezcan
+   - que el cliente pueda consultar un lote
+
+Importante:
+- no quiero contenido dummy
+- no quiero auth en lo público
+- no quiero contenedores vacíos sin mensaje
+- no quiero asumir que “sincronizado” significa que la vista pública ya lo está leyendo bien: quiero que lo verifiques
