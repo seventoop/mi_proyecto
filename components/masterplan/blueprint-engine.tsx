@@ -1199,14 +1199,17 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
             {/* ── Lot Management Table (collapsible, full-width) ──────────── */}
             {lotRecords.length > 0 && showTable && (
-                <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 flex flex-col" style={{ height: "260px" }}>
+                <div
+                    className="flex shrink-0 flex-col overflow-hidden border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                    style={{ height: "clamp(180px, 24vh, 228px)" }}
+                >
                     {/* Table toolbar */}
-                    <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2 dark:border-slate-800">
                         <LayoutList className="w-3.5 h-3.5 text-brand-500" />
                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Gestión de Lotes</span>
                         <span className="text-[10px] text-slate-400 ml-1">{filteredLots.length} de {lotRecords.length}</span>
 
-                        <div className="ml-auto flex items-center gap-2">
+                        <div className="ml-auto flex flex-wrap items-center gap-2">
                             {/* Search */}
                             <div className="relative">
                                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
@@ -1244,7 +1247,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     </div>
 
                     {/* Table */}
-                    <div className="flex-1 overflow-auto">
+                    <div className="min-h-0 flex-1 overflow-auto">
                         <table className="w-full text-xs min-w-[760px]">
                             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 z-10">
                                 <tr>

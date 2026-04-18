@@ -276,7 +276,11 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const prevStep = currentStepIdx > 0 ? steps[currentStepIdx - 1] : null;
     const nextStep =
         currentStepIdx < steps.length - 1 ? steps[currentStepIdx + 1] : null;
-    const isWorkspaceTab = activeTab === "mapa" || activeTab === "tour360";
+    const isWorkspaceTab =
+        activeTab === "blueprint" ||
+        activeTab === "masterplan" ||
+        activeTab === "mapa" ||
+        activeTab === "tour360";
 
     // Prepare Tour 360° markers for Paso 4 map (only lot-linked tours)
     const tours360ForMap = proyecto.tours
@@ -393,7 +397,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         key={step.id}
                                         href={`?tab=${step.id}`}
                                         className={cn(
-                                            "flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold whitespace-nowrap transition-all duration-150 flex-1 justify-center",
+                                            "flex min-w-[10.5rem] flex-none items-center gap-2 px-3.5 py-2.5 text-xs font-semibold whitespace-nowrap transition-all duration-150",
                                             isActive
                                                 ? "bg-brand-500 text-white shadow-inner"
                                                 : step.done
@@ -403,7 +407,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     >
                                         <span
                                             className={cn(
-                                                "w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black shrink-0",
+                                                "inline-flex h-5 w-5 min-w-5 items-center justify-center rounded-full text-[10px] font-black leading-none tabular-nums shrink-0",
                                                 isActive
                                                     ? "bg-white/25 text-white"
                                                     : step.done
@@ -413,7 +417,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         >
                                             {step.done && !isActive ? "âœ“" : step.num}
                                         </span>
-                                        {step.label}
+                                        <span className="min-w-0 truncate">{step.label}</span>
                                         {step.required && !step.done && !isActive && (
                                             <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
                                         )}
@@ -615,16 +619,16 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
                         {/* â”€â”€ PASO 2: PLANO â”€â”€ */}
                         {activeTab === "blueprint" && (
-                            <div className="animate-fade-in h-[calc(100vh-180px)] min-h-[640px]">
+                            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                                 <BlueprintEngine proyectoId={proyecto.id} />
                             </div>
                         )}
 
                         {/* â”€â”€ PASO 3: MASTERPLAN â”€â”€ */}
                         {activeTab === "masterplan" && (
-                            <div className="space-y-6">
+                            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                                 {!step2Done && (
-                                    <div className="flex items-start gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                                    <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
                                         <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                                         <div>
                                             <p className="text-sm font-bold text-amber-600 dark:text-amber-400">
@@ -643,40 +647,58 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         </div>
                                     </div>
                                 )}
-                                <ResizableContainer defaultHeight={720} minHeight={520} showFullscreenBtn={false}>
-                                    <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
-                                </ResizableContainer>
-
-                                {/* Inventario siempre accesible — no depende de etapas */}
-                                <div className="glass-card p-6">
-                                    <h3 className="font-bold text-slate-800 dark:text-white mb-1 flex items-center gap-2">
-                                        <Home className="w-5 h-5 text-brand-500" />
-                                        Inventario
-                                    </h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
-                                        Editá estados, precios y datos de cada lote. No necesitás configurar etapas primero.
-                                    </p>
-                                    {total === 0 ? (
-                                        <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-                                            <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
-                                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                Todavía no hay unidades registradas. Cargá el plano del proyecto en el{" "}
-                                                <Link href="?tab=blueprint" className="text-brand-500 font-semibold underline underline-offset-2">
-                                                    Paso 2
-                                                </Link>{" "}
-                                                y sincronizá para generar el inventario automáticamente.
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <InventarioClient proyectoId={proyecto.id} />
-                                    )}
+                                <div className="min-h-[58vh] flex-[1.35] overflow-hidden">
+                                    <ResizableContainer
+                                        className="h-full"
+                                        defaultHeight={760}
+                                        minHeight={560}
+                                        showFullscreenBtn={false}
+                                    >
+                                        <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
+                                    </ResizableContainer>
                                 </div>
 
-                                {/* Etapas después del inventario */}
-                                <EtapasManager
-                                    proyectoId={proyecto.id}
-                                    etapas={proyecto.etapas as any}
-                                />
+                                <div className="mt-4 grid min-h-0 flex-none gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+                                    <div className="glass-card flex min-h-0 flex-col p-5">
+                                        <div className="mb-4 flex items-start justify-between gap-3">
+                                            <div>
+                                                <h3 className="mb-1 flex items-center gap-2 font-bold text-slate-800 dark:text-white">
+                                                    <Home className="h-5 w-5 text-brand-500" />
+                                                    Inventario
+                                                </h3>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                    Gestión rápida de lotes con scroll interno para no quitar foco al visor.
+                                                </p>
+                                            </div>
+                                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                                                {total} lotes
+                                            </span>
+                                        </div>
+                                        <div className="min-h-0 max-h-[28rem] overflow-auto">
+                                            {total === 0 ? (
+                                                <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+                                                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                        Todavía no hay unidades registradas. Cargá el plano del proyecto en el{" "}
+                                                        <Link href="?tab=blueprint" className="font-semibold text-brand-500 underline underline-offset-2">
+                                                            Paso 2
+                                                        </Link>{" "}
+                                                        y sincronizá para generar el inventario automáticamente.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <InventarioClient proyectoId={proyecto.id} />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="min-h-0 max-h-[28rem] overflow-auto">
+                                        <EtapasManager
+                                            proyectoId={proyecto.id}
+                                            etapas={proyecto.etapas as any}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         )}
 
