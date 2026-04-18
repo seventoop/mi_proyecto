@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Send, CheckCircle } from "lucide-react";
+import { Loader2, Send, CheckCircle, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { crearConsultaContacto } from "@/lib/actions/leads";
+
+type LoteSeleccionado = {
+    id: string;
+    numero: string;
+    estado?: string;
+    precio?: number | null;
+    moneda?: string | null;
+    superficie?: number | null;
+};
 
 const formSchema = z.object({
     nombre: z.string().min(2, "Ingresa tu nombre completo"),
@@ -25,25 +34,50 @@ interface ContactFormProps {
 export default function ContactForm({ proyectoId, compact, className, origen }: ContactFormProps) {
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [lote, setLote] = useState<LoteSeleccionado | null>(null);
 
     const {
         register,
         handleSubmit,
+        setValue,
         formState: { errors, isSubmitting },
     } = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
     });
 
+    useEffect(() => {
+        const handler = (event: Event) => {
+            const detail = (event as CustomEvent<LoteSeleccionado>).detail;
+            if (!detail || !detail.numero) return;
+            setLote(detail);
+            setValue(
+                "mensaje",
+                `Hola, me interesa el lote ${detail.numero}. ¿Pueden enviarme disponibilidad y condiciones comerciales actualizadas?`,
+            );
+        };
+        window.addEventListener("seventoop:select-lote", handler as EventListener);
+        return () => window.removeEventListener("seventoop:select-lote", handler as EventListener);
+    }, [setValue]);
+
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
         setError(null);
         try {
+            const lotePrefix = lote
+                ? `[Consulta sobre lote ${lote.numero}${lote.precio ? ` · ${lote.precio.toLocaleString("es-AR")} ${lote.moneda || ""}` : ""}]\n`
+                : "";
             const res = await crearConsultaContacto({
                 nombre: data.nombre,
                 email: data.email,
                 telefono: data.telefono,
-                mensaje: data.mensaje || "",
+                mensaje: lotePrefix + (data.mensaje || ""),
                 proyectoId,
-                origen: origen || (proyectoId ? "WEB_PROYECTO" : "WEB_CONTACTO"),
+                origen:
+                    origen ||
+                    (lote
+                        ? "WEB_LOTE_CONSULTA"
+                        : proyectoId
+                          ? "WEB_PROYECTO"
+                          : "WEB_CONTACTO"),
             });
 
             if (res.success) {
@@ -78,6 +112,39 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className={cn("space-y-4", className)}>
+            {lote && (
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-brand-orange/30 bg-brand-orange/10 px-4 py-3">
+                    <div className="flex items-start gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-orange/20 text-brand-orange">
+                            <MapPin className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-xs font-bold uppercase tracking-wider text-brand-orange">
+                                Lote seleccionado
+                            </p>
+                            <p className="text-sm font-bold text-foreground">
+                                {lote.numero}
+                                {lote.superficie ? ` · ${lote.superficie} m²` : ""}
+                                {lote.precio
+                                    ? ` · ${new Intl.NumberFormat("es-AR", {
+                                          style: "currency",
+                                          currency: lote.moneda || "USD",
+                                          maximumFractionDigits: 0,
+                                      }).format(lote.precio)}`
+                                    : ""}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setLote(null)}
+                        aria-label="Quitar lote"
+                        className="rounded-lg p-1 text-brand-orange hover:bg-brand-orange/10"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                     <label className="text-[15px] font-semibold text-foreground">Nombre completo</label>

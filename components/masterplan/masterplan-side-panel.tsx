@@ -452,6 +452,36 @@ export default function MasterplanSidePanel({ unit, modo, canEdit, onClose }: Si
                                 Es lote de esquina
                             </label>
                         </div>
+                    ) : modo === "public" ? (
+                        <div className="space-y-2">
+                            <button
+                                onClick={() => {
+                                    if (typeof window !== "undefined") {
+                                        window.dispatchEvent(
+                                            new CustomEvent("seventoop:select-lote", {
+                                                detail: {
+                                                    id: unit.id,
+                                                    numero: unit.numero,
+                                                    estado: unit.estado,
+                                                    precio: unit.precio,
+                                                    moneda: unit.moneda,
+                                                    superficie: unit.superficie,
+                                                },
+                                            }),
+                                        );
+                                        const el = document.getElementById("contacto");
+                                        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    }
+                                    onClose();
+                                }}
+                                className="w-full rounded-xl px-4 py-3 text-sm font-bold text-white shadow-glow transition-all gradient-brand hover:shadow-glow-lg"
+                            >
+                                {unit.estado === "DISPONIBLE" ? "Reservar este lote" : "Consultar este lote"}
+                            </button>
+                            <p className="text-center text-[11px] text-slate-500 dark:text-slate-400">
+                                Te contactaremos con la información comercial actualizada del lote {unit.numero}.
+                            </p>
+                        </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-2">
                             {unit.estado === "DISPONIBLE" && (

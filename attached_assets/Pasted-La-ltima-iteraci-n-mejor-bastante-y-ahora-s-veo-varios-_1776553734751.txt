@@ -1,0 +1,201 @@
+La última iteración mejoró bastante y ahora sí veo varios cambios que al principio no se estaban reflejando. Por ejemplo:
+- el listado lateral finalmente desapareció al refrescar y tocar plano/mapa
+- aparecieron filtros y orden abajo
+- el masterplan está mejor encaminado
+
+Vamos bien, pero ahora quiero una nueva pasada de mejoras enfocada en UX, visual y comportamiento correcto del switch Plano / Mapa.
+
+====================================
+1. PLANO / MAPA: COMPORTAMIENTO CORRECTO
+====================================
+
+Esto es clave.
+
+Ahora no quiero que "Plano" y "Mapa" funcionen como dos páginas distintas ni como dos vistas que reacomodan toda la UI y hacen aparecer/desaparecer cosas de forma rara.
+
+Quiero esto:
+
+### Objetivo
+El masterplan debe mantenerse en el mismo lugar, ocupando el mismo bloque principal, y el switch de arriba:
+
+- `Plano`
+- `Mapa`
+
+debe cambiar SOLO el fondo/base visual del mismo masterplan.
+
+### Comportamiento esperado
+- Si toco `Plano`:
+  - se ve el plano cargado sobre un fondo liso (gris/oscuro/blanco, el que mejor funcione)
+  - los lotes siguen exactamente en su lugar
+  - la interacción sigue igual
+
+- Si toco `Mapa`:
+  - el fondo pasa a ser el mapa real guardado en dashboard
+  - el plano/lotes siguen alineados encima
+  - los lotes deben verse en el lugar real donde están implantados
+
+### Importante
+No quiero que:
+- cambie toda la estructura
+- aparezcan/desaparezcan listados de forma rara
+- se mueva el masterplan de lugar
+- se sienta como dos pantallas separadas
+
+Quiero una sola experiencia interactiva con dos modos de fondo:
+- plano
+- mapa
+
+====================================
+2. MASTERPLAN MÁS PROTAGONISTA
+====================================
+
+Quiero que el bloque principal del masterplan ocupe todavía más lugar.
+
+Ajustes:
+- más ancho útil
+- más alto útil
+- menos aire muerto alrededor
+- más protagonista visual
+
+La idea es que el plano/mapa sea el héroe real de esta página.
+
+====================================
+3. ELIMINAR DEFINITIVAMENTE EL LISTADO LATERAL
+====================================
+
+Aunque ahora vi que desapareció al refrescar, quiero asegurarme de que:
+- NO vuelva a aparecer el listado a la derecha
+- NO quede ninguna dependencia rara entre el switch Plano/Mapa y la vieja UI lateral
+
+El listado de lotes debe vivir abajo, únicamente.
+
+====================================
+4. MEJORAR EL BLOQUE DE FILTROS Y ORDEN DEL LISTADO
+====================================
+
+Ahora aparecieron filtros y orden abajo, pero todavía se ve poco trabajado visualmente.
+
+Quiero mejorar:
+
+### Filtros
+- Todos
+- Disponible
+- Reservado
+- Vendido
+- Bloqueado (si existe)
+- Suspendido (si existe)
+
+### Orden
+- Precio menor a mayor
+- Precio mayor a menor
+- Superficie menor a mayor
+- Superficie mayor a menor
+- Código / número de lote
+
+### Extras deseables
+- búsqueda por nombre/código de lote
+- contador de resultados
+- diseño visual más claro y más comercial
+
+### UX visual
+Quiero que el bloque de filtros/orden:
+- se vea importante
+- tenga mejor jerarquía
+- no parezca una fila improvisada
+
+====================================
+5. MEJORAR LAS CARDS DE LOTES
+====================================
+
+Ahora las cards/listado de lotes funcionan, pero visualmente están flojas.
+
+Quiero que:
+- tengan un color distinto al fondo general de la web
+- tengan borde visible siempre
+- el hover las destaque más
+- se sientan más premium/comerciales
+- tengan mejor separación entre datos
+
+Ejemplo de intención:
+- borde sutil visible siempre
+- hover con sombra / glow / elevación suave
+- mejor contraste entre card y fondo
+- badge de estado más claro
+
+====================================
+6. CTA DEL LOTE – RESERVAR UNIDAD
+====================================
+
+Problema actual:
+El botón “Reservar unidad” no está resolviendo una acción clara. Antes solo cambiaba color y no hacía nada útil.
+
+Quiero que haga algo real.
+
+### Objetivo
+Ese botón debe iniciar una acción comercial real con el lote seleccionado.
+
+Opciones válidas:
+- abrir formulario/modal de consulta o solicitud de reserva
+- bajar/scroll a contacto con lote preseleccionado
+- abrir CTA a vendedor con lote asociado
+
+Pero debe:
+- funcionar de verdad
+- dejar claro qué unidad está consultando el usuario
+- no ser un botón muerto
+
+### Importante
+No quiero todavía reserva definitiva ni backend complejo.
+Quiero una intención comercial usable.
+
+====================================
+7. MODAL DEL LOTE
+====================================
+
+El modal mejoró mucho. Mantener esa línea.
+
+Pero revisá:
+- espaciados
+- z-index
+- consistencia visual
+- claridad de CTA principal/secundarios
+
+Si hace falta, dale una terminación más comercial/premium.
+
+====================================
+8. CONSISTENCIA GENERAL
+====================================
+
+Quiero una pasada de terminación general para que:
+- el masterplan se sienta más profesional
+- la navegación sea clara
+- el listado acompañe al plano
+- el switch Plano/Mapa tenga lógica clara
+- todo se vea más pulido
+
+====================================
+9. ACLARACIÓN IMPORTANTE
+====================================
+
+Al principio no veía algunos cambios, pero ahora sí se reflejaron tras refrescar.
+Por ejemplo:
+- el listado lateral desapareció
+- aparecieron filtros/orden abajo
+
+Así que tomá eso en cuenta: ya hay una base mejorada, pero quiero una nueva iteración de refinamiento y comportamiento correcto, no volver atrás.
+
+====================================
+10. ENTREGA
+====================================
+
+Cuando termines, explicame:
+- qué componentes tocaste
+- cómo dejaste funcionando exactamente el switch Plano / Mapa
+- qué hiciste con el CTA “Reservar unidad”
+- qué mejoras visuales aplicaste a las cards/listado
+- cómo probar:
+  - cambio de Plano a Mapa
+  - filtros
+  - orden
+  - búsqueda
+  - CTA del lote

@@ -405,7 +405,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                     <div className="grid gap-4 md:grid-cols-3">
                         {hasMasterplan && (
                             <Link
-                                href={`/proyectos/${params.slug}/masterplan?view=plano`}
+                                href={`/proyectos/${params.slug}/masterplan`}
                                 className="group flex flex-col gap-3 rounded-3xl border border-border bg-card p-6 transition-all hover:border-brand-500/40 hover:bg-brand-500/5"
                             >
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500">
@@ -522,7 +522,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                             slug={params.slug}
                             mode="compact"
                             pageSize={8}
-                            seeAllHref={`/proyectos/${params.slug}/masterplan?view=plano`}
+                            seeAllHref={`/proyectos/${params.slug}/masterplan`}
                         />
                     </div>
                 </section>
