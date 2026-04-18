@@ -102,3 +102,8 @@ reset_auth.js
 # =========================
 .claude/settings.local.json
 
+.seed-temp/
+docs/dev-logs/
+scripts/seed-recovery-phase12.ts
+status
+
