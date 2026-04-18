@@ -1,3 +1,4 @@
+import { NORMALIZED_UNIT_ESTADO } from "@/lib/public-projects";
 import { create } from "zustand";
 
 // ─── Types ───
@@ -12,7 +13,12 @@ export interface MasterplanUnit {
     orientacion: string | null;
     precio: number | null;
     moneda: string;
-    estado: "DISPONIBLE" | "BLOQUEADO" | "RESERVADA" | "VENDIDA" | "SUSPENDIDO";
+    estado:
+        | typeof NORMALIZED_UNIT_ESTADO.DISPONIBLE
+        | typeof NORMALIZED_UNIT_ESTADO.BLOQUEADA
+        | typeof NORMALIZED_UNIT_ESTADO.RESERVADA
+        | typeof NORMALIZED_UNIT_ESTADO.VENDIDA
+        | typeof NORMALIZED_UNIT_ESTADO.SUSPENDIDO;
     etapaId?: string;
     etapaNombre?: string;
     manzanaId?: string;

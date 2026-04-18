@@ -19,6 +19,7 @@ import MasterplanFilters from "./masterplan-filters";
 import MasterplanComparator from "./masterplan-comparator";
 import { getProjectBlueprintData } from "@/lib/actions/unidades";
 import { getPusherClient, CHANNELS, EVENTS } from "@/lib/pusher";
+import { normalizeUnitEstado } from "@/lib/public-projects";
 
 // ─── Zoom wiring component (must live inside TransformWrapper to use useControls) ───
 function ZoomButtonWiring({
@@ -53,7 +54,7 @@ function ZoomButtonWiring({
 // ─── Status colors ───
 const STATUS_COLORS: Record<string, string> = {
     DISPONIBLE: "#10b981",
-    BLOQUEADO: "#94a3b8",
+    BLOQUEADA: "#94a3b8",
     RESERVADA: "#f59e0b",
     VENDIDA: "#ef4444",
     SUSPENDIDO: "#64748b",
@@ -61,7 +62,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
     DISPONIBLE: "Disponible",
-    BLOQUEADO: "Bloqueado",
+    BLOQUEADA: "Bloqueada",
     RESERVADA: "Reservada",
     VENDIDA: "Vendida",
     SUSPENDIDO: "Suspendido",
@@ -340,7 +341,7 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
         channel.bind(EVENTS.UNIDAD_STATUS_CHANGED, (data: { id: string; estado: MasterplanUnit["estado"]; proyectoId?: string }) => {
             // Only update if it belongs to this project
             if (!data.proyectoId || data.proyectoId === proyectoId) {
-                updateUnitState(data.id, { estado: data.estado });
+                updateUnitState(data.id, { estado: normalizeUnitEstado(data.estado) });
             }
         });
 

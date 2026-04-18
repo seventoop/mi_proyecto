@@ -13,6 +13,12 @@
 
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import {
+    buildPublicProjectWhere,
+    isProjectPubliclyVisible,
+    isUnitAvailableForPublic,
+    normalizeUnitEstado,
+} from "@/lib/public-projects";
 import type {
     ProjectPublicView,
     ProjectPublicUnit,
@@ -22,50 +28,9 @@ import type {
     ProjectBrandingConfig,
 } from "./types";
 import {
-    PROJECT_VISIBILITY,
-    UNIT_ESTADO,
     DEFAULT_SIMULATION_CONFIG,
 } from "./types";
-
-// ─── Visibility Rule — Single Source of Truth ─────────────────────────────────
-
-/**
- * Central visibility check for a project.
- * ALL public pages must gate on this — never repeat the conditions.
- */
-export function isProjectPubliclyVisible(project: {
-    visibilityStatus: string;
-    estado: string;
-    deletedAt: Date | null;
-    isDemo: boolean;
-    demoExpiresAt: Date | null;
-}): boolean {
-    if (project.visibilityStatus !== PROJECT_VISIBILITY.PUBLICADO) return false;
-    if (project.estado === "SUSPENDIDO") return false;
-    if (project.deletedAt !== null) return false;
-    // Demo rule: requires an explicit future expiry date.
-    // isDemo=true with demoExpiresAt=null → NOT visible (no expiry configured).
-    // isDemo=true with a past demoExpiresAt → NOT visible (expired).
-    if (project.isDemo && (!project.demoExpiresAt || project.demoExpiresAt < new Date())) return false;
-    return true;
-}
-
-/**
- * Prisma where clause — derived from the visibility rule.
- * NOTE: returned as a plain object (not `as const`) so Prisma can accept
- * the mutable array type for `OR`.
- */
-export function getPublicProjectWhere(): Prisma.ProyectoWhereInput {
-    return {
-        visibilityStatus: PROJECT_VISIBILITY.PUBLICADO,
-        estado: { not: "SUSPENDIDO" },
-        deletedAt: null,
-        OR: [
-            { isDemo: false },
-            { isDemo: true, demoExpiresAt: { gt: new Date() } },
-        ],
-    };
-}
+export const getPublicProjectWhere = buildPublicProjectWhere;
 
 /**
  * @deprecated DO NOT USE in runtime query code — `demoExpiresAt` comparison uses
@@ -74,13 +39,7 @@ export function getPublicProjectWhere(): Prisma.ProyectoWhereInput {
  * This export exists only for static analysis / tests that don't involve Date logic.
  */
 export const PUBLIC_PROJECT_WHERE: Prisma.ProyectoWhereInput = {
-    visibilityStatus: PROJECT_VISIBILITY.PUBLICADO,
-    estado: { not: "SUSPENDIDO" },
-    deletedAt: null,
-    OR: [
-        { isDemo: false },
-        { isDemo: true, demoExpiresAt: { gt: new Date() } },
-    ],
+    ...buildPublicProjectWhere(),
 };
 
 // ─── Mapping Helpers ──────────────────────────────────────────────────────────
@@ -152,12 +111,13 @@ function mapUnidades(
         for (const manzana of etapa.manzanas) {
             for (const u of manzana.unidades) {
                 total++;
-                if (u.estado === UNIT_ESTADO.DISPONIBLE) {
+                const normalizedEstado = normalizeUnitEstado(u.estado);
+                if (isUnitAvailableForPublic(normalizedEstado)) {
                     disponibles.push({
                         id: u.id,
                         numero: u.numero,
                         tipo: u.tipo,
-                        estado: u.estado as ProjectPublicUnit["estado"],
+                        estado: normalizedEstado as ProjectPublicUnit["estado"],
                         superficie: u.superficie,
                         frente: u.frente,
                         fondo: u.fondo,
@@ -235,7 +195,6 @@ async function fetchProjectForPublicView(
                         select: {
                             nombre: true,
                             unidades: {
-                                where: { estado: { not: UNIT_ESTADO.BLOQUEADA } },
                                 select: {
                                     id: true,
                                     numero: true,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireAuth, requireAnyRole, handleApiGuardError } from "@/lib/guards";
+import { normalizeUnitEstado } from "@/lib/public-projects";
 
 // GET /api/unidades/[id]
 export async function GET(
@@ -52,7 +53,10 @@ export async function GET(
             }
         }
 
-        return NextResponse.json(unidad);
+        return NextResponse.json({
+            ...unidad,
+            estado: normalizeUnitEstado(unidad.estado),
+        });
     } catch (error) {
         return handleApiGuardError(error);
     }
@@ -184,7 +188,10 @@ export async function PUT(
             },
         });
 
-        return NextResponse.json(unidad);
+        return NextResponse.json({
+            ...unidad,
+            estado: normalizeUnitEstado(unidad.estado),
+        });
     } catch (error) {
         return handleApiGuardError(error);
     }

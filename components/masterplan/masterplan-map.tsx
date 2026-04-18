@@ -28,7 +28,7 @@ const ImagenesMapaTool = dynamic(() => import("./imagenes-mapa-tool"), { ssr: fa
 // ─── Status colors ───
 const STATUS_COLORS: Record<string, string> = {
     DISPONIBLE: "#10b981",
-    BLOQUEADO: "#94a3b8",
+    BLOQUEADA: "#94a3b8",
     RESERVADA: "#f59e0b",
     VENDIDA: "#ef4444",
     SUSPENDIDO: "#64748b",
@@ -36,7 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
     DISPONIBLE: "Disponible",
-    BLOQUEADO: "Bloqueado",
+    BLOQUEADA: "Bloqueada",
     RESERVADA: "Reservada",
     VENDIDA: "Vendida",
     SUSPENDIDO: "Suspendido",

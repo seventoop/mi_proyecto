@@ -8,6 +8,7 @@ import ContactForm from "@/components/public/contact-form";
 import FinancingSimulator from "@/components/public/financing-simulator";
 import TourModal from "@/components/public/tour-modal";
 import { Prisma } from "@prisma/client";
+import { NORMALIZED_UNIT_ESTADO, normalizeUnitEstado } from "@/lib/public-projects";
 
 type UnitWithRelations = Prisma.UnidadGetPayload<{
     include: {
@@ -79,6 +80,7 @@ export default async function UnitDetailPage({ params }: { params: { slug: strin
     const manzana = unit.manzana;
     const etapa = manzana?.etapa;
     const proyecto = etapa?.proyecto;
+    const normalizedEstado = normalizeUnitEstado(unit.estado);
 
     return (
         <div className="bg-slate-950 min-h-screen pt-24 pb-20 text-white">
@@ -96,10 +98,10 @@ export default async function UnitDetailPage({ params }: { params: { slug: strin
                             <span className="px-2.5 py-0.5 rounded bg-white/10 text-xs font-semibold text-slate-300 uppercase">
                                 {unit.tipo === "LOTE" ? "Lote" : "Departamento"}
                             </span>
-                            <span className={`px-2.5 py-0.5 rounded text-xs font-semibold uppercase ${unit.estado === 'DISPONIBLE' ? 'bg-emerald-500/20 text-emerald-400' :
-                                unit.estado === 'RESERVADO' ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'
+                            <span className={`px-2.5 py-0.5 rounded text-xs font-semibold uppercase ${normalizedEstado === NORMALIZED_UNIT_ESTADO.DISPONIBLE ? 'bg-emerald-500/20 text-emerald-400' :
+                                normalizedEstado === NORMALIZED_UNIT_ESTADO.RESERVADA ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'
                                 }`}>
-                                {unit.estado}
+                                {normalizedEstado}
                             </span>
                         </div>
                         <h1 className="text-4xl font-bold text-white mb-2">Unidad {unit.numero}</h1>
@@ -170,7 +172,7 @@ export default async function UnitDetailPage({ params }: { params: { slug: strin
                     </div>
 
                     {/* Financing Simulator */}
-                    {unit.estado === "DISPONIBLE" && (
+                    {normalizedEstado === NORMALIZED_UNIT_ESTADO.DISPONIBLE && (
                         <FinancingSimulator price={unit.precio || 0} currency={unit.moneda} />
                     )}
 
@@ -193,7 +195,7 @@ export default async function UnitDetailPage({ params }: { params: { slug: strin
                             <div className="text-center mb-6">
                                 <p className="text-sm text-slate-400 mb-1">Precio de Lista</p>
                                 <p className="text-4xl font-bold text-white mb-2">{formatCurrency(unit.precio || 0, unit.moneda)}</p>
-                                {unit.estado === 'DISPONIBLE' && (
+                                {normalizedEstado === NORMALIZED_UNIT_ESTADO.DISPONIBLE && (
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-wider">
                                         <CheckCircle2 className="w-3.5 h-3.5" /> Disponible
                                     </span>

@@ -9,6 +9,7 @@ import {
 import { db } from "@/lib/db";
 import ContactForm from "@/components/public/contact-form";
 import PublicProjectGallery from "@/components/public/project-gallery";
+import { normalizeUnitEstado, NORMALIZED_UNIT_ESTADO } from "@/lib/public-projects";
 import {
     normalizeTourMediaCategory,
     TOUR_MEDIA_CATEGORY_LABELS,
@@ -59,8 +60,11 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         e.manzanas?.flatMap((m: any) => m.unidades ?? []) ?? []
     ) ?? [];
     const totalUnits = allUnits.length;
-    const disponibles = allUnits.filter((u) => u.estado === "DISPONIBLE").length;
-    const vendidas = allUnits.filter((u) => ["VENDIDA", "RESERVADA"].includes(u.estado)).length;
+    const normalizedUnits = allUnits.map((u) => ({ ...u, estado: normalizeUnitEstado(u.estado) }));
+    const disponibles = normalizedUnits.filter((u) => u.estado === NORMALIZED_UNIT_ESTADO.DISPONIBLE).length;
+    const vendidas = normalizedUnits.filter((u) =>
+        [NORMALIZED_UNIT_ESTADO.VENDIDA, NORMALIZED_UNIT_ESTADO.RESERVADA].includes(u.estado)
+    ).length;
     const pctVendidas = totalUnits > 0 ? Math.round((vendidas / totalUnits) * 100) : 0;
 
     const heroImage =

@@ -9,11 +9,12 @@ import { MasterplanUnit, useMasterplanStore } from "@/lib/masterplan-store";
 import ReservaModal from "@/components/dashboard/reservas/reserva-modal";
 import { generateUnitPDF } from "@/lib/export-utils";
 import { getUnidadHistorial } from "@/lib/actions/unidades";
+import { normalizeUnitEstado } from "@/lib/public-projects";
 import SharedSidePanel from "./shared-side-panel";
 
 const STATUS_COLORS: Record<MasterplanUnit["estado"], string> = {
     DISPONIBLE: "#10b981",
-    BLOQUEADO: "#94a3b8",
+    BLOQUEADA: "#94a3b8",
     RESERVADA: "#f59e0b",
     VENDIDA: "#ef4444",
     SUSPENDIDO: "#64748b",
@@ -21,7 +22,7 @@ const STATUS_COLORS: Record<MasterplanUnit["estado"], string> = {
 
 const STATUS_LABELS: Record<MasterplanUnit["estado"], string> = {
     DISPONIBLE: "Disponible",
-    BLOQUEADO: "Bloqueado",
+    BLOQUEADA: "Bloqueada",
     RESERVADA: "Reservada",
     VENDIDA: "Vendida",
     SUSPENDIDO: "Suspendido",
@@ -214,7 +215,7 @@ export default function MasterplanSidePanel({ unit, modo, canEdit, onClose }: Si
             updateUnitState(unit.id, {
                 numero: saved.numero,
                 tipo: saved.tipo,
-                estado: saved.estado,
+                estado: normalizeUnitEstado(saved.estado),
                 precio: saved.precio,
                 superficie: saved.superficie,
                 frente: saved.frente,

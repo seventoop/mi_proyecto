@@ -7,6 +7,7 @@ import Viewer360LotesOverlay from "@/components/masterplan/viewer360-lotes-overl
 import type { MasterplanUnit } from "@/lib/masterplan-store";
 import type { SvgViewBox } from "@/lib/geo-projection";
 import { getGeoOverlayViewerState } from "@/lib/tour-overlay";
+import { NORMALIZED_UNIT_ESTADO, normalizeUnitEstado } from "@/lib/public-projects";
 import {
     Loader2, Play, Pause, Maximize2, Share2, Copy, Check,
     ChevronLeft, ChevronRight, MapPin, X, Volume2, VolumeX,
@@ -512,7 +513,7 @@ export default function TourViewer({
                 ...scene,
                 hotspots: scene.hotspots.map(hs => {
                     if (hs.unidad?.id === data.unidadId) {
-                        return { ...hs, unidad: { ...hs.unidad, estado: data.nuevoEstado } };
+                        return { ...hs, unidad: { ...hs.unidad, estado: normalizeUnitEstado(data.nuevoEstado) } };
                     }
                     return hs;
                 })
@@ -600,7 +601,8 @@ export default function TourViewer({
             case "check": // Dynamic status
             case "sold":
             case "UNIT": // New professional type
-                const isSold = ["VENDIDA", "RESERVADA", "SUSPENDIDA"].includes(currentEstado);
+                const normalizedEstado = normalizeUnitEstado(currentEstado);
+                const isSold = normalizedEstado !== NORMALIZED_UNIT_ESTADO.DISPONIBLE;
                 hotSpotDiv.innerHTML = `
                     <div class="hotspot-status-marker ${isSold ? 'sold' : 'available'}">
                         ${isSold

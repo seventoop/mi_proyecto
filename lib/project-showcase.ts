@@ -1,5 +1,10 @@
 import { db } from "@/lib/db";
-import { buildPublicProjectWhere } from "@/lib/public-projects";
+import {
+    buildPublicProjectWhere,
+    isUnitAvailableForPublic,
+    NORMALIZED_UNIT_ESTADO,
+    normalizeUnitEstado,
+} from "@/lib/public-projects";
 
 const fallbackImage =
     "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop";
@@ -273,6 +278,7 @@ export async function getProjectShowcasePayload(options: {
         stage.manzanas.flatMap((block) =>
             block.unidades.map((unit) => ({
                 ...unit,
+                estado: normalizeUnitEstado(unit.estado),
                 superficie: toNumber(unit.superficie),
                 precio: toNumber(unit.precio),
             }))
@@ -280,9 +286,9 @@ export async function getProjectShowcasePayload(options: {
     );
 
     const totalUnits = units.length;
-    const availableUnits = units.filter((unit) => unit.estado === "DISPONIBLE").length;
-    const reservedUnits = units.filter((unit) => unit.estado === "RESERVADA").length;
-    const soldUnits = units.filter((unit) => unit.estado === "VENDIDA").length;
+    const availableUnits = units.filter((unit) => isUnitAvailableForPublic(unit.estado)).length;
+    const reservedUnits = units.filter((unit) => unit.estado === NORMALIZED_UNIT_ESTADO.RESERVADA).length;
+    const soldUnits = units.filter((unit) => unit.estado === NORMALIZED_UNIT_ESTADO.VENDIDA).length;
     const soldPct = totalUnits > 0 ? Math.round((soldUnits / totalUnits) * 100) : 0;
 
     const positivePrices = units.map((unit) => unit.precio);
@@ -299,8 +305,8 @@ export async function getProjectShowcasePayload(options: {
 
     const inventoryPreview = [...units]
         .sort((a, b) => {
-            const aAvailable = a.estado === "DISPONIBLE" ? 0 : 1;
-            const bAvailable = b.estado === "DISPONIBLE" ? 0 : 1;
+            const aAvailable = isUnitAvailableForPublic(a.estado) ? 0 : 1;
+            const bAvailable = isUnitAvailableForPublic(b.estado) ? 0 : 1;
             if (aAvailable !== bAvailable) return aAvailable - bAvailable;
             return (a.precio || 0) - (b.precio || 0);
         })
@@ -369,7 +375,7 @@ export async function getProjectShowcasePayload(options: {
                 orden: stage.orden,
                 unitCount: stage.manzanas.reduce((sum, block) => sum + block.unidades.length, 0),
                 availableCount: stage.manzanas.reduce(
-                    (sum, block) => sum + block.unidades.filter((unit) => unit.estado === "DISPONIBLE").length,
+                    (sum, block) => sum + block.unidades.filter((unit) => isUnitAvailableForPublic(unit.estado)).length,
                     0
                 ),
             })),

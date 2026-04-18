@@ -7,16 +7,18 @@ import { MasterplanUnit } from "@/lib/masterplan-store";
 
 const STATUS_COLORS: Record<string, string> = {
     DISPONIBLE: "#10b981",
-    BLOQUEADO: "#f59e0b",
-    RESERVADO: "#f97316",
-    VENDIDO: "#ef4444",
+    BLOQUEADA: "#94a3b8",
+    RESERVADA: "#f97316",
+    VENDIDA: "#ef4444",
+    SUSPENDIDO: "#64748b",
 };
 
 const STATUS_LABELS: Record<string, string> = {
     DISPONIBLE: "Disponible",
-    BLOQUEADO: "Bloqueado",
-    RESERVADO: "Reservado",
-    VENDIDO: "Vendido",
+    BLOQUEADA: "Bloqueada",
+    RESERVADA: "Reservada",
+    VENDIDA: "Vendida",
+    SUSPENDIDO: "Suspendido",
 };
 
 interface ComparatorProps {

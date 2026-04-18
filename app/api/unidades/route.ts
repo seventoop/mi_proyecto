@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { z } from "zod";
 import { requireAnyRole, handleApiGuardError } from "@/lib/guards";
+import { normalizeUnitEstado } from "@/lib/public-projects";
 
 const unitCreateSchema = z.object({
     manzanaId: z.string().cuid(),
@@ -85,7 +86,10 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        return NextResponse.json(unidad, { status: 201 });
+        return NextResponse.json({
+            ...unidad,
+            estado: normalizeUnitEstado(unidad.estado),
+        }, { status: 201 });
     } catch (error) {
         return handleApiGuardError(error);
     }

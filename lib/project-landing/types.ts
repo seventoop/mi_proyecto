@@ -11,26 +11,18 @@
 
 // ─── Visibility & Status ────────────────────────────────────────────────────
 
-/**
- * Canonical values for public visibility. Single source of truth.
- * Pages must never hardcode "PUBLICADO" — import this constant.
- */
-export const PROJECT_VISIBILITY = {
-    PUBLICADO: "PUBLICADO",
-    BORRADOR: "BORRADOR",
-    PRIVADO: "PRIVADO",
-    SUSPENDIDO: "SUSPENDIDO",
-} as const;
+import {
+    NORMALIZED_UNIT_ESTADO,
+    PUBLIC_PROJECT_VISIBILITY,
+    type NormalizedUnitEstado,
+} from "@/lib/public-projects";
+
+export const PROJECT_VISIBILITY = PUBLIC_PROJECT_VISIBILITY;
 export type ProjectVisibility = (typeof PROJECT_VISIBILITY)[keyof typeof PROJECT_VISIBILITY];
 
 /** Unit availability states that should be visible to the public. */
-export const UNIT_ESTADO = {
-    DISPONIBLE: "DISPONIBLE",
-    RESERVADA: "RESERVADA",
-    VENDIDA: "VENDIDA",
-    BLOQUEADA: "BLOQUEADA",
-} as const;
-export type UnitEstado = (typeof UNIT_ESTADO)[keyof typeof UNIT_ESTADO];
+export const UNIT_ESTADO = NORMALIZED_UNIT_ESTADO;
+export type UnitEstado = NormalizedUnitEstado;
 
 // ─── Public Unit ─────────────────────────────────────────────────────────────
 
