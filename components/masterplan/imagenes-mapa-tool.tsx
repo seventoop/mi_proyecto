@@ -404,8 +404,8 @@ export default function ImagenesMapaTool({
       <AnimatePresence>
         {isOpen && (
           <SharedSidePanel
-            title="Imágenes"
-            subtitle={items.length > 0 ? `${items.length} elementos` : "Galería del mapa"}
+            title="Imagenes"
+            subtitle={items.length > 0 ? `${items.length} elementos` : "Galeria del mapa"}
             onClose={() => { onOpenChange(false); cancelPositioning(); }}
             tone="dark"
             className="z-[1100]"
