@@ -124,6 +124,9 @@ interface OverlayControlsProps {
     onSelectPlan?: (item: PlanGalleryItem) => void;
     onEnterEdit: () => void;
     onExitEdit: () => void;
+    mode: "geo-calibrated" | "manual";
+    onModeChange: (mode: "geo-calibrated" | "manual") => void;
+    onResetAbsoluteCorners: () => void;
 }
 
 let pannellumLoaded = false;
@@ -328,8 +331,6 @@ export default function TourSceneOverlayEditor({
             e.preventDefault();
             e.stopPropagation();
 
-            // Default wheel behavior should zoom the panorama.
-            // Alt/Shift + wheel are reserved for altitude adjustments while editing.
             if (isEditing && !draftRef.current.transformLocked && (e.altKey || e.shiftKey)) {
                 const factor = e.deltaY > 0 ? 1.08 : 0.925;
                 commitDraft((prev) => ({
@@ -458,6 +459,7 @@ export default function TourSceneOverlayEditor({
                 {viewerReady && draft.isVisible && (
                     <Viewer360LotesOverlay
                         viewer={instanceRef.current}
+                        mode={draft.mode || "geo-calibrated"}
                         units={units}
                         overlayImageUrl={resolvedPlanImageUrl ?? undefined}
                         overlayBounds={overlayBounds}
@@ -474,6 +476,7 @@ export default function TourSceneOverlayEditor({
                         planScaleX={draft.planScaleX}
                         planScaleY={draft.planScaleY}
                         planCornerAdjustments={draft.planCornerAdjustments}
+                        planCornersAbsolute={draft.planCornersAbsolute}
                         pitchBias={draft.pitchBias}
                         cameraRoll={draft.cameraRoll}
                         opacity={draft.opacity}
@@ -487,18 +490,19 @@ export default function TourSceneOverlayEditor({
                         isEditing={isEditing}
                         onEnterEdit={() => setIsEditing(true)}
                         onExitEdit={() => setIsEditing(false)}
-                        onParamsChange={({ latOffset, lngOffset, camAlt, imageHeading, planRotation, planScale, planScaleX, planScaleY, planCornerAdjustments }) => {
+                        onParamsChange={({ latOffset, lngOffset, camAlt, imageHeading, planRotation, planScale, planScaleX, planScaleY, planCornerAdjustments, planCornersAbsolute }) => {
                             commitDraft((prev) => ({
                                 ...prev,
-                                latOffset: roundIfSnap(latOffset, SNAP_OFFSET),
-                                lngOffset: roundIfSnap(lngOffset, SNAP_OFFSET),
-                                altitudM: camAlt,
-                                imageHeading,
-                                planRotation: roundIfSnap(planRotation, SNAP_ROTATION),
-                                planScale: Math.max(MIN_PLAN_SCALE, roundIfSnap(planScale, SNAP_SCALE)),
-                                planScaleX: clamp(roundIfSnap(planScaleX ?? prev.planScaleX, SNAP_SCALE), 0.1, 5),
-                                planScaleY: clamp(roundIfSnap(planScaleY ?? prev.planScaleY, SNAP_SCALE), 0.1, 5),
+                                latOffset: latOffset !== undefined ? roundIfSnap(latOffset, SNAP_OFFSET) : prev.latOffset,
+                                lngOffset: lngOffset !== undefined ? roundIfSnap(lngOffset, SNAP_OFFSET) : prev.lngOffset,
+                                altitudM: camAlt !== undefined ? camAlt : prev.altitudM,
+                                imageHeading: imageHeading !== undefined ? imageHeading : prev.imageHeading,
+                                planRotation: planRotation !== undefined ? roundIfSnap(planRotation, SNAP_ROTATION) : prev.planRotation,
+                                planScale: planScale !== undefined ? Math.max(MIN_PLAN_SCALE, roundIfSnap(planScale, SNAP_SCALE)) : prev.planScale,
+                                planScaleX: planScaleX !== undefined ? clamp(roundIfSnap(planScaleX, SNAP_SCALE), 0.1, 5) : prev.planScaleX,
+                                planScaleY: planScaleY !== undefined ? clamp(roundIfSnap(planScaleY, SNAP_SCALE), 0.1, 5) : prev.planScaleY,
                                 planCornerAdjustments: planCornerAdjustments ?? prev.planCornerAdjustments,
+                                planCornersAbsolute: planCornersAbsolute ?? prev.planCornersAbsolute,
                             }));
                         }}
                     />
@@ -569,6 +573,37 @@ export default function TourSceneOverlayEditor({
                     onSelectPlan={onSelectPlan}
                     onEnterEdit={() => setIsEditing(true)}
                     onExitEdit={() => setIsEditing(false)}
+                    mode={draft.mode || "geo-calibrated"}
+                    onModeChange={(mode) => {
+                       if (mode === "manual" && (!draft.planCornersAbsolute || draft.planCornersAbsolute.length === 0)) {
+                          const v = instanceRef.current;
+                          if (v) {
+                             const p = v.getPitch(), y = v.getYaw();
+                             const corners = [
+                                { pitch: p + 15, yaw: y - 15 },
+                                { pitch: p + 15, yaw: y + 15 },
+                                { pitch: p - 15, yaw: y + 15 },
+                                { pitch: p - 15, yaw: y - 15 },
+                             ];
+                             commitDraft({ mode, planCornersAbsolute: corners });
+                             return;
+                          }
+                       }
+                       commitDraft({ mode });
+                    }}
+                    onResetAbsoluteCorners={() => {
+                        const v = instanceRef.current;
+                        if (v) {
+                            const p = v.getPitch(), y = v.getYaw();
+                            const corners = [
+                               { pitch: p + 15, yaw: y - 15 },
+                               { pitch: p + 15, yaw: y + 15 },
+                               { pitch: p - 15, yaw: y + 15 },
+                               { pitch: p - 15, yaw: y - 15 },
+                            ];
+                            commitDraft({ planCornersAbsolute: corners });
+                        }
+                    }}
                 />
             </div>
         </div>
@@ -615,13 +650,12 @@ function OverlayControls({
     onAlignmentGuidesChange,
     onFlipX,
     onFlipY,
-    onResetCornerWarp,
     onResetPosition,
     onResetRotation,
     onResetScale,
     onResetAxisScale,
+    onResetCornerWarp,
     onResetAll,
-    onCenterPlan,
     onUndo,
     onRedo,
     canUndo,
@@ -629,15 +663,17 @@ function OverlayControls({
     onSave,
     isSaving,
     saved,
+    isEditing,
     planGalleryItems,
     onPlanGalleryItemsChange,
     onSelectPlan,
-    isEditing,
     onEnterEdit,
     onExitEdit,
+    mode,
+    onModeChange,
+    onResetAbsoluteCorners,
 }: OverlayControlsProps) {
     const [showPlanGallery, setShowPlanGallery] = useState(false);
-    const sign = (n: number) => n >= 0 ? `+${n}` : `${n}`;
 
     if (!isEditing) {
         return (
@@ -663,83 +699,105 @@ function OverlayControls({
                         <Pencil className="h-4 w-4 text-indigo-400" />
                         Editor de alineacion
                     </h3>
-                    <p className="mt-1 text-[11px] text-slate-400">Flechas mueven, Shift acelera y Alt/Ctrl ajusta fino.</p>
+                    <p className="mt-1 text-[11px] text-slate-400">Arraste esquinas para deformar o use transformacion.</p>
                 </div>
                 <button onClick={onExitEdit} className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white">
                     <X className="h-4 w-4" />
                 </button>
             </div>
 
-            <div className="flex-1 min-h-0 space-y-5 overflow-y-auto overscroll-contain p-5 pr-4">
+            <div className="flex-1 min-h-0 space-y-5 overflow-y-auto overscroll-contain p-5 pr-4 scrollbar-hide">
                 <section className="space-y-3 rounded-2xl border border-white/5 bg-white/5 p-4">
-                    <div className="flex items-center justify-between">
-                        <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                            <Move className="h-3.5 w-3.5" />
-                            Transformacion
-                        </h4>
-                        <button onClick={() => onTransformLockedChange(!transformLocked)} className={cn("rounded-lg border px-2 py-1 text-[10px] font-semibold transition-colors", transformLocked ? "border-amber-400/40 bg-amber-500/15 text-amber-200" : "border-white/10 text-slate-300 hover:bg-white/10")}>
-                            {transformLocked ? <Lock className="mr-1 inline h-3 w-3" /> : <Unlock className="mr-1 inline h-3 w-3" />}
-                            {transformLocked ? "Bloqueado" : "Editable"}
+                    <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                        <Move className="h-3.5 w-3.5" />
+                        Metodo de Alineacion
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            onClick={() => onModeChange("geo-calibrated")}
+                            className={cn(
+                                "rounded-xl border px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all",
+                                mode === "geo-calibrated" ? "border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-500/30" : "border-white/10 text-slate-400 hover:bg-white/5"
+                            )}
+                        >
+                            Geografica
+                        </button>
+                        <button
+                            onClick={() => onModeChange("manual")}
+                            className={cn(
+                                "rounded-xl border px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all",
+                                mode === "manual" ? "border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-500/30" : "border-white/10 text-slate-400 hover:bg-white/5"
+                            )}
+                        >
+                            Manual
                         </button>
                     </div>
+                    {mode === "manual" && (
+                        <button
+                            onClick={onResetAbsoluteCorners}
+                            className="w-full rounded-xl border border-dashed border-white/20 px-3 py-2 text-[10px] font-bold uppercase text-slate-400 transition-colors hover:border-indigo-500 hover:text-indigo-400"
+                        >
+                            <RefreshCcw className="mr-1 inline h-3 w-3" />
+                            Centrar Esquinas
+                        </button>
+                    )}
+                </section>
+
+                <section className={cn("space-y-3 rounded-2xl border border-white/5 bg-white/5 p-4 transition-opacity", mode === "manual" && "opacity-40 pointer-events-none")}>
+                    <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                        <Magnet className="h-3.5 w-3.5" />
+                        Calibracion Geografica
+                    </h4>
                     <div className="grid grid-cols-2 gap-2">
-                        <ToggleButton active={flipX} onClick={onFlipX} label="Flip H" icon={<FlipHorizontal2 className="mr-1 inline h-3.5 w-3.5" />} />
-                        <ToggleButton active={flipY} onClick={onFlipY} label="Flip V" icon={<FlipVertical2 className="mr-1 inline h-3.5 w-3.5" />} />
-                        <button onClick={onCenterPlan} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10">
-                            <ScanLine className="mr-1 inline h-3.5 w-3.5" /> Centrar
-                        </button>
-                        <button onClick={onResetAll} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10">
-                            <RefreshCcw className="mr-1 inline h-3.5 w-3.5" /> Reset total
-                        </button>
+                        <ToggleButton active={snapEnabled} onClick={() => onSnapEnabledChange(!snapEnabled)} label="Snap" icon={<Magnet className="mr-1 inline h-3.5 w-3.5" />} />
+                        <ToggleButton active={alignmentGuides} onClick={() => onAlignmentGuidesChange(!alignmentGuides)} label="Guias" icon={<ScanLine className="mr-1 inline h-3.5 w-3.5" />} />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <NumericField label="Rotacion" value={Math.round(planRotation)} step={1} onChange={onPlanRotChange} />
-                        <NumericField label="Escala" value={Number(planScale.toFixed(3))} step={0.01} onChange={onPlanScaleChange} />
-                        <NumericField label="Offset X" value={Math.round(lngOffset)} step={1} onChange={onLngOffsetChange} />
-                        <NumericField label="Offset Y" value={Math.round(latOffset)} step={1} onChange={onLatOffsetChange} />
+                        <NumericField label="Altitud" value={altitudM} step={5} onChange={onAltChange} />
+                        <NumericField label="Heading" value={Math.round(imageHeading)} step={1} onChange={onHeadingChange} />
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                        <button onClick={onResetPosition} className="rounded-lg border border-white/10 px-2 py-2 text-[11px] font-semibold text-slate-300 hover:bg-white/10">Reset pos</button>
-                        <button onClick={onResetRotation} className="rounded-lg border border-white/10 px-2 py-2 text-[11px] font-semibold text-slate-300 hover:bg-white/10">Reset giro</button>
-                        <button onClick={onResetScale} className="rounded-lg border border-white/10 px-2 py-2 text-[11px] font-semibold text-slate-300 hover:bg-white/10">Reset escala</button>
+                    <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/5 bg-black/20 p-3">
+                        <div className="flex flex-col items-center rounded-lg bg-black/30 p-2">
+                            <button onClick={() => onArrowStep(0, -1)} className="p-1 text-slate-300 hover:text-indigo-300"><ArrowUp className="h-4 w-4" /></button>
+                            <span className="my-0.5 text-[10px] text-slate-400 font-mono">Y {latOffset >= 0 ? "+" : ""}{Math.round(latOffset)}</span>
+                            <button onClick={() => onArrowStep(0, 1)} className="p-1 text-slate-300 hover:text-indigo-300"><ArrowDown className="h-4 w-4" /></button>
+                        </div>
+                        <div className="flex flex-col items-center rounded-lg bg-black/30 p-2">
+                            <button onClick={() => onArrowStep(1, 0)} className="p-1 text-slate-300 hover:text-indigo-300"><ArrowRight className="h-4 w-4" /></button>
+                            <span className="my-0.5 text-[10px] text-slate-400 font-mono">X {lngOffset >= 0 ? "+" : ""}{Math.round(lngOffset)}</span>
+                            <button onClick={() => onArrowStep(-1, 0)} className="p-1 text-slate-300 hover:text-indigo-300"><ArrowLeft className="h-4 w-4" /></button>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="space-y-4 rounded-2xl border border-white/5 bg-white/5 p-4">
+                    <div className="flex items-center justify-between">
+                        <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <RefreshCcw className="h-3.5 w-3.5" />
+                            Escala y Rotacion
+                        </h4>
+                        <button onClick={onResetAll} className="p-1 text-slate-500 hover:text-red-400 transition-colors"><X className="h-3.5 w-3.5" /></button>
                     </div>
 
-                    {/* ── Escala por eje ────────────────────────────────────────── */}
-                    <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-300/80">
-                                Proporcion por eje
-                            </p>
-                            <div className="flex items-center gap-1.5">
-                                <button onClick={onResetAxisScale} className="rounded-md border border-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-white/10">
-                                    Reset ejes
-                                </button>
-                                <button onClick={onResetCornerWarp} className="rounded-md border border-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-white/10">
-                                    Reset esquinas
-                                </button>
-                            </div>
-                        </div>
-                        <p className="text-[10px] leading-relaxed text-slate-500">
-                            Corrige el cruce diagonal entre esquinas. Ajusta la proporcion del plano en cada eje geografico por separado.
-                        </p>
-                        <p className="text-[10px] leading-relaxed text-slate-500">
-                            Tambien podes arrastrar cada esquina del plano directamente sobre la imagen para estirarlo y acomodarlo como en el mapa interactivo.
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                            <NumericField label="Escala E-O" value={Number(planScaleX.toFixed(3))} step={0.01} onChange={onPlanScaleXChange} />
-                            <NumericField label="Escala N-S" value={Number(planScaleY.toFixed(3))} step={0.01} onChange={onPlanScaleYChange} />
+                    <div className="space-y-4">
+                         <div className="grid grid-cols-2 gap-2">
+                            <ToggleButton active={flipX} onClick={onFlipX} label="Flip H" icon={<FlipHorizontal2 className="mr-1 inline h-3.5 w-3.5" />} />
+                            <ToggleButton active={flipY} onClick={onFlipY} label="Flip V" icon={<FlipVertical2 className="mr-1 inline h-3.5 w-3.5" />} />
                         </div>
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                <span>E-O</span>
-                                <span className="font-mono text-indigo-300">{planScaleX.toFixed(3)}</span>
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-300">
+                                <span>Giro del plano</span>
+                                <span className="font-mono text-indigo-300">{planRotation.toFixed(1)}°</span>
                             </div>
-                            <input type="range" min={0.1} max={3} step={0.005} value={planScaleX} onChange={(e) => onPlanScaleXChange(Number(e.target.value))} className="w-full accent-indigo-500" />
-                            <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                <span>N-S</span>
-                                <span className="font-mono text-indigo-300">{planScaleY.toFixed(3)}</span>
+                            <input type="range" min={-180} max={180} step={0.5} value={planRotation} onChange={(e) => onPlanRotChange(Number(e.target.value))} className="w-full accent-indigo-500" />
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-300">
+                                <span>Escala General</span>
+                                <span className="font-mono text-indigo-300">{planScale.toFixed(3)}x</span>
                             </div>
-                            <input type="range" min={0.1} max={3} step={0.005} value={planScaleY} onChange={(e) => onPlanScaleYChange(Number(e.target.value))} className="w-full accent-indigo-500" />
+                            <input type="range" min={0.05} max={3} step={0.005} value={planScale} onChange={(e) => onPlanScaleChange(Number(e.target.value))} className="w-full accent-indigo-500" />
                         </div>
                     </div>
                 </section>
@@ -771,15 +829,12 @@ function OverlayControls({
                     </h4>
                     <div className="grid grid-cols-2 gap-2">
                         <button onClick={onUndo} disabled={!canUndo} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10 disabled:opacity-40">
-                            <Undo2 className="mr-1 inline h-3.5 w-3.5" /> Undo
+                            <Undo2 className="mr-1 inline h-3.5 w-3.5" /> Deshacer
                         </button>
                         <button onClick={onRedo} disabled={!canRedo} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10 disabled:opacity-40">
-                            <Redo2 className="mr-1 inline h-3.5 w-3.5" /> Redo
+                            <Redo2 className="mr-1 inline h-3.5 w-3.5" /> Rehacer
                         </button>
                     </div>
-                    <p className="rounded-xl border border-white/5 bg-black/20 px-3 py-2 text-[11px] leading-relaxed text-slate-400">
-                        La numeracion ahora funciona como capa visible independiente. Las marcas de dibujo quedan desacopladas para extenderlas despues sin afectar la calibracion guardada.
-                    </p>
                     <button
                         onClick={() => setShowPlanGallery((value) => !value)}
                         className={cn("w-full rounded-xl border px-3 py-2 text-xs font-semibold transition-all", showPlanGallery ? "border-indigo-500 bg-indigo-600 text-white" : "border-white/10 text-slate-300 hover:bg-white/10 hover:text-white")}
@@ -789,7 +844,6 @@ function OverlayControls({
                     </button>
                     {showPlanGallery && (
                         <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Modelos disponibles</p>
                             <PlanGalleryPicker
                                 proyectoId={proyectoId}
                                 items={planGalleryItems}
@@ -804,39 +858,11 @@ function OverlayControls({
                         </div>
                     )}
                 </section>
-
-                <section className="space-y-3 rounded-2xl border border-white/5 bg-white/5 p-4">
-                    <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        <Magnet className="h-3.5 w-3.5" />
-                        Alineacion
-                    </h4>
-                    <div className="grid grid-cols-2 gap-2">
-                        <ToggleButton active={snapEnabled} onClick={() => onSnapEnabledChange(!snapEnabled)} label="Snap" icon={<Magnet className="mr-1 inline h-3.5 w-3.5" />} />
-                        <ToggleButton active={alignmentGuides} onClick={() => onAlignmentGuidesChange(!alignmentGuides)} label="Guias" icon={<ScanLine className="mr-1 inline h-3.5 w-3.5" />} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <NumericField label="Altitud" value={altitudM} step={5} onChange={onAltChange} />
-                        <NumericField label="Heading" value={Math.round(imageHeading)} step={1} onChange={onHeadingChange} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/5 bg-black/20 p-3">
-                        <div className="flex flex-col items-center rounded-lg bg-black/30 p-2">
-                            <button onClick={() => onArrowStep(0, -1)} className="p-1 text-slate-300 hover:text-indigo-300"><ArrowUp className="h-4 w-4" /></button>
-                            <span className="my-0.5 text-[10px] text-slate-400">Y {sign(Math.round(latOffset))}</span>
-                            <button onClick={() => onArrowStep(0, 1)} className="p-1 text-slate-300 hover:text-indigo-300"><ArrowDown className="h-4 w-4" /></button>
-                        </div>
-                        <div className="flex flex-col items-center rounded-lg bg-black/30 p-2">
-                            <button onClick={() => onArrowStep(1, 0)} className="p-1 text-slate-300 hover:text-indigo-300"><ArrowRight className="h-4 w-4" /></button>
-                            <span className="my-0.5 text-[10px] text-slate-400">X {sign(Math.round(lngOffset))}</span>
-                            <button onClick={() => onArrowStep(-1, 0)} className="p-1 text-slate-300 hover:text-indigo-300"><ArrowLeft className="h-4 w-4" /></button>
-                        </div>
-                    </div>
-                </section>
-
             </div>
 
-            <div className="space-y-2 rounded-b-2xl border-t border-white/10 bg-black/50 p-4">
-                <button onClick={onSave} disabled={isSaving} className={cn("flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all", saved ? "bg-green-600 text-white" : "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-500 disabled:opacity-50")}>
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <><Check className="h-4 w-4" /> Guardado</> : "Guardar alineacion"}
+            <div className="space-y-2 border-t border-white/10 bg-black/50 p-5">
+                <button onClick={onSave} disabled={isSaving} className={cn("flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold uppercase tracking-wider transition-all shadow-lg", saved ? "bg-green-600 text-white" : "bg-indigo-600 text-white shadow-indigo-500/25 hover:bg-indigo-500 disabled:opacity-50")}>
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <><Check className="h-4 w-4" /> Alineacion Guardada</> : "Guardar Cambios"}
                 </button>
             </div>
         </div>

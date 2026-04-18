@@ -77,10 +77,11 @@ export interface FloatingLabel {
 }
 
 export interface MasterplanOverlay {
-    mode?: "geo-calibrated";
+    mode?: "geo-calibrated" | "manual";
     imageUrl?: string;
     selectedPlanId?: string;
     points?: { pitch: number; yaw: number }[];
+    planCornersAbsolute?: { pitch: number; yaw: number }[];
     opacity?: number;
     isVisible: boolean;
     altitudM?: number;
@@ -239,6 +240,14 @@ function PanoramicOverlay({
     const projectCoords = (pitch: number, yaw: number) => {
         if (!viewer || !viewerRef.current) return null;
 
+        // Try using native Pannellum projection if available (more stable)
+        if (typeof viewer.viewToContainerPoints === "function") {
+            const pts = viewer.viewToContainerPoints(pitch, yaw);
+            if (pts && Array.isArray(pts) && pts.length === 2 && !isNaN(pts[0]) && !isNaN(pts[1])) {
+                return { x: parseFloat(pts[0].toFixed(1)), y: parseFloat(pts[1].toFixed(1)) };
+            }
+        }
+
         const hfov = viewState.hfov;
         const viewPitch = viewState.pitch;
         const viewYaw = viewState.yaw;
@@ -274,7 +283,7 @@ function PanoramicOverlay({
         const px = (rx / rz) * focalLength + (width / 2);
         const py = (-ry / rz) * focalLength + (height / 2);
 
-        return { x: px, y: py };
+        return { x: parseFloat(px.toFixed(1)), y: parseFloat(py.toFixed(1)) };
     };
 
     const getPolygonPath = (points: { pitch: number; yaw: number }[]) => {

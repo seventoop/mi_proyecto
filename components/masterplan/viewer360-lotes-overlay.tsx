@@ -77,6 +77,7 @@ interface FrameData {
 
 export interface Viewer360LotesOverlayProps {
   viewer: any;
+  mode?: "geo-calibrated" | "manual";
   units: MasterplanUnit[];
   overlayImageUrl?: string;
   overlayBounds: [[number, number], [number, number]];
@@ -93,6 +94,7 @@ export interface Viewer360LotesOverlayProps {
   planScaleX?: number;
   planScaleY?: number;
   planCornerAdjustments?: OverlayCornerAdjustment[];
+  planCornersAbsolute?: { pitch: number; yaw: number }[];
   pitchBias?: number;
   cameraRoll?: number;
   opacity?: number;
@@ -116,6 +118,7 @@ export interface Viewer360LotesOverlayProps {
     planScaleX?: number;
     planScaleY?: number;
     planCornerAdjustments?: OverlayCornerAdjustment[];
+    planCornersAbsolute?: { pitch: number; yaw: number }[];
   }) => void;
 }
 
@@ -368,6 +371,8 @@ export default function Viewer360LotesOverlay({
   onEnterEdit,
   onExitEdit,
   onParamsChange,
+  mode,
+  planCornersAbsolute,
 }: Viewer360LotesOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -433,6 +438,10 @@ export default function Viewer360LotesOverlay({
   onEnterEditRef.current = onEnterEdit;
   onExitEditRef.current = onExitEdit;
   onParamsChangeRef.current = onParamsChange;
+  const modeRef = useRef(mode);
+  const planCornersAbsoluteRef = useRef(planCornersAbsolute);
+  modeRef.current = mode;
+  planCornersAbsoluteRef.current = planCornersAbsolute;
 
   const bboxRef = useRef<Bbox | null>(null);
   const hullRef = useRef<ScreenPt[]>([]);
@@ -465,6 +474,8 @@ export default function Viewer360LotesOverlay({
       const _rotation = overlayRotRef.current;
       const _viewBox = svgViewBoxRef.current;
       const _editing = isEditingRef.current;
+      const _mode = modeRef.current;
+      const _absCorners = planCornersAbsoluteRef.current;
       const delta = liveDeltaRef.current;
 
       const _alt = camAltRef.current;
@@ -516,7 +527,19 @@ export default function Viewer360LotesOverlay({
         };
       };
 
+      const projectManual = (p: { pitch: number, yaw: number }): ScreenPt | null => {
+         const raw = projectSphericalToScreen(p.pitch, p.yaw, viewPitch, viewYaw, hfov, W, H);
+         if (!raw) return null;
+         return raw;
+      };
+
       svg.innerHTML = "";
+
+      let manualCorners: ScreenPt[] | null = null;
+      if (_mode === "manual" && Array.isArray(_absCorners) && _absCorners.length === 4) {
+        manualCorners = _absCorners.map(p => projectManual(p)).filter(Boolean) as ScreenPt[];
+        if (manualCorners.length < 4) manualCorners = null;
+      }
 
       const planRotRad = _planRot * DEG;
       const cosPR = Math.cos(planRotRad);
@@ -554,6 +577,9 @@ export default function Viewer360LotesOverlay({
       const cosCent = Math.cos(centLat * DEG);
       centScreenRef.current = projectGeo(centLat, centLng);
 
+      const effectiveScaleEW = _planScale * _planScaleX;
+      const effectiveScaleNS = _planScale * _planScaleY;
+
       interface UnitData {
         rawPts: Array<ScreenPt | null>;
         visiblePts: ScreenPt[];
@@ -562,14 +588,7 @@ export default function Viewer360LotesOverlay({
         d: string;
       }
       const unitData: UnitData[] = [];
-      let bbMinX = Infinity;
-      let bbMinY = Infinity;
-      let bbMaxX = -Infinity;
-      let bbMaxY = -Infinity;
-      const allVisiblePts: ScreenPt[] = [];
-
-      const effectiveScaleEW = _planScale * _planScaleX;
-      const effectiveScaleNS = _planScale * _planScaleY;
+      let bbMinX = Infinity, bbMinY = Infinity, bbMaxX = -Infinity, bbMaxY = -Infinity;
 
       const transformGeoPoint = (lat: number, lng: number): [number, number] => {
         const dLat = (lat - centLat) * 111320 * _flipY;
@@ -581,112 +600,136 @@ export default function Viewer360LotesOverlay({
         return [centLat + rdLat / 111320, centLng + rdLng / (111320 * cosCent)];
       };
 
+      const mapPointToManual = (lat: number, lng: number): ScreenPt | null => {
+         if (!manualCorners) return null;
+         const [[swLat, swLng], [neLat, neLng]] = _bounds;
+         const nx = (lng - swLng) / (neLng - swLng);
+         const ny = (neLat - lat) / (neLat - swLat);
+         
+         const cNW = manualCorners[0], cNE = manualCorners[1], cSE = manualCorners[2], cSW = manualCorners[3];
+         const topX = cNW.x + nx * (cNE.x - cNW.x);
+         const topY = cNW.y + nx * (cNE.y - cNW.y);
+         const botX = cSW.x + nx * (cSE.x - cSW.x);
+         const botY = cSW.y + nx * (cSE.y - cSW.y);
+         
+         return {
+            x: topX + ny * (botX - topX),
+            y: topY + ny * (botY - topY)
+         };
+      };
+
       for (let i = 0; i < _units.length; i++) {
         const unit = _units[i];
         const rawLatLngs = allLatLngs[i];
         if (!rawLatLngs || rawLatLngs.length < 3) continue;
 
-        const rotatedLatLngs = rawLatLngs.map(([lat, lng]) => transformGeoPoint(lat, lng));
-        const screenPts = rotatedLatLngs.map(([lat, lng]) => projectGeo(lat, lng));
+        let screenPts: Array<ScreenPt | null>;
+        if (_mode === "manual" && manualCorners) {
+           screenPts = rawLatLngs.map(([lat, lng]) => mapPointToManual(lat, lng));
+        } else {
+           const rotatedLatLngs = rawLatLngs.map(([lat, lng]) => transformGeoPoint(lat, lng));
+           screenPts = rotatedLatLngs.map(([lat, lng]) => projectGeo(lat, lng));
+        }
+        
         const visiblePts = screenPts.filter(Boolean) as ScreenPt[];
         if (visiblePts.length < 3) continue;
 
         for (const pt of visiblePts) {
-          if (pt.x < bbMinX) bbMinX = pt.x;
-          if (pt.y < bbMinY) bbMinY = pt.y;
-          if (pt.x > bbMaxX) bbMaxX = pt.x;
-          if (pt.y > bbMaxY) bbMaxY = pt.y;
-          allVisiblePts.push(pt);
+          if (pt.x < bbMinX) bbMinX = pt.x; if (pt.y < bbMinY) bbMinY = pt.y;
+          if (pt.x > bbMaxX) bbMaxX = pt.x; if (pt.y > bbMaxY) bbMaxY = pt.y;
         }
 
-        let d = "";
-        for (const pt of screenPts) {
-          if (!pt) continue;
-          d += `${d === "" ? "M" : "L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)} `;
-        }
-        d += "Z";
-
+        const hull = convexHull(visiblePts);
         unitData.push({
           rawPts: screenPts,
           visiblePts,
-          color: ESTADO_COLORS[unit.estado] ?? "#94a3b8",
+          color: ESTADO_COLORS[unit.estado] || "#10b981",
           numero: unit.numero,
-          d,
+          d: hull.map((p, j) => `${j === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") + " Z",
         });
       }
 
-      const rawHull = allVisiblePts.length >= 3 ? convexHull(allVisiblePts) : [];
-      const rawFrame = computeFrameFromHull(rawHull);
-      const baseAdjustments = delta.cornerAdjustments ?? planCornerAdjustmentsRef.current;
-      const warpedCorners = rawFrame
-        ? rawFrame.corners.map((corner, index) => ({
-            x: corner.x + (baseAdjustments[index]?.x ?? 0),
-            y: corner.y + (baseAdjustments[index]?.y ?? 0),
-          }))
-        : null;
-      const hasCornerWarp =
-        !!warpedCorners &&
-        baseAdjustments.some((point) => Math.abs(point.x) > 0.01 || Math.abs(point.y) > 0.01);
-      const frameHomography =
-        rawFrame && warpedCorners ? computeHomography(rawFrame.corners, warpedCorners) : null;
+      const getFinalHull = () => {
+        const pts: ScreenPt[] = [];
+        for (const u of unitData) pts.push(...u.visiblePts);
+        return pts.length >= 3 ? convexHull(pts) : [];
+      };
 
-      const warpedVisiblePts: ScreenPt[] = [];
-      const warpedUnitData = unitData.map((item) => {
-        const warpedPts = frameHomography
-          ? item.rawPts.map((point) => (point ? applyHomography(point, frameHomography) : null))
-          : item.rawPts;
+      const finalHull = getFinalHull();
+      const hasCornerWarp = Array.isArray(planCornerAdjustmentsRef.current) &&
+        planCornerAdjustmentsRef.current.some(c => c.x !== 0 || c.y !== 0);
 
-        const nextVisiblePts = warpedPts.filter(Boolean) as ScreenPt[];
-        let nextD = "";
-        for (const pt of warpedPts) {
-          if (!pt) continue;
-          nextD += `${nextD === "" ? "M" : "L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)} `;
-          warpedVisiblePts.push(pt);
-        }
-        if (nextVisiblePts.length >= 3) {
-          nextD += "Z";
-        }
+      const adj = planCornerAdjustmentsRef.current || [];
+      const getWarpedCorners = (): ScreenPt[] | null => {
+        if (_mode === "manual" && manualCorners) return manualCorners;
+        
+        const hull = finalHull;
+        if (hull.length < 3) return null;
+        const hMinX = Math.min(...hull.map(p => p.x)), hMinY = Math.min(...hull.map(p => p.y));
+        const hMaxX = Math.max(...hull.map(p => p.x)), hMaxY = Math.max(...hull.map(p => p.y));
+        const baseCorners = [
+          { x: hMinX, y: hMinY },
+          { x: hMaxX, y: hMinY },
+          { x: hMaxX, y: hMaxY },
+          { x: hMinX, y: hMaxY },
+        ];
+        return baseCorners.map((bc, i) => ({
+          x: bc.x + (adj[i]?.x ?? 0) + (delta.cornerAdjustments?.[i]?.x ?? 0),
+          y: bc.y + (adj[i]?.y ?? 0) + (delta.cornerAdjustments?.[i]?.y ?? 0),
+        }));
+      };
 
-        return {
-          visiblePts: nextVisiblePts,
-          color: item.color,
-          numero: item.numero,
-          d: nextD,
+      const warpedCorners = getWarpedCorners();
+      const warpUnit = (u: UnitData): UnitData => {
+        if (!warpedCorners) return u;
+        const corners = warpedCorners;
+        const hull = finalHull;
+        const hMinX = Math.min(...hull.map(p => p.x)), hMinY = Math.min(...hull.map(p => p.y));
+        const hMaxX = Math.max(...hull.map(p => p.x)), hMaxY = Math.max(...hull.map(p => p.y));
+        const hW = hMaxX - hMinX || 1, hH = hMaxY - hMinY || 1;
+
+        const warpPt = (pt: ScreenPt): ScreenPt => {
+          const nx = (pt.x - hMinX) / hW, ny = (pt.y - hMinY) / hH;
+          const topX = corners[0].x + nx * (corners[1].x - corners[0].x);
+          const topY = corners[0].y + nx * (corners[1].y - corners[0].y);
+          const botX = corners[3].x + nx * (corners[2].x - corners[3].x);
+          const botY = corners[3].y + nx * (corners[2].y - corners[3].y);
+          return { x: topX + ny * (botX - topX), y: topY + ny * (botY - topY) };
         };
-      });
 
-      const finalHull = warpedVisiblePts.length >= 3 ? convexHull(warpedVisiblePts) : rawHull;
-      hullRef.current = finalHull;
+        const newVisible = u.visiblePts.map(warpPt);
+        const newHull = convexHull(newVisible);
+        return {
+          ...u,
+          visiblePts: newVisible,
+          d: newHull.map((p, j) => `${j === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") + " Z",
+        };
+      };
 
-      if (warpedVisiblePts.length > 0) {
-        const xs = warpedVisiblePts.map((point) => point.x);
-        const ys = warpedVisiblePts.map((point) => point.y);
+      const warpedUnitData = (hasCornerWarp || _mode === "manual") ? unitData.map(warpUnit) : unitData;
+
+      if (_mode === "manual" && warpedCorners) {
         bboxRef.current = {
-          minX: Math.min(...xs),
-          minY: Math.min(...ys),
-          maxX: Math.max(...xs),
-          maxY: Math.max(...ys),
-          centX: (Math.min(...xs) + Math.max(...xs)) / 2,
-          centY: (Math.min(...ys) + Math.max(...ys)) / 2,
+          minX: Math.min(...warpedCorners.map(p => p.x)),
+          minY: Math.min(...warpedCorners.map(p => p.y)),
+          maxX: Math.max(...warpedCorners.map(p => p.x)),
+          maxY: Math.max(...warpedCorners.map(p => p.y)),
+          centX: (Math.min(...warpedCorners.map(p => p.x)) + Math.max(...warpedCorners.map(p => p.x))) / 2,
+          centY: (Math.min(...warpedCorners.map(p => p.y)) + Math.max(...warpedCorners.map(p => p.y))) / 2,
         };
       } else if (unitData.length > 0 && isFinite(bbMinX)) {
         bboxRef.current = {
-          minX: bbMinX,
-          minY: bbMinY,
-          maxX: bbMaxX,
-          maxY: bbMaxY,
-          centX: (bbMinX + bbMaxX) / 2,
-          centY: (bbMinY + bbMaxY) / 2,
+          minX: bbMinX, minY: bbMinY, maxX: bbMaxX, maxY: bbMaxY,
+          centX: (bbMinX + bbMaxX) / 2, centY: (bbMinY + bbMaxY) / 2,
         };
       } else {
         bboxRef.current = null;
       }
 
-      if (hasCornerWarp && warpedCorners) {
+      if (warpedCorners) {
         const warpedMids = edgeMidpoints(warpedCorners);
         const topEdgeIndex = warpedMids.reduce((best, point, index, list) =>
-          point.y < list[best].y ? index : best,
-        0);
+          point.y < list[best].y ? index : best, 0);
         frameRef.current = {
           corners: warpedCorners,
           edgeMidpoints: warpedMids,
@@ -699,16 +742,11 @@ export default function Viewer360LotesOverlay({
 
       if (hitDiv) {
         if (!_editing && finalHull.length >= 3) {
-          const hMinX = Math.min(...finalHull.map((p) => p.x));
-          const hMinY = Math.min(...finalHull.map((p) => p.y));
-          const hMaxX = Math.max(...finalHull.map((p) => p.x));
-          const hMaxY = Math.max(...finalHull.map((p) => p.y));
-          hitDiv.style.left = `${hMinX}px`;
-          hitDiv.style.top = `${hMinY}px`;
-          hitDiv.style.width = `${hMaxX - hMinX}px`;
-          hitDiv.style.height = `${hMaxY - hMinY}px`;
-          hitDiv.style.pointerEvents = "auto";
-          hitDiv.style.cursor = "pointer";
+          const hMinX = Math.min(...finalHull.map(p => p.x)), hMinY = Math.min(...finalHull.map(p => p.y));
+          const hMaxX = Math.max(...finalHull.map(p => p.x)), hMaxY = Math.max(...finalHull.map(p => p.y));
+          hitDiv.style.left = `${hMinX}px`; hitDiv.style.top = `${hMinY}px`;
+          hitDiv.style.width = `${hMaxX - hMinX}px`; hitDiv.style.height = `${hMaxY - hMinY}px`;
+          hitDiv.style.pointerEvents = "auto"; hitDiv.style.cursor = "pointer";
         } else {
           hitDiv.style.pointerEvents = "none";
           hitDiv.style.cursor = "default";
@@ -716,429 +754,310 @@ export default function Viewer360LotesOverlay({
       }
 
       for (const { d, color, visiblePts, numero } of warpedUnitData) {
-        svg.appendChild(
-          svgEl("path", {
-            d,
-            fill: color + (_editing ? "50" : "3d"),
-            "fill-opacity": _opacity,
-            stroke: color,
-            "stroke-opacity": Math.max(0.35, _opacity),
-            "stroke-width": _editing ? "2.5" : "2",
-            "stroke-linejoin": "round",
-          }),
-        );
-
+        svg.appendChild(svgEl("path", {
+          d,
+          fill: color + (_editing ? "50" : "3d"),
+          "fill-opacity": _opacity,
+          stroke: color,
+          "stroke-opacity": Math.max(0.35, _opacity),
+          "stroke-width": _editing ? "2.5" : "2",
+          "stroke-linejoin": "round",
+        }));
         if (_showLabels && visiblePts.length > 0) {
-          const cx = (
-            visiblePts.reduce((sum, p) => sum + p.x, 0) / visiblePts.length
-          ).toFixed(1);
-          const cy = (
-            visiblePts.reduce((sum, p) => sum + p.y, 0) / visiblePts.length
-          ).toFixed(1);
-          const textAttrs = {
-            x: cx,
-            y: cy,
-            "font-size": "13",
-            "font-family": "Inter,system-ui,sans-serif",
-            "font-weight": "700",
-            "text-anchor": "middle",
-            "dominant-baseline": "middle",
-          };
-
-          const outline = svgEl("text", {
-            ...textAttrs,
-            fill: "none",
-            stroke: "rgba(0,0,0,0.75)",
-            "stroke-width": "4",
-            "stroke-linejoin": "round",
-          });
-          outline.textContent = numero;
-          svg.appendChild(outline);
-
+          const cx = (visiblePts.reduce((sum, p) => sum + p.x, 0) / visiblePts.length).toFixed(1);
+          const cy = (visiblePts.reduce((sum, p) => sum + p.y, 0) / visiblePts.length).toFixed(1);
+          const textAttrs = { x: cx, y: cy, "font-size": "13", "font-family": "Inter,sans-serif", "font-weight": "700", "text-anchor": "middle", "dominant-baseline": "middle" };
+          const outline = svgEl("text", { ...textAttrs, fill: "none", stroke: "rgba(0,0,0,0.75)", "stroke-width": "4", "stroke-linejoin": "round" });
+          outline.textContent = numero; svg.appendChild(outline);
           const lbl = svgEl("text", { ...textAttrs, fill: "white" });
-          lbl.textContent = numero;
-          svg.appendChild(lbl);
+          lbl.textContent = numero; svg.appendChild(lbl);
         }
       }
 
       if (_showGuides && finalHull.length >= 3) {
-        const hullD =
-          finalHull
-            .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`)
-            .join(" ") + " Z";
-        svg.appendChild(
-          svgEl("path", {
-            d: hullD,
-            fill: "none",
-            stroke: "rgba(255,255,255,0.18)",
-            "stroke-width": "1",
-            "stroke-dasharray": "5 4",
-          }),
-        );
+        const hullD = finalHull.map((p, j) => `${j === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") + " Z";
+        svg.appendChild(svgEl("path", { d: hullD, fill: "none", stroke: "rgba(255,255,255,0.18)", "stroke-width": "1", "stroke-dasharray": "5 4" }));
       }
 
       if (overlayImageUrl && frameRef.current) {
-        const [corner0, corner1, , corner3] = frameRef.current.corners;
-        const matrix = [
-          corner1.x - corner0.x,
-          corner1.y - corner0.y,
-          corner3.x - corner0.x,
-          corner3.y - corner0.y,
-          corner0.x,
-          corner0.y,
-        ].join(" ");
-
-        svg.appendChild(
-          svgEl("image", {
-            href: overlayImageUrl,
-            x: 0,
-            y: 0,
-            width: 1,
-            height: 1,
-            preserveAspectRatio: "none",
-            opacity: Math.min(_opacity + 0.1, 0.92),
-            transform: `matrix(${matrix})`,
-          }),
-        );
+        const [c0, c1, , c3] = frameRef.current.corners;
+        const matrix = [c1.x - c0.x, c1.y - c0.y, c3.x - c0.x, c3.y - c0.y, c0.x, c0.y].join(" ");
+        svg.appendChild(svgEl("image", { href: overlayImageUrl, x: 0, y: 0, width: 1, height: 1, transform: `matrix(${matrix})` }));
       }
 
       if (_editing && frameRef.current) {
         const frameData = frameRef.current;
-        const topEdgeIndex = frameData.edgeMidpoints.reduce((bestIndex, point, index, list) =>
-          point.y < list[bestIndex].y ? index : bestIndex,
-        0);
-        const edgeStart = frameData.corners[topEdgeIndex];
-        const edgeEnd = frameData.corners[(topEdgeIndex + 1) % frameData.corners.length];
-        const midX = frameData.topEdgeMidpoint.x;
-        const midY = frameData.topEdgeMidpoint.y;
-        const eDx = edgeEnd.x - edgeStart.x;
-        const eDy = edgeEnd.y - edgeStart.y;
-        const eLen = Math.hypot(eDx, eDy) || 1;
-        const p1x = -eDy / eLen;
-        const p1y = eDx / eLen;
-        const p2x = eDy / eLen;
-        const p2y = -eDx / eLen;
+        const topEdgeIndex = frameData.edgeMidpoints.reduce((best, point, index, list) =>
+          point.y < list[best].y ? index : best, 0);
+        const edgeStart = frameData.corners[topEdgeIndex], edgeEnd = frameData.corners[(topEdgeIndex + 1) % 4];
+        const midX = frameData.topEdgeMidpoint.x, midY = frameData.topEdgeMidpoint.y;
+        const eDx = edgeEnd.x - edgeStart.x, eDy = edgeEnd.y - edgeStart.y, eLen = Math.hypot(eDx, eDy) || 1;
+        const p1x = -eDy / eLen, p1y = eDx / eLen, p2x = eDy / eLen, p2y = -eDx / eLen;
         const centSc = centScreenRef.current ?? frameData.centroid;
         const dot1 = (midX - centSc.x) * p1x + (midY - centSc.y) * p1y;
-        const outX = dot1 >= 0 ? p1x : p2x;
-        const outY = dot1 >= 0 ? p1y : p2y;
-        const rhX = midX + outX * ROT_GAP;
-        const rhY = midY + outY * ROT_GAP;
+        const outX = dot1 >= 0 ? p1x : p2x, outY = dot1 >= 0 ? p1y : p2y;
+        const rhX = midX + outX * ROT_GAP, rhY = midY + outY * ROT_GAP;
         rotHandlePosRef.current = { x: rhX, y: rhY };
 
-        const borderD =
-          frameData.corners
-            .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
-            .join(" ") + " Z";
+        const borderD = frameData.corners.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") + " Z";
+        svg.appendChild(svgEl("path", { d: borderD, fill: "none", stroke: "rgba(99,102,241,0.7)", "stroke-width": "1.5" }));
 
-        if (_showPerimeter) {
-          svg.appendChild(
-            svgEl("path", {
-              d: borderD,
-              fill: "none",
-              stroke: "rgba(99,102,241,0.7)",
-              "stroke-width": "1.5",
-            }),
-          );
+        if (_mode !== "manual") {
+           svg.appendChild(svgEl("line", { x1: midX, y1: midY, x2: rhX, y2: rhY, stroke: "rgba(99,102,241,0.6)", "stroke-width": "1.5", "stroke-dasharray": "4 3" }));
+           svg.appendChild(svgEl("circle", { cx: rhX, cy: rhY, r: HANDLE_R, fill: "#6366f1", stroke: "white", "stroke-width": "2" }));
         }
-
-        svg.appendChild(
-          svgEl("line", {
-            x1: midX,
-            y1: midY,
-            x2: rhX,
-            y2: rhY,
-            stroke: "rgba(99,102,241,0.6)",
-            "stroke-width": "1.5",
-            "stroke-dasharray": "4 3",
-          }),
-        );
 
         for (const { x, y } of frameData.corners) {
-          svg.appendChild(
-            svgEl("circle", {
-              cx: x,
-              cy: y,
-              r: HANDLE_R,
-              fill: "white",
-              stroke: "#6366f1",
-              "stroke-width": "2",
-            }),
-          );
+          svg.appendChild(svgEl("circle", { cx: x, cy: y, r: HANDLE_R, fill: "white", stroke: "#6366f1", "stroke-width": "2" }));
         }
-
-        for (const { x, y } of frameData.edgeMidpoints) {
-          svg.appendChild(
-            svgEl("rect", {
-              x: x - 5,
-              y: y - 5,
-              width: 10,
-              height: 10,
-              rx: 3,
-              fill: "#eef2ff",
-              stroke: "#6366f1",
-              "stroke-width": "1.5",
-            }),
-          );
+        if (_mode !== "manual") {
+           for (const { x, y } of frameData.edgeMidpoints) {
+             svg.appendChild(svgEl("rect", { x: x - 5, y: y - 5, width: 10, height: 10, rx: 3, fill: "#eef2ff", stroke: "#6366f1", "stroke-width": "1.5" }));
+           }
         }
-
-        svg.appendChild(
-          svgEl("circle", {
-            cx: rhX,
-            cy: rhY,
-            r: HANDLE_R,
-            fill: "#6366f1",
-            stroke: "white",
-            "stroke-width": "2",
-          }),
-        );
-        svg.appendChild(
-          svgEl("path", {
-            d: `M${rhX - 4},${rhY} a4,4 0 1,1 5,3`,
-            fill: "none",
-            stroke: "white",
-            "stroke-width": "1.5",
-            "stroke-linecap": "round",
-          }),
-        );
       } else {
         rotHandlePosRef.current = null;
       }
-
       rafRef.current = requestAnimationFrame(frame);
     };
 
     rafRef.current = requestAnimationFrame(frame);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [viewer]);
 
   useEffect(() => {
     const svg = svgRef.current;
-    const hitArea = hitAreaRef.current;
     const container = containerRef.current;
+    const hitArea = hitAreaRef.current;
     if (!svg || !container || !hitArea) return;
 
     function localPt(e: PointerEvent): ScreenPt {
-      const rect = containerRef.current?.getBoundingClientRect() ?? container!.getBoundingClientRect();
+      const rect = container!.getBoundingClientRect();
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
-
-    function dist(a: ScreenPt, b: ScreenPt) {
-      return Math.hypot(a.x - b.x, a.y - b.y);
-    }
+    function dist(a: ScreenPt, b: ScreenPt) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
     const onHitAreaDown = (e: PointerEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      onEnterEditRef.current?.();
+      if (transformLocked || !isEditing) return;
+      onEnterEdit?.();
+      onSvgDown(e);
     };
 
     const onSvgDown = (e: PointerEvent) => {
-      const bb = bboxRef.current;
-      const pt = localPt(e);
-      const hull = hullRef.current;
-      const frame = frameRef.current;
-      e.stopPropagation();
-      e.preventDefault();
+        const bb = bboxRef.current, pt = localPt(e), frame = frameRef.current;
+        e.stopPropagation(); e.preventDefault();
+        if (lockedRef.current) return;
+        if (!bb || !frame) { onExitEditRef.current?.(); return; }
 
-      if (lockedRef.current) return;
-      if (!bb || !frame) {
-        onExitEditRef.current?.();
-        return;
-      }
+        const rotHandle = rotHandlePosRef.current ?? { x: bb.centX, y: bb.minY - ROT_GAP };
+        const cornerIndex = frame.corners.findIndex((corner) => dist(pt, corner) <= HANDLE_HIT);
+        const edgeIndex = frame.edgeMidpoints.findIndex((midpoint) => dist(pt, midpoint) <= HANDLE_HIT);
 
-      const rotHandle = rotHandlePosRef.current ?? { x: bb.centX, y: bb.minY - ROT_GAP };
-      const cornerIndex = frame.corners.findIndex((corner) => dist(pt, corner) <= HANDLE_HIT);
-      const edgeIndex = frame.edgeMidpoints.findIndex((midpoint) => dist(pt, midpoint) <= HANDLE_HIT);
+        let mode: DragMode | null = null;
+        let handleIndex: number | undefined;
 
-      let mode: DragMode | null = null;
-      let handleIndex: number | undefined;
-      if (dist(pt, rotHandle) <= HANDLE_HIT) {
-        mode = "rotate";
-      } else if (cornerIndex >= 0) {
-        mode = "corner";
-        handleIndex = cornerIndex;
-      } else if (edgeIndex >= 0) {
-        mode = "edge";
-        handleIndex = edgeIndex;
-      } else if (hull.length >= 3 && pointInPolygon(pt, hull)) {
-        mode = "translate";
-      } else {
-        onExitEditRef.current?.();
-        return;
-      }
-
-      const startViewYaw = (() => {
-        try {
-          return viewer.getYaw() as number;
-        } catch {
-          return 0;
+        if (modeRef.current === "manual") {
+          if (cornerIndex >= 0) { mode = "corner"; handleIndex = cornerIndex; }
+          else if (pointInPolygon(pt, frame.corners)) { mode = "translate"; }
+        } else {
+          if (dist(pt, rotHandle) <= HANDLE_HIT) mode = "rotate";
+          else if (cornerIndex >= 0) { mode = "corner"; handleIndex = cornerIndex; }
+          else if (edgeIndex >= 0) { mode = "edge"; handleIndex = edgeIndex; }
+          else if (pointInPolygon(pt, frame.corners)) mode = "translate";
         }
-      })();
 
-      svg.setPointerCapture(e.pointerId);
-      liveDeltaRef.current = {
-        latM: 0,
-        lngM: 0,
-        scaleFactor: 1,
-        hdgDelta: 0,
-        planRotDelta: 0,
-        cornerAdjustments: null,
+        if (!mode) { onExitEditRef.current?.(); return; }
+
+        const startViewYaw = (() => { try { return viewer.getYaw() as number; } catch { return 0; } })();
+        svg.setPointerCapture(e.pointerId);
+        liveDeltaRef.current = { latM: 0, lngM: 0, scaleFactor: 1, hdgDelta: 0, planRotDelta: 0, cornerAdjustments: null };
+        dragRef.current = {
+          mode,
+          startX: e.clientX,
+          startY: e.clientY,
+          startLat: latOffsetRef.current,
+          startLng: lngOffsetRef.current,
+          startAlt: camAltRef.current,
+          startHdg: imageHeadingRef.current,
+          startViewYaw,
+          startPlanRot: planRotRef.current,
+          startPlanScale: planScaleRef.current,
+          startPlanScaleX: planScaleXRef.current,
+          startPlanScaleY: planScaleYRef.current,
+          startCornerAdjustments: [...planCornerAdjustmentsRef.current],
+          startAngle: Math.atan2(pt.y - bb.centY, pt.x - bb.centX),
+          centX: bb.centX,
+          centY: bb.centY,
+          handleIndex
+        };
       };
-      dragRef.current = {
-        mode,
-        startX: e.clientX,
-        startY: e.clientY,
-        startLat: latOffsetRef.current,
-        startLng: lngOffsetRef.current,
-        startAlt: camAltRef.current,
-        startHdg: imageHeadingRef.current,
-        startViewYaw,
-        startPlanRot: planRotRef.current,
-        startPlanScale: planScaleRef.current,
-        startPlanScaleX: planScaleXRef.current,
-        startPlanScaleY: planScaleYRef.current,
-        startCornerAdjustments: normalizeCornerAdjustments(planCornerAdjustmentsRef.current),
-        startAngle: Math.atan2(pt.y - frame.centroid.y, pt.x - frame.centroid.x) * (180 / Math.PI),
-        centX: frame.centroid.x,
-        centY: frame.centroid.y,
-        handleIndex,
-      };
-    };
 
-    const onMove = (e: PointerEvent) => {
-      const drag = dragRef.current;
-      if (!drag) return;
+      const onMove = (e: PointerEvent) => {
+        const drag = dragRef.current;
+        if (!drag) return;
 
-      const activeContainer = containerRef.current;
-      if (!activeContainer) return;
+        const activeContainer = containerRef.current;
+        if (!activeContainer) return;
 
-      const W = activeContainer.clientWidth;
-      const H = activeContainer.clientHeight;
-      const hfov = (() => {
-        try {
-          return viewer.getHfov() as number;
-        } catch {
-          return 100;
+        const W = activeContainer.clientWidth;
+        const H = activeContainer.clientHeight;
+        const hfov = (() => {
+          try {
+            return viewer.getHfov() as number;
+          } catch {
+            return 100;
+          }
+        })();
+        const DEG = Math.PI / 180;
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+
+        if (drag.mode === "translate") {
+          const mpp = (2 * drag.startAlt * Math.tan((hfov * DEG) / 2)) / W;
+          const effHdgRad = (drag.startHdg + drag.startViewYaw) * DEG;
+          const screenRightM = dx * mpp;
+          const screenDownM = dy * mpp;
+          const northM =
+            screenRightM * -Math.sin(effHdgRad) + screenDownM * -Math.cos(effHdgRad);
+          const eastM =
+            screenRightM * Math.cos(effHdgRad) + screenDownM * -Math.sin(effHdgRad);
+          liveDeltaRef.current = {
+            latM: -northM,
+            lngM: -eastM,
+            scaleFactor: 1,
+            hdgDelta: 0,
+            planRotDelta: 0,
+            cornerAdjustments: null,
+          };
+        } else if (drag.mode === "scale") {
+          const factor = Math.exp((-dy / H) * 3);
+          liveDeltaRef.current = {
+            latM: 0,
+            lngM: 0,
+            scaleFactor: factor,
+            hdgDelta: 0,
+            planRotDelta: 0,
+            cornerAdjustments: null,
+          };
+        } else if (drag.mode === "rotate") {
+          const pt = localPt(e);
+          const angle = Math.atan2(pt.y - drag.centY, pt.x - drag.centX);
+          const deltaDeg = (angle - drag.startAngle) / DEG;
+          liveDeltaRef.current = {
+            latM: 0,
+            lngM: 0,
+            scaleFactor: 1,
+            hdgDelta: 0,
+            planRotDelta: deltaDeg,
+            cornerAdjustments: null,
+          };
+        } else if (drag.mode === "edge" && drag.handleIndex !== undefined) {
+          const factor = Math.exp((-dy / H) * 2);
+          const sx = drag.handleIndex % 2 === 0 ? 1 : factor;
+          const sy = drag.handleIndex % 2 === 0 ? factor : 1;
+          onParamsChangeRef.current?.({
+            latOffset: drag.startLat,
+            lngOffset: drag.startLng,
+            camAlt: drag.startAlt,
+            imageHeading: drag.startHdg,
+            planRotation: drag.startPlanRot,
+            planScale: drag.startPlanScale,
+            planScaleX: drag.startPlanScaleX * sx,
+            planScaleY: drag.startPlanScaleY * sy,
+            planCornerAdjustments: drag.startCornerAdjustments,
+          });
+        } else if (drag.mode === "corner" && drag.handleIndex !== undefined) {
+          if (modeRef.current === "manual") {
+            const coords = (() => {
+              try {
+                return viewer.mouseEventToCoords(e) as [number, number];
+              } catch {
+                return null;
+              }
+            })();
+            if (coords) {
+              const [pitch, yaw] = coords;
+              const nextCorners = [...(planCornersAbsoluteRef.current || [])];
+              if (nextCorners.length === 4) {
+                nextCorners[drag.handleIndex] = { pitch, yaw };
+                onParamsChangeRef.current?.({
+                  latOffset: drag.startLat,
+                  lngOffset: drag.startLng,
+                  camAlt: drag.startAlt,
+                  imageHeading: drag.startHdg,
+                  planRotation: drag.startPlanRot,
+                  planScale: drag.startPlanScale,
+                  planCornerAdjustments: drag.startCornerAdjustments,
+                  planCornersAbsolute: nextCorners,
+                });
+              }
+            }
+          } else {
+            const nextAdjustments = [...drag.startCornerAdjustments];
+            const effHdgRad = (drag.startHdg + drag.startViewYaw) * DEG;
+            const mpp = (2 * drag.startAlt * Math.tan((hfov * DEG) / 2)) / W;
+            const screenRightM = dx * mpp;
+            const screenDownM = dy * mpp;
+            const northM =
+              screenRightM * -Math.sin(effHdgRad) + screenDownM * -Math.cos(effHdgRad);
+            const eastM =
+              screenRightM * Math.cos(effHdgRad) + screenDownM * -Math.sin(effHdgRad);
+            nextAdjustments[drag.handleIndex] = { x: -eastM, y: -northM };
+            liveDeltaRef.current = {
+              latM: 0,
+              lngM: 0,
+              scaleFactor: 1,
+              hdgDelta: 0,
+              planRotDelta: 0,
+              cornerAdjustments: nextAdjustments,
+            };
+          }
         }
-      })();
-      const DEG = Math.PI / 180;
-      const dx = e.clientX - drag.startX;
-      const dy = e.clientY - drag.startY;
-
-      if (drag.mode === "translate") {
-        const mpp = (2 * drag.startAlt * Math.tan((hfov * DEG) / 2)) / W;
-        const effHdgRad = (drag.startHdg + drag.startViewYaw) * DEG;
-        const screenRightM = dx * mpp;
-        const screenDownM = dy * mpp;
-        const northM =
-          screenRightM * -Math.sin(effHdgRad) + screenDownM * -Math.cos(effHdgRad);
-        const eastM =
-          screenRightM * Math.cos(effHdgRad) + screenDownM * -Math.sin(effHdgRad);
-        liveDeltaRef.current = {
-          latM: -northM,
-          lngM: -eastM,
-          scaleFactor: 1,
-          hdgDelta: 0,
-          planRotDelta: 0,
-          cornerAdjustments: null,
-        };
-      } else if (drag.mode === "scale") {
-        const factor = Math.exp((-dy / H) * 3);
-        liveDeltaRef.current = {
-          latM: 0,
-          lngM: 0,
-          scaleFactor: factor,
-          hdgDelta: 0,
-          planRotDelta: 0,
-          cornerAdjustments: null,
-        };
-      } else if (drag.mode === "corner" && typeof drag.handleIndex === "number") {
-        liveDeltaRef.current = {
-          latM: 0,
-          lngM: 0,
-          scaleFactor: 1,
-          hdgDelta: 0,
-          planRotDelta: 0,
-          cornerAdjustments: updateCornerAdjustment(
-            drag.startCornerAdjustments,
-            drag.handleIndex,
-            dx,
-            dy,
-          ),
-        };
-      } else if (drag.mode === "edge" && typeof drag.handleIndex === "number") {
-        liveDeltaRef.current = {
-          latM: 0,
-          lngM: 0,
-          scaleFactor: 1,
-          hdgDelta: 0,
-          planRotDelta: 0,
-          cornerAdjustments: updateEdgeAdjustment(
-            drag.startCornerAdjustments,
-            drag.handleIndex,
-            dx,
-            dy,
-          ),
-        };
-      } else if (drag.mode === "rotate") {
-        const rect = activeContainer.getBoundingClientRect();
-        const curPt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        const curAngle = Math.atan2(curPt.y - drag.centY, curPt.x - drag.centX) * (180 / Math.PI);
-        liveDeltaRef.current = {
-          latM: 0,
-          lngM: 0,
-          scaleFactor: 1,
-          hdgDelta: 0,
-          planRotDelta: curAngle - drag.startAngle,
-          cornerAdjustments: null,
-        };
-      }
-    };
-
-    const onUp = () => {
-      const drag = dragRef.current;
-      if (!drag) return;
-
-      const d = liveDeltaRef.current;
-      const finalLat = drag.startLat + d.latM;
-      const finalLng = drag.startLng + d.lngM;
-      const finalHdg = ((drag.startHdg + d.hdgDelta) % 360 + 360) % 360;
-      const finalPlanRot = ((drag.startPlanRot + d.planRotDelta) % 360 + 360) % 360;
-      const finalCamAlt = camAltRef.current;
-      const finalPlanScale = Math.max(0.05, drag.startPlanScale * d.scaleFactor);
-      const finalCornerAdjustments = d.cornerAdjustments ?? drag.startCornerAdjustments;
-
-      liveDeltaRef.current = {
-        latM: 0,
-        lngM: 0,
-        scaleFactor: 1,
-        hdgDelta: 0,
-        planRotDelta: 0,
-        cornerAdjustments: null,
       };
-      dragRef.current = null;
 
-      onParamsChangeRef.current?.({
-        latOffset: finalLat,
-        lngOffset: finalLng,
-        camAlt: finalCamAlt,
-        imageHeading: finalHdg,
-        planRotation: finalPlanRot,
-        planScale: finalPlanScale,
-        planScaleX: drag.startPlanScaleX,
-        planScaleY: drag.startPlanScaleY,
-        planCornerAdjustments: finalCornerAdjustments,
-      });
-    };
+      const onUp = () => {
+        const drag = dragRef.current;
+        if (!drag) return;
 
-    hitArea.addEventListener("pointerdown", onHitAreaDown);
-    svg.addEventListener("pointerdown", onSvgDown);
-    svg.addEventListener("pointermove", onMove);
-    svg.addEventListener("pointerup", onUp);
-    svg.addEventListener("pointercancel", onUp);
+        const d = liveDeltaRef.current;
+        const finalLat = drag.startLat + d.latM;
+        const finalLng = drag.startLng + d.lngM;
+        const finalHdg = ((drag.startHdg + d.hdgDelta) % 360 + 360) % 360;
+        const finalPlanRot = ((drag.startPlanRot + d.planRotDelta) % 360 + 360) % 360;
+        const finalCamAlt = camAltRef.current;
+        const finalPlanScale = Math.max(0.05, drag.startPlanScale * d.scaleFactor);
+        const finalCornerAdjustments = d.cornerAdjustments ?? drag.startCornerAdjustments;
+
+        liveDeltaRef.current = {
+          latM: 0,
+          lngM: 0,
+          scaleFactor: 1,
+          hdgDelta: 0,
+          planRotDelta: 0,
+          cornerAdjustments: null,
+        };
+        dragRef.current = null;
+
+        onParamsChangeRef.current?.({
+          latOffset: finalLat,
+          lngOffset: finalLng,
+          camAlt: finalCamAlt,
+          imageHeading: finalHdg,
+          planRotation: finalPlanRot,
+          planScale: finalPlanScale,
+          planScaleX: drag.startPlanScaleX,
+          planScaleY: drag.startPlanScaleY,
+          planCornerAdjustments: finalCornerAdjustments,
+        });
+      };
+
+      if (!hitArea || !svg) return;
+
+      hitArea.addEventListener("pointerdown", onHitAreaDown);
+      svg.addEventListener("pointerdown", onSvgDown);
+      svg.addEventListener("pointermove", onMove);
+      svg.addEventListener("pointerup", onUp);
+      svg.addEventListener("pointercancel", onUp);
 
     const stopFn = (e: Event) => {
       e.stopPropagation();
