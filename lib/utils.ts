@@ -33,3 +33,14 @@ export function getInitials(name: string): string {
         .toUpperCase()
         .slice(0, 2);
 }
+
+export function formatArea(value: number | null | undefined, unit: string = "m²"): string {
+    if (value == null || Number.isNaN(value)) return "—";
+
+    const formatted = new Intl.NumberFormat("es-AR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    }).format(value);
+
+    return `${formatted} ${unit}`;
+}

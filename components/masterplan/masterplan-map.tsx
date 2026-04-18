@@ -7,7 +7,7 @@ import {
     Map as MapIcon, Layers as LayersIcon, Filter, ZoomIn, ZoomOut,
     Crosshair, X, Search, MapPin, Check, Save, Camera, Grid3x3,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatArea } from "@/lib/utils";
 import {
     useMasterplanStore,
     useFilteredUnits,
@@ -129,6 +129,7 @@ export default function MasterplanMap({
         comparisonIds, toggleComparison, clearComparison,
         showComparator, setShowComparator,
         showFilters, setShowFilters,
+        activePanel, setActivePanel,
     } = useMasterplanStore();
 
     const filteredUnits = useFilteredUnits();
@@ -171,8 +172,6 @@ export default function MasterplanMap({
     const [planSaved, setPlanSaved] = useState(false);
 
     // Active tool panel (mutually exclusive)
-    const [activePanel, setActivePanel] = useState<"infraestructura" | "imagenes" | null>(null);
-
     // Tour 360° preview card state
     const [tourPreview, setTourPreview] = useState<{
         tour: Tour360Marker;
@@ -200,6 +199,7 @@ export default function MasterplanMap({
         hasAutoFitContentRef.current = false;
         contentBoundsRef.current = null;
         setSelectedUnitId(null);
+        setActivePanel(null);
         setHoveredUnitId(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [proyectoId]);
@@ -656,7 +656,7 @@ export default function MasterplanMap({
                     `<div style="font-family: Inter, sans-serif; padding: 2px 0;">
                         <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">Lote ${unit.numero}</div>
                         <div style="font-size: 11px; color: #94a3b8;">
-                            ${unit.superficie ? `${unit.superficie} m²` : ""}
+                            ${unit.superficie ? formatArea(unit.superficie) : ""}
                             ${unit.precio ? `• $${unit.precio.toLocaleString()}` : ""}
                         </div>
                         <div style="margin-top: 4px; font-size: 10px; font-weight: 600; color: ${color}; text-transform: uppercase;">
@@ -1384,12 +1384,12 @@ export default function MasterplanMap({
 
                 {/* Side Panel */}
                 <AnimatePresence>
-                    {selectedUnit && (
+                    {selectedUnit && activePanel === "lot" && (
                         <MasterplanSidePanel
                             unit={selectedUnit}
                             modo={modo}
                             canEdit={canEdit}
-                            onClose={() => setSelectedUnitId(null)}
+                            onClose={() => setActivePanel(null)}
                         />
                     )}
                 </AnimatePresence>
@@ -1542,4 +1542,5 @@ export default function MasterplanMap({
         </div>
     );
 }
+
 

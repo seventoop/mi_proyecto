@@ -64,6 +64,8 @@ interface MasterplanState {
     // Selection & UI State
     selectedUnitId: string | null;
     setSelectedUnitId: (id: string | null) => void;
+    activePanel: "lot" | "imagenes" | "infraestructura" | null;
+    setActivePanel: (panel: "lot" | "imagenes" | "infraestructura" | null) => void;
     hoveredUnitId: string | null;
     setHoveredUnitId: (id: string | null) => void;
 
@@ -101,7 +103,17 @@ export const useMasterplanStore = create<MasterplanState>((set) => ({
 
     // Selection
     selectedUnitId: null,
-    setSelectedUnitId: (id) => set({ selectedUnitId: id }),
+    activePanel: null,
+    setSelectedUnitId: (id) =>
+        set((state) => ({
+            selectedUnitId: id,
+            activePanel: id ? "lot" : state.activePanel === "lot" ? null : state.activePanel,
+        })),
+    setActivePanel: (panel) =>
+        set((state) => ({
+            activePanel: panel,
+            selectedUnitId: panel === "lot" ? state.selectedUnitId : null,
+        })),
 
     // Hover
     hoveredUnitId: null,

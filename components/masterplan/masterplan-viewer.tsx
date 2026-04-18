@@ -7,7 +7,7 @@ import {
     ZoomIn, ZoomOut, Maximize, Maximize2, Minimize2, Filter, Layers as LayersIcon,
     GitCompare, X, FileSpreadsheet
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatArea } from "@/lib/utils";
 import {
     useMasterplanStore,
     useFilteredUnits,
@@ -97,7 +97,7 @@ const Tooltip = memo(function Tooltip({ data }: { data: TooltipData | null }) {
                     </span>
                 </div>
                 <div className="space-y-0.5 text-xs text-slate-300">
-                    {unit.superficie && <p>Superficie: <span className="text-white font-medium">{unit.superficie} m²</span></p>}
+                    {unit.superficie && <p>Superficie: <span className="text-white font-medium">{formatArea(unit.superficie)}</span></p>}
                     {unit.precio && (
                         <p>Precio: <span className="text-white font-medium">${unit.precio.toLocaleString()} {unit.moneda}</span></p>
                     )}
@@ -272,6 +272,7 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
         showFilters, setShowFilters,
         layers, toggleLayer,
         zoom, setZoom,
+        activePanel, setActivePanel,
     } = useMasterplanStore();
 
     const units = useMasterplanStore(selectUnits);
@@ -552,12 +553,12 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
 
             {/* Side Panel */}
             <AnimatePresence>
-                {selectedUnit && (
+                {selectedUnit && activePanel === "lot" && (
                     <MasterplanSidePanel
                         unit={selectedUnit}
                         modo={modo}
                         canEdit={canEdit}
-                        onClose={() => setSelectedUnitId(null)}
+                        onClose={() => setActivePanel(null)}
                     />
                 )}
             </AnimatePresence>
@@ -660,3 +661,4 @@ export default function MasterplanViewer({ proyectoId, modo, canEdit = false }: 
         </div>
     );
 }
+
