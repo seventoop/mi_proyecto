@@ -60,8 +60,10 @@ export interface PreviewInfraItem {
 export interface ProjectPreviewViewerProps {
     slug: string;
     projectName: string;
-    /** SVG con sus fills nativos (Plano). */
+    /** SVG con sus fills nativos (Plano). Data URL para uso como background-image (fallback raster). */
     planAsset: string | null;
+    /** SVG crudo (markup) para render inline en Plano. Si está presente, prevalece sobre planAsset. */
+    planSvgRaw?: string | null;
     /** SVG con fills neutralizados (no se usa en Mapa para evitar la "alfombra"). */
     mapOverlayAsset?: string | null;
     /** viewBox real del SVG, para proyectar polígonos en Mapa. */
@@ -95,6 +97,7 @@ export default function ProjectPreviewViewer({
     slug,
     projectName,
     planAsset,
+    planSvgRaw,
     planSvgViewBox,
     mapCenterLat,
     mapCenterLng,
@@ -465,7 +468,49 @@ export default function ProjectPreviewViewer({
                        activo y hay viewBox real) polígonos coloreados encima
                        alineados al MISMO viewBox del SVG. */
                     <div className="absolute inset-0 p-6">
-                        {planAsset ? (
+                        {planSvgRaw ? (
+                            <div
+                                className="relative h-full w-full"
+                                aria-label={`Plano de ${projectName}`}
+                                role="img"
+                            >
+                                {/* SVG inline: respeta su propio viewBox, escala al contenedor
+                                    y evita los problemas de decodificación que tiene
+                                    background-image:url(data:image/svg+xml,...) con SVGs grandes. */}
+                                <div
+                                    className="absolute inset-0 [&>svg]:h-full [&>svg]:w-full [&>svg]:block"
+                                    // The SVG comes from our own DB (uploaded by the project owner in the
+                                    // dashboard) and is already label-stripped on the server.
+                                    dangerouslySetInnerHTML={{ __html: planSvgRaw }}
+                                />
+                                {showEstados && planSvgViewBox && hasUnits && (
+                                    <svg
+                                        viewBox={`${planSvgViewBox.x} ${planSvgViewBox.y} ${planSvgViewBox.w} ${planSvgViewBox.h}`}
+                                        preserveAspectRatio="xMidYMid meet"
+                                        className="pointer-events-none absolute inset-0 h-full w-full"
+                                    >
+                                        {units.map((u) => {
+                                            if (!u.coordenadasMasterplan) return null;
+                                            let path: string | undefined;
+                                            try { path = JSON.parse(u.coordenadasMasterplan).path; } catch {}
+                                            if (!path) return null;
+                                            const color = STATUS_COLORS[u.estado] || "#94a3b8";
+                                            return (
+                                                <path
+                                                    key={u.id}
+                                                    d={path}
+                                                    fill={color}
+                                                    fillOpacity={0.65}
+                                                    stroke="#ffffff"
+                                                    strokeWidth={1}
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                            );
+                                        })}
+                                    </svg>
+                                )}
+                            </div>
+                        ) : planAsset ? (
                             <div
                                 className="relative h-full w-full"
                                 style={{

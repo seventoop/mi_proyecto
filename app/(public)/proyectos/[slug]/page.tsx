@@ -307,6 +307,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                             slug={params.slug}
                             projectName={project.nombre}
                             planAsset={planAssetFull}
+                            planSvgRaw={planoSvg}
                             mapOverlayAsset={planAssetOverlay}
                             planSvgViewBox={planSvgViewBox}
                             mapCenterLat={project.mapCenterLat ?? null}
