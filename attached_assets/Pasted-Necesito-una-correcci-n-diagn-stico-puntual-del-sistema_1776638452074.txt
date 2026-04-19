@@ -1,0 +1,140 @@
+Necesito una corrección + diagnóstico puntual del sistema actual (auth con Google, roles, permisos, onboarding y datos públicos), SIN rehacer arquitectura ni agregar features nuevas.
+
+Objetivo:
+dejar el sistema consistente en producción, corregir UX y resolver problemas reales detectados, incluyendo alineación de base de datos entre entornos.
+
+IMPORTANTE:
+- NO romper datos existentes
+- NO crear duplicados
+- NO hardcodear soluciones
+- NO rehacer el sistema completo
+- SOLO corregir y diagnosticar con precisión
+
+========================
+PROBLEMAS DETECTADOS
+========================
+
+1. Un usuario que debería existir (por seed/roles) es tratado como nuevo en Google onboarding.
+2. El flujo de Google pide elegir cuenta dos veces.
+3. El onboarding público muestra texto interno:
+   "ADMIN y SUPERADMIN no pueden elegirse..."
+   → esto NO debe mostrarse así a clientes.
+4. El botón de confirmar tipo de cuenta queda mal posicionado/cortado en resolución 100%.
+5. Redirect incorrecto:
+   - CLIENTE debería ir a "/"
+   - hoy va a "/dashboard/portafolio"
+6. En producción no aparecen proyectos, banners o imágenes que antes existían.
+7. Diferencia de datos entre entornos:
+   - en producción se veían algunos proyectos (ej: Capinota)
+   - en desarrollo otros (ej: golf)
+   → esto genera inconsistencia total.
+
+========================
+OBJETIVOS
+========================
+
+A. ONBOARDING GOOGLE
+- detectar por qué un email existente no es reconocido
+- verificar:
+  - búsqueda por email
+  - normalización (lowercase, trim)
+  - diferencia de base de datos
+- si es bug de código → corregir
+- si es problema de entorno → explicarlo con precisión
+
+B. UX ONBOARDING
+- eliminar o reformular el bloque:
+  "roles no autoasignables"
+- no exponer roles internos al usuario público
+- mantener mensaje simple y profesional
+- corregir layout para que el botón CTA no quede cortado
+
+C. DOBLE SELECCIÓN GOOGLE
+- evaluar si se puede evitar el segundo selector
+- si es posible sin romper el flujo → corregir
+- si no → explicar claramente por qué
+
+D. REDIRECTS POR ROL
+aplicar política final:
+
+- CLIENTE → "/"
+- INVERSOR → "/dashboard/portafolio"
+- VENDEDOR → dashboard comercial
+- DESARROLLADOR → dashboard developer
+- ADMIN / SUPERADMIN → "/dashboard/admin"
+
+revisar:
+- login
+- callback auth
+- dashboard root
+- cualquier redirect inconsistente
+
+E. DATOS PÚBLICOS (PROYECTOS / IMÁGENES)
+- auditar por qué no se muestran en producción
+- confirmar:
+  - si frontend recibe datos
+  - si backend devuelve vacío
+  - si hay filtros incorrectos
+- determinar si es:
+  - bug de código
+  - problema de datasource
+  - problema de storage/assets
+- corregir SOLO si es bug claro
+
+F. UNIFICACIÓN DE BASE DE DATOS (RAILWAY)
+
+Contexto:
+- se están usando entornos distintos con datos distintos
+- quiero una única fuente de verdad en Railway
+- tanto desarrollo como producción deben leer los mismos datos
+
+Requerimientos:
+
+1. Identificar:
+   - qué base usa actualmente producción
+   - qué base usa desarrollo
+   - si ambas apuntan o no a Railway
+
+2. Determinar:
+   - cuál es la base correcta a mantener (Railway)
+
+3. Proponer solución segura para unificar:
+   - migrar datos faltantes (ej: proyectos de dev a prod o viceversa)
+   - evitar duplicados
+   - evitar pérdida de datos
+
+4. NO hacer migración destructiva
+5. NO borrar datos existentes
+6. NO asumir sin verificar
+
+7. Entregar:
+   - diagnóstico claro de por qué los datos difieren
+   - pasos concretos para unificar
+   - si es necesario un script o seed de sincronización, proponerlo
+
+========================
+RESTRICCIONES
+========================
+
+- NO tocar:
+  - sistema de permisos
+  - middleware (salvo redirect puntual)
+  - lógica de solicitudes de rol
+  - estructura de roles
+- NO agregar nuevas features
+- NO rehacer auth
+- NO inventar soluciones sin evidencia
+
+========================
+ENTREGABLES
+========================
+
+1. Archivos modificados (solo los necesarios)
+2. Código completo de cada cambio
+3. Diagnóstico claro de:
+   - por qué un usuario existente cae como nuevo
+   - por qué no se ven proyectos/imágenes
+   - por qué hay datos distintos entre entornos
+4. Explicación breve de cada fix aplicado
+5. Plan concreto para unificar datos en Railway sin romper nada
+6. Confirmación de qué quedó solucionado vs qué depende de entorno

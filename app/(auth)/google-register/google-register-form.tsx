@@ -60,19 +60,12 @@ export default function GoogleRegisterForm({
     };
 
     return (
-        <div className="animate-fade-in space-y-6">
-            <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-white">Elegí tu tipo de cuenta inicial</h2>
-                <p className="text-slate-400">
-                    {name || "Tu cuenta"} se autenticó con <span className="text-white">{email}</span>. Antes de entrar,
-                    elegí con qué tipo de cuenta querés comenzar. Cuando confirmes, vamos a crear tu cuenta con ese rol inicial.
-                </p>
-            </div>
-
-            <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
-                <p className="font-semibold">Cómo sigue el acceso</p>
-                <p className="mt-1 text-sky-100/80">
-                    Después de confirmar, Google puede volver a abrirse un instante para terminar el ingreso y llevarte a tu dashboard.
+        <div className="animate-fade-in space-y-4">
+            <div className="space-y-1">
+                <h2 className="text-xl font-bold text-white">Elegí cómo querés usar tu cuenta</h2>
+                <p className="text-sm text-slate-400">
+                    {name || "Tu cuenta"} ingresó con <span className="text-white">{email}</span>.
+                    Seleccioná el tipo de cuenta para continuar.
                 </p>
             </div>
 
@@ -82,7 +75,7 @@ export default function GoogleRegisterForm({
                 </div>
             )}
 
-            <div className="space-y-3">
+            <div className="space-y-2">
                 {options.map((option) => {
                     const Icon = iconMap[option.icon];
                     const isActive = selectedRole === option.value;
@@ -92,7 +85,7 @@ export default function GoogleRegisterForm({
                             type="button"
                             onClick={() => setSelectedRole(option.value)}
                             className={cn(
-                                "w-full text-left rounded-2xl border p-4 transition-all",
+                                "w-full text-left rounded-xl border p-3 transition-all",
                                 isActive
                                     ? "border-brand-400 bg-brand-500/10 shadow-lg shadow-brand-500/10"
                                     : "border-white/10 bg-white/5 hover:bg-white/[0.07]"
@@ -101,17 +94,17 @@ export default function GoogleRegisterForm({
                             <div className="flex items-start gap-3">
                                 <div
                                     className={cn(
-                                        "mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl",
+                                        "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
                                         isActive ? "bg-brand-500 text-white" : "bg-white/10 text-slate-300"
                                     )}
                                 >
-                                    <Icon className="h-5 w-5" />
+                                    <Icon className="h-4 w-4" />
                                 </div>
-                                <div className="space-y-1">
+                                <div className="min-w-0 space-y-0.5">
                                     <div className="text-sm font-bold uppercase tracking-wider text-white">
                                         {option.label}
                                     </div>
-                                    <p className="text-sm text-slate-400">
+                                    <p className="text-xs text-slate-400">
                                         {option.description}
                                     </p>
                                 </div>
@@ -119,13 +112,6 @@ export default function GoogleRegisterForm({
                         </button>
                     );
                 })}
-            </div>
-
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
-                <p className="font-semibold">Roles no autoasignables</p>
-                <p className="mt-1 text-amber-100/80">
-                    ADMIN y SUPERADMIN no pueden elegirse desde este onboarding público. Esos accesos se gestionan por separado.
-                </p>
             </div>
 
             <button
