@@ -327,6 +327,16 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                                 lng: m.lng,
                                 tipo: m.tipo,
                             }))}
+                            infrastructures={project.infrastructures.map((i) => ({
+                                id: i.id,
+                                nombre: i.nombre,
+                                categoria: i.categoria,
+                                tipo: i.tipo,
+                                estado: i.estado,
+                                geometriaTipo: i.geometriaTipo,
+                                coordenadas: i.coordenadas,
+                                colorPersonalizado: i.colorPersonalizado,
+                            }))}
                         />
                     </div>
                 </section>

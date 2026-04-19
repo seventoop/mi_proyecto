@@ -134,6 +134,9 @@ export type ProjectShowcaseData = {
         estado: string;
         porcentajeAvance: number;
         descripcion?: string | null;
+        geometriaTipo: string;
+        coordenadas: Array<[number, number]>;
+        colorPersonalizado: string | null;
     }>;
     stages: Array<{
         id: string;
@@ -338,6 +341,9 @@ export async function getProjectShowcasePayload(options: {
                     estado: true,
                     porcentajeAvance: true,
                     descripcion: true,
+                    geometriaTipo: true,
+                    coordenadas: true,
+                    colorPersonalizado: true,
                 },
             },
             documentacion: {
@@ -537,7 +543,25 @@ export async function getProjectShowcasePayload(options: {
                     })),
                 })),
             })),
-            infrastructures: project.infraestructuras,
+            infrastructures: project.infraestructuras.map((infra) => {
+                let coords: Array<[number, number]> = [];
+                try {
+                    const parsed = JSON.parse((infra as any).coordenadas || "[]");
+                    if (Array.isArray(parsed)) coords = parsed;
+                } catch {}
+                return {
+                    id: infra.id,
+                    nombre: infra.nombre,
+                    categoria: infra.categoria,
+                    tipo: infra.tipo,
+                    estado: infra.estado,
+                    porcentajeAvance: infra.porcentajeAvance,
+                    descripcion: infra.descripcion,
+                    geometriaTipo: (infra as any).geometriaTipo,
+                    coordenadas: coords,
+                    colorPersonalizado: (infra as any).colorPersonalizado ?? null,
+                };
+            }),
             stages: project.etapas.map((stage) => ({
                 id: stage.id,
                 nombre: stage.nombre,

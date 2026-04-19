@@ -2,7 +2,32 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Globe, Map as MapIcon, Layers } from "lucide-react";
+import {
+    ArrowRight,
+    Globe,
+    Image as ImageIcon,
+    Map as MapIcon,
+    Square,
+    Layers,
+    Wrench,
+} from "lucide-react";
+import { computeSvgViewBox, svgPathToLatLng } from "@/lib/geo-projection";
+import { getInfraCategoryColor, type InfraestructuraCategoria } from "@/types/infraestructura";
+
+// Same color values used in the dashboard reference (captura).
+const STATUS_COLORS: Record<string, string> = {
+    DISPONIBLE: "#22c55e", // verde
+    RESERVADA: "#f59e0b",  // amarillo
+    VENDIDA: "#ef4444",    // rojo
+    BLOQUEADA: "#94a3b8",
+    SUSPENDIDO: "#64748b",
+};
+
+const STATUS_LEGEND: Array<[string, string]> = [
+    ["Disponible", "#22c55e"],
+    ["Reservado", "#f59e0b"],
+    ["Vendido", "#ef4444"],
+];
 
 const DARK_BG = "#1e1e1e";
 
@@ -21,16 +46,25 @@ export interface PreviewMapImage {
     tipo: string;
 }
 
+export interface PreviewInfraItem {
+    id: string;
+    nombre: string;
+    categoria: string;
+    tipo: string;
+    estado: string;
+    geometriaTipo: string;          // "poligono" | "linea" | "punto"
+    coordenadas: Array<[number, number]>; // [lat, lng][]
+    colorPersonalizado: string | null;
+}
+
 export interface ProjectPreviewViewerProps {
     slug: string;
     projectName: string;
-    /** Masterplan SVG (text removed). Used as background image in Plano mode
-     *  and as a faint georeferenced image overlay in Mapa mode. */
+    /** SVG con sus fills nativos (Plano). */
     planAsset: string | null;
-    /** Same SVG with fills neutralized — used as the Mapa overlay so it doesn't
-     *  fight visually with the satellite. Falls back to planAsset. */
+    /** SVG con fills neutralizados (no se usa en Mapa para evitar la "alfombra"). */
     mapOverlayAsset?: string | null;
-    /** Kept for API compatibility (used by /masterplan). Not used here. */
+    /** viewBox real del SVG, para proyectar polígonos en Mapa. */
     planSvgViewBox?: { x: number; y: number; w: number; h: number } | null;
     mapCenterLat: number | null;
     mapCenterLng: number | null;
@@ -39,40 +73,56 @@ export interface ProjectPreviewViewerProps {
     overlayRotation: number | null;
     units: PreviewUnit[];
     mapImages: PreviewMapImage[];
+    infrastructures?: PreviewInfraItem[];
 }
 
 type ViewMode = "plano" | "mapa";
 
 /**
- * Visor PÚBLICO simplificado del proyecto.
+ * Visor PÚBLICO del proyecto.
  *
- *   PLANO  → solo el SVG del masterplan, encuadrado y limpio.
- *   MAPA   → satélite con el plano superpuesto en su posición real (faint).
+ *   PLANO  → solo el SVG del masterplan (que ya viene con sus fills coloreados
+ *            desde el dashboard, mismo estilo que la referencia visual).
+ *   MAPA   → satélite con polígonos coloreados por estado encima
+ *            (estilo captura de referencia), opcional infraestructura y fotos.
+ *            En Mapa NO se monta el SVG, así no compite con los polígonos
+ *            (eso era el origen de la "alfombra" anterior).
  *
- * Toda la interacción avanzada (hover/click/estados por lote, IDs, detalle,
- * filtros) vive en `/proyectos/[slug]/masterplan`. Esta vista es solo
- * comercial: el visitante entiende dónde queda y cómo se ve el proyecto.
+ * La interacción avanzada (hover/click/detalle por lote, IDs) vive en
+ * `/proyectos/[slug]/masterplan`.
  */
 export default function ProjectPreviewViewer({
     slug,
     projectName,
     planAsset,
-    mapOverlayAsset,
+    planSvgViewBox,
     mapCenterLat,
     mapCenterLng,
     mapZoom,
     overlayBounds,
     overlayRotation,
+    units,
+    mapImages,
+    infrastructures = [],
 }: ProjectPreviewViewerProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
+    const estadosLayerRef = useRef<any>(null);
+    const infraLayerRef = useRef<any>(null);
+    const imagesLayerRef = useRef<any>(null);
 
     const hasMap = mapCenterLat != null && mapCenterLng != null;
+    const hasUnits = units.some((u) => !!u.coordenadasMasterplan);
+    const hasInfra = infrastructures.some((i) => Array.isArray(i.coordenadas) && i.coordenadas.length > 0);
+    const hasImages = mapImages.length > 0;
 
     const [mode, setMode] = useState<ViewMode>(hasMap ? "mapa" : "plano");
+    const [showEstados, setShowEstados] = useState(true);
+    const [showInfra, setShowInfra] = useState(true);
+    const [showImagenes, setShowImagenes] = useState(true);
     const [ready, setReady] = useState(false);
 
-    // ?mode= después de mount (evita hydration mismatch).
+    // ?mode= después del mount (evita hydration mismatch).
     useEffect(() => {
         const q = new URLSearchParams(window.location.search).get("mode");
         if (q === "plano" && planAsset) setMode("plano");
@@ -89,14 +139,22 @@ export default function ProjectPreviewViewer({
         return null;
     }, [overlayBounds]);
 
-    const hasOverlay = !!planAsset && !!parsedBounds;
+    // Single source of truth para alinear los polígonos con el satélite:
+    // viewBox real del SVG (fallback al bounding box derivado de las unidades).
+    const svgViewBox = useMemo(() => {
+        if (planSvgViewBox) return { x: planSvgViewBox.x, y: planSvgViewBox.y, w: planSvgViewBox.w, h: planSvgViewBox.h };
+        return computeSvgViewBox(units as any);
+    }, [planSvgViewBox, units]);
 
-    // Montar Leaflet sólo cuando estamos en Mapa.
+    // ── Montar Leaflet sólo en Mapa ───────────────────────────────────────
     useEffect(() => {
         if (mode !== "mapa" || !hasMap) {
             if (mapRef.current) {
                 mapRef.current.remove();
                 mapRef.current = null;
+                estadosLayerRef.current = null;
+                infraLayerRef.current = null;
+                imagesLayerRef.current = null;
                 setReady(false);
             }
             return;
@@ -129,38 +187,90 @@ export default function ProjectPreviewViewer({
             });
             mapRef.current = map;
 
+            // Base: satélite Google.
             L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
                 maxZoom: 22,
                 subdomains: ["mt0", "mt1", "mt2", "mt3"],
             }).addTo(map);
 
-            // Plano georreferenciado, faint, sólo como contexto. Sin polígonos
-            // de estados, sin marcadores: lo indispensable.
-            if (hasOverlay) {
-                const overlaySrc = mapOverlayAsset || planAsset!;
-                const overlay = L.imageOverlay(overlaySrc, parsedBounds!, {
-                    opacity: 0.55,
-                    interactive: false,
-                    className: "preview-svg-overlay",
+            // ── ESTADOS: polígonos coloreados estilo dashboard ──────────────
+            // Sólo polígonos, sin SVG debajo, para evitar que el verde nativo
+            // del SVG se sume al verde de Disponible y genere la "alfombra".
+            const estadosGroup = L.layerGroup();
+            estadosLayerRef.current = estadosGroup;
+            if (svgViewBox && parsedBounds) {
+                units.forEach((u) => {
+                    let svgPath: string | undefined;
+                    if (u.coordenadasMasterplan) {
+                        try { svgPath = JSON.parse(u.coordenadasMasterplan).path; } catch {}
+                    }
+                    if (!svgPath) return;
+                    const coords = svgPathToLatLng(svgPath, svgViewBox, parsedBounds, overlayRotation ?? 0);
+                    if (coords.length < 3) return;
+                    const color = STATUS_COLORS[u.estado] || "#94a3b8";
+                    L.polygon(coords, {
+                        color: "#ffffff",
+                        weight: 1.5,
+                        opacity: 1,
+                        fillColor: color,
+                        fillOpacity: 0.65,
+                        interactive: false,
+                    }).addTo(estadosGroup);
                 });
-                overlay.addTo(map);
+            }
 
-                const rotationDeg = Number.isFinite(overlayRotation as number) ? (overlayRotation as number) : 0;
-                if (rotationDeg !== 0) {
-                    const applyRotation = () => {
-                        const img = overlay.getElement() as HTMLImageElement | undefined;
-                        if (!img) return;
-                        img.style.transformOrigin = "center center";
-                        const current = img.style.transform || "";
-                        if (!current.includes("rotate(")) {
-                            img.style.transform = `${current} rotate(${rotationDeg}deg)`.trim();
-                        }
-                    };
-                    overlay.on("load", applyRotation);
-                    map.on("zoomend viewreset moveend", applyRotation);
-                    setTimeout(applyRotation, 0);
+            // ── INFRAESTRUCTURA: polígonos / líneas / puntos georreferenciados ─
+            const infraGroup = L.layerGroup();
+            infraLayerRef.current = infraGroup;
+            infrastructures.forEach((it) => {
+                const coords = it.coordenadas;
+                if (!Array.isArray(coords) || coords.length === 0) return;
+                const color =
+                    it.colorPersonalizado ||
+                    getInfraCategoryColor(it.categoria as InfraestructuraCategoria, it.tipo);
+                if (it.geometriaTipo === "poligono" && coords.length >= 3) {
+                    L.polygon(coords as any, {
+                        color: "#ffffff",
+                        weight: 1.25,
+                        opacity: 0.9,
+                        fillColor: color,
+                        fillOpacity: 0.55,
+                        interactive: false,
+                    }).addTo(infraGroup);
+                } else if (it.geometriaTipo === "linea" && coords.length >= 2) {
+                    L.polyline(coords as any, {
+                        color,
+                        weight: 4,
+                        opacity: 0.9,
+                        interactive: false,
+                    }).addTo(infraGroup);
+                } else if (it.geometriaTipo === "punto" && coords.length >= 1) {
+                    const [lat, lng] = coords[0];
+                    L.circleMarker([lat, lng], {
+                        radius: 6,
+                        color: "#ffffff",
+                        weight: 2,
+                        fillColor: color,
+                        fillOpacity: 0.95,
+                        interactive: false,
+                    }).addTo(infraGroup);
                 }
+            });
 
+            // ── IMÁGENES: marcadores ────────────────────────────────────────
+            const imagesGroup = L.layerGroup();
+            imagesLayerRef.current = imagesGroup;
+            mapImages.forEach((img) => {
+                const icon = L.divIcon({
+                    className: "",
+                    html: `<div style="width:28px;height:28px;border-radius:50%;border:3px solid white;background:#f97316;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;">📷</div>`,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14],
+                });
+                L.marker([img.lat, img.lng], { icon, interactive: false }).addTo(imagesGroup);
+            });
+
+            if (parsedBounds) {
                 map.fitBounds(parsedBounds as any, { padding: [40, 40], maxZoom: 19 });
             }
 
@@ -172,6 +282,23 @@ export default function ProjectPreviewViewer({
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mode]);
+
+    // Sync de toggles (Mapa).
+    useEffect(() => {
+        if (mode !== "mapa" || !ready || !mapRef.current) return;
+        const map = mapRef.current;
+
+        const sync = (layer: any, visible: boolean) => {
+            if (!layer) return;
+            const present = map.hasLayer(layer);
+            if (visible && !present) layer.addTo(map);
+            else if (!visible && present) map.removeLayer(layer);
+        };
+
+        sync(estadosLayerRef.current, showEstados && hasUnits);
+        sync(infraLayerRef.current, showInfra && hasInfra);
+        sync(imagesLayerRef.current, showImagenes && hasImages);
+    }, [ready, mode, showEstados, showInfra, showImagenes, hasUnits, hasInfra, hasImages]);
 
     // Cleanup al desmontar.
     useEffect(() => {
@@ -207,6 +334,36 @@ export default function ProjectPreviewViewer({
         );
     };
 
+    const overlayButton = (
+        keyName: string,
+        label: string,
+        Icon: any,
+        on: boolean,
+        setter: () => void,
+        disabled: boolean
+    ) => (
+        <button
+            key={keyName}
+            type="button"
+            onClick={() => !disabled && setter()}
+            aria-pressed={on}
+            disabled={disabled}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                disabled
+                    ? "cursor-not-allowed border-border bg-muted/30 text-muted-foreground/50"
+                    : on
+                        ? "border-brand-500/50 bg-brand-500/10 text-brand-500"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground"
+            }`}
+            title={disabled ? "No hay datos disponibles" : `Mostrar/ocultar ${label.toLowerCase()}`}
+        >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+        </button>
+    );
+
+    const toggle = (set: React.Dispatch<React.SetStateAction<boolean>>) => () => set((v) => !v);
+
     return (
         <div className="overflow-hidden rounded-3xl border-2 border-slate-700/60 bg-slate-950 shadow-lg">
             {/* Header */}
@@ -215,7 +372,7 @@ export default function ProjectPreviewViewer({
                     <p className="text-sm font-bold text-white">Vista del proyecto</p>
                     <p className="text-xs text-slate-300">
                         Cambiá entre <strong className="text-white">Plano</strong> y{" "}
-                        <strong className="text-white">Mapa</strong>. Para ver lotes, estados y detalle, abrí el masterplan interactivo.
+                        <strong className="text-white">Mapa</strong>. Para ver detalle por lote, abrí el masterplan interactivo.
                     </p>
                 </div>
                 <Link
@@ -228,11 +385,48 @@ export default function ProjectPreviewViewer({
                 </Link>
             </div>
 
-            {/* Toolbar (solo selector de modo) */}
-            <div className="flex flex-wrap items-center gap-3 border-b border-slate-700/60 bg-slate-900/70 px-5 py-3">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 bg-slate-900/70 px-5 py-3">
                 <div role="group" aria-label="Modo" className="flex flex-wrap items-center gap-1.5">
                     {modeButton("plano", "Plano", Layers, !!planAsset)}
                     {modeButton("mapa", "Mapa", MapIcon, hasMap)}
+                </div>
+
+                {/* Capas (sólo aplican en Mapa) */}
+                <div role="group" aria-label="Capas" className="flex flex-wrap items-center gap-1.5">
+                    {overlayButton(
+                        "estados",
+                        "Estados",
+                        Square,
+                        showEstados,
+                        toggle(setShowEstados),
+                        !hasUnits
+                    )}
+                    {overlayButton(
+                        "infra",
+                        "Infraestructura",
+                        Wrench,
+                        showInfra,
+                        toggle(setShowInfra),
+                        mode !== "mapa" || !hasInfra
+                    )}
+                    {overlayButton(
+                        "imagenes",
+                        "Imágenes",
+                        ImageIcon,
+                        showImagenes,
+                        toggle(setShowImagenes),
+                        mode !== "mapa" || !hasImages
+                    )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                    {STATUS_LEGEND.map(([label, color]) => (
+                        <span key={label} className="inline-flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+                            {label}
+                        </span>
+                    ))}
                 </div>
             </div>
 
@@ -251,11 +445,13 @@ export default function ProjectPreviewViewer({
                         )}
                     </>
                 ) : (
-                    /* PLANO: sólo el SVG, encuadrado. Sin overlays, sin polígonos. */
+                    /* PLANO: SVG del dashboard como fondo + (si Estados está
+                       activo y hay viewBox real) polígonos coloreados encima
+                       alineados al MISMO viewBox del SVG. */
                     <div className="absolute inset-0 p-6">
                         {planAsset ? (
                             <div
-                                className="h-full w-full"
+                                className="relative h-full w-full"
                                 style={{
                                     backgroundImage: `url("${planAsset}")`,
                                     backgroundRepeat: "no-repeat",
@@ -264,7 +460,34 @@ export default function ProjectPreviewViewer({
                                 }}
                                 aria-label={`Plano de ${projectName}`}
                                 role="img"
-                            />
+                            >
+                                {showEstados && planSvgViewBox && hasUnits && (
+                                    <svg
+                                        viewBox={`${planSvgViewBox.x} ${planSvgViewBox.y} ${planSvgViewBox.w} ${planSvgViewBox.h}`}
+                                        preserveAspectRatio="xMidYMid meet"
+                                        className="pointer-events-none absolute inset-0 h-full w-full"
+                                    >
+                                        {units.map((u) => {
+                                            if (!u.coordenadasMasterplan) return null;
+                                            let path: string | undefined;
+                                            try { path = JSON.parse(u.coordenadasMasterplan).path; } catch {}
+                                            if (!path) return null;
+                                            const color = STATUS_COLORS[u.estado] || "#94a3b8";
+                                            return (
+                                                <path
+                                                    key={u.id}
+                                                    d={path}
+                                                    fill={color}
+                                                    fillOpacity={0.65}
+                                                    stroke="#ffffff"
+                                                    strokeWidth={1}
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                            );
+                                        })}
+                                    </svg>
+                                )}
+                            </div>
                         ) : (
                             <div className="flex h-full w-full items-center justify-center">
                                 <p className="text-sm text-slate-300">Aún no hay plano cargado para este proyecto.</p>
@@ -275,10 +498,6 @@ export default function ProjectPreviewViewer({
             </div>
 
             <style jsx global>{`
-                .preview-svg-overlay {
-                    pointer-events: none;
-                    filter: contrast(1.05) saturate(0.8);
-                }
                 .leaflet-container {
                     background: transparent !important;
                     font-family: inherit;

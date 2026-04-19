@@ -1,0 +1,138 @@
+La simplificación anterior resolvió el problema del plano gigante, pero eliminó demasiado y rompió una parte clave de la experiencia que sí necesito conservar.
+
+Te adjunto una captura de referencia del propio sistema (NO inventar nada nuevo): ese es exactamente el estilo visual que quiero recuperar.
+
+## Objetivo
+
+Quiero volver a este estilo visual:
+
+* Lotes claramente visibles
+* Cada lote relleno según su estado:
+
+  * verde = disponible
+  * amarillo = reservado
+  * rojo = vendido
+* Bordes definidos
+* Buena lectura sobre el mapa satelital
+* Sin “alfombra gigante” ni capas que tapen todo
+
+Este estilo debe aplicarse:
+
+* principalmente en **modo Mapa**
+* y, si es posible sin romper nada, también en **modo Plano**
+
+---
+
+## Problema actual
+
+* Se eliminó el render de estados
+* Todo se ve del mismo color o muy traslúcido
+* Desaparecieron toggles útiles
+* Se perdió la lectura visual de los lotes
+* En el masterplan interactivo todavía hay superposición de planos
+
+---
+
+## Lo que necesito que hagas
+
+### 1. Recuperar el estilo visual de estados (PRIORIDAD)
+
+* Volver a renderizar los lotes con color por estado
+* Usar el mismo criterio visual de la captura (no inventar otro)
+* Asegurar:
+
+  * transparencia correcta (no tapar el mapa)
+  * bordes visibles
+  * cada lote distinguible
+
+IMPORTANTE:
+Evitar el problema anterior donde todos los polígonos juntos generaban una “masa verde”.
+
+---
+
+### 2. Modo Mapa (FOCO PRINCIPAL)
+
+* Satélite como base
+* Polígonos de lotes correctamente posicionados
+* Colores por estado visibles y equilibrados
+* Sin doble render ni capas duplicadas
+* Sin SVG compitiendo con los polígonos
+
+👉 Si hay conflicto:
+priorizar polígonos (estados) sobre SVG visual
+
+---
+
+### 3. Modo Plano
+
+* Intentar recuperar el mismo estilo de estados
+* Si genera problemas:
+
+  * mantener SVG limpio
+  * pero evaluar una forma liviana de mostrar estados
+
+---
+
+### 4. Toggles
+
+Reintroducir de forma controlada:
+
+* Estados (on/off)
+* Infraestructura (on/off)
+* Imágenes (on/off)
+
+Pero:
+
+* sin romper performance
+* sin generar duplicaciones
+* sin volver al bug anterior
+
+---
+
+### 5. Masterplan interactivo (bug crítico)
+
+Sigue habiendo superposición de planos.
+
+Necesito:
+
+* identificar exactamente qué se está renderizando 2 o 3 veces
+* asegurar:
+
+  * una sola base
+  * overlays alineados
+  * sin duplicación
+
+---
+
+## Entrega esperada
+
+1. Cómo recuperaste el estilo visual de la captura
+2. Cómo evitaste la “alfombra” de color anterior
+3. Qué sistema de render usaste (SVG vs polígonos)
+4. Qué dejaste activo en:
+
+   * Mapa
+   * Plano
+5. Qué hiciste con los toggles
+6. Causa exacta del problema en el masterplan interactivo
+7. Cambios realizados
+
+---
+
+## Criterio de decisión
+
+No quiero:
+
+* simplificación extrema
+* ni sobreingeniería
+
+Quiero:
+
+* claridad visual
+* lectura comercial
+* consistencia entre vistas
+* estabilidad
+
+IMPORTANTE:
+Usar la captura como referencia visual directa.
+No inventar un estilo nuevo.

@@ -20,11 +20,13 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
     const hasMap = project.mapCenterLat != null && project.mapCenterLng != null;
     const hasTour360 = project.tours.some((tour) => tour.sceneCount > 0);
 
-    // Single source of truth for the plan asset. Strip ONLY <text> labels so
-    // the masterplan keeps its full visual identity (lot fills, infrastructure
-    // detail) — exactly like the dashboard renders it. The interactive canvas
-    // draws its own colored unit polygons on top using the dashboard projection.
-    const cleanedSvg = stripSvgLabels(project.masterplanSvg);
+    // Single source of truth para el plano de fondo del canvas interactivo.
+    // Quitamos texto Y neutralizamos los rellenos del SVG: si dejáramos los
+    // fills nativos, los polígonos de estados que el viewer pinta encima se
+    // sumarían a los fills del SVG y aparecerían DOS capas de color sobre cada
+    // lote (la "superposición de planos"). Manteniendo sólo las líneas se
+    // garantiza UNA sola base + UNA sola capa de color (los polígonos).
+    const cleanedSvg = stripSvgLabels(project.masterplanSvg, { neutralizeFills: true });
     const planAsset = cleanedSvg
         ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanedSvg)}`
         : project.overlayUrl || null;
