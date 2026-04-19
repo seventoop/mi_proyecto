@@ -1,0 +1,88 @@
+Necesito una pasada final urgente para cerrar esto y subir.
+
+## Problemas actuales
+
+### 1. Vista del proyecto (Plano/Mapa)
+
+* Ya volvieron los toggles que necesitábamos, pero el componente actual no es intuitivo
+* Quiero reemplazar esos botones por controles tipo **switch ON/OFF** claros para:
+
+  * Estados
+  * Infraestructura
+  * Imágenes
+
+### 2. Mapa del proyecto
+
+* Se siguen viendo bloques / cuadrados verdes enormes que NO corresponden
+* Ahí debería verse únicamente el plano real cargado en el paso 2, correctamente posicionado
+* No quiero polígonos gigantes de fondo ni superficies extra que tapen el mapa
+* Hay que auditar exactamente de dónde salen esos rectángulos grandes y eliminarlos
+
+### 3. Masterplan interactivo
+
+* Sigue viéndose muy mal
+* Siguen apareciendo 3 planos uno encima del otro
+* Esto es crítico y hay que resolverlo ya
+* Necesito una auditoría puntual y fix inmediato para que quede:
+
+  * una sola base
+  * una sola capa de estados
+  * infraestructura alineada
+  * sin duplicaciones
+  * sin render doble o triple
+
+## Criterio exacto
+
+### Vista principal del proyecto
+
+Quiero:
+
+* visual limpia
+* estados por color
+* toggles claros ON/OFF
+* infraestructura e imágenes activables
+* sin overlays gigantes
+* sin polígonos de fondo que no correspondan
+* mostrar solamente el plano real cargado para ese proyecto
+
+### Masterplan interactivo
+
+Quiero:
+
+* una sola visualización correcta
+* sin triple superposición
+* sin planos fantasmas
+* rendimiento aceptable
+* misma lógica visual consistente con el proyecto
+
+## Tareas
+
+1. Reemplazar los toggles actuales por switches ON/OFF más intuitivos
+2. Detectar la causa exacta de los cuadrados / polígonos verdes enormes en el mapa
+3. Eliminar todo polígono de fondo que no represente realmente el plano que se cargó
+4. Dejar en el mapa solo:
+
+   * satélite
+   * plano correcto
+   * estados
+   * infraestructura
+   * imágenes
+     según toggles
+5. Auditar el masterplan interactivo y corregir definitivamente la triple superposición
+6. Confirmar qué capa era cada una de las que se estaban duplicando
+
+## Entrega esperada
+
+1. Causa exacta de los cuadrados verdes grandes
+2. Qué capa o dato se eliminó/corrigió
+3. Cambio de toggles a switch ON/OFF
+4. Causa exacta del triple render en masterplan interactivo
+5. Qué se corrigió ahí
+6. Confirmación final de que:
+
+   * en la vista principal solo se ve el plano real del proyecto
+   * en masterplan interactivo ya no hay 3 planos superpuestos
+
+Importante:
+No agregar features nuevas.
+Solo corregir visual, capas y UX mínima para dejarlo listo para subir.

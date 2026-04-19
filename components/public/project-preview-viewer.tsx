@@ -118,7 +118,11 @@ export default function ProjectPreviewViewer({
 
     const [mode, setMode] = useState<ViewMode>(hasMap ? "mapa" : "plano");
     const [showEstados, setShowEstados] = useState(true);
-    const [showInfra, setShowInfra] = useState(true);
+    // Infra arranca OFF: muchos proyectos tienen polígonos de "areas_verdes"
+    // (plaza/parque) en verde #22c55e — el MISMO verde de DISPONIBLE — que en
+    // el mapa parecen "bloques verdes enormes" superpuestos a los lotes.
+    // El usuario la prende sólo si quiere verla.
+    const [showInfra, setShowInfra] = useState(false);
     const [showImagenes, setShowImagenes] = useState(true);
     const [ready, setReady] = useState(false);
 
@@ -334,6 +338,7 @@ export default function ProjectPreviewViewer({
         );
     };
 
+    // Switch ON/OFF estilo iOS — claro y reconocible.
     const overlayButton = (
         keyName: string,
         label: string,
@@ -342,24 +347,35 @@ export default function ProjectPreviewViewer({
         setter: () => void,
         disabled: boolean
     ) => (
-        <button
+        <label
             key={keyName}
-            type="button"
-            onClick={() => !disabled && setter()}
-            aria-pressed={on}
-            disabled={disabled}
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+            className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all ${
                 disabled
-                    ? "cursor-not-allowed border-border bg-muted/30 text-muted-foreground/50"
-                    : on
-                        ? "border-brand-500/50 bg-brand-500/10 text-brand-500"
-                        : "border-border bg-background text-muted-foreground hover:text-foreground"
+                    ? "cursor-not-allowed border-slate-700/60 bg-slate-800/40 text-slate-500"
+                    : "cursor-pointer border-slate-700/60 bg-slate-800/60 text-slate-100 hover:border-brand-500/60"
             }`}
             title={disabled ? "No hay datos disponibles" : `Mostrar/ocultar ${label.toLowerCase()}`}
         >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-        </button>
+            <Icon className={`h-3.5 w-3.5 ${disabled ? "opacity-50" : on ? "text-brand-400" : "text-slate-400"}`} />
+            <span className="select-none">{label}</span>
+            <button
+                type="button"
+                role="switch"
+                aria-checked={on}
+                aria-label={label}
+                disabled={disabled}
+                onClick={() => !disabled && setter()}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                    disabled ? "bg-slate-700/40" : on ? "bg-brand-500" : "bg-slate-600"
+                }`}
+            >
+                <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                        on ? "translate-x-[18px]" : "translate-x-0.5"
+                    }`}
+                />
+            </button>
+        </label>
     );
 
     const toggle = (set: React.Dispatch<React.SetStateAction<boolean>>) => () => set((v) => !v);

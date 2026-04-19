@@ -551,8 +551,12 @@ export default function MasterplanViewer({
                                 opacity={0.55}
                             />
                         )}
-                        {/* Grid covers the full computed viewBox — not a fixed 1000×800 */}
-                        <rect x={vbX} y={vbY} width={vbW} height={vbH} fill="url(#mp-grid)" />
+                        {/* Grid: solo se dibuja cuando NO hay plano de fondo, para
+                            evitar que parezca un "tercer plano" encima del plano técnico
+                            ya cargado y de los lotes coloreados (causa de triple render). */}
+                        {!backgroundAssetUrl && (
+                            <rect x={vbX} y={vbY} width={vbW} height={vbH} fill="url(#mp-grid)" />
+                        )}
 
                         {units.map((unit) => (
                             <UnitPolygon
