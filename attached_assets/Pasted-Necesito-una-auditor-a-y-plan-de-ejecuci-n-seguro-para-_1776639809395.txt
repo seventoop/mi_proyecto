@@ -1,0 +1,74 @@
+Necesito una auditoría y plan de ejecución seguro para unificar mis bases de datos de producción y desarrollo alrededor de Railway, sin perder datos y sin duplicar registros.
+
+Contexto:
+- Antes usaba Neon.
+- Ahora quiero que Railway sea la base de datos final/canónica.
+- Sospecho que Vercel/producción todavía puede estar leyendo Neon o una base distinta.
+- Hoy tengo datos repartidos entre Neon y Railway (ej: proyectos distintos en cada una).
+- Quiero conservar todo lo valioso y terminar con Railway como única fuente de verdad.
+
+Objetivo:
+1. identificar qué base usa hoy Vercel/producción
+2. comparar Neon vs Railway
+3. proponer y, si es seguro, preparar una migración NO destructiva hacia Railway
+4. dejar claro qué comandos exactos ejecutar y en qué orden
+
+IMPORTANTE:
+- NO borrar datos
+- NO truncar tablas
+- NO usar migrate reset
+- NO usar db push destructivo
+- NO duplicar usuarios/proyectos/banners
+- NO asumir nada sin verificar
+- si no hay credenciales suficientes para ejecutar algo, diagnosticar y dejar pasos exactos
+
+Necesito que hagas esto:
+
+A. Identificación de entorno
+- revisar la configuración/documentación/scripts del repo para detectar qué base se espera usar en:
+  - producción
+  - preview
+  - desarrollo
+- confirmar si el código/documentación todavía mencionan Neon y Railway al mismo tiempo
+- indicar qué variables/importes/scripts muestran esa mezcla
+
+B. Identificar la base actual de Vercel/producción
+- decirme exactamente cómo verificar cuál DATABASE_URL está usando Vercel hoy
+- si desde este entorno no podés leer Vercel directamente, explicame el paso exacto en Vercel para verlo
+- decirme cómo reconocer si apunta a Railway o a Neon por el host
+
+C. Plan de consolidación hacia Railway
+- asumir como objetivo final: Railway como fuente de verdad
+- proponer una estrategia segura para migrar desde Neon a Railway SOLO los datos faltantes
+- priorizar estas tablas/datos:
+  - usuarios
+  - proyectos
+  - banners
+  - imágenes/relaciones de proyectos
+  - cualquier tabla pública crítica relacionada
+
+D. Detección de duplicados
+- definir criterio de matching seguro por entidad:
+  - usuarios por email normalizado
+  - proyectos por slug o id estable
+  - banners por id o clave estable
+  - imágenes por id o relación
+- explicar cómo evitar duplicados
+
+E. Ejecución segura
+- si corresponde, preparar un script idempotente de sincronización hacia Railway
+- el script debe:
+  - leer de origen y destino
+  - insertar solo faltantes
+  - actualizar solo si es seguro y explícito
+  - loggear qué creó / qué omitió / qué detectó como conflicto
+- NO tocar auth, permisos ni UI
+- NO tocar runtime de la app
+
+F. Entregables
+- diagnóstico claro de qué DB parece usar hoy producción
+- plan paso a paso para dejar Railway como única base
+- archivos modificados si hiciste script o utilidades
+- código completo
+- comandos exactos para ejecutar
+- lista de riesgos y backups obligatorios antes de correr nada

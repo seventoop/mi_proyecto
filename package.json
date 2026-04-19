@@ -16,6 +16,9 @@
     "db:seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
     "db:seed:users": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/seed-role-users.ts",
     "db:seed:projects-demo": "npx ts-node --transpile-only scripts/seed-demo-projects.ts",
+    "db:audit": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/db-audit.ts",
+    "db:sync:dry-run": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/sync-to-railway.ts",
+    "db:sync:apply": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' APPLY=true npx ts-node --transpile-only scripts/sync-to-railway.ts",
     "db:studio": "npx prisma studio",
     "postinstall": "prisma generate",
     "security:check": "node scripts/security-check.js"
