@@ -1,0 +1,71 @@
+Necesito dejar de perseguir residuos de planos viejos y resetear esto desde la raíz.
+
+Quiero una solución para limpiar completamente toda la información de plano/masterplan asociada a un proyecto, empezando por **Barrio Capinota**.
+
+## Objetivo
+
+Dejar el proyecto como si **nunca hubiera tenido un plano cargado**, para volver a cargarlo desde cero y probar limpio.
+
+## Sospecha
+
+Es posible que haya referencias viejas, geometrías previas, overlays persistidos o configuraciones anteriores que sigan afectando el render actual (vista del proyecto y masterplan interactivo), aunque el plano visible haya sido reemplazado.
+
+No quiero seguir intentando corregir arriba de eso.
+Quiero resetear completamente.
+
+## Lo que necesito
+
+### 1. Auditoría rápida
+
+Identificar todos los campos, tablas, relaciones o assets que intervienen en el plano/masterplan del proyecto, incluyendo si aplica:
+
+* masterplan SVG
+* overlay de mapa
+* bounds / rotación / posición
+* geometrías derivadas
+* infraestructura asociada al plano
+* imágenes geo-vinculadas al plano
+* cualquier referencia usada por:
+
+  * vista del proyecto
+  * masterplan interactivo
+
+### 2. Acción de limpieza completa para un proyecto
+
+Implementar una acción segura para **resetear completamente el plano de un proyecto**.
+
+Empezar por:
+
+* **Barrio Capinota**
+
+Esa limpieza debe borrar o nullificar todo lo necesario para que el proyecto quede como si nunca hubiera tenido un plano cargado.
+
+### 3. Opcional pero recomendado
+
+Evaluar agregar en el dashboard un botón/acción administrativa tipo:
+
+**“Resetear plano del proyecto”**
+
+Con:
+
+* confirmación fuerte
+* warning claro
+* efecto total sobre toda la configuración del plano
+
+No quiero que borre solo “el archivo actual”.
+Quiero que elimine absolutamente todos los registros y referencias asociadas a planos cargados anteriormente para ese proyecto.
+
+## Importante
+
+Antes de ejecutar nada masivo:
+
+* no tocar todos los proyectos de una
+* primero hacerlo sobre **Barrio Capinota**
+* luego yo vuelvo a cargar el plano y probamos desde cero
+
+## Entrega esperada
+
+1. Qué datos exactos intervienen en el sistema de planos/masterplan
+2. Qué se limpió en Barrio Capinota
+3. Confirmación de que quedó “virgen” de plano
+4. Si agregaste el botón/acción en dashboard, dónde quedó y qué alcance tiene
