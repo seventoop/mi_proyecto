@@ -114,6 +114,17 @@ export default function ProjectPreviewViewer({
     const infraLayerRef = useRef<any>(null);
     const imagesLayerRef = useRef<any>(null);
 
+    if (typeof window !== "undefined") {
+        // Debug temporal: confirma qué le llega al cliente
+        // eslint-disable-next-line no-console
+        console.log("[ProjectPreviewViewer] planSvgRaw:", {
+            type: typeof planSvgRaw,
+            length: planSvgRaw?.length ?? 0,
+            head: planSvgRaw?.slice(0, 120) ?? null,
+            hasPlanAsset: !!planAsset,
+        });
+    }
+
     const hasMap = mapCenterLat != null && mapCenterLng != null;
     const hasUnits = units.some((u) => !!u.coordenadasMasterplan);
     const hasInfra = infrastructures.some((i) => Array.isArray(i.coordenadas) && i.coordenadas.length > 0);
@@ -470,18 +481,32 @@ export default function ProjectPreviewViewer({
                     <div className="absolute inset-0 p-6">
                         {planSvgRaw ? (
                             <div
-                                className="relative h-full w-full"
+                                className="relative h-full w-full rounded-lg border-2 border-fuchsia-500/60 bg-white"
                                 aria-label={`Plano de ${projectName}`}
                                 role="img"
                             >
                                 {/* SVG inline: respeta su propio viewBox, escala al contenedor
                                     y evita los problemas de decodificación que tiene
-                                    background-image:url(data:image/svg+xml,...) con SVGs grandes. */}
+                                    background-image:url(data:image/svg+xml,...) con SVGs grandes.
+                                    Forzamos width/height al 100% inyectándolos en el tag <svg>
+                                    porque algunos planos generados desde DXF no traen esos atributos
+                                    (sólo viewBox), y sin ellos el navegador renderiza a 300x150. */}
                                 <div
-                                    className="absolute inset-0 [&>svg]:h-full [&>svg]:w-full [&>svg]:block"
+                                    className="absolute inset-0 overflow-hidden [&>svg]:!block [&>svg]:!h-full [&>svg]:!w-full"
                                     // The SVG comes from our own DB (uploaded by the project owner in the
                                     // dashboard) and is already label-stripped on the server.
-                                    dangerouslySetInnerHTML={{ __html: planSvgRaw }}
+                                    dangerouslySetInnerHTML={{
+                                        __html: planSvgRaw.replace(
+                                            /<svg\b([^>]*)>/i,
+                                            (_m, attrs) => {
+                                                let a = attrs as string;
+                                                if (!/\swidth\s*=/.test(a)) a += ' width="100%"';
+                                                if (!/\sheight\s*=/.test(a)) a += ' height="100%"';
+                                                if (!/preserveAspectRatio\s*=/.test(a)) a += ' preserveAspectRatio="xMidYMid meet"';
+                                                return `<svg${a}>`;
+                                            },
+                                        ),
+                                    }}
                                 />
                                 {showEstados && planSvgViewBox && hasUnits && (
                                     <svg
