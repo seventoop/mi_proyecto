@@ -65,6 +65,27 @@ export async function requireAuth(): Promise<AuthUser> {
 /**
  * Requires the user to have a specific role. Returns the user.
  * SUPERADMIN has all permissions by default.
+ *
+ * NOTE on requireRole vs requirePermission (lib/auth/permissions.ts):
+ *
+ *   - `requirePermission(KEY)` is the preferred guard for any module covered by
+ *     the configurable permission matrix (USERS_MANAGE, ROLE_REQUESTS_MANAGE,
+ *     RISKS_VIEW, CRM_ADMIN, PLATFORM_CONFIG_MANAGE). It honors role overrides
+ *     stored in `system_config` so admins can adjust access without redeploys.
+ *
+ *   - `requireRole(role)` remains the right tool for guards that are NOT
+ *     governed by that matrix and must stay tied to a hard role identity:
+ *       · `app/api/admin/role-permissions/route.ts` → SUPERADMIN-only because
+ *         it edits the matrix itself; making it permission-driven would create
+ *         a privilege loop.
+ *       · Legacy admin-only server actions (`lib/actions/proyectos.ts`,
+ *         `tours.ts`, `pagos.ts`, `reservas.ts`, `inversiones.ts`, etc.) that
+ *         do not yet have a dedicated permission key. These are safe — they
+ *         deny by default to anyone who isn't ADMIN/SUPERADMIN.
+ *
+ * Do not replace requireRole with requirePermission unless a matching
+ * permission key already exists; otherwise you remove a check without adding
+ * an equivalent one.
  */
 export async function requireRole(role: string): Promise<AuthUser> {
     const user = await requireAuth();

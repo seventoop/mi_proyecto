@@ -2,13 +2,14 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { requireAnyRole, handleApiGuardError } from "@/lib/guards";
+import { handleApiGuardError } from "@/lib/guards";
 import { leadAssignmentSchema } from "@/lib/validations";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 
 // GET: Admin CRM leads with filters (bandeja admin)
 export async function GET(req: NextRequest) {
     try {
-        const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+        const user = await requirePermission(PERMISSIONS.CRM_ADMIN);
         // @security-hardened: Filter by orgId for ADMIN unless they are SUPERADMIN
         const isSuperAdmin = (user as any).rol === "SUPERADMIN" || user.role === "SUPERADMIN";
 
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
 // PATCH: Assign lead to org or user
 export async function PATCH(req: NextRequest) {
     try {
-        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+        await requirePermission(PERMISSIONS.CRM_ADMIN);
         const body = await req.json();
 
         // 🛡️ STRICT VALIDATION

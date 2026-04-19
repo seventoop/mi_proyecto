@@ -5,14 +5,24 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import PlatformSettingsForm from "@/components/dashboard/platform-settings-form";
 import SmartCrmSettingsForm from "@/components/dashboard/smart-crm-settings-form";
+import RequestRoleChangeCard from "@/components/dashboard/request-role-change-card";
+import RoleChangeRequestsAdminCard from "@/components/dashboard/role-change-requests-admin-card";
+import RolePermissionsAdminCard from "@/components/dashboard/role-permissions-admin-card";
+import { PERMISSIONS, roleHasPermission } from "@/lib/auth/permissions";
 
 export default async function ConfiguracionPage() {
     const session = await getServerSession(authOptions);
+    const userRole = (session?.user as any)?.role as string | undefined;
 
     // Fetch Configs in Parallel on the Server
     const [configRes, userRes] = await Promise.all([
         getAllSystemConfig(),
         getUserConfig()
+    ]);
+
+    const [canManagePlatform, canManageRoleRequests] = await Promise.all([
+        userRole ? roleHasPermission(userRole, PERMISSIONS.PLATFORM_CONFIG_MANAGE) : Promise.resolve(false),
+        userRole ? roleHasPermission(userRole, PERMISSIONS.ROLE_REQUESTS_MANAGE) : Promise.resolve(false),
     ]);
 
     const configData = configRes.success && 'data' in configRes ? configRes.data : {} as Record<string, string>;
@@ -40,17 +50,19 @@ export default async function ConfiguracionPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
                     {/* Platform Settings */}
-                    {(session?.user as any)?.role === "ADMIN" && (
+                    {(canManagePlatform || canManageRoleRequests || userRole === "SUPERADMIN") && (
                         <>
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500">
-                                        <Settings className="w-5 h-5" />
+                            {canManagePlatform && (
+                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500">
+                                            <Settings className="w-5 h-5" />
+                                        </div>
+                                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Plataforma</h2>
                                     </div>
-                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Plataforma</h2>
+                                    <PlatformSettingsForm initialConfig={systemConfig} />
                                 </div>
-                                <PlatformSettingsForm initialConfig={systemConfig} />
-                            </div>
+                            )}
 
                             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
                                 <div className="flex items-center gap-3 mb-6">
@@ -61,6 +73,9 @@ export default async function ConfiguracionPage() {
                                 </div>
                                 <SmartCrmSettingsForm initialConfig={smartCrmConfig} />
                             </div>
+
+                            {canManageRoleRequests && <RoleChangeRequestsAdminCard />}
+                            {userRole === "SUPERADMIN" && <RolePermissionsAdminCard />}
                         </>
                     )}
 
@@ -74,6 +89,8 @@ export default async function ConfiguracionPage() {
                         </div>
                         <SettingsForm initialConfig={userData} />
                     </div>
+
+                    <RequestRoleChangeCard />
                 </div>
 
                 <div className="space-y-6">

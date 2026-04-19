@@ -30,6 +30,10 @@ function LoginForm() {
         if (errorParam) {
             if (errorParam === "CredentialsSignin") {
                 setError("Email o contraseña incorrectos");
+            } else if (errorParam === "google_pre_registration") {
+                setError("No pudimos completar el alta con Google. Volvé a intentarlo.");
+            } else if (errorParam === "google_pre_registration_expired") {
+                setError("La selección de tipo de cuenta venció. Volvé a ingresar con Google para continuar.");
             } else {
                 setError("Se produjo un error durante el inicio de sesión");
             }
@@ -127,7 +131,7 @@ function LoginForm() {
             <div className="space-y-2 mb-8">
                 <h2 className="text-2xl font-bold text-white">Iniciar sesión</h2>
                 <p className="text-slate-400">
-                    Ingresa tus credenciales para acceder al panel
+                    Ingresá tus credenciales para acceder a tu cuenta
                 </p>
             </div>
 

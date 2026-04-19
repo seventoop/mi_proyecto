@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/db";
+import { createGooglePreRegistrationToken } from "@/lib/auth/google-pre-registration";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -34,7 +35,6 @@ export const authOptions: NextAuthOptions = {
                 });
 
                 if (!user || !user.password) {
-                    // Generic error to avoid user enumeration
                     throw new Error("Credenciales inválidas");
                 }
 
@@ -72,11 +72,10 @@ export const authOptions: NextAuthOptions = {
     ],
     session: {
         strategy: "jwt",
-        maxAge: 24 * 60 * 60, // 24 horas
+        maxAge: 24 * 60 * 60,
     },
     callbacks: {
         async signIn({ user, account, profile }) {
-            // Only Google needs the linking/upsert step. Credentials already authorized().
             if (account?.provider !== "google") return true;
 
             const email = (profile as any)?.email?.toLowerCase()?.trim();
@@ -90,21 +89,15 @@ export const authOptions: NextAuthOptions = {
             const picture = (profile as any)?.picture || user?.image || null;
 
             if (!email || emailVerified !== true) {
-                // Strict: require Google to explicitly assert email_verified === true
-                // before linking/creating accounts (prevents account-takeover via
-                // unverified email assertions).
                 return false;
             }
 
-            // Upsert: link by email if user already exists, else create a new one
-            // with safe defaults that match the existing CredentialsProvider flow.
             const existing = await prisma.user.findUnique({
                 where: { email },
                 select: { id: true, googleId: true, avatar: true, nombre: true },
             });
 
             if (existing) {
-                // Link Google account on first Google sign-in for this email
                 if (!existing.googleId || !existing.avatar) {
                     await prisma.user.update({
                         where: { id: existing.id },
@@ -115,28 +108,21 @@ export const authOptions: NextAuthOptions = {
                     });
                 }
                 (user as any).id = existing.id;
-            } else {
-                const created = await prisma.user.create({
-                    data: {
-                        email,
-                        googleId: googleSub,
-                        nombre: fullName,
-                        avatar: picture,
-                        // password stays null — OAuth-only account
-                        // rol, kycStatus, riskLevel, etc. use schema defaults
-                    },
-                    select: { id: true },
-                });
-                (user as any).id = created.id;
+                return true;
             }
 
-            return true;
+            const token = createGooglePreRegistrationToken({
+                email,
+                googleSub,
+                fullName,
+                picture,
+            });
+
+            return `/google-register?token=${encodeURIComponent(token)}`;
         },
         async jwt({ token, user, trigger }) {
-            // Initial sign-in: populate token from the authorize() / signIn() return value
             if (user) {
                 token.id = (user as any).id;
-                // For OAuth, role/orgId/kycStatus aren't on `user` — fetch from DB once
                 if (!(user as any).role) {
                     const dbUser = await prisma.user.findUnique({
                         where: { id: (user as any).id },
@@ -160,10 +146,7 @@ export const authOptions: NextAuthOptions = {
                 return token;
             }
 
-            // Subsequent validations: only refetch from DB if TTL has elapsed
-            // or if an explicit session update was triggered (e.g. SessionSyncHandler).
-            // This prevents a DB query on every page navigation and API call.
-            const DB_SYNC_INTERVAL_S = 5 * 60; // 5 minutes
+            const DB_SYNC_INTERVAL_S = 5 * 60;
             const now = Math.floor(Date.now() / 1000);
             const elapsed = now - (token.lastDbSync ?? 0);
             const needsSync = trigger === "update" || elapsed >= DB_SYNC_INTERVAL_S;

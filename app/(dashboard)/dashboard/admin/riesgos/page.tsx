@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import ModuleHelp from "@/components/dashboard/module-help";
 import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
+import { PERMISSIONS, roleHasPermission } from "@/lib/auth/permissions";
 
 export default async function AdminRisksPage({
     searchParams
@@ -17,7 +18,9 @@ export default async function AdminRisksPage({
     searchParams: { level?: string }
 }) {
     const session = await getServerSession(authOptions);
-    if ((session?.user as any)?.role !== "ADMIN") redirect("/dashboard");
+    const role = (session?.user as any)?.role as string | undefined;
+    const canViewRisks = role ? await roleHasPermission(role, PERMISSIONS.RISKS_VIEW) : false;
+    if (!canViewRisks) redirect("/dashboard");
 
     const res = await getUsersRiskData({ level: searchParams.level });
 

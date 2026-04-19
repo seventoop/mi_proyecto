@@ -50,29 +50,40 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deleteUserAccount } from "@/lib/actions/user";
 import { toast } from "sonner";
+import { PERMISSIONS, type PermissionKey } from "@/lib/auth/permissions";
 
-// Admin navigation
-const adminNavItems = [
+// Admin navigation. Items can declare a `permission` key; the sidebar will only
+// render them when the current user actually has that permission. Items without
+// a `permission` field keep their previous behavior (visible for the role).
+type NavItem = {
+    section?: string;
+    label?: string;
+    href?: string;
+    icon?: any;
+    permission?: PermissionKey;
+};
+
+const adminNavItems: NavItem[] = [
     { section: "Plataforma" },
     { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Riesgos", href: "/dashboard/admin/riesgos", icon: AlertTriangle },
+    { label: "Riesgos", href: "/dashboard/admin/riesgos", icon: AlertTriangle, permission: PERMISSIONS.RISKS_VIEW },
     { section: "Entidades" },
     { label: "Proyectos", href: "/dashboard/admin/proyectos", icon: Building2 },
-    { label: "Usuarios", href: "/dashboard/admin/usuarios", icon: UserCheck },
+    { label: "Usuarios", href: "/dashboard/admin/usuarios", icon: UserCheck, permission: PERMISSIONS.USERS_MANAGE },
     { label: "KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck },
     { label: "Mandatos", href: "/dashboard/admin/mandatos", icon: BookmarkCheck },
     { label: "Validaciones", href: "/dashboard/admin/validaciones", icon: Workflow },
     { label: "Comercial", href: "/dashboard/admin/comercial", icon: BarChart3 },
     { label: "Planes", href: "/dashboard/admin/planes", icon: CreditCard },
     { section: "Engagement" },
-    { label: "CRM / Leads", href: "/dashboard/admin/crm/leads", icon: Users },
+    { label: "CRM / Leads", href: "/dashboard/admin/crm/leads", icon: Users, permission: PERMISSIONS.CRM_ADMIN },
     { label: "Etapas de Leads", href: "/dashboard/crm/pipeline", icon: Workflow },
     { label: "BI Métricas", href: "/dashboard/crm/metricas", icon: BarChart3 },
     { section: "CMS & Setup" },
     { label: "Banners", href: "/dashboard/admin/banners", icon: ImageIcon },
     { label: "Testimonios", href: "/dashboard/admin/testimonios", icon: MessageSquare },
     { label: "Automation", href: "/dashboard/admin/logictoop", icon: Workflow },
-    { label: "Configuración", href: "/dashboard/admin/configuracion", icon: Settings },
+    { label: "Configuración", href: "/dashboard/admin/configuracion", icon: Settings, permission: PERMISSIONS.PLATFORM_CONFIG_MANAGE },
 ];
 
 // Developer navigation
@@ -117,29 +128,74 @@ const inversorNavItems = [
     { label: "Configuración", href: "/dashboard/portafolio/configuracion", icon: Settings },
 ];
 
-export default function Sidebar() {
+type SidebarProps = {
+    /**
+     * Effective permissions for the current user, resolved on the server from
+     * the configurable role-permission matrix. When `null` (no session yet) the
+     * sidebar falls back to legacy role-based rendering only — no permission
+     * filtering is applied so links never disappear unexpectedly.
+     */
+    effectivePermissions?: Record<PermissionKey, boolean> | null;
+};
+
+/**
+ * Filters a nav list, dropping items whose `permission` is declared but not
+ * granted by `effectivePermissions`. Section headers that end up with no
+ * following items in their group are also dropped to avoid empty headings.
+ * Items without a `permission` field are always kept (compat with non-migrated
+ * routes).
+ */
+function filterNavByPermissions(
+    items: NavItem[],
+    effectivePermissions: Record<PermissionKey, boolean> | null | undefined
+): NavItem[] {
+    const filtered = items.filter((item) => {
+        if (item.section) return true;
+        if (!item.permission) return true;
+        // No permissions resolved yet → keep legacy visibility, do not hide.
+        if (!effectivePermissions) return true;
+        return effectivePermissions[item.permission] === true;
+    });
+
+    // Drop section headers with no items beneath them.
+    const result: NavItem[] = [];
+    for (let i = 0; i < filtered.length; i++) {
+        const current = filtered[i];
+        if (current.section) {
+            const next = filtered[i + 1];
+            if (!next || next.section) continue;
+        }
+        result.push(current);
+    }
+    return result;
+}
+
+export default function Sidebar({ effectivePermissions = null }: SidebarProps = {}) {
     const pathname = usePathname();
     const sidebarOpen = useAppStore((state) => state.sidebarOpen);
     const toggleSidebar = useAppStore((state) => state.toggleSidebar);
     const { data: session, status: sessionStatus } = useSession();
     const userRole = (session?.user as any)?.role;
 
-    // Select navigation items based on role
-    let navItems: any[] = [];
-    
+    // Select navigation items based on role, then filter by effective permissions
+    // so the sidebar only shows modules the backend will actually allow.
+    let baseNavItems: NavItem[] = [];
+
     if (sessionStatus === "loading") {
-        navItems = [];
+        baseNavItems = [];
     } else if (userRole === "ADMIN" || userRole === "SUPERADMIN") {
-        navItems = adminNavItems;
+        baseNavItems = adminNavItems;
     } else if (userRole === "VENDEDOR" || userRole === "DESARROLLADOR") {
-        navItems = developerNavItems;
+        baseNavItems = developerNavItems;
     } else if (userRole === "INVERSOR") {
-        navItems = inversorNavItems;
+        baseNavItems = inversorNavItems;
     } else if (userRole === "CLIENTE") {
-        navItems = clienteNavItems;
+        baseNavItems = clienteNavItems;
     } else {
-        navItems = [];
+        baseNavItems = [];
     }
+
+    const navItems = filterNavByPermissions(baseNavItems, effectivePermissions);
 
     const [planData, setPlanData] = useState<any>(null);
 

@@ -1223,7 +1223,7 @@ export default function MasterplanMap({
                         <div className="flex items-center justify-between gap-3 mb-3">
                             <div>
                                 <p className="text-sm font-bold text-white">Galeria de planos</p>
-                                <p className="text-xs text-slate-400">Elegi cual queres usar en el mapa interactivo antes de posicionarlo.</p>
+                                <p className="text-xs text-slate-400">Elegí cuál querés usar en el mapa interactivo antes de posicionarlo.</p>
                             </div>
                             <button
                                 onClick={() => setShowPlanGallery(false)}
