@@ -2,11 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { requireAnyRole, handleApiGuardError } from "@/lib/guards";
+import { handleApiGuardError } from "@/lib/guards";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 
 export async function GET() {
     try {
-        await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+        await requirePermission(PERMISSIONS.PLATFORM_CONFIG_MANAGE);
         const configs = await prisma.systemConfig.findMany();
         const configMap: Record<string, string> = {};
         configs.forEach(c => { configMap[c.key] = c.value; });
@@ -18,7 +19,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
     try {
-        const user = await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+        const user = await requirePermission(PERMISSIONS.PLATFORM_CONFIG_MANAGE);
         const updates = await req.json();
 
         await prisma.$transaction(async tx => {

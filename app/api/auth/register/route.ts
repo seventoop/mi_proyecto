@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { getClientIp, checkRateLimit } from "@/lib/rate-limit";
+import { getInitialUserRole } from "@/lib/auth/registration-policy";
 
 const registerSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres").max(100),
@@ -42,22 +43,18 @@ export async function POST(req: NextRequest) {
 
     const { nombre, password, role } = parsed.data;
     const email = parsed.data.email.toLowerCase().trim();
-
-    // SECURITY: Whitelist of allowed roles from public registration
-    const ALLOWED_ROLES = ["DESARROLLADOR", "VENDEDOR", "INVERSOR"];
-    const BLOCKED_ROLES = ["ADMIN", "SUPERADMIN"];
-
-    if (BLOCKED_ROLES.includes(role?.toUpperCase())) {
-      return NextResponse.json(
-        { error: "Acceso denegado. No se permiten registros administrativos." },
-        { status: 403 }
-      );
+    let finalRole: string;
+    try {
+      finalRole = getInitialUserRole(role);
+    } catch (error) {
+      if (error instanceof Error && error.message === "PUBLIC_ROLE_ASSIGNMENT_BLOCKED") {
+        return NextResponse.json(
+          { error: "Acceso denegado. No se permiten registros administrativos." },
+          { status: 403 }
+        );
+      }
+      throw error;
     }
-
-    // Default to CLIENTE if role is not in whitelist or not provided
-    const finalRole = ALLOWED_ROLES.includes(role?.toUpperCase())
-      ? role.toUpperCase()
-      : "CLIENTE";
 
     // Verificar si el email ya existe
     const existingUser = await prisma.user.findUnique({

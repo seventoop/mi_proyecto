@@ -4,12 +4,21 @@ import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import ModuleHelp from "@/components/dashboard/module-help";
 import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { PERMISSIONS, roleHasPermission } from "@/lib/auth/permissions";
 
 export default async function AdminUsersPage({
     searchParams
 }: {
     searchParams: { [key: string]: string | string[] | undefined }
 }) {
+    const session = await getServerSession(authOptions);
+    const roleValue = (session?.user as any)?.role as string | undefined;
+    const canManageUsers = roleValue ? await roleHasPermission(roleValue, PERMISSIONS.USERS_MANAGE) : false;
+    if (!canManageUsers) redirect("/dashboard");
+
     const page = Number(searchParams?.page) || 1;
     const search = typeof searchParams?.search === "string" ? searchParams.search : undefined;
     const role = typeof searchParams?.role === "string" ? searchParams.role : undefined;
