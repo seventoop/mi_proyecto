@@ -62,17 +62,17 @@ export default function GoogleRegisterForm({
     return (
         <div className="animate-fade-in space-y-6">
             <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-white">Elegi tu tipo de cuenta inicial</h2>
+                <h2 className="text-2xl font-bold text-white">Elegí tu tipo de cuenta inicial</h2>
                 <p className="text-slate-400">
-                    {name || "Tu cuenta"} se autentico con <span className="text-white">{email}</span>. Antes de entrar,
-                    elegi con que tipo de cuenta queres comenzar. Cuando confirmes, vamos a crear tu cuenta con ese rol inicial.
+                    {name || "Tu cuenta"} se autenticó con <span className="text-white">{email}</span>. Antes de entrar,
+                    elegí con qué tipo de cuenta querés comenzar. Cuando confirmes, vamos a crear tu cuenta con ese rol inicial.
                 </p>
             </div>
 
             <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
-                <p className="font-semibold">Como sigue el acceso</p>
+                <p className="font-semibold">Cómo sigue el acceso</p>
                 <p className="mt-1 text-sky-100/80">
-                    Despues de confirmar, Google puede volver a abrirse un instante para terminar el ingreso y llevarte a tu dashboard.
+                    Después de confirmar, Google puede volver a abrirse un instante para terminar el ingreso y llevarte a tu dashboard.
                 </p>
             </div>
 
@@ -124,7 +124,7 @@ export default function GoogleRegisterForm({
             <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
                 <p className="font-semibold">Roles no autoasignables</p>
                 <p className="mt-1 text-amber-100/80">
-                    ADMIN y SUPERADMIN no pueden elegirse desde este onboarding publico. Esos accesos se gestionan por separado.
+                    ADMIN y SUPERADMIN no pueden elegirse desde este onboarding público. Esos accesos se gestionan por separado.
                 </p>
             </div>
 

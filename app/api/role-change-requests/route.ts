@@ -11,15 +11,27 @@ import { createNotification } from "@/lib/actions/notifications";
 import { audit } from "@/lib/actions/audit";
 import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 
+const ALLOWED_REQUEST_STATUS = ["PENDIENTE", "APROBADA", "RECHAZADA"] as const;
+type AllowedRequestStatus = (typeof ALLOWED_REQUEST_STATUS)[number];
+
+function normalizeRequestStatus(raw: string | null | undefined): AllowedRequestStatus {
+    const candidate = raw?.toUpperCase().trim();
+    if (candidate && (ALLOWED_REQUEST_STATUS as readonly string[]).includes(candidate)) {
+        return candidate as AllowedRequestStatus;
+    }
+    // Fail-safe fallback: any unknown / malformed value defaults to PENDIENTE
+    // so the listing never leaks resolved requests by accident.
+    return "PENDIENTE";
+}
+
 export async function GET(req: NextRequest) {
     try {
         await requirePermission(PERMISSIONS.ROLE_REQUESTS_MANAGE);
 
-        const status = req.nextUrl.searchParams.get("status")?.toUpperCase().trim() || "PENDIENTE";
-        const where = status ? { status } : {};
+        const status = normalizeRequestStatus(req.nextUrl.searchParams.get("status"));
 
         const requests = await prisma.roleChangeRequest.findMany({
-            where,
+            where: { status },
             orderBy: { createdAt: "desc" },
             select: {
                 id: true,

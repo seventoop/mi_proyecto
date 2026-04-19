@@ -5,7 +5,7 @@ import {
     Search, Filter, MoreVertical, Shield, ShieldAlert,
     CheckCircle, XCircle, Trash2, UserCog, ChevronLeft, ChevronRight
 } from "lucide-react";
-import { updateUserRole, toggleUserBan } from "@/lib/actions/user-actions";
+import { updateUserRole, toggleUserBan, type AdminAssignableRole } from "@/lib/actions/user-actions";
 import { cn } from "@/lib/utils";
 import {
     DropdownMenu,
@@ -44,7 +44,7 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
         });
     };
 
-    const handleRoleChange = async (userId: string, newRole: "ADMIN" | "VENDEDOR" | "USER") => {
+    const handleRoleChange = async (userId: string, newRole: AdminAssignableRole) => {
         if (!confirm(`¿Estás seguro de cambiar el rol a ${newRole}?`)) return;
         const res = await updateUserRole(userId, newRole);
         if (!res.success) alert("error" in res ? String(res.error) : "Error");
@@ -82,8 +82,10 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
                         className="px-3 py-2 bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.06] hover:dark:border-white/[0.12] transition-colors rounded-xl text-sm font-black uppercase tracking-widest outline-none"
                     >
                         <option value="ALL">Todos los Roles</option>
-                        <option value="USER">Usuarios</option>
+                        <option value="CLIENTE">Clientes</option>
+                        <option value="INVERSOR">Inversores</option>
                         <option value="VENDEDOR">Vendedores</option>
+                        <option value="DESARROLLADOR">Desarrolladores</option>
                         <option value="ADMIN">Admins</option>
                     </select>
                     <select
@@ -174,8 +176,8 @@ export default function UsersTable({ users, metadata }: UsersTableProps) {
                                                     <DropdownMenuItem onClick={() => handleRoleChange(user.id, "VENDEDOR")}>
                                                         <UserCog className="w-4 h-4 mr-2" /> Hacer Vendedor
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, "USER")}>
-                                                        <UserCog className="w-4 h-4 mr-2" /> Hacer Usuario
+                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, "CLIENTE")}>
+                                                        <UserCog className="w-4 h-4 mr-2" /> Hacer Cliente
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem className="text-rose-600" onClick={() => handleDelete(user.id)}>

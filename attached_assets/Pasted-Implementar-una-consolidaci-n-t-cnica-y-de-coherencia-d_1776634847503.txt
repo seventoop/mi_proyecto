@@ -1,0 +1,69 @@
+Implementar una consolidación técnica y de coherencia del sistema actual de usuarios, roles, permisos y UX, SIN agregar nuevas funcionalidades.
+
+Objetivo:
+dejar el sistema estable, consistente y listo para escalar, evitando inconsistencias y bugs futuros.
+
+IMPORTANTE:
+- NO romper nada existente
+- NO cambiar comportamiento funcional actual
+- NO reescribir arquitectura
+- SOLO corregir inconsistencias, deuda técnica y bordes
+
+Alcance:
+
+1. Validaciones backend consistentes
+- en GET /api/role-change-requests:
+  - validar que el query param status sea solo:
+    PENDIENTE | APROBADA | RECHAZADA
+  - si no es válido → ignorar o fallback seguro
+
+2. Tipos de roles unificados
+- revisar cualquier función que use roles hardcodeados antiguos
+  (ej: updateUserRole con "USER")
+- alinear con el sistema actual:
+  CLIENTE | INVERSOR | VENDEDOR | DESARROLLADOR | ADMIN | SUPERADMIN
+
+3. Coherencia de permisos vs roles
+- revisar que:
+  - ningún endpoint use solo requireRole si ya existe requirePermission equivalente
+- NO eliminar requireRole, pero:
+  - documentar dónde sigue siendo necesario
+  - asegurar que no genere contradicciones con permisos
+
+4. Sidebar / navegación
+- verificar que:
+  - ningún item visible lleve a rutas que backend bloquea
+  - ningún permiso activo quede sin representación visual
+- NO rehacer sidebar, solo corregir inconsistencias si existen
+
+5. UX / copy mínima (sin rediseñar)
+- corregir errores evidentes:
+  - tildes en español (Ej: "Elegi" → "Elegí")
+  - textos inconsistentes
+- NO reescribir contenido completo
+
+6. Seguridad y edge cases
+- asegurar que:
+  - no se puedan enviar múltiples solicitudes en estado PENDIENTE
+  - backend siga validando rol solicitado
+- validar que:
+  - endpoints protegidos no dependan solo de frontend
+
+7. Logs útiles (solo si es trivial)
+- agregar logs en backend para:
+  - errores de role change request
+  - errores de permisos
+- sin sobrecargar el sistema
+
+8. No tocar
+- flujo Google
+- sistema de permisos
+- estructura de roles
+- UI principal
+- migraciones
+
+Entregar:
+- archivos modificados
+- código completo de cada cambio
+- lista clara de problemas corregidos
+- confirmación de que no se rompe ningún flujo actual

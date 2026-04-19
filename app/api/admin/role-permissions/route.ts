@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+// NOTE: This endpoint manages the permission matrix itself. It intentionally
+// uses `requireRole("SUPERADMIN")` instead of `requirePermission(...)` to avoid
+// a privilege loop where the role being edited could grant itself access to
+// edit further permissions. See `lib/guards.ts#requireRole` JSDoc for the full
+// rationale on requireRole vs requirePermission.
 import { handleApiGuardError, requireRole } from "@/lib/guards";
 import {
     getRolePermissionsMatrix,

@@ -5,6 +5,27 @@ import { revalidatePath } from "next/cache";
 import { handleGuardError } from "@/lib/guards";
 import { idSchema } from "@/lib/validations";
 import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { ROLES, type Role } from "@/lib/constants/roles";
+
+/**
+ * Roles that an admin can assign from the Users admin table. Excludes
+ * SUPERADMIN (platform-level only, granted out of band) and removes the
+ * legacy "USER" role which no longer exists in the canonical role set.
+ */
+const ADMIN_ASSIGNABLE_ROLES = [
+    ROLES.ADMIN,
+    ROLES.DESARROLLADOR,
+    ROLES.VENDEDOR,
+    ROLES.INVERSOR,
+    ROLES.CLIENTE,
+] as const satisfies readonly Role[];
+
+export type AdminAssignableRole = (typeof ADMIN_ASSIGNABLE_ROLES)[number];
+
+function isAdminAssignableRole(value: unknown): value is AdminAssignableRole {
+    return typeof value === "string"
+        && (ADMIN_ASSIGNABLE_ROLES as readonly string[]).includes(value);
+}
 
 // ─── Queries ───
 
@@ -66,10 +87,18 @@ export async function getUsers(
 
 // ─── Mutations ───
 
-export async function updateUserRole(userId: string, newRole: "ADMIN" | "VENDEDOR" | "USER") {
+export async function updateUserRole(userId: string, newRole: AdminAssignableRole) {
     try {
         const idParsed = idSchema.safeParse(userId);
         if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
+
+        if (!isAdminAssignableRole(newRole)) {
+            // Defensive guard: protects against stale clients still sending the
+            // legacy "USER" role or any non-canonical value. The backend stays
+            // the source of truth even if frontend code drifts.
+            console.warn("[updateUserRole] rejected non-canonical role", { userId, newRole });
+            return { success: false, error: "Rol no asignable" };
+        }
 
         await requirePermission(PERMISSIONS.USERS_MANAGE);
         await prisma.user.update({
@@ -79,6 +108,7 @@ export async function updateUserRole(userId: string, newRole: "ADMIN" | "VENDEDO
         revalidatePath("/dashboard/admin/usuarios");
         return { success: true };
     } catch (error) {
+        console.error("[updateUserRole] failed", { userId, newRole, error });
         return handleGuardError(error);
     }
 }
