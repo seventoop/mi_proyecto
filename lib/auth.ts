@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/db";
 
@@ -32,7 +33,7 @@ export const authOptions: NextAuthOptions = {
                     }
                 });
 
-                if (!user) {
+                if (!user || !user.password) {
                     // Generic error to avoid user enumeration
                     throw new Error("Credenciales inválidas");
                 }
@@ -57,20 +58,104 @@ export const authOptions: NextAuthOptions = {
                 };
             },
         }),
+        GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+            authorization: {
+                params: {
+                    prompt: "select_account",
+                    access_type: "offline",
+                    response_type: "code",
+                },
+            },
+        }),
     ],
     session: {
         strategy: "jwt",
         maxAge: 24 * 60 * 60, // 24 horas
     },
     callbacks: {
+        async signIn({ user, account, profile }) {
+            // Only Google needs the linking/upsert step. Credentials already authorized().
+            if (account?.provider !== "google") return true;
+
+            const email = (profile as any)?.email?.toLowerCase()?.trim();
+            const emailVerified = (profile as any)?.email_verified;
+            const googleSub = (profile as any)?.sub ?? account.providerAccountId;
+            const fullName =
+                (profile as any)?.name ||
+                user?.name ||
+                email?.split("@")[0] ||
+                "Usuario";
+            const picture = (profile as any)?.picture || user?.image || null;
+
+            if (!email || emailVerified !== true) {
+                // Strict: require Google to explicitly assert email_verified === true
+                // before linking/creating accounts (prevents account-takeover via
+                // unverified email assertions).
+                return false;
+            }
+
+            // Upsert: link by email if user already exists, else create a new one
+            // with safe defaults that match the existing CredentialsProvider flow.
+            const existing = await prisma.user.findUnique({
+                where: { email },
+                select: { id: true, googleId: true, avatar: true, nombre: true },
+            });
+
+            if (existing) {
+                // Link Google account on first Google sign-in for this email
+                if (!existing.googleId || !existing.avatar) {
+                    await prisma.user.update({
+                        where: { id: existing.id },
+                        data: {
+                            googleId: existing.googleId ?? googleSub,
+                            avatar: existing.avatar ?? picture,
+                        },
+                    });
+                }
+                (user as any).id = existing.id;
+            } else {
+                const created = await prisma.user.create({
+                    data: {
+                        email,
+                        googleId: googleSub,
+                        nombre: fullName,
+                        avatar: picture,
+                        // password stays null — OAuth-only account
+                        // rol, kycStatus, riskLevel, etc. use schema defaults
+                    },
+                    select: { id: true },
+                });
+                (user as any).id = created.id;
+            }
+
+            return true;
+        },
         async jwt({ token, user, trigger }) {
-            // Initial sign-in: populate token from the authorize() return value
+            // Initial sign-in: populate token from the authorize() / signIn() return value
             if (user) {
-                token.id = user.id;
-                token.role = user.role;
-                token.orgId = user.orgId;
-                token.kycStatus = user.kycStatus;
-                token.demoEndsAt = user.demoEndsAt;
+                token.id = (user as any).id;
+                // For OAuth, role/orgId/kycStatus aren't on `user` — fetch from DB once
+                if (!(user as any).role) {
+                    const dbUser = await prisma.user.findUnique({
+                        where: { id: (user as any).id },
+                        select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true },
+                    });
+                    if (dbUser) {
+                        token.role = dbUser.rol;
+                        token.orgId = dbUser.orgId;
+                        token.kycStatus = dbUser.kycStatus;
+                        token.demoEndsAt = dbUser.demoEndsAt
+                            ? dbUser.demoEndsAt.toISOString()
+                            : null;
+                    }
+                } else {
+                    token.role = (user as any).role;
+                    token.orgId = (user as any).orgId;
+                    token.kycStatus = (user as any).kycStatus;
+                    token.demoEndsAt = (user as any).demoEndsAt;
+                }
                 token.lastDbSync = Math.floor(Date.now() / 1000);
                 return token;
             }
