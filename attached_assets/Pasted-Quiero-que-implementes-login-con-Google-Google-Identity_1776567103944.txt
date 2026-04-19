@@ -1,0 +1,255 @@
+Quiero que implementes login con Google (Google Identity Services - GSI) en mi aplicación web actual. Necesito una solución completa, funcional en localhost y lista para producción, siguiendo buenas prácticas de seguridad.
+
+IMPORTANTE:
+
+* No des explicaciones teóricas.
+* Devolvé TODO organizado por archivos con rutas claras.
+* Incluí código completo listo para usar.
+* Incluí .env.example.
+* Incluí comandos de instalación y ejecución.
+* Incluí un mini flujo de prueba local.
+* No des alternativas, solo una implementación clara.
+
+---
+
+## CONTEXTO TÉCNICO
+
+Arquitectura esperada:
+
+1. Frontend:
+
+* Renderiza botón oficial de Google (GSI)
+* Recibe un JWT (credential) después del login
+
+2. Flujo:
+
+* El frontend envía ese token al backend vía POST
+
+3. Backend:
+
+* Verifica el JWT usando librería oficial de Google
+* Valida:
+
+  * firma
+  * issuer
+  * audiencia (client_id)
+  * expiración
+
+4. Datos:
+
+* Extrae:
+
+  * sub (google_id)
+  * email
+  * name
+  * picture
+
+5. Base de datos (Railway):
+
+* Hace UPSERT en tabla users usando google_id como clave única
+
+6. Sesión:
+
+* Backend emite cookie de sesión segura:
+
+  * HttpOnly
+  * SameSite=Lax
+  * Secure solo en producción
+
+7. Logout:
+
+* Endpoint para cerrar sesión
+
+---
+
+## PASOS QUE TENÉS QUE IMPLEMENTAR
+
+### 1. Google Cloud Console (documentado)
+
+Explicar:
+
+* cómo crear proyecto
+* cómo crear OAuth Client ID
+* tipo: Web
+* agregar:
+
+  * http://localhost:3000
+  * dominio de producción
+* obtener CLIENT_ID
+
+---
+
+### 2. FRONTEND
+
+Crear componente con:
+
+* botón oficial de Google Identity Services
+* carga de script:
+  https://accounts.google.com/gsi/client
+
+Implementar:
+
+* render del botón
+* callback que recibe credential (JWT)
+* POST al backend:
+
+```json
+POST /api/auth/google
+{
+  "credential": "JWT"
+}
+```
+
+---
+
+### 3. BACKEND
+
+Crear endpoint:
+
+```
+POST /api/auth/google
+```
+
+Implementar:
+
+* usar librería oficial:
+  google-auth-library (Node.js)
+
+* verificar token:
+
+```ts
+client.verifyIdToken({
+  idToken,
+  audience: GOOGLE_CLIENT_ID
+})
+```
+
+Validar:
+
+* issuer = accounts.google.com
+* expiración
+
+---
+
+### 4. BASE DE DATOS (Railway)
+
+Tabla users:
+
+```sql
+id
+google_id (unique)
+email
+name
+picture
+created_at
+updated_at
+```
+
+Implementar lógica:
+
+* UPSERT:
+
+  * si no existe → crear
+  * si existe → actualizar datos
+
+---
+
+### 5. SESIÓN
+
+Después del login:
+
+* generar sesión propia (NO usar token de Google)
+
+* setear cookie:
+
+* HttpOnly
+
+* SameSite=Lax
+
+* Secure en producción
+
+---
+
+### 6. LOGOUT
+
+Endpoint:
+
+```
+POST /api/auth/logout
+```
+
+* elimina cookie
+
+---
+
+### 7. VARIABLES DE ENTORNO
+
+Crear `.env.example`:
+
+```
+GOOGLE_CLIENT_ID=
+DATABASE_URL=
+SESSION_SECRET=
+NODE_ENV=development
+```
+
+---
+
+### 8. SEGURIDAD BÁSICA
+
+Implementar:
+
+* CORS restringido a frontend
+* rate limit simple en endpoint auth
+* NO guardar tokens de Google en DB
+* validar body del request
+* manejar errores correctamente
+
+---
+
+### 9. COMANDOS
+
+Incluir:
+
+```bash
+npm install
+npm run dev
+```
+
+y cualquier dependencia adicional
+
+---
+
+### 10. PRUEBA LOCAL
+
+Incluir mini guía:
+
+1. levantar backend
+2. abrir frontend en localhost
+3. hacer login con Google
+4. verificar:
+
+   * usuario en DB
+   * cookie creada
+5. probar logout
+
+---
+
+## FORMATO DE RESPUESTA
+
+Quiero:
+
+* Código organizado por archivos:
+
+  * /frontend/...
+  * /backend/...
+* contenido completo de cada archivo
+* .env.example
+* comandos de instalación
+* guía de prueba
+* advertencias de errores comunes
+
+NO des explicaciones innecesarias.
+NO des múltiples opciones.
+
+Solo implementación clara, directa y lista para ejecutar.
