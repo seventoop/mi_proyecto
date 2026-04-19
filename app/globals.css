@@ -52,14 +52,18 @@
   --accent-foreground: #24263A;
   --destructive: #7F1D1D;
   --destructive-foreground: #F8FAFC;
-  --border: #334155;
-  --input: #334155;
+  --border: #475569;
+  --input: #475569;
   --ring: #F97316;
 }
 
 @layer base {
   * {
-    @apply border-slate-200 dark:border-slate-800/50;
+    /* Default border color for any element using `border` without an explicit
+       color. The previous `dark:border-slate-800/50` was so faint it made
+       cards look borderless in dark mode. Using a stronger slate makes
+       containers properly delimited everywhere. */
+    @apply border-slate-200 dark:border-slate-700/70;
   }
 
   body {

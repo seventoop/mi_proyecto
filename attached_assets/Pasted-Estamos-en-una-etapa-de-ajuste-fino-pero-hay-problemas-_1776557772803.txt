@@ -1,0 +1,212 @@
+Estamos en una etapa de ajuste fino pero hay problemas importantes de consistencia, datos y UX que hay que resolver de raíz.
+
+Esto es una iteración de limpieza completa (datos + render + UI). No agregar features nuevas fuera de lo que se pide.
+
+========================================
+1. PROBLEMA CRÍTICO: PLANOS DUPLICADOS
+========================================
+
+Estoy viendo 2 o 3 planos superpuestos en varios proyectos (ej: Capinota).
+
+Esto NO es visual, es un problema de datos/render.
+
+Necesito:
+
+1. Revisar cómo se están guardando los planos:
+   - masterplanSvg
+   - overlayUrl
+   - cualquier otro campo relacionado
+
+2. Detectar por qué quedan múltiples planos activos:
+   - no se borran correctamente en dashboard
+   - quedan versiones anteriores en DB
+
+3. Implementar solución REAL:
+
+A. Script de limpieza:
+- borrar TODOS los planos existentes en TODOS los proyectos
+- dejar los campos:
+  - masterplanSvg = null
+  - overlayUrl = null (si corresponde)
+
+B. Asegurar que:
+- cuando se carga un nuevo plano → reemplaza el anterior
+- nunca conviven múltiples versiones
+
+C. Validar render:
+- SOLO puede renderizarse UN plano activo
+
+========================================
+2. CORRECCIÓN DE FLUJO DASHBOARD → PÚBLICO
+========================================
+
+El comportamiento correcto debe ser:
+
+PASO 2 (PLANO):
+→ muestra SOLO el plano limpio (sin mapa)
+
+MAPA:
+→ muestra el plano POSICIONADO sobre el mapa real
+
+Son dos vistas del mismo asset, no dos cosas distintas.
+
+Implementar:
+
+- Vista "Plano":
+  - fondo gris oscuro
+  - SOLO el SVG
+- Vista "Mapa":
+  - mapa satelital
+  - plano como overlay (con bounds + rotación)
+
+IMPORTANTE:
+- usar exactamente los datos configurados en el dashboard
+- NO reinterpretar ni recalcular
+
+========================================
+3. PROBLEMA CONCEPTUAL: PLANO vs LOTES
+========================================
+
+Esto sigue mal modelado.
+
+Para nosotros:
+
+- Plano = todo (lotes + calles + infraestructura)
+- Lotes NO es una capa independiente
+
+Cambios:
+
+1. Eliminar toggle "Lotes"
+2. Si los colores de estado son otra capa:
+   → renombrar a:
+      - "Estados"
+      o
+      - "Disponibilidad"
+
+========================================
+4. TOGGLE DE INFRAESTRUCTURA
+========================================
+
+Necesito claridad técnica:
+
+- ¿La infraestructura está dentro del SVG?
+  → entonces NO hacer toggle falso
+
+- ¿Puede separarse?
+  → entonces crear toggle real
+
+Responder esto en la devolución.
+
+========================================
+5. BUG: CAPAS QUE NO SE APAGAN
+========================================
+
+Hoy pasa que:
+
+- apagás "Plano" → quedan cosas visibles
+- hay capas "fantasma"
+
+Necesito:
+
+- cada toggle controle UNA capa real
+- apagar = desaparece completamente
+
+========================================
+6. PROBLEMA VISUAL: FONDOS Y CONTRASTE
+========================================
+
+Problemas:
+
+- fondo claro cuando no hay mapa
+- elementos claros sobre fondo claro → ilegible
+
+Cambios:
+
+- fondo sin mapa → gris oscuro (#1e1e1e o similar)
+- asegurar contraste en:
+  - líneas
+  - overlays
+  - labels
+
+========================================
+7. PROBLEMA DE UI: CARDS SIN BORDE
+========================================
+
+Las cards (articles) se ven mal en dark mode.
+
+Ejemplo:
+class="rounded-3xl border border-border bg-card ..."
+
+Problema:
+→ border-border no se ve
+
+Solución:
+
+1. Cambiar a:
+   - border-white/10 o
+   - border-slate-700
+
+2. El borde debe verse SIEMPRE (no solo hover)
+
+3. Mantener hover:
+   - hover:border-brand-500/40
+   - hover:bg-brand-500/5
+
+Aplicar en:
+
+- infraestructura
+- CTAs (Masterplan, Ver lotes, etc)
+- cualquier article.card
+
+========================================
+8. CARDS DE LOTES (LISTADO)
+========================================
+
+Problema:
+
+- se ven planas
+- sin borde visible en dark
+
+Cambios:
+
+- borde visible SIEMPRE
+- mantener barra superior por estado
+- hover con elevación leve
+
+========================================
+9. CONSISTENCIA GENERAL DE UI
+========================================
+
+Unificar TODAS las cards:
+
+- rounded-3xl
+- padding consistente
+- bg-card
+- border visible
+- shadow coherente
+
+========================================
+10. VALIDACIÓN FINAL
+========================================
+
+Verificar:
+
+- NO hay planos duplicados
+- toggle plano funciona
+- toggle mapa funciona
+- no quedan capas fantasma
+- UI consistente en dark mode
+- cards bien delimitadas
+
+========================================
+11. RESPUESTA ESPERADA
+========================================
+
+Explicar:
+
+1. Qué causaba los múltiples planos
+2. Qué se limpió en la DB
+3. Cómo se garantiza ahora un solo plano
+4. Cómo quedó el modelo de capas (mapa / plano / estados / imágenes)
+5. Si la infraestructura puede ser toggleable o no
+6. Qué cambios CSS se hicieron para arreglar los bordes
