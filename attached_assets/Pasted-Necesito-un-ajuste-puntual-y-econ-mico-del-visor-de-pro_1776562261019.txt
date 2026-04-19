@@ -1,0 +1,65 @@
+Necesito un ajuste puntual y económico del visor de proyecto. No quiero seguir complejizando esta primera pantalla con lógica de masterplan interactivo.
+
+Objetivo:
+Separar claramente dos experiencias:
+
+1. Pantalla principal del proyecto:
+
+* Debe ser simple, limpia y comercial
+* Solo debe mostrar el plano de forma correcta
+* Puede tener cambio entre Plano y Mapa
+* Puede mostrar estados de manera simple si no rompe nada
+* NO debe mostrar IDs
+* NO debe depender de hover/click sobre el SVG
+* NO debe intentar comportarse como masterplan interactivo
+
+2. Masterplan interactivo:
+
+* Ahí sí va toda la lógica avanzada
+* Hover, click, detalle por lote, navegación interactiva, etc.
+
+Problema actual:
+
+* En Plano se ve un bloque/plano enorme verde tapando todo
+* En Mapa también aparece una capa gigante desproporcionada
+* Se está mezclando la lógica del plano visual con overlays/polígonos que no corresponden para esta pantalla
+* La primera vista del proyecto perdió claridad y quedó visualmente rota
+
+Lo que necesito que hagas:
+
+1. Auditar por qué se está renderizando ese plano/capa gigante
+2. Detectar qué overlay o capa lo genera
+3. Eliminar en la pantalla principal cualquier render innecesario que produzca:
+
+   * bloques gigantes
+   * overlays masivos
+   * polígonos de fondo
+   * duplicaciones
+4. Dejar la pantalla principal en una versión simple y robusta:
+
+   * Modo Plano: mostrar el plano limpio y bien encuadrado
+   * Modo Mapa: mostrar mapa/satélite solo con lo indispensable
+   * Si los estados generan ruido o mala lectura, simplificarlos o desactivarlos en esta vista
+5. Mantener toda la complejidad interactiva únicamente en “Ver masterplan interactivo”
+
+Criterio de decisión:
+Prefiero una solución más simple, estable y prolija antes que una solución muy sofisticada pero frágil.
+
+Prioridad:
+
+* Que no haya capas gigantes tapando todo
+* Que no haya sensación de plano roto
+* Que la vista principal del proyecto se entienda rápido
+* Que el masterplan interactivo quede como el lugar donde pasa la interacción avanzada
+
+Entrega esperada:
+
+1. Causa exacta del bloque/capa gigante
+2. Qué simplificaste
+3. Qué dejaste activo en Plano
+4. Qué dejaste activo en Mapa
+5. Qué moviste conceptualmente al Masterplan Interactivo
+6. Resumen breve de los cambios realizados
+
+Importante:
+No busques una solución rebuscada. Quiero una solución clara, prolija y mantenible.

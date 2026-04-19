@@ -2,22 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Globe, Image as ImageIcon, Map as MapIcon, Square, Layers } from "lucide-react";
-import { computeSvgViewBox, svgPathToLatLng } from "@/lib/geo-projection";
-
-const STATUS_COLORS: Record<string, string> = {
-    DISPONIBLE: "#22c55e",
-    RESERVADA: "#f59e0b",
-    VENDIDA: "#ef4444",
-    BLOQUEADA: "#94a3b8",
-    SUSPENDIDO: "#64748b",
-};
-
-const STATUS_LEGEND: Array<[string, string]> = [
-    ["Disponible", "#22c55e"],
-    ["Reservado", "#f59e0b"],
-    ["Vendido", "#ef4444"],
-];
+import { ArrowRight, Globe, Map as MapIcon, Layers } from "lucide-react";
 
 const DARK_BG = "#1e1e1e";
 
@@ -39,14 +24,13 @@ export interface PreviewMapImage {
 export interface ProjectPreviewViewerProps {
     slug: string;
     projectName: string;
-    /** Full masterplan SVG (text removed, fills KEPT). Used in Plano mode so
-     *  the user sees the complete plan exactly like the dashboard. */
+    /** Masterplan SVG (text removed). Used as background image in Plano mode
+     *  and as a faint georeferenced image overlay in Mapa mode. */
     planAsset: string | null;
-    /** Same SVG with fills neutralized. Used as a faint context layer under
-     *  the satellite + state polygons in Mapa mode. Falls back to planAsset. */
+    /** Same SVG with fills neutralized — used as the Mapa overlay so it doesn't
+     *  fight visually with the satellite. Falls back to planAsset. */
     mapOverlayAsset?: string | null;
-    /** Real `viewBox` of the masterplan SVG (server-extracted). Used to align
-     *  the inline Estados polygons in Plano mode. */
+    /** Kept for API compatibility (used by /masterplan). Not used here. */
     planSvgViewBox?: { x: number; y: number; w: number; h: number } | null;
     mapCenterLat: number | null;
     mapCenterLng: number | null;
@@ -60,45 +44,35 @@ export interface ProjectPreviewViewerProps {
 type ViewMode = "plano" | "mapa";
 
 /**
- * Two-mode showcase viewer:
- *   PLANO  → solo el SVG sobre fondo gris oscuro (no satélite, no leaflet).
- *   MAPA   → satélite + plano (overlay con bounds + rotación tal como se cargó
- *            en el dashboard).
+ * Visor PÚBLICO simplificado del proyecto.
  *
- * En cualquiera de los dos modos podés activar overlays:
- *   ESTADOS   → polígonos coloreados por estado de cada lote.
- *   IMÁGENES  → marcadores de fotos vinculadas (sólo aparece en modo MAPA;
- *               en PLANO no hay coordenadas para anclar marcadores).
+ *   PLANO  → solo el SVG del masterplan, encuadrado y limpio.
+ *   MAPA   → satélite con el plano superpuesto en su posición real (faint).
+ *
+ * Toda la interacción avanzada (hover/click/estados por lote, IDs, detalle,
+ * filtros) vive en `/proyectos/[slug]/masterplan`. Esta vista es solo
+ * comercial: el visitante entiende dónde queda y cómo se ve el proyecto.
  */
 export default function ProjectPreviewViewer({
     slug,
     projectName,
     planAsset,
     mapOverlayAsset,
-    planSvgViewBox,
     mapCenterLat,
     mapCenterLng,
     mapZoom,
     overlayBounds,
     overlayRotation,
-    units,
-    mapImages,
 }: ProjectPreviewViewerProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
-    const tileLayerRef = useRef<any>(null);
-    const imageOverlayRef = useRef<any>(null);
-    const polygonsLayerRef = useRef<any>(null);
-    const markersLayerRef = useRef<any>(null);
 
     const hasMap = mapCenterLat != null && mapCenterLng != null;
 
     const [mode, setMode] = useState<ViewMode>(hasMap ? "mapa" : "plano");
-    const [showEstados, setShowEstados] = useState(true);
-    const [showImagenes, setShowImagenes] = useState(true);
     const [ready, setReady] = useState(false);
 
-    // Apply ?mode= query param after mount (avoids SSR hydration mismatch).
+    // ?mode= después de mount (evita hydration mismatch).
     useEffect(() => {
         const q = new URLSearchParams(window.location.search).get("mode");
         if (q === "plano" && planAsset) setMode("plano");
@@ -116,30 +90,13 @@ export default function ProjectPreviewViewer({
     }, [overlayBounds]);
 
     const hasOverlay = !!planAsset && !!parsedBounds;
-    const hasUnits = units.some((u) => !!u.coordenadasMasterplan);
-    const hasImages = mapImages.length > 0;
 
-    // Prefer the server-extracted SVG viewBox so estados polygons project onto
-    // the EXACT coordinate system of the masterplan SVG. Fall back to the unit-
-    // bounds derivation only if the SVG didn't expose a viewBox.
-    const svgViewBox = useMemo(() => {
-        if (planSvgViewBox) {
-            return { x: planSvgViewBox.x, y: planSvgViewBox.y, w: planSvgViewBox.w, h: planSvgViewBox.h };
-        }
-        return computeSvgViewBox(units as any);
-    }, [planSvgViewBox, units]);
-
-    // ── Mount Leaflet only when in MAPA mode ─────────────────────────────
+    // Montar Leaflet sólo cuando estamos en Mapa.
     useEffect(() => {
         if (mode !== "mapa" || !hasMap) {
-            // Tear down if we were mounted and switched to PLANO
             if (mapRef.current) {
                 mapRef.current.remove();
                 mapRef.current = null;
-                tileLayerRef.current = null;
-                imageOverlayRef.current = null;
-                polygonsLayerRef.current = null;
-                markersLayerRef.current = null;
                 setReady(false);
             }
             return;
@@ -172,28 +129,21 @@ export default function ProjectPreviewViewer({
             });
             mapRef.current = map;
 
-            // Mapa = satellite tile layer (always on in MAPA mode)
-            const satellite = L.tileLayer(
-                "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-                { maxZoom: 22, subdomains: ["mt0", "mt1", "mt2", "mt3"] }
-            );
-            satellite.addTo(map);
-            tileLayerRef.current = satellite;
+            L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
+                maxZoom: 22,
+                subdomains: ["mt0", "mt1", "mt2", "mt3"],
+            }).addTo(map);
 
-            // Plano overlay (positioned with bounds + rotation, exactly as
-            // configured in the dashboard — no recalculation).
+            // Plano georreferenciado, faint, sólo como contexto. Sin polígonos
+            // de estados, sin marcadores: lo indispensable.
             if (hasOverlay) {
-                // For Mapa, prefer the fills-neutralized asset so the SVG
-                // never bleeds its native colors through the satellite + state
-                // polygons. Falls back to planAsset if not provided.
                 const overlaySrc = mapOverlayAsset || planAsset!;
                 const overlay = L.imageOverlay(overlaySrc, parsedBounds!, {
-                    opacity: 0.45,
+                    opacity: 0.55,
                     interactive: false,
                     className: "preview-svg-overlay",
                 });
                 overlay.addTo(map);
-                imageOverlayRef.current = overlay;
 
                 const rotationDeg = Number.isFinite(overlayRotation as number) ? (overlayRotation as number) : 0;
                 if (rotationDeg !== 0) {
@@ -210,54 +160,7 @@ export default function ProjectPreviewViewer({
                     map.on("zoomend viewreset moveend", applyRotation);
                     setTimeout(applyRotation, 0);
                 }
-            }
 
-            // Estados (colored unit polygons, controlled by toggle below)
-            const polyGroup = L.layerGroup();
-            polygonsLayerRef.current = polyGroup;
-            if (svgViewBox && parsedBounds) {
-                units.forEach((u) => {
-                    let svgPath: string | undefined;
-                    if (u.coordenadasMasterplan) {
-                        try { svgPath = JSON.parse(u.coordenadasMasterplan).path; } catch {}
-                    }
-                    if (!svgPath) return;
-                    const coords = svgPathToLatLng(svgPath, svgViewBox, parsedBounds, overlayRotation ?? 0);
-                    if (coords.length < 3) return;
-                    const color = STATUS_COLORS[u.estado] || "#94a3b8";
-                    L.polygon(coords, {
-                        color: "#ffffff",
-                        fillColor: color,
-                        fillOpacity: 0.7,
-                        weight: 1.5,
-                        opacity: 0.95,
-                        interactive: false,
-                    }).addTo(polyGroup);
-                    L.polygon(coords, {
-                        color,
-                        fillColor: color,
-                        fillOpacity: 0,
-                        weight: 2.5,
-                        opacity: 1,
-                        interactive: false,
-                    }).addTo(polyGroup);
-                });
-            }
-
-            // Imágenes (photo markers)
-            const markersGroup = L.layerGroup();
-            markersLayerRef.current = markersGroup;
-            mapImages.forEach((img) => {
-                const icon = L.divIcon({
-                    className: "",
-                    html: `<div style="width:28px;height:28px;border-radius:50%;border:3px solid white;background:#f97316;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;">📷</div>`,
-                    iconSize: [28, 28],
-                    iconAnchor: [14, 14],
-                });
-                L.marker([img.lat, img.lng], { icon, interactive: false }).addTo(markersGroup);
-            });
-
-            if (parsedBounds) {
                 map.fitBounds(parsedBounds as any, { padding: [40, 40], maxZoom: 19 });
             }
 
@@ -270,34 +173,7 @@ export default function ProjectPreviewViewer({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mode]);
 
-    // ── Sync overlay toggles (only meaningful in MAPA mode) ─────────────
-    useEffect(() => {
-        if (mode !== "mapa" || !ready || !mapRef.current) return;
-        const map = mapRef.current;
-
-        if (polygonsLayerRef.current) {
-            const visible = showEstados && hasUnits;
-            const present = map.hasLayer(polygonsLayerRef.current);
-            if (visible && !present) polygonsLayerRef.current.addTo(map);
-            else if (!visible && present) map.removeLayer(polygonsLayerRef.current);
-        }
-
-        if (markersLayerRef.current) {
-            const visible = showImagenes && hasImages;
-            const present = map.hasLayer(markersLayerRef.current);
-            if (visible && !present) markersLayerRef.current.addTo(map);
-            else if (!visible && present) map.removeLayer(markersLayerRef.current);
-        }
-    }, [ready, mode, showEstados, showImagenes, hasUnits, hasImages]);
-
-    // PLANO mode shows the masterplan SVG only (per spec: "SOLO el SVG").
-    // Estados overlay is intentionally NOT rendered in Plano mode because the
-    // unit coordinates use a different viewBox than the full plano SVG and
-    // would render misaligned. Estados is available in Mapa mode where the
-    // bounds/rotation projection guarantees alignment.
-
-    // Always-on unmount cleanup: remove leaflet instance even if the user
-    // navigates away while still in Mapa mode (avoids dangling map/listeners).
+    // Cleanup al desmontar.
     useEffect(() => {
         return () => {
             if (mapRef.current) {
@@ -307,9 +183,6 @@ export default function ProjectPreviewViewer({
         };
     }, []);
 
-    const toggle = (set: React.Dispatch<React.SetStateAction<boolean>>) => () => set((v) => !v);
-
-    // Mode toggle button (no-op if mode is unavailable)
     const modeButton = (target: ViewMode, label: string, Icon: any, available: boolean) => {
         const active = mode === target;
         return (
@@ -334,34 +207,6 @@ export default function ProjectPreviewViewer({
         );
     };
 
-    const overlayButton = (
-        keyName: string,
-        label: string,
-        Icon: any,
-        on: boolean,
-        setter: () => void,
-        disabled: boolean
-    ) => (
-        <button
-            key={keyName}
-            type="button"
-            onClick={() => !disabled && setter()}
-            aria-pressed={on}
-            disabled={disabled}
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
-                disabled
-                    ? "cursor-not-allowed border-border bg-muted/30 text-muted-foreground/50"
-                    : on
-                        ? "border-brand-500/50 bg-brand-500/10 text-brand-500"
-                        : "border-border bg-background text-muted-foreground hover:text-foreground"
-            }`}
-            title={disabled ? "No hay datos disponibles" : `Mostrar/ocultar ${label.toLowerCase()}`}
-        >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-        </button>
-    );
-
     return (
         <div className="overflow-hidden rounded-3xl border-2 border-slate-700/60 bg-slate-950 shadow-lg">
             {/* Header */}
@@ -370,7 +215,7 @@ export default function ProjectPreviewViewer({
                     <p className="text-sm font-bold text-white">Vista del proyecto</p>
                     <p className="text-xs text-slate-300">
                         Cambiá entre <strong className="text-white">Plano</strong> y{" "}
-                        <strong className="text-white">Mapa</strong> y activá los overlays que necesites.
+                        <strong className="text-white">Mapa</strong>. Para ver lotes, estados y detalle, abrí el masterplan interactivo.
                     </p>
                 </div>
                 <Link
@@ -383,42 +228,11 @@ export default function ProjectPreviewViewer({
                 </Link>
             </div>
 
-            {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 bg-slate-900/70 px-5 py-3">
-                {/* Mode (mutually exclusive) */}
+            {/* Toolbar (solo selector de modo) */}
+            <div className="flex flex-wrap items-center gap-3 border-b border-slate-700/60 bg-slate-900/70 px-5 py-3">
                 <div role="group" aria-label="Modo" className="flex flex-wrap items-center gap-1.5">
                     {modeButton("plano", "Plano", Layers, !!planAsset)}
                     {modeButton("mapa", "Mapa", MapIcon, hasMap)}
-                </div>
-
-                {/* Overlays (multi-select) */}
-                <div role="group" aria-label="Overlays" className="flex flex-wrap items-center gap-1.5">
-                    {overlayButton(
-                        "estados",
-                        "Estados",
-                        Square,
-                        showEstados,
-                        toggle(setShowEstados),
-                        !hasUnits
-                    )}
-                    {overlayButton(
-                        "imagenes",
-                        "Imágenes",
-                        ImageIcon,
-                        showImagenes,
-                        toggle(setShowImagenes),
-                        !hasImages || mode !== "mapa"
-                    )}
-                </div>
-
-                {/* Legend */}
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                    {STATUS_LEGEND.map(([label, color]) => (
-                        <span key={label} className="inline-flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-                            {label}
-                        </span>
-                    ))}
                 </div>
             </div>
 
@@ -437,12 +251,11 @@ export default function ProjectPreviewViewer({
                         )}
                     </>
                 ) : (
-                    /* PLANO mode: SVG sobre fondo oscuro + (opcional) overlay de Estados
-                       alineado al MISMO viewBox del SVG (no derivado de unidades). */
+                    /* PLANO: sólo el SVG, encuadrado. Sin overlays, sin polígonos. */
                     <div className="absolute inset-0 p-6">
                         {planAsset ? (
                             <div
-                                className="relative h-full w-full"
+                                className="h-full w-full"
                                 style={{
                                     backgroundImage: `url("${planAsset}")`,
                                     backgroundRepeat: "no-repeat",
@@ -451,34 +264,7 @@ export default function ProjectPreviewViewer({
                                 }}
                                 aria-label={`Plano de ${projectName}`}
                                 role="img"
-                            >
-                                {showEstados && planSvgViewBox && hasUnits && (
-                                    <svg
-                                        viewBox={`${planSvgViewBox.x} ${planSvgViewBox.y} ${planSvgViewBox.w} ${planSvgViewBox.h}`}
-                                        preserveAspectRatio="xMidYMid meet"
-                                        className="absolute inset-0 h-full w-full pointer-events-none"
-                                    >
-                                        {units.map((u) => {
-                                            if (!u.coordenadasMasterplan) return null;
-                                            let path: string | undefined;
-                                            try { path = JSON.parse(u.coordenadasMasterplan).path; } catch {}
-                                            if (!path) return null;
-                                            const color = STATUS_COLORS[u.estado] || "#94a3b8";
-                                            return (
-                                                <path
-                                                    key={u.id}
-                                                    d={path}
-                                                    fill={color}
-                                                    fillOpacity={0.6}
-                                                    stroke="#ffffff"
-                                                    strokeWidth={1}
-                                                    vectorEffect="non-scaling-stroke"
-                                                />
-                                            );
-                                        })}
-                                    </svg>
-                                )}
-                            </div>
+                            />
                         ) : (
                             <div className="flex h-full w-full items-center justify-center">
                                 <p className="text-sm text-slate-300">Aún no hay plano cargado para este proyecto.</p>
@@ -491,7 +277,7 @@ export default function ProjectPreviewViewer({
             <style jsx global>{`
                 .preview-svg-overlay {
                     pointer-events: none;
-                    filter: contrast(1.1) saturate(0.85);
+                    filter: contrast(1.05) saturate(0.8);
                 }
                 .leaflet-container {
                     background: transparent !important;
