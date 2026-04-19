@@ -14,7 +14,7 @@
     "db:migrate:deploy": "npx prisma migrate deploy",
     "db:migrate:status": "npx prisma migrate status",
     "db:seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
-    "db:seed:users": "npx ts-node --transpile-only scripts/seed-role-users.ts",
+    "db:seed:users": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/seed-role-users.ts",
     "db:seed:projects-demo": "npx ts-node --transpile-only scripts/seed-demo-projects.ts",
     "db:studio": "npx prisma studio",
     "postinstall": "prisma generate",
