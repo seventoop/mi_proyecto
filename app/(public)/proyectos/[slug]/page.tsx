@@ -29,7 +29,7 @@ import {
     getPublicProjectShowcaseBySlug,
     type PublicProjectShowcase,
 } from "@/lib/project-showcase";
-import { stripSvgLabels } from "@/lib/svg-strip-labels";
+import { stripSvgLabels, extractSvgViewBox } from "@/lib/svg-strip-labels";
 
 const DUMMY_CONTENT_PATTERN = /(dummy|demo|brochure|placeholder|sample|test|archivo de ejemplo|pdf file)/i;
 
@@ -147,14 +147,19 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
         ? `https://maps.google.com/maps?q=${project.mapCenterLat},${project.mapCenterLng}&z=${project.mapZoom || 16}&output=embed`
         : null;
 
-    // Single source for the static plan thumbnail (no double layer)
-    // Single plano source: prefer the embedded SVG. We strip <text> nodes and
-    // neutralize fills so the SVG only contributes structural context (streets,
-    // outlines) and never duplicates the colored polygons / lot numbers.
-    const cleanedSvg = stripSvgLabels(project.masterplanSvg);
-    const planThumbnail = cleanedSvg
-        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanedSvg)}`
+    // Two prepared assets from the same source SVG:
+    //   - planoSvg: only <text> removed → full plano with lot fills (Plano view)
+    //   - overlaySvg: <text> + fills neutralized → faint context layer (Mapa view)
+    // Falls back to project.overlayUrl (raster) if no SVG is uploaded.
+    const planoSvg = stripSvgLabels(project.masterplanSvg);
+    const overlaySvg = stripSvgLabels(project.masterplanSvg, { neutralizeFills: true });
+    const planAssetFull = planoSvg
+        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(planoSvg)}`
         : project.overlayUrl || null;
+    const planAssetOverlay = overlaySvg
+        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(overlaySvg)}`
+        : project.overlayUrl || null;
+    const planSvgViewBox = extractSvgViewBox(project.masterplanSvg);
 
     const gridUnits: PublicUnitItem[] = project.units.map((u) => ({
         id: u.id,
@@ -283,7 +288,7 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
             </section>
 
             {/* 3. PREVIEW UNIFICADA (mapa + plano + lotes + imágenes) */}
-            {(hasMap || planThumbnail) && (
+            {(hasMap || planAssetFull) && (
                 <section id="mapa" className="border-b border-border">
                     <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
                         <div className="mb-8 max-w-3xl">
@@ -301,7 +306,9 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
                         <ProjectPreviewViewer
                             slug={params.slug}
                             projectName={project.nombre}
-                            planAsset={planThumbnail}
+                            planAsset={planAssetFull}
+                            mapOverlayAsset={planAssetOverlay}
+                            planSvgViewBox={planSvgViewBox}
                             mapCenterLat={project.mapCenterLat ?? null}
                             mapCenterLng={project.mapCenterLng ?? null}
                             mapZoom={project.mapZoom ?? null}

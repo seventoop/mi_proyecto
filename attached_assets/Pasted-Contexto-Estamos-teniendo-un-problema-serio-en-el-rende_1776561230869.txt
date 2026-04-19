@@ -1,0 +1,126 @@
+Contexto:
+Estamos teniendo un problema serio en el renderizado del Masterplan (Plano / Mapa / Masterplan interactivo). Ya se verificó que NO hay datos duplicados en la base de datos (cada proyecto tiene un solo masterplanSVG), por lo tanto el problema es 100% de frontend/render.
+
+Problema observado:
+En la vista de proyecto (especialmente en modo Mapa), se ven **hasta 3 “planos” superpuestos**:
+
+1. Plano base correcto (el que se cargó)
+2. Capa de estados (colores de lotes)
+3. Infraestructura (líneas verdes SVG)
+4. Además aparece un “plano fantasma” de fondo o desfasado
+
+Comportamientos específicos:
+
+* En modo Plano:
+
+  * Se ven estados + infraestructura
+  * Hay desalineaciones y duplicaciones parciales
+* En modo Mapa:
+
+  * Se ven claramente múltiples capas superpuestas
+  * Al desactivar “Estado” aparece otro plano debajo
+* En Masterplan interactivo:
+
+  * El problema se percibe menos o más ordenado
+  * Esto sugiere que los datos están bien, pero el render cambia según el modo
+
+Conclusión clave:
+El problema NO está en los datos → está en la lógica de renderizado y manejo de capas.
+
+---
+
+Tareas a realizar:
+
+1. Auditoría completa del render del masterplan:
+
+   * Identificar TODOS los elementos que se están renderizando:
+
+     * masterplanSVG
+     * imagen base (si existe)
+     * overlay de estados
+     * infraestructura
+     * cualquier otra capa
+   * Detectar si se están montando múltiples instancias del mismo plano
+
+2. Analizar diferencias entre modos:
+
+   * Modo Plano
+   * Modo Mapa
+   * Masterplan interactivo
+
+   Ver:
+
+   * Qué componentes usa cada uno
+   * Cómo se montan las capas
+   * Si hay doble render o render condicional mal aplicado
+
+3. Revisar sistema de capas:
+
+   * Confirmar si existe o no un sistema formal de layers
+   * En caso de no existir, proponer uno claro:
+
+     * basePlan
+     * estados
+     * infraestructura
+     * overlays adicionales
+   * Cada capa debe tener:
+
+     * visibilidad controlada
+     * un único origen de datos
+     * sin duplicación
+
+4. Revisar transformaciones:
+
+   * Ver si hay inconsistencias en:
+
+     * scale
+     * translate
+     * zoom
+     * transform-origin
+   * Asegurar que TODAS las capas usen el mismo sistema de coordenadas
+
+5. Caso específico modo Mapa:
+
+   * Ver si se está usando Leaflet / canvas / map container
+   * Ver si:
+
+     * el mapa renderiza una base
+     * y encima se monta el SVG sin sincronización
+   * Evitar doble sistema de coordenadas
+
+6. Debug visual:
+
+   * Agregar temporalmente bordes/colores distintos por capa para identificar:
+
+     * qué es cada cosa
+     * cuántas veces se está renderizando
+
+---
+
+Objetivo final:
+
+* Debe existir UNA sola base de plano
+* Las capas (estados, infraestructura, etc.) deben renderizarse UNA sola vez
+* El comportamiento debe ser consistente entre:
+
+  * Plano
+  * Mapa
+  * Masterplan interactivo
+* No debe existir ningún “plano fantasma” ni duplicación
+
+---
+
+Entrega esperada:
+
+1. Lista clara de problemas encontrados
+2. Explicación de por qué ocurre el bug
+3. Plan de solución antes de implementar
+4. Implementación paso a paso
+5. Reporte final:
+
+   * qué se cambió
+   * qué se corrigió
+   * qué quedó alineado entre modos
+
+Importante:
+Ir reportando avances mientras se trabaja, no solo al final.

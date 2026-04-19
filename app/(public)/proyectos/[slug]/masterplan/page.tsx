@@ -20,9 +20,10 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
     const hasMap = project.mapCenterLat != null && project.mapCenterLng != null;
     const hasTour360 = project.tours.some((tour) => tour.sceneCount > 0);
 
-    // Single source of truth for the plan asset. Strip <text>/labels and
-    // colored fills from the SVG so it never duplicates the colored unit
-    // polygons that are drawn on top of it.
+    // Single source of truth for the plan asset. Strip ONLY <text> labels so
+    // the masterplan keeps its full visual identity (lot fills, infrastructure
+    // detail) — exactly like the dashboard renders it. The interactive canvas
+    // draws its own colored unit polygons on top using the dashboard projection.
     const cleanedSvg = stripSvgLabels(project.masterplanSvg);
     const planAsset = cleanedSvg
         ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanedSvg)}`
