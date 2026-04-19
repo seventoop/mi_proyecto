@@ -152,12 +152,6 @@ export default async function ProjectLandingPage({ params }: { params: { slug: s
     //   - overlaySvg: <text> + fills neutralized → faint context layer (Mapa view)
     // Falls back to project.overlayUrl (raster) if no SVG is uploaded.
     const planoSvg = stripSvgLabels(project.masterplanSvg);
-    console.info("[public-project-page] planSvgRaw debug", {
-        slug: params.slug,
-        masterplanSvgBytes: project.masterplanSvg?.length ?? 0,
-        planoSvgBytes: planoSvg?.length ?? 0,
-        planoSvgHead: planoSvg?.slice(0, 120) ?? null,
-    });
     const overlaySvg = stripSvgLabels(project.masterplanSvg, { neutralizeFills: true });
     const planAssetFull = planoSvg
         ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(planoSvg)}`

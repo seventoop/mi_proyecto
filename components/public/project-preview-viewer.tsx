@@ -114,17 +114,6 @@ export default function ProjectPreviewViewer({
     const infraLayerRef = useRef<any>(null);
     const imagesLayerRef = useRef<any>(null);
 
-    if (typeof window !== "undefined") {
-        // Debug temporal: confirma qué le llega al cliente
-        // eslint-disable-next-line no-console
-        console.log("[ProjectPreviewViewer] planSvgRaw:", {
-            type: typeof planSvgRaw,
-            length: planSvgRaw?.length ?? 0,
-            head: planSvgRaw?.slice(0, 120) ?? null,
-            hasPlanAsset: !!planAsset,
-        });
-    }
-
     const hasMap = mapCenterLat != null && mapCenterLng != null;
     const hasUnits = units.some((u) => !!u.coordenadasMasterplan);
     const hasInfra = infrastructures.some((i) => Array.isArray(i.coordenadas) && i.coordenadas.length > 0);
@@ -481,7 +470,7 @@ export default function ProjectPreviewViewer({
                     <div className="absolute inset-0 p-6">
                         {planSvgRaw ? (
                             <div
-                                className="relative h-full w-full rounded-lg border-2 border-fuchsia-500/60 bg-white"
+                                className="relative h-full w-full"
                                 aria-label={`Plano de ${projectName}`}
                                 role="img"
                             >
@@ -492,7 +481,7 @@ export default function ProjectPreviewViewer({
                                     porque algunos planos generados desde DXF no traen esos atributos
                                     (sólo viewBox), y sin ellos el navegador renderiza a 300x150. */}
                                 <div
-                                    className="absolute inset-0 overflow-hidden [&>svg]:!block [&>svg]:!h-full [&>svg]:!w-full"
+                                    className="absolute inset-0 overflow-hidden [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
                                     // The SVG comes from our own DB (uploaded by the project owner in the
                                     // dashboard) and is already label-stripped on the server.
                                     dangerouslySetInnerHTML={{
