@@ -19,6 +19,8 @@
     "db:audit": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/db-audit.ts",
     "db:sync:dry-run": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/sync-to-railway.ts",
     "db:sync:apply": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' APPLY=true npx ts-node --transpile-only scripts/sync-to-railway.ts",
+    "fix:key-roles:dry-run": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/fix-key-user-roles.ts",
+    "fix:key-roles": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/fix-key-user-roles.ts",
     "db:studio": "npx prisma studio",
     "postinstall": "prisma generate",
     "security:check": "node scripts/security-check.js"

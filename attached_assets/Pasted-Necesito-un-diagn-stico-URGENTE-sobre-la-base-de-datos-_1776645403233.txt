@@ -1,0 +1,70 @@
+Necesito un diagnóstico URGENTE sobre la base de datos REAL que está leyendo esta app ahora mismo en main/producción.
+
+Síntomas observados en producción:
+- un email que debería ser SUPERADMIN aparece como DESARROLLADOR
+- no aparecen proyectos en la landing
+- no aparecen proyectos en dashboard / mis proyectos
+- no cargan imágenes/banners como antes
+
+Objetivo:
+1. confirmar qué datos hay realmente en la DATABASE_URL actual
+2. detectar si el problema es de datos o de filtros/código
+3. si el problema es de datos de usuarios/roles, dejar un fix mínimo y seguro
+4. NO hacer cambios destructivos
+
+IMPORTANTE:
+- usar la DATABASE_URL actual del entorno
+- NO borrar nada
+- NO resetear nada
+- NO tocar migraciones
+- NO inventar seeds masivos
+- primero diagnosticar con queries/read-only
+- si hay que corregir roles de 3 usuarios concretos, hacerlo solo al final y reportarlo claramente
+
+Necesito que hagas esto:
+
+A. Diagnóstico read-only de la DB actual
+- ejecutar queries o scripts para mostrar:
+  1. conteo total de usuarios
+  2. conteo total de proyectos
+  3. conteo de proyectos publicados/visibles públicamente
+  4. conteo de banners
+  5. los últimos 10 proyectos con campos clave (id, nombre, slug, estado/publicado, createdAt)
+  6. los usuarios:
+     - ascenzimarquezjuanignacio@gmail.com
+     - dany76162@gmail.com
+     - admin@seventoop.com
+     mostrando: id, email, rol, googleId, orgId, createdAt
+
+B. Diagnóstico de render público
+- revisar qué endpoint / query usa la landing para listar proyectos
+- confirmar:
+  - si el backend devuelve 0 proyectos
+  - o si devuelve proyectos pero el frontend no los pinta
+- revisar también banners/imágenes públicas si dependen de queries separadas
+
+C. Diagnóstico de dashboard / mis proyectos
+- revisar por qué un usuario con rol desarrollador ve 0 proyectos
+- confirmar si:
+  - no existen proyectos
+  - existen pero no pertenecen a su org/user
+  - o el filtro está mal
+
+D. Fix mínimo SOLO si hay evidencia clara
+- si los 3 usuarios clave no tienen el rol correcto en la DB actual:
+  - corregir SOLO estos roles:
+    - ascenzimarquezjuanignacio@gmail.com -> SUPERADMIN
+    - dany76162@gmail.com -> SUPERADMIN
+    - admin@seventoop.com -> ADMIN
+- hacerlo con update/upsert seguro, sin tocar otros usuarios
+- NO cambiar contraseñas
+- NO tocar Google login
+
+E. Entregar
+1. diagnóstico claro de la DB actual
+2. output resumido de conteos
+3. qué usuarios/roles encontró
+4. si el problema es datos o código
+5. archivos modificados si hubo fix
+6. código completo del fix si lo hubo
+7. confirmación explícita de si producción está vacía de proyectos o no
