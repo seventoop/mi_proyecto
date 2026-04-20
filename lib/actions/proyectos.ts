@@ -609,7 +609,8 @@ export async function getProyectosDestacados() {
             ubicacion: p.ubicacion,
             precioDesde: p.precioM2Mercado ? Number(p.precioM2Mercado) : null,
         }));
-    } catch {
+    } catch (error) {
+        console.error("[getProyectosDestacados] failed:", error);
         return [];
     }
 }

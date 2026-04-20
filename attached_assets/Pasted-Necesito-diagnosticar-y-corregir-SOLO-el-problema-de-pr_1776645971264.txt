@@ -1,0 +1,46 @@
+Necesito diagnosticar y corregir SOLO el problema de producción donde no aparecen proyectos, banners ni imágenes, sin tocar el sistema de roles/permisos salvo que sea estrictamente necesario.
+
+Contexto:
+- Ayer en producción sí se veían proyectos e imágenes.
+- Hoy, después de cambios de usuarios/roles, en producción no se ve nada.
+- La prioridad absoluta es PRODUCTION.
+- No me importa Replit ni dev por ahora.
+- Sospecha principal: inconsistencia de conexión a base de datos entre DATABASE_URL y DIRECT_URL, o cambio de datasource efectivo en producción.
+
+Objetivo:
+confirmar si el problema de producción es de conexión a DB / variables de entorno / datasource, y corregir cualquier inconsistencia de código que pueda hacer que la app lea una DB distinta según el caso.
+
+Necesito que hagas esto:
+
+1. Auditar el repo para detectar:
+- si Prisma usa solo DATABASE_URL o también directUrl/DIRECT_URL
+- si hay código, scripts o configuración que puedan hacer que producción lea una DB distinta
+- si alguna parte crítica de consultas públicas de proyectos/banners depende de una conexión distinta
+
+2. Confirmar qué consultas usa la landing/producción para:
+- proyectos públicos
+- banners
+- imágenes
+y decir si esas consultas, si la DB correcta tuviera datos, deberían devolver resultados o no
+
+3. Revisar si los cambios recientes de auth/roles pudieron afectar indirectamente queries públicas
+- no asumir que sí
+- solo marcarlo si hay evidencia real
+
+4. Si encontrás inconsistencia entre DATABASE_URL y DIRECT_URL en el código/config esperada:
+- indicar claramente cuál debe usarse
+- dejar el proyecto preparado para que producción use una única fuente coherente
+
+5. NO tocar:
+- seeds
+- migraciones destructivas
+- datos
+- permisos
+- UI no relacionada
+
+6. Entregar:
+- diagnóstico puntual orientado a producción
+- archivos modificados solo si realmente hacen falta
+- código completo si hubo cambios
+- checklist exacto de qué variable debe revisar/corregir en Vercel Production
+- confirmación clara: “si Production apunta a la DB correcta, la landing debería mostrar proyectos” o no
