@@ -1,0 +1,82 @@
+Necesito una auditoría final y accionable. No quiero perder más tiempo intentando recuperar datos viejos.
+
+Contexto:
+- Railway Postgres será la única DB oficial.
+- Neon queda descartado.
+- En Vercel ya actualicé DATABASE_URL con la URL pública de Railway y redeployé.
+- En producción sigo sin ver proyectos ni fotos de banner.
+- En Replit/local sí llegué a ver proyectos/banners en algún momento.
+- Lo más importante ahora es dejar login y registro listos para producción real.
+
+Objetivo:
+Hacer una última verificación read-only de datos y después priorizar autenticación/registro.
+
+Auditar y responder:
+
+1. Producción / datos
+- Confirmar qué endpoint o server action carga los proyectos en producción.
+- Confirmar qué query exacta usa.
+- Confirmar si está usando caché, revalidate, static rendering, unstable_cache, fetch cache, ISR o datos build-time.
+- Confirmar si puede estar mostrando datos viejos o vacíos por caché de Next/Vercel.
+- Confirmar si los banners/proyectos vienen de DB o de archivos estáticos.
+- Crear o indicar un endpoint temporal read-only tipo `/api/debug/db-counts` que muestre conteos de usuarios, proyectos, banners, imágenes, lotes y leads usando la misma conexión que producción.
+- No exponer secretos.
+- No modificar datos.
+
+2. Railway
+- Confirmar si la DB Railway actual tiene proyectos/banners o no.
+- Si está vacía, decirlo claramente.
+- No correr seeds destructivos.
+- No borrar nada.
+- Si hay scripts de seed seguros para crear datos demo nuevos, listarlos pero no correrlos todavía.
+
+3. Auth producción
+Auditar y proponer arreglo para:
+- registro con email/password abierto para cualquier email
+- login con email/password
+- login con Google abierto para cualquier Gmail/cuenta Google
+- eliminar whitelist o restricciones de correos
+- eliminar límite a 3 correos
+- revisar registration-policy
+- revisar google-pre-registration
+- revisar callbacks de NextAuth/Auth.js
+- revisar creación de usuario por Google
+- revisar creación de usuario por formulario
+- revisar password hashing
+- revisar si usuarios manuales viejos tienen password incompatible
+- revisar roles por defecto
+
+Objetivo de auth:
+Cualquier persona debe poder:
+A. registrarse con Google
+B. registrarse con email/password
+C. volver a iniciar sesión luego
+D. quedar guardada en DB
+E. recibir un rol por defecto seguro, por ejemplo USER/CLIENTE/BUYER según exista en el sistema
+F. no poder autoasignarse admin/superadmin
+
+4. Variables
+Revisar qué variables exactas necesita Vercel:
+- DATABASE_URL
+- DIRECT_URL
+- NEXTAUTH_URL o AUTH_URL
+- NEXTAUTH_SECRET o AUTH_SECRET
+- GOOGLE_CLIENT_ID
+- GOOGLE_CLIENT_SECRET
+
+Indicar si alguna sobra, falta o está duplicada.
+
+5. Resultado esperado
+Quiero una respuesta breve pero concreta:
+A. Por qué producción no muestra proyectos/banners.
+B. Si conviene seguir intentando recuperar datos o recrearlos.
+C. Qué cambios de código mínimos hay que hacer para dejar auth production-ready.
+D. Qué variables debo revisar manualmente.
+E. Plan de implementación en fases.
+F. Comandos separados, uno por uno.
+
+Reglas:
+- No borrar datos.
+- No correr seeds todavía.
+- No tocar producción sin avisar.
+- Prioridad máxima: login y registro funcionando para cualquier usuario.
