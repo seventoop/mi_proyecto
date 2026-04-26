@@ -38,9 +38,8 @@ model User {
   id                    String              @id @default(cuid())
   email                 String              @unique
   password              String?
-  googleId              String?             @unique
   nombre                String
-  rol                   String              @default("VENDEDOR")
+  rol                   String              @default("CLIENTE")
   whatsappNumber        String?
   aiAgentTone           String              @default("PROFESIONAL")
   useAiCopilot          Boolean             @default(true)
@@ -66,6 +65,7 @@ model User {
   developerVerified     Boolean             @default(false)
   passwordResetExpires  DateTime?
   passwordResetToken    String?             @unique
+  googleId              String?             @unique
   auditLogs             AuditLog[]
   bannersAprobados      Banner[]            @relation("BannerAprobador")
   bannersCreados        Banner[]            @relation("BannerCreador")
@@ -84,7 +84,6 @@ model User {
   estadoLogsRealizados  ProyectoEstadoLog[]
   mandatosAprobados     ProyectoUsuario[]   @relation("AprobadorMandato")
   relacionesCreadas     ProyectoUsuario[]   @relation("AsignadorRelacion")
-  roleChangeRequests    RoleChangeRequest[]
   proyectosRelaciones   ProyectoUsuario[]
   proyectosCreados      Proyecto[]          @relation("ProyectoCreador")
   reservasComoComprador Reserva[]           @relation("ReservasComprador")
@@ -95,21 +94,6 @@ model User {
 
   @@index([orgId])
   @@map("users")
-}
-
-model RoleChangeRequest {
-  id            String   @id @default(cuid())
-  userId        String
-  currentRole   String
-  requestedRole String
-  status        String   @default("PENDIENTE")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, status])
-  @@index([requestedRole, status])
-  @@map("role_change_requests")
 }
 
 model KycProfile {
@@ -219,13 +203,13 @@ model Proyecto {
   orgId                String?
   deletedAt            DateTime?
   tour360Url           String?
-  planGallery          String?                  // JSON: [{id,nombre,imageUrl,tipo,uploadedAt}]
   estadoValidacion     EstadoValidacionProyecto @default(BORRADOR)
   flagsOverrideAt      DateTime?
   flagsOverridePorId   String?
   puedeCaptarLeads     Boolean                  @default(false)
   puedePublicarse      Boolean                  @default(false)
   puedeReservarse      Boolean                  @default(false)
+  planGallery          String?
   banners              Banner[]
   documentacion        Documentacion[]
   etapas               Etapa[]
@@ -472,12 +456,12 @@ model PipelineEtapa {
 model LeadMessage {
   id        String   @id @default(cuid())
   leadId    String
-  userId    String?
   role      String
   content   String
   createdAt DateTime @default(now())
+  userId    String?
   lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@index([leadId])
   @@map("lead_messages")
@@ -1034,12 +1018,12 @@ model ImagenMapa {
   orden        Int      @default(0)
   altitudM     Float?   @default(500)
   imageHeading Float?   @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   latOffset    Float?   @default(0)
   lngOffset    Float?   @default(0)
   planRotation Float?   @default(0)
   planScale    Float?   @default(1)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
   proyecto     Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
   unidad       Unidad?  @relation(fields: [unidadId], references: [id])
 
