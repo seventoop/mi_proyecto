@@ -208,6 +208,42 @@ In both cases the response to unknown emails is intentionally identical to
 the response for known emails (anti-enumeration). We never say "this email
 does not exist".
 
+### 5.1 Sentry alerts for the reset email pipeline
+
+Reset email failures also reach Sentry, so the team finds out before a
+user complains. Three failure modes emit events, all tagged `area: "auth.reset"`
+plus a `reason` tag identifying the branch:
+
+| `reason` tag             | When it fires                                                         | Sentry event type                  |
+| ------------------------ | --------------------------------------------------------------------- | ---------------------------------- |
+| `RESEND_API_KEY_MISSING` | `requestPasswordReset` hit and `process.env.RESEND_API_KEY` is unset. | `captureMessage` (`level: "error"`) |
+| `RESEND_SEND_ERROR`      | `resend.emails.send` returned an `error` payload.                     | `captureException` of that error    |
+| `RESEND_THREW`           | `resend.emails.send` threw (network, SDK, etc.).                      | `captureException` of the thrown value |
+
+To avoid spamming Sentry from staging or a long-lived dev process, each
+`reason` is rate-limited to **one event per hour per Node process**
+(in-memory `Map` in `lib/actions/auth-actions.ts`). A redeploy resets the
+limiter, so a persistent issue will re-alert on the next cold start.
+
+How to verify the alerting is wired:
+
+1. Open Sentry → Issues → filter `area:auth.reset`. After a real failure
+   (or a deliberate test like temporarily unsetting `RESEND_API_KEY` in a
+   preview deploy and hitting `/forgot-password`) you should see an event
+   within ~1 minute. The `reason` tag tells you which branch fired.
+2. If you fire two reset requests back-to-back, you should still see only
+   **one** Sentry event for the same `reason` — that confirms the
+   per-process rate limit is in effect.
+3. The Vercel logs continue to carry the corresponding
+   `[reset] RESEND_API_KEY missing …` / `[reset] resend.emails.send failed …`
+   / `[reset] resend.emails.send threw …` lines on every request, so log
+   search remains the source of truth for volume; Sentry is the paging
+   surface.
+
+If `SENTRY_DSN` (or `NEXT_PUBLIC_SENTRY_DSN`) is unset, the captures
+become no-ops — `sentry.server.config.ts` initializes with whichever DSN
+is present. There is no separate kill switch for `auth.reset`.
+
 ---
 
 ## 6. Diagnosing a Google login failure in production

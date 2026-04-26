@@ -4,12 +4,37 @@ import prisma from "@/lib/db";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { z } from "zod";
+import * as Sentry from "@sentry/nextjs";
 import { sendTransactionalEmail } from "@/lib/mail";
 import { requireAuth } from "@/lib/guards";
 
 const resetRequestSchema = z.object({
     email: z.string().email("Email inválido"),
 });
+
+/**
+ * Per-process, per-key rate limit for Sentry alerts emitted by the
+ * password-reset email pipeline. We don't want a misconfigured staging
+ * deploy (or a Resend outage) to fire one Sentry event per user request:
+ * the team only needs to know "this is broken right now", not the volume.
+ *
+ * One alert per hour per `key` per Node process is enough to surface the
+ * problem without paging on every retry. The Map lives in module scope
+ * so it resets naturally on cold start / redeploy, which is the desired
+ * behavior — a fresh deploy should re-alert if the issue persists.
+ */
+const RESET_ALERT_RATE_LIMIT_MS = 60 * 60 * 1000;
+const resetAlertLastSentAt = new Map<string, number>();
+
+function shouldEmitResetAlert(key: string): boolean {
+    const now = Date.now();
+    const last = resetAlertLastSentAt.get(key) ?? 0;
+    if (now - last < RESET_ALERT_RATE_LIMIT_MS) {
+        return false;
+    }
+    resetAlertLastSentAt.set(key, now);
+    return true;
+}
 
 const resetPasswordSchema = z.object({
     token: z.string().min(1, "Token requerido"),
@@ -50,6 +75,15 @@ export async function requestPasswordReset(email: string) {
         // the team can detect this in production logs.
         if (!process.env.RESEND_API_KEY) {
             console.warn("[reset] RESEND_API_KEY missing — email not sent");
+            if (shouldEmitResetAlert("RESEND_API_KEY_MISSING")) {
+                Sentry.captureMessage(
+                    "RESEND_API_KEY missing — password reset email not sent",
+                    {
+                        level: "error",
+                        tags: { area: "auth.reset", reason: "RESEND_API_KEY_MISSING" },
+                    },
+                );
+            }
             return {
                 success: true,
                 message: "El envío automático de emails todavía no está habilitado. Escribinos a soporte@seventoop.com indicando tu email registrado.",
@@ -109,11 +143,21 @@ export async function requestPasswordReset(email: string) {
 
             if (sendError) {
                 console.error(`[reset] resend.emails.send failed for email=${emailMask}:`, sendError);
+                if (shouldEmitResetAlert("RESEND_SEND_ERROR")) {
+                    Sentry.captureException(sendError, {
+                        tags: { area: "auth.reset", reason: "RESEND_SEND_ERROR" },
+                    });
+                }
             } else {
                 console.log(`[reset] email sent for email=${emailMask} resendId=${data?.id ?? "(none)"}`);
             }
         } catch (sendErr) {
             console.error(`[reset] resend.emails.send threw for email=${emailMask}:`, sendErr);
+            if (shouldEmitResetAlert("RESEND_THREW")) {
+                Sentry.captureException(sendErr, {
+                    tags: { area: "auth.reset", reason: "RESEND_THREW" },
+                });
+            }
         }
 
         return { success: true, message: "Si el email existe, se enviarán las instrucciones." };
