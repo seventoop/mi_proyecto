@@ -19,7 +19,16 @@ const bannerCreateSchema = z.object({
     ctaText: z.string().max(60).optional().nullable(),
     ctaUrl: z.string().max(500).optional().nullable().or(z.literal("")),
     tipo: z.enum(["IMAGEN", "VIDEO"]).default("IMAGEN"),
-    mediaUrl: z.string().min(1, "URL de media requerida").max(1000).optional().nullable().or(z.literal("")),
+    // mediaUrl: URL http(s) hasta 1000 chars, o un data: URL (fallback temporal de banner
+    // sin S3) que llega a varios MB en base64. Limita a 12MB de string para tope sano.
+    mediaUrl: z.string()
+        .min(1, "URL de media requerida")
+        .max(12_000_000, "El archivo embebido excede el tamaño permitido (12MB).")
+        .refine(
+            (val) => val.startsWith("data:") || val.length <= 1000,
+            { message: "La URL de media supera los 1000 caracteres permitidos." }
+        )
+        .optional().nullable().or(z.literal("")),
     context: z.enum(["SEVENTOOP_GLOBAL", "ORG_LANDING", "PROJECT_LANDING"]).default("ORG_LANDING"),
     projectId: idSchema.optional().nullable(),
     posicion: z.string().default("HOME_TOP"),
