@@ -126,6 +126,11 @@ export const authOptions: NextAuthOptions = {
                     });
                 }
                 (user as any).id = existing.id;
+                    (user as any).email = email;
+                    (user as any).role = (await prisma.user.findUnique({
+                        where: { id: existing.id },
+                        select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true },
+                    }))?.rol;
                 console.log(`[AUTH] google signIn ok: provider=google email=${emailMask} existing=true googleIdLinked=${needsLink} -> true`);
                 return true;
             }
@@ -143,10 +148,11 @@ export const authOptions: NextAuthOptions = {
         async jwt({ token, user, trigger }) {
             if (user) {
                 token.id = (user as any).id;
+                token.email = (user as any).email ?? token.email;
                 if (!(user as any).role) {
                     const dbUser = await prisma.user.findUnique({
                         where: { id: (user as any).id },
-                        select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true },
+                        select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true, email: true, googleId: true },
                     });
                     if (dbUser) {
                         token.role = dbUser.rol;
@@ -155,6 +161,8 @@ export const authOptions: NextAuthOptions = {
                         token.demoEndsAt = dbUser.demoEndsAt
                             ? dbUser.demoEndsAt.toISOString()
                             : null;
+                        token.email = dbUser.email;
+                        (token as any).googleId = dbUser.googleId;
                     }
                 } else {
                     token.role = (user as any).role;
@@ -174,13 +182,15 @@ export const authOptions: NextAuthOptions = {
             if (token.id && needsSync) {
                 const dbUser = await prisma.user.findUnique({
                     where: { id: token.id },
-                    select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true }
+                    select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true, email: true, googleId: true }
                 });
                 if (dbUser) {
                     token.role = dbUser.rol;
                     token.orgId = dbUser.orgId;
                     token.kycStatus = dbUser.kycStatus;
                     token.demoEndsAt = dbUser.demoEndsAt ? dbUser.demoEndsAt.toISOString() : null;
+                    token.email = dbUser.email;
+                    (token as any).googleId = dbUser.googleId;
                     token.lastDbSync = now;
                 }
             }
@@ -190,10 +200,12 @@ export const authOptions: NextAuthOptions = {
         async session({ session, token }) {
             if (session.user) {
                 session.user.id = token.id;
+                session.user.email = token.email ?? session.user.email;
                 session.user.role = token.role;
                 session.user.orgId = token.orgId;
                 session.user.kycStatus = token.kycStatus;
                 session.user.demoEndsAt = token.demoEndsAt;
+                (session.user as any).googleId = (token as any).googleId;
             }
             return session;
         },
