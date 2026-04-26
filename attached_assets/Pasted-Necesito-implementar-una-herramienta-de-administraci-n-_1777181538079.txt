@@ -1,0 +1,78 @@
+Necesito implementar una herramienta de administración de usuarios y preparar datos base de producción.
+
+Contexto:
+- Auth Google ya funciona.
+- Email/password ya responde correctamente cuando una cuenta es Google-only.
+- Railway es la DB oficial.
+- Producción está en main.
+- Necesito dejar una base profesional para producción.
+
+Objetivo 1: Admin de usuarios y roles
+Crear una sección en dashboard accesible solo para ADMIN o SUPERADMIN, según roles existentes en el schema/código.
+
+Necesito:
+1. Auditar roles existentes reales en Prisma/schema/código.
+2. Confirmar si existen ADMIN y SUPERADMIN.
+3. Crear vista de administración de usuarios:
+   - listar usuarios
+   - email
+   - rol actual
+   - método de acceso: Google / password / ambos
+   - fecha de creación
+4. Permitir cambiar rol de un usuario.
+5. Impedir que usuarios comunes accedan.
+6. Impedir que alguien se autoasigne SUPERADMIN si no corresponde.
+7. Si existe SUPERADMIN, solo SUPERADMIN puede asignar SUPERADMIN.
+8. Agregar validaciones backend, no solo frontend.
+9. No borrar usuarios.
+10. No exponer hashes ni secretos.
+
+Objetivo 2: Crear proyectos base
+Crear 3 o 4 proyectos nuevos en Railway para producción, sin planos/masterplans todavía.
+
+Nombres sugeridos:
+- Valles del Pino
+- Barrio Capinota
+- Valles del Pilar
+- Altos del Lago
+
+Para cada proyecto cargar datos razonables/ficticios:
+- nombre
+- slug
+- descripción
+- ubicación
+- estado/visibilityStatus necesario para que aparezca en landing
+- datos comerciales mínimos
+- imágenes/banner si ya existe mecanismo simple y seguro
+- no cargar planos, masterplans ni overlays
+- dejar pasos 2, 3, 4 y planos para carga manual posterior
+
+Importante:
+- No correr seeds destructivos.
+- No borrar datos.
+- No tocar Neon.
+- No tocar usuarios existentes salvo que sea necesario para permisos.
+- Railway es la única DB oficial.
+- Si vas a crear datos, usar upsert o scripts seguros.
+- Antes de tocar DB, explicar qué vas a crear.
+
+Objetivo 3: Git y ramas
+Antes de cambios:
+- confirmar rama actual
+- confirmar git status
+- avisar si hay cambios pendientes
+
+Después de cambios:
+- mostrar archivos modificados
+- correr build/lint si corresponde
+- commitear cambios
+- dejar listo para push a main si estamos trabajando sobre main, o explicar si conviene pasarlo a juani-dev2
+
+Resultado esperado:
+A. Roles existentes confirmados.
+B. Herramienta admin creada.
+C. Proyectos base creados o script seguro listo para correr.
+D. Archivos modificados.
+E. Validaciones realizadas.
+F. Comandos separados de a uno.
+G. Próximo paso para actualizar juani-dev2 y mergear con la rama de Dani.
