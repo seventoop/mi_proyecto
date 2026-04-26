@@ -26,6 +26,7 @@ export const authOptions: NextAuthOptions = {
                         id: true,
                         email: true,
                         password: true,
+                        googleId: true,
                         nombre: true,
                         rol: true,
                         orgId: true,
@@ -34,7 +35,20 @@ export const authOptions: NextAuthOptions = {
                     }
                 });
 
-                if (!user || !user.password) {
+                // Anti-enumeration: same generic error when user does not exist.
+                if (!user) {
+                    throw new Error("Credenciales inválidas");
+                }
+
+                // User exists but only registered with Google (no password set).
+                // Surface a specific, non-leaky error so the UI can guide them.
+                if (!user.password && user.googleId) {
+                    throw new Error("GOOGLE_ONLY_ACCOUNT");
+                }
+
+                // User exists but has no password and no googleId — should not
+                // happen normally; treat as generic invalid creds.
+                if (!user.password) {
                     throw new Error("Credenciales inválidas");
                 }
 
@@ -88,7 +102,10 @@ export const authOptions: NextAuthOptions = {
                 "Usuario";
             const picture = (profile as any)?.picture || user?.image || null;
 
+            const emailMask = email ? `${email.substring(0, 3)}***@${email.split("@")[1] ?? ""}` : "(no-email)";
+
             if (!email || emailVerified !== true) {
+                console.warn(`[AUTH] google signIn rejected: missing email or unverified (emailVerified=${emailVerified})`);
                 return false;
             }
 
@@ -98,6 +115,7 @@ export const authOptions: NextAuthOptions = {
             });
 
             if (existing) {
+                const needsLink = !existing.googleId;
                 if (!existing.googleId || !existing.avatar) {
                     await prisma.user.update({
                         where: { id: existing.id },
@@ -108,6 +126,7 @@ export const authOptions: NextAuthOptions = {
                     });
                 }
                 (user as any).id = existing.id;
+                console.log(`[AUTH] google signIn ok: provider=google email=${emailMask} existing=true googleIdLinked=${needsLink} -> true`);
                 return true;
             }
 
@@ -118,6 +137,7 @@ export const authOptions: NextAuthOptions = {
                 picture,
             });
 
+            console.log(`[AUTH] google signIn pre-registration: provider=google email=${emailMask} existing=false -> /google-register`);
             return `/google-register?token=${encodeURIComponent(token)}`;
         },
         async jwt({ token, user, trigger }) {

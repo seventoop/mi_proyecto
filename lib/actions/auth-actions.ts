@@ -45,21 +45,26 @@ export async function requestPasswordReset(email: string) {
             return { success: false, error: parsed.error.issues[0].message };
         }
 
-        // If email service is not configured, guide user to manual support
+        // If email service is not configured, be honest with the user instead
+        // of pretending we sent something. Also leave a server-side warning so
+        // the team can detect this in production logs.
         if (!process.env.RESEND_API_KEY) {
+            console.warn("[reset] RESEND_API_KEY missing — email not sent");
             return {
                 success: true,
-                message: "Para recuperar tu contraseña escribinos a soporte@seventoop.com indicando tu email registrado.",
+                message: "El envío automático de emails todavía no está habilitado. Escribinos a soporte@seventoop.com indicando tu email registrado.",
             };
         }
 
         const normalizedEmail = parsed.data.email.toLowerCase().trim();
+        const emailMask = normalizedEmail.substring(0, 3) + "***";
         const user = await prisma.user.findUnique({
             where: { email: normalizedEmail },
         });
 
         if (!user) {
             // Anti-enumeration: same response whether user exists or not
+            console.log(`[reset] request for unknown email=${emailMask} — generic response returned`);
             return { success: true, message: "Si el email existe, se enviarán las instrucciones." };
         }
 
@@ -81,27 +86,36 @@ export async function requestPasswordReset(email: string) {
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY);
 
-        await resend.emails.send({
-            from: "SevenToop <noreply@seventoop.com>",
-            to: user.email,
-            subject: "Recuperá tu contraseña — SevenToop",
-            html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
-                <h2>Recuperación de contraseña</h2>
-                <p>Hacé click en el siguiente enlace para restablecer tu contraseña. El enlace expira en 1 hora.</p>
-                <a href="${resetLink}" 
-                   style="background:#f97316;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold;">
-                    Restablecer contraseña
-                </a>
-                <p style="margin-top: 20px; font-size: 12px; color: #666;">
-                    Si no solicitaste esto, ignorá este email.
-                </p>
-                <p>— Equipo SevenToop</p>
-            </div>
-            `
-        });
+        try {
+            const { data, error: sendError } = await resend.emails.send({
+                from: "SevenToop <noreply@seventoop.com>",
+                to: user.email,
+                subject: "Recuperá tu contraseña — SevenToop",
+                html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
+                    <h2>Recuperación de contraseña</h2>
+                    <p>Hacé click en el siguiente enlace para restablecer tu contraseña. El enlace expira en 1 hora.</p>
+                    <a href="${resetLink}"
+                       style="background:#f97316;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold;">
+                        Restablecer contraseña
+                    </a>
+                    <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                        Si no solicitaste esto, ignorá este email.
+                    </p>
+                    <p>— Equipo SevenToop</p>
+                </div>
+                `,
+            });
 
-        console.log("[reset] solicitud para:", email.substring(0, 3) + "***");
+            if (sendError) {
+                console.error(`[reset] resend.emails.send failed for email=${emailMask}:`, sendError);
+            } else {
+                console.log(`[reset] email sent for email=${emailMask} resendId=${data?.id ?? "(none)"}`);
+            }
+        } catch (sendErr) {
+            console.error(`[reset] resend.emails.send threw for email=${emailMask}:`, sendErr);
+        }
+
         return { success: true, message: "Si el email existe, se enviarán las instrucciones." };
 
     } catch (error) {

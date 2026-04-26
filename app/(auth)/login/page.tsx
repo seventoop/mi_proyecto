@@ -75,7 +75,13 @@ function LoginForm() {
             });
 
             if (result?.error) {
-                setError(result.error);
+                if (result.error === "GOOGLE_ONLY_ACCOUNT") {
+                    setError("Esta cuenta solo puede iniciar sesión con Google. Usá el botón 'Continuar con Google'.");
+                } else if (result.error === "CredentialsSignin") {
+                    setError("Email o contraseña incorrectos");
+                } else {
+                    setError(result.error);
+                }
             } else {
                 if (rememberMe) {
                     localStorage.setItem("rememberedEmail", email);

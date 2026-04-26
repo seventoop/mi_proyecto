@@ -21,6 +21,7 @@
     "db:sync:apply": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' APPLY=true npx ts-node --transpile-only scripts/sync-to-railway.ts",
     "fix:key-roles:dry-run": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/fix-key-user-roles.ts",
     "fix:key-roles": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/fix-key-user-roles.ts",
+    "set-password": "tsx scripts/set-user-password.ts",
     "db:studio": "npx prisma studio",
     "postinstall": "prisma generate",
     "security:check": "node scripts/security-check.js"
@@ -106,6 +107,7 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
