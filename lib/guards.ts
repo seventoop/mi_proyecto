@@ -351,9 +351,9 @@ function describePrismaError(error: unknown): string | null {
             case "P2003":
                 return "Referencia inválida: el recurso vinculado no existe.";
             case "P2022":
-                return `Falta una columna en la base de datos (${(meta as any).column ?? "?"}). Hay que correr las migraciones de Prisma en este entorno.`;
+                return `Falta una columna en la base de datos (${(meta as any).column ?? "?"}). Hay que correr las migraciones de Prisma en este entorno (npx prisma migrate deploy).`;
             case "P2021":
-                return `Falta una tabla en la base de datos (${(meta as any).table ?? "?"}). Hay que correr las migraciones de Prisma en este entorno.`;
+                return `Falta una tabla en la base de datos (${(meta as any).table ?? "?"}). Hay que correr las migraciones de Prisma en este entorno (npx prisma migrate deploy).`;
             case "P2025":
                 return "El registro buscado no existe o ya fue eliminado.";
             default:
@@ -362,6 +362,23 @@ function describePrismaError(error: unknown): string | null {
     }
     if (error instanceof Prisma.PrismaClientValidationError) {
         return "Tipos de datos inválidos al guardar. Revisá los campos del formulario.";
+    }
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+        return "No se pudo conectar a la base de datos. Revisá DATABASE_URL en este entorno.";
+    }
+    if (error instanceof Prisma.PrismaClientUnknownRequestError || error instanceof Prisma.PrismaClientRustPanicError) {
+        // Errores que no entran en el catálogo conocido — frecuentes cuando la
+        // base está desactualizada y faltan columnas que el cliente Prisma
+        // espera. Detectamos rastros típicos en el mensaje crudo.
+        const raw = String((error as any)?.message ?? "");
+        const m = raw.match(/column "?([\w".]+)"? does not exist/i);
+        if (m) {
+            return `Falta una columna en la base de datos (${m[1]}). Hay que correr las migraciones de Prisma en este entorno (npx prisma migrate deploy).`;
+        }
+        if (/relation "?([\w".]+)"? does not exist/i.test(raw)) {
+            return "Falta una tabla en la base de datos. Hay que correr las migraciones de Prisma en este entorno (npx prisma migrate deploy).";
+        }
+        return "Error inesperado de base de datos. Si esto recién aparece tras un deploy, probablemente faltan migraciones (npx prisma migrate deploy).";
     }
     return null;
 }

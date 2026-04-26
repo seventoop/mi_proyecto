@@ -59,12 +59,39 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: "Contenido corrupto o MIME spoofing detectado" }, { status: 400 });
         }
 
-        const uploadResult = await uploadFile({
-            folder: "general",
-            filename: validFile.name,
-            contentType: validFile.type,
-            buffer,
-        });
+        let uploadResult;
+        try {
+            uploadResult = await uploadFile({
+                folder: "general",
+                filename: validFile.name,
+                contentType: validFile.type,
+                buffer,
+            });
+        } catch (storageErr: any) {
+            const raw = String(storageErr?.message || "");
+            // Storage no configurado o creds faltantes
+            if (/no configurado|STORAGE_TYPE|S3_BUCKET|S3_ACCESS_KEY|PROHIBIDO en producción/i.test(raw)) {
+                console.error("[upload] storage misconfigured:", raw);
+                return NextResponse.json({
+                    success: false,
+                    error: "El almacenamiento de archivos no está configurado en este entorno. Avisá al administrador (faltan variables STORAGE_*).",
+                }, { status: 503 });
+            }
+            // S3/AWS auth o conectividad
+            const status = storageErr?.$metadata?.httpStatusCode;
+            if (status === 401 || status === 403 || /AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch/i.test(raw)) {
+                console.error("[upload] storage auth error:", { status, raw: raw.split("\n")[0] });
+                return NextResponse.json({
+                    success: false,
+                    error: "El servidor no puede autenticarse contra el almacenamiento. Revisá las credenciales S3.",
+                }, { status: 503 });
+            }
+            console.error("[upload] storage error:", { status, name: storageErr?.name, raw: raw.split("\n")[0] });
+            return NextResponse.json({
+                success: false,
+                error: "No se pudo subir el archivo al almacenamiento. Intentá de nuevo o probá con otro archivo.",
+            }, { status: 502 });
+        }
 
         return NextResponse.json({
             success: true,

@@ -1,0 +1,156 @@
+Necesito auditar y corregir el administrador de banners globales.
+
+Contexto:
+- Ruta: /dashboard/admin/banners
+- Producción usa Railway.
+- Intenté crear/publicar un banner subiendo una imagen manualmente.
+- En el paso “Media”, después de subir la imagen, al guardar/publicar aparece:
+  “Se encontraron errores – Error interno del servidor”.
+- Necesito que esto funcione en producción.
+- Esta parte la quiero arreglar acá, antes de mergear la rama de Dani.
+- Dani trabajó principalmente en dashboard/proyectos; no quiero que sus cambios pisen estos fixes de banners.
+
+Objetivo 1: auditoría funcional del editor de banners
+Explicarme cómo funciona cada pestaña:
+- Contenido
+- Media
+- IA
+- Preview
+- Publicación
+
+Para cada una indicar:
+- qué datos carga
+- qué valida
+- qué campos son obligatorios
+- dónde se guardan en DB
+- dónde se muestran en la landing
+- qué datos realmente necesita la landing para mostrar un banner
+
+Objetivo 2: permisos por rol
+Auditar cómo están hoy los permisos para banners.
+
+Propuesta deseada:
+- SUPERADMIN y ADMIN:
+  - pueden crear banners
+  - publicar/despublicar
+  - ordenar prioridad
+  - aprobar banners
+  - editar banners globales
+- VENDEDOR:
+  - debería poder crear banners para publicitar sus proyectos
+  - idealmente vinculados a un proyecto propio/asignado
+  - puede dejarlos como DRAFT o PENDING_APPROVAL
+  - NO debería poder publicar directamente en el hero global sin aprobación admin
+- DESARROLLADOR, INVERSOR, CLIENTE:
+  - revisar si corresponde acceso o no; por defecto no.
+
+Si esto requiere mucho cambio, dejar VENDEDOR como propuesta documentada y hoy resolver ADMIN/SUPERADMIN. Pero auditarlo y decir qué conviene.
+
+Objetivo 3: simplificar validaciones mínimas
+Quiero que para crear/guardar un banner alcance con lo mínimo indispensable:
+- media válida: imagen, video o GIF
+- título/headline o nombre interno si realmente hace falta
+- context = SEVENTOOP_GLOBAL por defecto para banners globales
+- estado DRAFT al guardar borrador
+- estado PUBLISHED solo cuando lo publica ADMIN/SUPERADMIN
+
+Todo lo demás debe ser opcional:
+- subtítulo
+- CTA
+- texto largo
+- IA
+- fechas
+- duración
+- animación/transición
+- orden
+- preview avanzado
+
+Si falta algo opcional, NO debe bloquear.
+
+Objetivo 4: link/botón hacia proyecto
+Auditar si el modelo Banner ya permite CTA o link.
+
+Me gustaría que el banner pueda tener un botón opcional:
+- texto CTA, por ejemplo “Ver proyecto”
+- URL destino
+- idealmente seleccionar un proyecto y que el link apunte a ese proyecto
+- si todavía no existe selector de proyecto, permitir URL manual como primer paso
+
+Esto debe ser opcional y no bloquear la creación del banner.
+
+Objetivo 5: corregir error de subida/publicación
+Auditar:
+- componente editor de banners
+- action/API que guarda banners
+- action/API que publica banners
+- endpoint/upload usado para media
+- modelo Prisma Banner
+- validaciones zod/schema
+- campos obligatorios reales en DB
+
+Encontrar por qué aparece “Error interno del servidor”.
+
+Revisar si falla por:
+- upload de archivo
+- URL de media inválida
+- tipo de media
+- campo obligatorio faltante
+- enum inválido
+- context incorrecto
+- estado incorrecto
+- permisos
+- schema Railway desactualizado
+- payload con string vacío
+- validación demasiado estricta
+
+Objetivo 6: mensajes claros
+No mostrar “Error interno del servidor” si el error es conocido.
+
+Mostrar errores claros:
+- “La imagen no se pudo subir”
+- “Falta una imagen, video o GIF”
+- “El formato no es compatible”
+- “No tenés permiso para publicar banners”
+- “Falta correr migraciones”
+- “Falta completar el título”
+
+Objetivo 7: landing
+Confirmar que un banner publicado aparece en landing si:
+- context = SEVENTOOP_GLOBAL
+- estado = PUBLISHED
+
+Y confirmar que si no hay banners:
+- NO aparece “SevenToop Media Engine”
+- NO queda hueco vacío
+- la landing salta directo a la siguiente sección
+
+Objetivo 8: merge futuro con Dani
+Identificar archivos tocados por banners/CMS para protegerlos cuando mezcle con origin/dani-dev3.
+No tocar dashboard/proyectos salvo que sea estrictamente necesario.
+
+Reglas:
+- No hacer commit.
+- No hacer push.
+- No borrar banners.
+- No borrar proyectos.
+- No tocar Neon.
+- No correr seeds.
+- No hacer migraciones sin avisar.
+- No exponer secretos.
+- Validar backend y frontend.
+- Podés correr git status, git diff y comandos de lectura para entender el estado del repo.
+- Si necesitás modificar archivos, dejalos en working tree para que yo revise y decida si los commiteo.
+
+Al terminar devolver:
+A. Explicación de cada pestaña.
+B. Causa exacta del error.
+C. Campos mínimos requeridos para crear/publicar banner.
+D. Recomendación de permisos por rol.
+E. Si VENDEDOR puede o debería cargar banners y con qué restricciones.
+F. Cómo funcionaría el botón/link hacia proyecto.
+G. Cambios aplicados.
+H. Archivos modificados.
+I. Pruebas realizadas.
+J. git status.
+K. git diff --stat.
+L. Comandos sugeridos para commit/push, pero no ejecutar commit ni push.

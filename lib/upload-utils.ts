@@ -1,12 +1,13 @@
 import { z } from "zod";
 
-export const MAX_FILE_SIZE_GENERAL = 20 * 1024 * 1024; // 20MB
+export const MAX_FILE_SIZE_GENERAL = 50 * 1024 * 1024; // 50MB (banners: imagen/GIF chico, video corto)
 export const MAX_FILE_SIZE_360 = 50 * 1024 * 1024;     // 50MB
 export const MAX_FILE_SIZE_PLAN = 50 * 1024 * 1024;    // 50MB
 
 export const ALLOWED_MIME_TYPES_GENERAL = [
     "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml",
-    "application/pdf", "video/mp4", "video/webm"
+    "application/pdf",
+    "video/mp4", "video/webm", "video/quicktime",
 ] as const;
 
 export const ALLOWED_MIME_TYPES_360 = [

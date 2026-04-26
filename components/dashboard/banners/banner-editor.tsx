@@ -485,10 +485,21 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
             const fd = new FormData();
             fd.append("file", file);
             if (form.projectId) fd.append("projectId", form.projectId);
-            const res = await fetch("/api/upload", { method: "POST", body: fd });
-            const data = await res.json();
+            let res: Response;
+            try {
+                res = await fetch("/api/upload", { method: "POST", body: fd });
+            } catch (networkErr) {
+                setErrors({ media: "Sin conexión con el servidor. Revisá tu red e intentá de nuevo." });
+                setActiveTab("media");
+                return null;
+            }
+            const data = await res.json().catch(() => ({} as any));
             if (data.success) return data.url as string;
-            setErrors({ media: data.error || "Error al subir archivo" });
+            const msg = data.error || (res.status === 413
+                ? "El archivo es demasiado grande."
+                : `Error al subir archivo (HTTP ${res.status}).`);
+            setErrors({ media: msg });
+            setActiveTab("media");
             return null;
         } finally {
             setUploading(false);
