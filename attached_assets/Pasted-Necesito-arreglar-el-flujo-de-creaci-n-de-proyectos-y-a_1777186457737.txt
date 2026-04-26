@@ -1,0 +1,69 @@
+Necesito arreglar el flujo de creación de proyectos y aclarar carga de banners de landing.
+
+Contexto:
+- Producción usa Railway.
+- Replit por defecto sigue usando helium, otra DB.
+- En producción /api/debug/db-counts confirmó proyectos=0 y banners=0.
+- Soy SUPERADMIN en Railway.
+- Al crear proyecto desde dashboard con nombre, ubicación, tipo, estado, descripción e imagen de portada, aparece "Error interno del servidor".
+- La UI también muestra "Modo demo · podés crear 1 proyecto", aunque soy SUPERADMIN.
+
+Objetivo 1: arreglar creación de proyectos
+Auditar la acción/API exacta que crea proyectos desde el modal Nuevo Proyecto.
+
+Revisar:
+1. Qué campos son obligatorios realmente en Prisma/backend.
+2. Qué payload manda el frontend.
+3. Si falla por:
+   - límite demo
+   - rol/permisos
+   - usuario no actualizado en sesión
+   - imagen/base64/upload
+   - campo obligatorio faltante
+   - slug duplicado
+   - schema/migración Railway faltante
+   - estado inválido
+   - visibilityStatus faltante
+4. Para SUPERADMIN no debe aplicar límite demo.
+5. Si faltan campos obligatorios, la UI debe avisar cuáles.
+6. No mostrar "Error interno del servidor" genérico si hay error conocido.
+7. Agregar logs seguros en backend para identificar causa, sin secretos.
+8. No borrar datos.
+9. No correr seeds todavía.
+10. No tocar Neon.
+
+Resultado esperado:
+- causa real del error
+- fix mínimo aplicado
+- mensajes claros en UI
+- si la imagen de portada no puede subirse en creación, permitir crear sin imagen o avisar claramente
+- pruebas realizadas
+
+Objetivo 2: banners/landing
+Auditar cómo se cargan los banners principales de la landing.
+
+Necesito saber:
+1. Qué tabla/modelo guarda esos banners.
+2. Qué ruta/admin UI existe para cargar banners.
+3. Qué estado necesitan para aparecer.
+4. Qué context necesita usar: SEVENTOOP_GLOBAL u otro.
+5. Si hoy no existe UI para cargar banners, proponer una solución mínima:
+   - admin UI simple
+   - o script seguro dry-run/apply
+6. No confundir banner principal de landing con imagen de portada de proyecto.
+
+Objetivo 3: explicar Replit vs producción
+Dejar claro en el reporte:
+- por qué en Replit se ven banners/proyectos
+- por qué en producción no
+- cómo hacer que Replit apunte a Railway si queremos probar contra la misma DB
+
+Al terminar mostrar:
+A. archivo/función exacta que fallaba
+B. causa real
+C. cambios aplicados
+D. cómo crear proyecto correctamente
+E. dónde cargar banners de landing
+F. git status
+G. git diff --stat
+H. pruebas corridas
