@@ -1,0 +1,84 @@
+Necesito diagnosticar y arreglar el login en producción y preview.
+
+Contexto:
+- Railway producción tiene 4 usuarios:
+  - ascenzimarquezjuanignacio@gmail.com → DESARROLLADOR, has_google true, has_password false
+  - juanascenzi@gmail.com → CLIENTE, has_google true, has_password false
+  - luisfanor15@gmail.com → CLIENTE, has_password true
+  - ferreteriajunta@gmail.com → INVERSOR, has_google true
+- La DB de producción está bien conectada a Railway.
+- No hay proyectos, eso ya está diagnosticado.
+- El problema ahora es auth.
+- Email/password falla para usuarios Google porque no tienen password.
+- Login con Google en producción permite elegir cuenta, pero después redirige y muestra error de inicio de sesión o 404.
+- “Olvidé mi contraseña” muestra solicitud procesada, pero no llega email.
+
+Objetivo:
+Auditar y corregir login/registro para producción real.
+
+Revisar:
+
+1. Login Google
+- Revisar NextAuth/Auth config.
+- Revisar provider Google.
+- Revisar callbacks.
+- Revisar rutas /api/auth/[...nextauth].
+- Revisar si el error viene por redirect, callback URL, NEXTAUTH_URL, NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET o Google Cloud Console.
+- Confirmar redirect URI exacta que debe estar en Google:
+  https://seventoop.com/api/auth/callback/google
+- Confirmar si también hace falta preview/replit redirect URI.
+- Revisar logs de producción esperados.
+- Agregar logs seguros si hace falta, sin exponer secrets.
+
+2. Usuarios Google existentes
+- Confirmar si un usuario con has_google true puede iniciar sesión con Google.
+- Ver si el callback busca por googleId, email o Account table.
+- Ver si hay inconsistencia entre User.googleId y cuentas OAuth.
+- Ver si el modelo Prisma usa tabla Account o campo googleId.
+- Proponer fix mínimo.
+
+3. Email/password
+- Explicar claramente que usuarios con has_password false NO pueden iniciar con contraseña.
+- Confirmar si ascenzimarquezjuanignacio@gmail.com no tiene password y por eso falla.
+- Crear una forma segura de resetear o setear password para un usuario existente, solo admin/debug temporal, o script controlado.
+- No mostrar hashes.
+- No hardcodear passwords en código.
+
+4. Olvidé mi contraseña
+- Auditar si realmente envía email.
+- Si no envía email, decirlo.
+- Revisar si existe SMTP/Resend/SendGrid/Nodemailer.
+- Si no existe proveedor de email, proponer implementación mínima:
+  - tabla/token de password reset
+  - endpoint request reset
+  - endpoint confirm reset
+  - envío por email con proveedor
+- Por ahora no prometer que envía si no está implementado.
+
+5. Variables Vercel
+Revisar y listar exactamente:
+- NEXTAUTH_URL
+- NEXTAUTH_SECRET
+- GOOGLE_CLIENT_ID
+- GOOGLE_CLIENT_SECRET
+- DATABASE_URL
+- AUTH_URL/AUTH_SECRET si aplica
+- si hay variables duplicadas o inconsistentes
+
+6. Resultado esperado
+Devolver:
+A. Causa probable del error con Google.
+B. Qué mirar en logs de Vercel.
+C. Qué corregir en Google Cloud Console.
+D. Qué cambios mínimos de código hacen falta.
+E. Cómo crear o resetear una password para ascenzimarquezjuanignacio@gmail.com.
+F. Si “olvidé contraseña” es real o solo placeholder.
+G. Plan de fix en pasos.
+H. Comandos separados, uno por uno.
+
+Reglas:
+- No tocar proyectos.
+- No borrar usuarios.
+- No mostrar secretos.
+- No hacer cambios destructivos.
+- Prioridad máxima: que Google login funcione en producción y que email/password funcione para usuarios nuevos.
