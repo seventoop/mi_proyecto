@@ -30,6 +30,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import * as readline from "readline";
 import { Writable } from "stream";
+import { sendPasswordChangedNotification } from "../lib/email/password-changed-notification";
 
 const BCRYPT_ROUNDS = 10;
 const MIN_PASSWORD_LENGTH = 8;
@@ -175,9 +176,24 @@ async function main() {
             },
         });
 
+        // Security loop (Task #16): warn the account owner that their
+        // password was just changed out-of-band. This script runs from a
+        // shell session, so there is no `headers()` context — IP and UA
+        // are intentionally null and the email will say "desconocida".
+        // Best-effort: a Resend outage must NOT prevent the operator
+        // from finishing the password change locally.
+        const notify = await sendPasswordChangedNotification({
+            userId: user.id,
+            email: user.email,
+            ip: null,
+            userAgent: null,
+            source: "ADMIN_CLI",
+        });
+
         console.log(
             `Password ${hadPassword ? "updated" : "set"} for ${user.email}. ` +
-            `Audit log entry recorded (AUTH_PASSWORD_SET_BY_ADMIN).`,
+            `Audit log entry recorded (AUTH_PASSWORD_SET_BY_ADMIN). ` +
+            `Owner notification email: ${notify.sent ? "sent" : "NOT sent (see logs)"}.`,
         );
     } catch (err) {
         console.error("set-user-password failed:", err instanceof Error ? err.message : err);

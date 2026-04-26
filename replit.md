@@ -38,6 +38,7 @@ Next.js 14 real estate management platform with Prisma ORM and PostgreSQL (Neon 
 - **i18n**: `lib/i18n/dictionaries/es.json` and `en.json` — keys: nav, news, footer.links.news, mediaBanner
 
 ## Recent Changes
+- Task #16: Send a "your password was changed" email to the account owner after every successful password change. Triggered from `resetPassword` (covers `AUTH_PASSWORD_RESET_SUCCESS` and `AUTH_PASSWORD_SET_BY_USER`) and `scripts/set-user-password.ts` (covers `AUTH_PASSWORD_SET_BY_ADMIN`). New helper at `lib/email/password-changed-notification.ts` includes IP / UA / timestamp + soporte CTA, swallows errors, and rate-limits its own Sentry alerts (`area=auth.password_changed`).
 - Replaced `bcrypt` with `bcryptjs` for Vercel compatibility
 - Added email normalization in auth flows
 - Migrated data from Replit to Neon production (12 users, 7 projects, 322 units, 10 banners)

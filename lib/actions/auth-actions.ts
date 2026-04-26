@@ -232,6 +232,47 @@ export async function resetPassword(formData: z.infer<typeof resetPasswordSchema
             }
         });
 
+        // Security loop (Task #16): notify the account owner that their
+        // password just changed. We read the same headers `audit()` uses
+        // so the email and the audit row reference the same IP / UA.
+        // The notification is best-effort and MUST NOT break this flow.
+        try {
+            const { headers } = await import("next/headers");
+            const { sendPasswordChangedNotification } = await import(
+                "@/lib/email/password-changed-notification"
+            );
+            let ip: string | null = null;
+            let userAgent: string | null = null;
+            try {
+                const h = headers();
+                ip = h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || null;
+                userAgent = h.get("user-agent") || null;
+            } catch {
+                // headers() may not be available in all server contexts
+            }
+            await sendPasswordChangedNotification({
+                userId: user.id,
+                email: user.email,
+                ip,
+                userAgent,
+                source: previouslyHadPassword ? "SELFSERVICE_RESET" : "SELFSERVICE_SET",
+            });
+        } catch (notifyErr) {
+            // Defense in depth: the helper already swallows errors, but
+            // if the dynamic import itself blows up we still don't want
+            // to fail the user's password change. Mirror the helper's
+            // own observability contract so this edge case still pages.
+            console.error("[reset] password-changed notification failed to dispatch:", notifyErr);
+            if (shouldEmitAuthEmailAlert("pwd-changed:DISPATCH_THREW")) {
+                Sentry.captureException(notifyErr, {
+                    tags: {
+                        area: "auth.password_changed",
+                        reason: "DISPATCH_THREW",
+                    },
+                });
+            }
+        }
+
         return {
             success: true,
             message: previouslyHadPassword
