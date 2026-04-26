@@ -8,6 +8,8 @@ declare module "next-auth" {
             orgId: string | null;
             kycStatus: string;
             demoEndsAt: string | null;
+            googleId?: string | null;
+            hasPassword?: boolean;
         } & DefaultSession["user"];
     }
 
@@ -26,6 +28,8 @@ declare module "next-auth/jwt" {
         orgId: string | null;
         kycStatus: string;
         demoEndsAt: string | null;
+        googleId?: string | null;
+        hasPassword?: boolean;
         lastDbSync?: number; // unix timestamp (seconds) of last DB refetch
     }
 }

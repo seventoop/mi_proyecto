@@ -149,12 +149,16 @@ export const authOptions: NextAuthOptions = {
             if (user) {
                 token.id = (user as any).id;
                 token.email = (user as any).email ?? token.email;
-                if (!(user as any).role) {
-                    const dbUser = await prisma.user.findUnique({
-                        where: { id: (user as any).id },
-                        select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true, email: true, googleId: true },
-                    });
-                    if (dbUser) {
+                // Always re-fetch googleId / hasPassword for the JWT — these are
+                // needed downstream (e.g. /forgot-password shows a self-service
+                // hint to authenticated only-Google users) and they are not
+                // included on the `user` object that next-auth passes here.
+                const dbUser = await prisma.user.findUnique({
+                    where: { id: (user as any).id },
+                    select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true, email: true, googleId: true, password: true },
+                });
+                if (dbUser) {
+                    if (!(user as any).role) {
                         token.role = dbUser.rol;
                         token.orgId = dbUser.orgId;
                         token.kycStatus = dbUser.kycStatus;
@@ -162,9 +166,16 @@ export const authOptions: NextAuthOptions = {
                             ? dbUser.demoEndsAt.toISOString()
                             : null;
                         token.email = dbUser.email;
-                        (token as any).googleId = dbUser.googleId;
+                    } else {
+                        token.role = (user as any).role;
+                        token.orgId = (user as any).orgId;
+                        token.kycStatus = (user as any).kycStatus;
+                        token.demoEndsAt = (user as any).demoEndsAt;
                     }
-                } else {
+                    token.googleId = dbUser.googleId;
+                    token.hasPassword = Boolean(dbUser.password);
+                } else if (!(user as any).role) {
+                    // No DB row; fall through with whatever the user object has.
                     token.role = (user as any).role;
                     token.orgId = (user as any).orgId;
                     token.kycStatus = (user as any).kycStatus;
@@ -182,7 +193,7 @@ export const authOptions: NextAuthOptions = {
             if (token.id && needsSync) {
                 const dbUser = await prisma.user.findUnique({
                     where: { id: token.id },
-                    select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true, email: true, googleId: true }
+                    select: { rol: true, orgId: true, kycStatus: true, demoEndsAt: true, email: true, googleId: true, password: true }
                 });
                 if (dbUser) {
                     token.role = dbUser.rol;
@@ -190,7 +201,8 @@ export const authOptions: NextAuthOptions = {
                     token.kycStatus = dbUser.kycStatus;
                     token.demoEndsAt = dbUser.demoEndsAt ? dbUser.demoEndsAt.toISOString() : null;
                     token.email = dbUser.email;
-                    (token as any).googleId = dbUser.googleId;
+                    token.googleId = dbUser.googleId;
+                    token.hasPassword = Boolean(dbUser.password);
                     token.lastDbSync = now;
                 }
             }
@@ -205,7 +217,16 @@ export const authOptions: NextAuthOptions = {
                 session.user.orgId = token.orgId;
                 session.user.kycStatus = token.kycStatus;
                 session.user.demoEndsAt = token.demoEndsAt;
-                (session.user as any).googleId = (token as any).googleId;
+                session.user.googleId = token.googleId ?? null;
+                // Pass `hasPassword` through verbatim (including `undefined`)
+                // instead of defaulting to `false`. Pre-existing JWTs minted
+                // before this field was added would otherwise look like
+                // "no password" until the next 5-min DB sync, which would
+                // briefly show the only-Google self-service hint to users
+                // who actually have a password. Consumers should treat
+                // `undefined` as "unknown" and check strictly for `=== false`
+                // before acting on it (see app/(auth)/forgot-password/page.tsx).
+                session.user.hasPassword = token.hasPassword;
             }
             return session;
         },

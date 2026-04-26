@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Mail, Loader2, CheckCircle2 } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { ArrowLeft, Mail, Loader2, CheckCircle2, Info } from "lucide-react";
 import { requestPasswordReset } from "@/lib/actions/auth-actions";
 import { toast } from "sonner";
 
@@ -11,6 +12,20 @@ export default function ForgotPasswordPage() {
     const [isPending, startTransition] = useTransition();
     const [isSent, setIsSent] = useState(false);
     const [serverMsg, setServerMsg] = useState("");
+
+    // Anti-enumeration constraint: we never tell an anonymous visitor
+    // whether an email belongs to an only-Google account, because that
+    // would leak account existence and provider. We only surface the
+    // self-service hint when the visitor is already authenticated in
+    // this browser (e.g. they navigated here from another tab) AND the
+    // session shows their own account is `googleId && !hasPassword`.
+    // In that scenario there is nothing to leak — they are looking at
+    // their own account.
+    const { data: session, status } = useSession();
+    const showGoogleOnlyHint =
+        status === "authenticated" &&
+        Boolean(session?.user?.googleId) &&
+        session?.user?.hasPassword === false;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -65,6 +80,33 @@ export default function ForgotPasswordPage() {
                     Ingresa tu email y te enviaremos las instrucciones para restablecer tu acceso.
                 </p>
             </div>
+
+            {showGoogleOnlyHint && (
+                <div
+                    role="note"
+                    data-testid="forgot-google-only-hint"
+                    className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-100 text-sm flex items-start gap-2"
+                >
+                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-300" />
+                    <div className="space-y-1">
+                        <p className="font-medium text-amber-200">
+                            Tu cuenta se creó con Google
+                        </p>
+                        <p className="text-amber-100/80">
+                            No tenés una contraseña que restablecer. Para poder
+                            ingresar también con email + contraseña, agregá una
+                            desde{" "}
+                            <Link
+                                href="/dashboard/configuracion"
+                                className="underline hover:text-white transition-colors"
+                            >
+                                Configuración
+                            </Link>
+                            .
+                        </p>
+                    </div>
+                </div>
+            )}
 
             <form className="space-y-6" onSubmit={handleSubmit}>
                 <div className="space-y-2">

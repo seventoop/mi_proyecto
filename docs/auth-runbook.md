@@ -143,6 +143,50 @@ If `RESEND_API_KEY` is missing, the action returns an honest error
 so the team can detect the misconfiguration in production logs. The
 script in section 4 is still available as a fallback for that scenario.
 
+### 3.1 In-product hints that point users to this self-service flow
+
+Two surfaces nudge only-Google users toward the self-service path
+described above instead of toward soporte:
+
+1. **Login (`app/(auth)/login/page.tsx`).** When `authorize()` throws
+   `GOOGLE_ONLY_ACCOUNT` (the user typed their email + a password but
+   their `User` row has `googleId && !password`), the form swaps the
+   generic red error for an amber alert that contains:
+   - a short explanation ("Esta cuenta se creó con Google"),
+   - a prominent "Iniciar sesión con Google" button that calls
+     `signIn("google", { callbackUrl: "/dashboard" })`, and
+   - a link to `/dashboard/configuracion` so they know where to
+     add a password afterwards.
+
+   The alert is identified in the DOM as
+   `[data-testid="login-google-only-alert"]` for tests / screenshots.
+   The trigger is purely client-side: the server still throws the same
+   `GOOGLE_ONLY_ACCOUNT` string; only the rendering changed.
+
+2. **`/forgot-password` (`app/(auth)/forgot-password/page.tsx`).** This
+   page must keep its anti-enumeration response for anonymous visitors
+   (see section 5), so we do **not** ask the server "is this email
+   only-Google?" before submission. Instead, the page reads the
+   current `useSession()` and, only if the visitor is **already
+   authenticated in this browser** with `googleId && !hasPassword`,
+   renders an amber `data-testid="forgot-google-only-hint"` note that
+   points them at `/dashboard/configuracion`. Typical scenario: the
+   user is logged in via Google in another tab, opens
+   `/forgot-password` because they assumed they had a password, and
+   we tell them they don't — using only data they already own about
+   themselves, never a server lookup of an arbitrary email. For
+   anonymous visitors the page is unchanged.
+
+   To make this possible the JWT/session now carries two extra fields:
+   `googleId` (already present) and `hasPassword: boolean | undefined`
+   (computed in `lib/auth.ts` as `Boolean(dbUser.password)` — the
+   bcrypt hash itself is never copied into the token). They are typed
+   in `types/next-auth.d.ts`. Pre-existing JWTs minted before this
+   field existed surface as `hasPassword === undefined` until the
+   next 5-minute DB sync; the forgot-password hint checks strictly
+   for `=== false` so old tokens don't briefly mis-fire the alert
+   for users who actually have a password.
+
 ---
 
 ## 4. CLI: set or reset a user's password (operator fallback)
