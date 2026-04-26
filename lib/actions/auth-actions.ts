@@ -126,6 +126,16 @@ export async function requestPasswordReset(email: string) {
 
 /**
  * Resets the password using a valid token.
+ *
+ * The audit action distinguishes two scenarios so that operators can tell
+ * a "first password set" apart from a normal reset, which matters for
+ * incident response on accounts that were originally Google-only:
+ *
+ *   - `AUTH_PASSWORD_SET_BY_USER`  → the user had no password before
+ *     (e.g. a Google-only account that just self-served a password from
+ *     `/dashboard/configuracion` → `requestPasswordSetup`).
+ *   - `AUTH_PASSWORD_RESET_SUCCESS` → the user already had a password and
+ *     just rotated it via the standard `/forgot-password` flow.
  */
 export async function resetPassword(formData: z.infer<typeof resetPasswordSchema>) {
     try {
@@ -144,6 +154,8 @@ export async function resetPassword(formData: z.infer<typeof resetPasswordSchema
             return { success: false, error: "Token inválido o expirado" };
         }
 
+        const previouslyHadPassword = user.password !== null;
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
         await prisma.user.update({
@@ -159,16 +171,194 @@ export async function resetPassword(formData: z.infer<typeof resetPasswordSchema
         const { audit } = await import("@/lib/actions/audit");
         await audit({
             userId: user.id,
-            action: "AUTH_PASSWORD_RESET_SUCCESS",
+            action: previouslyHadPassword ? "AUTH_PASSWORD_RESET_SUCCESS" : "AUTH_PASSWORD_SET_BY_USER",
             entity: "User",
             entityId: user.id,
-            details: { method: "TOKEN" }
+            details: {
+                method: "TOKEN",
+                previouslyHadPassword,
+                hasGoogle: user.googleId !== null,
+            }
         });
 
-        return { success: true, message: "Contraseña actualizada exitosamente" };
+        return {
+            success: true,
+            message: previouslyHadPassword
+                ? "Contraseña actualizada exitosamente"
+                : "Contraseña agregada exitosamente. Ya podés iniciar sesión con email y contraseña."
+        };
 
     } catch (error) {
         console.error("[AUTH_RESET_PASSWORD_ERROR]", error);
         return { success: false, error: "Error al restablecer la contraseña" };
+    }
+}
+
+/**
+ * Self-service: an authenticated user requests a token to set or change
+ * their password. Mirrors `requestPasswordReset` but skips the
+ * anti-enumeration dance (the user is already authenticated) and emits an
+ * `AUTH_PASSWORD_SET_REQUESTED` audit row so the request itself is
+ * traceable, even before the user clicks the email link.
+ *
+ * Designed primarily for Google-only users (`has_password=false`,
+ * `has_google=true`) who want to also be able to log in with email +
+ * password, replacing the need for the operator-only
+ * `npm run set-password` script for that population.
+ *
+ * The reuse of the existing `passwordResetToken` / `passwordResetExpires`
+ * columns and the `/reset-password?token=...` page is intentional — there
+ * is one canonical "set password via token" surface, so audit and
+ * monitoring queries don't have to special-case a second flow.
+ */
+export async function requestPasswordSetup() {
+    try {
+        const sessionUser = await requireAuth();
+
+        const user = await prisma.user.findUnique({
+            where: { id: sessionUser.id },
+            select: {
+                id: true,
+                email: true,
+                password: true,
+                googleId: true,
+            },
+        });
+
+        if (!user) {
+            return { success: false, error: "Usuario no encontrado" };
+        }
+
+        const previouslyHadPassword = user.password !== null;
+        const hasGoogle = user.googleId !== null;
+        const emailMask = user.email.substring(0, 3) + "***";
+
+        // Scope guard: this self-service flow exists specifically for
+        // Google-only accounts that want to also be able to log in with
+        // email + password (Task #7). Users who already have a password
+        // should rotate it via the existing `/forgot-password` flow, which
+        // is the canonical "rotate" surface and does not require us to
+        // overload this entry point.
+        if (previouslyHadPassword || !hasGoogle) {
+            return {
+                success: false,
+                error: "Esta opción es solo para cuentas que entran únicamente con Google. Si ya tenés contraseña y querés cambiarla, usá '¿Olvidaste tu contraseña?' desde el login.",
+            };
+        }
+
+        // Be honest if email is not configured: the user is authenticated,
+        // so there is no enumeration risk and no reason to pretend it worked.
+        if (!process.env.RESEND_API_KEY) {
+            console.warn(`[set-password] RESEND_API_KEY missing — email not sent for email=${emailMask}`);
+            return {
+                success: false,
+                error: "El envío automático de emails todavía no está habilitado. Escribinos a soporte@seventoop.com y te ayudamos a configurar tu contraseña.",
+            };
+        }
+
+        const token = crypto.randomBytes(32).toString("hex");
+        const expiry = new Date(Date.now() + 3600000); // 1 hour
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                passwordResetToken: token,
+                passwordResetExpires: expiry,
+            },
+        });
+
+        const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
+
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { audit } = await import("@/lib/actions/audit");
+
+        try {
+            const { data, error: sendError } = await resend.emails.send({
+                from: "SevenToop <noreply@seventoop.com>",
+                to: user.email,
+                subject: "Agregá una contraseña a tu cuenta — SevenToop",
+                html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
+                    <h2>Agregá una contraseña a tu cuenta</h2>
+                    <p>Pediste agregar una contraseña a tu cuenta de Google desde tu perfil. Hacé click en el siguiente enlace para elegir tu contraseña. Después de fijarla, vas a poder iniciar sesión con email + contraseña y también con Google. El enlace expira en 1 hora.</p>
+                    <a href="${resetLink}"
+                       style="background:#f97316;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold;">
+                        Agregar contraseña
+                    </a>
+                    <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                        Si no fuiste vos, ignorá este email y revisá la actividad de tu cuenta.
+                    </p>
+                    <p>— Equipo SevenToop</p>
+                </div>
+                `,
+            });
+
+            if (sendError) {
+                console.error(`[set-password] resend.emails.send failed for email=${emailMask}:`, sendError);
+                // Roll back the token: leaving it valid for 1h with no way
+                // to deliver the link only widens the attack surface.
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: { passwordResetToken: null, passwordResetExpires: null },
+                });
+                await audit({
+                    userId: user.id,
+                    action: "AUTH_PASSWORD_SET_REQUEST_FAILED",
+                    entity: "User",
+                    entityId: user.id,
+                    details: {
+                        method: "PROFILE_SELFSERVICE",
+                        reason: "RESEND_SEND_ERROR",
+                        previouslyHadPassword,
+                        hasGoogle,
+                    },
+                });
+                return { success: false, error: "No pudimos enviar el email. Intentá de nuevo en unos minutos." };
+            }
+            console.log(`[set-password] email sent for email=${emailMask} resendId=${data?.id ?? "(none)"}`);
+        } catch (sendErr) {
+            console.error(`[set-password] resend.emails.send threw for email=${emailMask}:`, sendErr);
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { passwordResetToken: null, passwordResetExpires: null },
+            });
+            await audit({
+                userId: user.id,
+                action: "AUTH_PASSWORD_SET_REQUEST_FAILED",
+                entity: "User",
+                entityId: user.id,
+                details: {
+                    method: "PROFILE_SELFSERVICE",
+                    reason: "RESEND_THREW",
+                    previouslyHadPassword,
+                    hasGoogle,
+                },
+            });
+            return { success: false, error: "No pudimos enviar el email. Intentá de nuevo en unos minutos." };
+        }
+
+        // Audit only after the email actually went out, so the audit trail
+        // matches operational reality (a "requested" row implies the user
+        // could click a real link).
+        await audit({
+            userId: user.id,
+            action: "AUTH_PASSWORD_SET_REQUESTED",
+            entity: "User",
+            entityId: user.id,
+            details: {
+                method: "PROFILE_SELFSERVICE",
+                previouslyHadPassword,
+                hasGoogle,
+            },
+        });
+
+        return {
+            success: true,
+            message: `Te enviamos un email a ${user.email} con un enlace para fijar tu contraseña. Expira en 1 hora.`,
+        };
+    } catch (error) {
+        console.error("[AUTH_PASSWORD_SETUP_REQUEST_ERROR]", error);
+        return { success: false, error: "Error al procesar la solicitud" };
     }
 }

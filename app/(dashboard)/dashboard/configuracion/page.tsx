@@ -9,16 +9,33 @@ import RequestRoleChangeCard from "@/components/dashboard/request-role-change-ca
 import RoleChangeRequestsAdminCard from "@/components/dashboard/role-change-requests-admin-card";
 import RolePermissionsAdminCard from "@/components/dashboard/role-permissions-admin-card";
 import { PERMISSIONS, roleHasPermission } from "@/lib/auth/permissions";
+import prisma from "@/lib/db";
 
 export default async function ConfiguracionPage() {
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role as string | undefined;
+    const userId = (session?.user as any)?.id as string | undefined;
 
     // Fetch Configs in Parallel on the Server
-    const [configRes, userRes] = await Promise.all([
+    const [configRes, userRes, accountRow] = await Promise.all([
         getAllSystemConfig(),
-        getUserConfig()
+        getUserConfig(),
+        userId
+            ? prisma.user.findUnique({
+                where: { id: userId },
+                select: { email: true, password: true, googleId: true },
+            })
+            : Promise.resolve(null),
     ]);
+
+    // We expose booleans only — never the password hash — to the client.
+    const account = accountRow
+        ? {
+            email: accountRow.email,
+            hasPassword: accountRow.password !== null,
+            hasGoogle: accountRow.googleId !== null,
+        }
+        : null;
 
     const [canManagePlatform, canManageRoleRequests] = await Promise.all([
         userRole ? roleHasPermission(userRole, PERMISSIONS.PLATFORM_CONFIG_MANAGE) : Promise.resolve(false),
@@ -87,7 +104,7 @@ export default async function ConfiguracionPage() {
                             </div>
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Perfil Personal</h2>
                         </div>
-                        <SettingsForm initialConfig={userData} />
+                        <SettingsForm initialConfig={userData} account={account} />
                     </div>
 
                     <RequestRoleChangeCard />

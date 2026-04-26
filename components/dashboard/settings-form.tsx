@@ -1,21 +1,43 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, Shield, Palette, Save, Loader2, Check } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Bell, Shield, Palette, Save, Loader2, Check, KeyRound, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { updateUserConfig } from "@/lib/actions/configuration";
+import { requestPasswordSetup } from "@/lib/actions/auth-actions";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 
-interface SettingsFormProps {
-    initialConfig?: any;
+interface AccountInfo {
+    email: string;
+    hasPassword: boolean;
+    hasGoogle: boolean;
 }
 
-export default function SettingsForm({ initialConfig = {} }: SettingsFormProps) {
+interface SettingsFormProps {
+    initialConfig?: any;
+    account?: AccountInfo | null;
+}
+
+export default function SettingsForm({ initialConfig = {}, account = null }: SettingsFormProps) {
     const { theme, setTheme } = useTheme();
     const { data: session } = useSession();
     const [isSaving, setIsSaving] = useState(false);
+    const [isSendingPasswordEmail, startPasswordEmail] = useTransition();
+    const [passwordEmailSent, setPasswordEmailSent] = useState(false);
+
+    const handleRequestPasswordSetup = () => {
+        startPasswordEmail(async () => {
+            const res = await requestPasswordSetup();
+            if (res.success) {
+                setPasswordEmailSent(true);
+                toast.success(res.message || "Email enviado");
+            } else {
+                toast.error(res.error || "No pudimos procesar la solicitud");
+            }
+        });
+    };
 
     // Merge defaults
     const [notifications, setNotifications] = useState({
@@ -155,7 +177,7 @@ export default function SettingsForm({ initialConfig = {} }: SettingsFormProps) 
                 </div>
             </div>
 
-            {/* Security Placeholder */}
+            {/* Security */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 md:col-span-2 shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 rounded-lg bg-rose-500/10 text-rose-500">
@@ -163,14 +185,55 @@ export default function SettingsForm({ initialConfig = {} }: SettingsFormProps) 
                     </div>
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">Seguridad</h2>
                 </div>
-                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                    <div>
-                        <p className="font-bold text-slate-800 dark:text-white">Contraseña</p>
-                        <p className="text-xs text-slate-500">Última actualización: hace 30 días</p>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <p className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                <KeyRound className="w-4 h-4" />
+                                Contraseña
+                            </p>
+                            {account ? (
+                                account.hasPassword ? (
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Tu cuenta ya tiene contraseña configurada{account.hasGoogle ? " y también podés iniciar sesión con Google." : "."} Para cambiarla, usá <span className="font-semibold">¿Olvidaste tu contraseña?</span> desde el login.
+                                    </p>
+                                ) : account.hasGoogle ? (
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Hoy entrás solo con Google. Agregá una contraseña para poder iniciar sesión también con email + contraseña. Tu acceso con Google va a seguir funcionando.
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Tu cuenta no tiene contraseña ni acceso con Google configurados. Contactá a soporte.
+                                    </p>
+                                )
+                            ) : (
+                                <p className="text-xs text-slate-500 mt-1">No pudimos cargar el estado de tu cuenta.</p>
+                            )}
+                        </div>
+
+                        {account && !account.hasPassword && account.hasGoogle && !passwordEmailSent && (
+                            <button
+                                type="button"
+                                onClick={handleRequestPasswordSetup}
+                                disabled={isSendingPasswordEmail}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-60"
+                            >
+                                {isSendingPasswordEmail ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Mail className="w-4 h-4" />
+                                )}
+                                Agregar contraseña a mi cuenta
+                            </button>
+                        )}
                     </div>
-                    <button className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                        Cambiar
-                    </button>
+
+                    {passwordEmailSent && account && (
+                        <div className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+                            Te enviamos un email a <span className="font-semibold">{account.email}</span> con un enlace para fijar tu contraseña. El enlace expira en 1 hora. Si no llega, revisá la carpeta de spam.
+                        </div>
+                    )}
                 </div>
             </div>
 

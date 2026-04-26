@@ -88,11 +88,68 @@ the URI must include `www.`.
 
 ---
 
-## 3. CLI: set or reset a user's password
+## 3. Self-service: a Google-only user adds a password from their profile
 
-When a user is `has_google: true, has_password: false` and needs to log in
-with email/password (e.g. password manager, no Google access), use the
-`set-password` script.
+Preferred path for users with `has_google: true, has_password: false`
+who want to also be able to log in with email + password. No shell
+access required.
+
+This entry point is **scoped on purpose** to the only-Google case.
+Users who already have a password (`has_password: true`) should rotate
+it via the standard `/forgot-password` flow; the affordance is hidden
+for them in the UI and the server action rejects the request with a
+clear message if invoked anyway.
+
+1. The user logs in (with Google) and goes to
+   `/dashboard/configuracion` → section **Seguridad**.
+2. They see a button labelled _"Agregar contraseña a mi cuenta"_, which
+   calls `requestPasswordSetup` in `lib/actions/auth-actions.ts`.
+3. The server action:
+   - Verifies the user is authenticated (`requireAuth`).
+   - Refuses if the user already has a password or does not have a
+     linked Google account, returning a friendly error.
+   - Generates a 32-byte token, stores it in
+     `User.passwordResetToken` with a 1-hour expiry in
+     `User.passwordResetExpires` — the same columns the
+     `/forgot-password` flow uses, so there is one canonical
+     "set-password-via-token" surface.
+   - Sends an email via Resend to the user's own `User.email` with a
+     link to `/reset-password?token=...`.
+   - On successful send, writes an `AuditLog` row with
+     `action: "AUTH_PASSWORD_SET_REQUESTED"`, details
+     `{ method: "PROFILE_SELFSERVICE", previouslyHadPassword, hasGoogle }`.
+     The audit happens **after** Resend confirms send, so a
+     "requested" row implies a real link is in flight. If Resend fails
+     or throws, the token is rolled back (cleared) and an
+     `AUTH_PASSWORD_SET_REQUEST_FAILED` row is written instead, with
+     `details.reason` set to `RESEND_SEND_ERROR` or `RESEND_THREW`.
+4. The user clicks the link and lands on the existing
+   `/reset-password` page, picks a password and submits.
+5. `resetPassword` in `lib/actions/auth-actions.ts` writes the bcrypt
+   hash to `User.password`, clears the token, and audits one of:
+   - `AUTH_PASSWORD_SET_BY_USER` if the user had no password before
+     (typical for previously Google-only accounts).
+   - `AUTH_PASSWORD_RESET_SUCCESS` if they were rotating an existing
+     password.
+
+After completion, an originally Google-only user can log in **both**
+with email + password and with Google — the `User` row keeps both
+`password` and `googleId`. This replaces the `npm run set-password`
+script for the common case.
+
+If `RESEND_API_KEY` is missing, the action returns an honest error
+("escribinos a soporte@seventoop.com") and logs
+`[set-password] RESEND_API_KEY missing — email not sent for email=abc***`
+so the team can detect the misconfiguration in production logs. The
+script in section 4 is still available as a fallback for that scenario.
+
+---
+
+## 4. CLI: set or reset a user's password (operator fallback)
+
+Use this when the user cannot self-serve from the profile (e.g.
+`RESEND_API_KEY` is unavailable, the user lost access to their inbox,
+or the account is locked for some reason).
 
 ```bash
 # 1. Make sure DATABASE_URL points to the DB you intend to mutate.
@@ -133,7 +190,7 @@ their Google login (the row keeps both `password` and `googleId`).
 
 ---
 
-## 4. "Forgot my password" flow
+## 5. "Forgot my password" flow
 
 Endpoint: `app/(auth)/forgot-password/page.tsx` →
 `requestPasswordReset` in `lib/actions/auth-actions.ts`.
@@ -153,7 +210,7 @@ does not exist".
 
 ---
 
-## 5. Diagnosing a Google login failure in production
+## 6. Diagnosing a Google login failure in production
 
 1. Hit `/api/health` and confirm `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
    `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `DATABASE_URL` are all `true` /
