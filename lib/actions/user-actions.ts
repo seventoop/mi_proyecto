@@ -7,12 +7,7 @@ import { idSchema } from "@/lib/validations";
 import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { ROLES, type Role } from "@/lib/constants/roles";
 
-/**
- * Roles that an admin can assign from the Users admin table. Excludes
- * SUPERADMIN (platform-level only, granted out of band) and removes the
- * legacy "USER" role which no longer exists in the canonical role set.
- */
-const ADMIN_ASSIGNABLE_ROLES = [
+const ASSIGNABLE_BY_ADMIN = [
     ROLES.ADMIN,
     ROLES.DESARROLLADOR,
     ROLES.VENDEDOR,
@@ -20,14 +15,31 @@ const ADMIN_ASSIGNABLE_ROLES = [
     ROLES.CLIENTE,
 ] as const satisfies readonly Role[];
 
-export type AdminAssignableRole = (typeof ADMIN_ASSIGNABLE_ROLES)[number];
+const ASSIGNABLE_BY_SUPERADMIN = [
+    ROLES.SUPERADMIN,
+    ...ASSIGNABLE_BY_ADMIN,
+] as const satisfies readonly Role[];
 
-function isAdminAssignableRole(value: unknown): value is AdminAssignableRole {
+export type AdminAssignableRole = (typeof ASSIGNABLE_BY_SUPERADMIN)[number];
+
+function isAssignableRole(value: unknown): value is AdminAssignableRole {
     return typeof value === "string"
-        && (ADMIN_ASSIGNABLE_ROLES as readonly string[]).includes(value);
+        && (ASSIGNABLE_BY_SUPERADMIN as readonly string[]).includes(value);
 }
 
-// ─── Queries ───
+function canActorAssign(actorRole: string, target: AdminAssignableRole): boolean {
+    if (target === ROLES.SUPERADMIN) return actorRole === ROLES.SUPERADMIN;
+    return actorRole === ROLES.SUPERADMIN || actorRole === ROLES.ADMIN;
+}
+
+export type UserAccessMethod = "google" | "password" | "both" | "none";
+
+function deriveAccessMethod(opts: { hasPassword: boolean; hasGoogle: boolean }): UserAccessMethod {
+    if (opts.hasPassword && opts.hasGoogle) return "both";
+    if (opts.hasGoogle) return "google";
+    if (opts.hasPassword) return "password";
+    return "none";
+}
 
 export async function getUsers(
     page: number = 1,
@@ -50,7 +62,7 @@ export async function getUsers(
         if (role && role !== "ALL") where.rol = role;
         if (kycStatus && kycStatus !== "ALL") where.kycStatus = kycStatus;
 
-        const [users, total] = await Promise.all([
+        const [rawUsers, total] = await Promise.all([
             prisma.user.findMany({
                 where,
                 skip: (page - 1) * limit,
@@ -64,10 +76,23 @@ export async function getUsers(
                     kycStatus: true,
                     createdAt: true,
                     avatar: true,
+                    password: true,
+                    googleId: true,
                 }
             }),
             prisma.user.count({ where })
         ]);
+
+        const users = rawUsers.map(({ password, googleId, ...rest }) => {
+            const hasPassword = Boolean(password);
+            const hasGoogle = Boolean(googleId);
+            return {
+                ...rest,
+                hasPassword,
+                hasGoogle,
+                accessMethod: deriveAccessMethod({ hasPassword, hasGoogle }),
+            };
+        });
 
         return {
             success: true,
@@ -85,26 +110,83 @@ export async function getUsers(
     }
 }
 
-// ─── Mutations ───
-
 export async function updateUserRole(userId: string, newRole: AdminAssignableRole) {
     try {
         const idParsed = idSchema.safeParse(userId);
         if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
 
-        if (!isAdminAssignableRole(newRole)) {
-            // Defensive guard: protects against stale clients still sending the
-            // legacy "USER" role or any non-canonical value. The backend stays
-            // the source of truth even if frontend code drifts.
+        if (!isAssignableRole(newRole)) {
             console.warn("[updateUserRole] rejected non-canonical role", { userId, newRole });
             return { success: false, error: "Rol no asignable" };
         }
 
-        await requirePermission(PERMISSIONS.USERS_MANAGE);
+        const actor = await requirePermission(PERMISSIONS.USERS_MANAGE);
+
+        if (!canActorAssign(actor.role, newRole)) {
+            console.warn("[updateUserRole] privilege escalation blocked", {
+                actorId: actor.id,
+                actorRole: actor.role,
+                targetUserId: userId,
+                attemptedRole: newRole,
+            });
+            return { success: false, error: "No tenés permisos para asignar este rol." };
+        }
+
+        const target = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, rol: true },
+        });
+
+        if (!target) {
+            return { success: false, error: "Usuario no encontrado" };
+        }
+
+        if (target.rol === newRole) {
+            return { success: true, unchanged: true };
+        }
+
+        if (
+            actor.id === userId &&
+            target.rol === ROLES.SUPERADMIN &&
+            newRole !== ROLES.SUPERADMIN
+        ) {
+            const remainingSuperadmins = await prisma.user.count({
+                where: { rol: ROLES.SUPERADMIN, id: { not: userId } },
+            });
+            if (remainingSuperadmins === 0) {
+                return {
+                    success: false,
+                    error: "No podés bajarte de SUPERADMIN siendo el último. Asigná otro SUPERADMIN primero.",
+                };
+            }
+        }
+
+        if (
+            target.rol === ROLES.SUPERADMIN &&
+            newRole !== ROLES.SUPERADMIN &&
+            actor.role !== ROLES.SUPERADMIN
+        ) {
+            return { success: false, error: "Solo SUPERADMIN puede degradar a otro SUPERADMIN." };
+        }
+
         await prisma.user.update({
             where: { id: userId },
             data: { rol: newRole }
         });
+
+        try {
+            const { audit } = await import("@/lib/actions/audit");
+            await audit({
+                userId: actor.id,
+                action: "USER_ROLE_UPDATED",
+                entity: "User",
+                entityId: userId,
+                details: { from: target.rol, to: newRole, actorRole: actor.role },
+            });
+        } catch (auditErr) {
+            console.error("[updateUserRole] audit failed", auditErr);
+        }
+
         revalidatePath("/dashboard/admin/usuarios");
         return { success: true };
     } catch (error) {
@@ -113,16 +195,23 @@ export async function updateUserRole(userId: string, newRole: AdminAssignableRol
     }
 }
 
-export async function toggleUserBan(userId: string, isBanned: boolean) {
+/**
+ * Disabled by design: previous implementation called `prisma.user.delete`,
+ * which permanently removed the user and cascaded to their data. The product
+ * rule is "no borrar usuarios". A safe ban requires a soft-delete column
+ * (e.g. `bannedAt`/`isBanned`) on the User model, which does not exist yet.
+ *
+ * Until that schema change lands, this action is a no-op that returns a
+ * clear error so the UI can disable/hide the button without leaking
+ * implementation details.
+ */
+export async function toggleUserBan(_userId: string, _isBanned: boolean) {
     try {
-        const idParsed = idSchema.safeParse(userId);
-        if (!idParsed.success) return { success: false, error: "ID de usuario inválido" };
-
         await requirePermission(PERMISSIONS.USERS_MANAGE);
-        // In the original file, it was deleting the user. I'll stick to that if that's the intended "ban" logic in this repo.
-        await prisma.user.delete({ where: { id: userId } });
-        revalidatePath("/dashboard/admin/usuarios");
-        return { success: true };
+        return {
+            success: false,
+            error: "Bloqueo de usuarios temporalmente deshabilitado: requiere soft-delete (campo isBanned/bannedAt) en el schema. No se borran usuarios.",
+        };
     } catch (error) {
         return handleGuardError(error);
     }

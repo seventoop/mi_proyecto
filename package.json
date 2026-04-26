@@ -22,6 +22,8 @@
     "fix:key-roles:dry-run": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/fix-key-user-roles.ts",
     "fix:key-roles": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' npx ts-node --transpile-only scripts/fix-key-user-roles.ts",
     "set-password": "tsx scripts/set-user-password.ts",
+    "seed:base-projects:dry-run": "tsx scripts/seed-base-projects.ts",
+    "seed:base-projects:apply": "tsx scripts/seed-base-projects.ts --apply",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:studio": "npx prisma studio",

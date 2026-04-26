@@ -1,0 +1,135 @@
+Acepto trabajar sobre main, pero con reglas estrictas.
+
+Contexto:
+- Producción despliega desde main.
+- Railway Postgres es la única DB oficial.
+- Neon queda descartado.
+- Google login ya funciona.
+- Email/password ya muestra correctamente si una cuenta es Google-only.
+- Hay endpoints debug ya creados:
+  - /api/debug/db-counts
+  - /api/debug/db-users
+  - /api/debug/oauth-links
+- Ahora necesito una herramienta real de administración de usuarios/roles y un script seguro para crear proyectos base.
+- Estoy en main y acepto trabajar en main, pero NO quiero romper producción ni borrar datos.
+
+Reglas obligatorias:
+1. No borrar usuarios.
+2. No borrar proyectos.
+3. No correr seeds destructivos.
+4. No correr migrations destructivas.
+5. No tocar Neon.
+6. No hacer push sin mostrarme antes resumen y estado.
+7. No correr ningún script con --apply contra Railway sin mi confirmación explícita.
+8. No exponer hashes, secretos ni tokens.
+9. Validar permisos en backend, no solo en frontend.
+10. Si aparece un riesgo de producción, frenar y explicar antes.
+
+Antes de modificar:
+- correr git status
+- confirmar que estamos en main
+- revisar si existe .git/index.lock
+- si existe y está stale, explicar cómo resolverlo antes de seguir
+- mostrar brevemente qué archivos vas a tocar
+
+Objetivo 1: herramienta admin de usuarios
+Implementar pantalla:
+
+/dashboard/admin/usuarios
+
+Debe estar accesible solo para roles con permiso USERS_MANAGE, hoy ADMIN y SUPERADMIN.
+
+Usar lo existente:
+- lib/constants/roles.ts
+- lib/actions/admin-actions.ts
+- sidebar ya linkea a /dashboard/admin/usuarios
+- getUsers()
+- updateUserRole()
+
+La pantalla debe mostrar:
+- email
+- rol actual
+- método de acceso:
+  - Google
+  - password
+  - ambos
+  - ninguno si aplica
+- fecha de creación
+- búsqueda/filtros si ya están soportados
+- selector de rol permitido
+- acción para actualizar rol
+
+Reglas de roles:
+- ADMIN puede asignar roles comunes, pero NO SUPERADMIN.
+- SUPERADMIN puede asignar SUPERADMIN.
+- Nadie puede autoescalarse indebidamente.
+- Nadie puede quitarse a sí mismo el último rol crítico si eso deja al sistema sin superadmin, si esa lógica es fácil de validar.
+- Si esa última regla complica demasiado, dejarla documentada como mejora pendiente.
+- El backend debe ser la fuente de verdad.
+- El frontend solo debe reflejar permisos, no confiar en ellos.
+
+Objetivo 2: corregir riesgo grave de borrado
+Se detectó que toggleUserBan() en lib/actions/admin-actions.ts usa prisma.user.delete().
+Eso es peligroso y contradice la regla de no borrar usuarios.
+
+Hacer uno de estos enfoques, el más seguro y mínimo:
+A. Desactivar temporalmente toggleUserBan para que no borre y devuelva error claro tipo "ban temporal no implementado sin soft-delete".
+o
+B. Si ya existen campos seguros como isBanned, bannedAt, deletedAt, usar soft-ban sin borrar.
+No crear migración si no es necesario.
+No borrar usuarios bajo ninguna circunstancia.
+
+Objetivo 3: exponer método de acceso en getUsers
+Actualizar getUsers para devolver datos seguros:
+- hasPassword: Boolean(user.password)
+- hasGoogle: Boolean(user.googleId)
+No devolver password ni hashes.
+
+Objetivo 4: script seguro de proyectos base
+Crear un script idempotente para crear proyectos base en Railway, pero NO correrlo con apply.
+
+Nombres:
+- Valles del Pino
+- Barrio Capinota
+- Valles del Pilar
+- Altos del Lago
+
+Requisitos:
+- upsert por slug
+- dry-run por defecto
+- --apply obligatorio para escribir
+- no tocar planos/masterplans/overlays
+- no borrar nada
+- no pisar datos importantes si el proyecto ya existe
+- setear campos mínimos para que aparezcan en landing:
+  - visibilityStatus = PUBLICADO
+  - estado compatible con buildPublicProjectWhere()
+  - deletedAt = null
+  - isDemo = false
+- cargar descripción/ubicación/datos comerciales ficticios razonables
+- si hay campos obligatorios, completarlos de forma segura según schema
+- agregar script npm claro, por ejemplo:
+  - npm run seed:base-projects:dry-run
+  - npm run seed:base-projects:apply
+
+Objetivo 5: pruebas
+Correr solo pruebas seguras:
+- typecheck/build si corresponde
+- lint si está disponible
+- no correr scripts destructivos
+- no correr seed apply
+
+Al terminar, mostrar:
+A. Archivos modificados.
+B. Qué cambió en cada archivo.
+C. Resultado de pruebas.
+D. git status.
+E. git diff --stat.
+F. git log --oneline origin/main..HEAD.
+G. Si hay que hacer push, indicarme el comando, pero no pushear sin mi confirmación.
+
+Importante:
+- Trabajá en main porque lo autorizo.
+- Pero actuá como si fuera producción: cambios mínimos, seguros y reversibles.
+- Prioridad: admin usuarios/roles y no borrar usuarios.
+- Proyecto base: dejar script listo, no ejecutarlo con apply.
