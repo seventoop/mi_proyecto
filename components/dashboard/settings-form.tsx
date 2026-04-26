@@ -53,6 +53,13 @@ export default function SettingsForm({ initialConfig = {}, account = null }: Set
     const [useAiCopilot, setUseAiCopilot] = useState(initialConfig?.useAiCopilot ?? true);
     const [aiAgentTone, setAiAgentTone] = useState(initialConfig?.aiAgentTone || "PROFESIONAL");
 
+    // Login-method indicators read from the session (JWT fields populated in
+    // lib/auth.ts). `hasPassword` may be `undefined` for legacy JWTs minted
+    // before the field existed, so we fall back to the server-resolved
+    // `account` so the badge stays truthful before the next 5-min DB sync.
+    const sessionGoogleLinked = Boolean(session?.user?.googleId ?? account?.hasGoogle);
+    const sessionHasPassword = session?.user?.hasPassword ?? account?.hasPassword ?? false;
+
     const handleSave = async () => {
         if (!session?.user) return;
         setIsSaving(true);
@@ -187,6 +194,47 @@ export default function SettingsForm({ initialConfig = {}, account = null }: Set
                         <Shield className="w-5 h-5" />
                     </div>
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">Seguridad</h2>
+                </div>
+
+                {/* Login methods badges — see the constants computed above. */}
+                <div
+                    className="flex flex-wrap gap-2 mb-4"
+                    data-testid="login-methods-badges"
+                >
+                    <span
+                        data-testid="login-method-google-badge"
+                        className={cn(
+                            "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border",
+                            sessionGoogleLinked
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                        )}
+                    >
+                        <span
+                            className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                sessionGoogleLinked ? "bg-emerald-500" : "bg-slate-400"
+                            )}
+                        />
+                        Google vinculado: {sessionGoogleLinked ? "sí" : "no"}
+                    </span>
+                    <span
+                        data-testid="login-method-password-badge"
+                        className={cn(
+                            "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border",
+                            sessionHasPassword
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                                : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                        )}
+                    >
+                        <span
+                            className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                sessionHasPassword ? "bg-emerald-500" : "bg-amber-500"
+                            )}
+                        />
+                        Contraseña: {sessionHasPassword ? "configurada" : "no configurada"}
+                    </span>
                 </div>
 
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-4">

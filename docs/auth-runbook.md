@@ -101,7 +101,16 @@ for them in the UI and the server action rejects the request with a
 clear message if invoked anyway.
 
 1. The user logs in (with Google) and goes to
-   `/dashboard/configuracion` → section **Seguridad**.
+   `/dashboard/configuracion` → section **Seguridad**. At the top of
+   that section two badges (`data-testid="login-method-google-badge"`
+   and `data-testid="login-method-password-badge"`) summarise which
+   login methods their account currently has, e.g.
+   _"Google vinculado: sí"_ + _"Contraseña: no configurada"_, so the
+   self-service prompt below is not the only signal that a password is
+   missing. The badges read `session.user.googleId` and
+   `session.user.hasPassword` (already in the JWT — see section 3.2),
+   so adding them does not introduce a new DB query or endpoint, and
+   they refresh together with the rest of the session.
 2. They see a button labelled _"Agregar contraseña a mi cuenta"_, which
    calls `requestPasswordSetup` in `lib/actions/auth-actions.ts`.
 3. The server action:
