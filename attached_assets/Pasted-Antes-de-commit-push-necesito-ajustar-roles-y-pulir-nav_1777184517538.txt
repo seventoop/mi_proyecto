@@ -1,0 +1,111 @@
+Antes de commit/push necesito ajustar roles y pulir navegación del dashboard.
+
+Contexto:
+- La pantalla nueva de usuarios está en /dashboard/admin/usuarios.
+- Está pensada para gestión de usuarios/roles.
+- Todavía no hice push.
+- Estamos trabajando en main.
+
+Objetivo 1: reglas finales para cambio de roles
+
+Quiero esta lógica:
+
+1. ADMIN y SUPERADMIN pueden cambiar roles de otros usuarios.
+2. ADMIN solo puede asignar:
+   - CLIENTE
+   - INVERSOR
+   - VENDEDOR
+   - DESARROLLADOR
+3. ADMIN NO puede asignar:
+   - ADMIN
+   - SUPERADMIN
+4. SUPERADMIN puede asignar todos los roles:
+   - CLIENTE
+   - INVERSOR
+   - VENDEDOR
+   - DESARROLLADOR
+   - ADMIN
+   - SUPERADMIN
+5. SUPERADMIN puede quitar rol SUPERADMIN a otros SUPERADMIN.
+6. Nadie debería poder romper el sistema dejando 0 SUPERADMIN si esa validación ya está implementada o es simple de mantener.
+7. Backend debe validar todo. Frontend solo acompaña.
+8. La UI debe mostrar opciones de rol según el actor:
+   - si actor ADMIN, ocultar/deshabilitar ADMIN y SUPERADMIN.
+   - si actor SUPERADMIN, mostrar todos.
+9. Nadie puede autoescalarse de forma indebida.
+10. No borrar usuarios.
+
+Objetivo 2: asegurar usuario inicial SUPERADMIN
+
+Actualizar en Railway el usuario:
+
+ascenzimarquezjuanignacio@gmail.com
+
+Cambiar rol actual de DESARROLLADOR a SUPERADMIN.
+
+Hacerlo de forma segura:
+- sin borrar usuario
+- sin tocar googleId
+- sin tocar password
+- sin tocar otros usuarios
+- mostrar antes/después
+- puede ser con script puntual seguro
+- no dejar endpoint público peligroso para esto
+
+Objetivo 3: mejorar sidebar/dashboard navigation
+
+Revisar components/dashboard/sidebar.tsx y componentes relacionados.
+
+Necesito:
+
+1. Botón de colapsar menú lateral:
+   - ubicarlo debajo del logotipo o en una posición más clara visualmente
+   - mejorar diseño para que no quede feo
+   - cuando el menú está colapsado, el botón debe ser claro para expandir
+   - revisar aria-labels:
+     - "Colapsar menú lateral"
+     - "Expandir menú lateral"
+
+2. Revisar ese botón naranja con casita que aparece cuando el sidebar está colapsado:
+   - identificar qué hace
+   - si es redundante, confuso o no aporta, reemplazarlo o rediseñarlo
+   - no dejar iconos sin propósito claro
+
+3. Agregar botón para salir del dashboard y volver a la landing:
+   - visible para todos los roles con acceso al dashboard
+   - texto sugerido: "Volver a la landing" o "Ir al sitio"
+   - ruta: /
+   - debe funcionar tanto con sidebar expandido como colapsado
+   - puede usar icono tipo Home o Globe, pero con tooltip/label claro
+
+4. No romper navegación existente.
+5. Mantener responsive.
+6. Mantener accesibilidad básica.
+
+Objetivo 4: validaciones
+
+Antes de terminar:
+- correr typecheck/build si corresponde
+- si sidebar tenía error previo, intentar corregirlo si está relacionado y es razonable
+- no tocar cosas fuera de alcance innecesariamente
+
+Reglas:
+- No borrar datos.
+- No correr seeds de proyectos.
+- No tocar Neon.
+- No hacer push todavía.
+- No exponer secretos.
+- No tocar producción hasta que yo confirme.
+
+Al terminar mostrar:
+A. Dónde está el admin de usuarios.
+B. Qué roles pueden entrar.
+C. Qué roles puede asignar ADMIN.
+D. Qué roles puede asignar SUPERADMIN.
+E. Confirmación de que ascenzimarquezjuanignacio@gmail.com quedó SUPERADMIN.
+F. Qué cambió en sidebar.
+G. Archivos modificados.
+H. Resultado de typecheck/build.
+I. git status.
+J. git diff --stat.
+K. Comandos exactos para commit y push, separados.

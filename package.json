@@ -24,6 +24,8 @@
     "set-password": "tsx scripts/set-user-password.ts",
     "seed:base-projects:dry-run": "tsx scripts/seed-base-projects.ts",
     "seed:base-projects:apply": "tsx scripts/seed-base-projects.ts --apply",
+    "promote:superadmin:dry-run": "tsx scripts/promote-superadmin.ts",
+    "promote:superadmin:apply": "tsx scripts/promote-superadmin.ts --apply",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:studio": "npx prisma studio",

@@ -14,6 +14,7 @@ import {
     BookmarkCheck,
     BarChart3,
     Home,
+    Globe,
     Settings,
     LogOut,
     ChevronLeft,
@@ -238,9 +239,13 @@ export default function Sidebar({ effectivePermissions = null }: SidebarProps = 
                 )}
             >
                 {/* Logo & Plan */}
-                <div className="flex flex-col items-center justify-center p-5 border-b border-white/[0.04] space-y-5">
-                    <div className="flex w-full items-center justify-between gap-3">
-                        <Link href="/dashboard" className="flex items-center gap-3 flex-1 justify-center group opacity-90 hover:opacity-100 transition-opacity min-w-0">
+                <div className="flex flex-col items-center justify-center p-5 border-b border-white/[0.04] space-y-3">
+                    <Link
+                        href="/dashboard"
+                        className="flex items-center justify-center w-full opacity-90 hover:opacity-100 transition-opacity"
+                        aria-label="Ir al dashboard"
+                        title="Ir al dashboard"
+                    >
                         {sidebarOpen ? (
                             <Image
                                 src="/logo.png"
@@ -251,25 +256,37 @@ export default function Sidebar({ effectivePermissions = null }: SidebarProps = 
                                 priority
                             />
                         ) : (
-                            <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20 group-hover:shadow-brand-500/40 transition-shadow">
-                                <Building2 className="w-5 h-5 text-white" strokeWidth={2.5} />
-                            </div>
+                            <Image
+                                src="/logo.png"
+                                alt="SevenToop"
+                                width={36}
+                                height={36}
+                                className="object-contain h-9 w-9"
+                                priority
+                            />
                         )}
-                        </Link>
+                    </Link>
 
-                        <button
-                            onClick={toggleSidebar}
-                            className="hidden lg:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/70 transition-all hover:bg-white/[0.08] hover:text-white"
-                            aria-label={sidebarOpen ? "Colapsar menú lateral" : "Expandir menú lateral"}
-                            title={sidebarOpen ? "Colapsar menú lateral" : "Expandir menú lateral"}
-                        >
-                            {sidebarOpen ? (
+                    {/* Toggle: debajo del logo, ancho según estado, con label claro */}
+                    <button
+                        onClick={toggleSidebar}
+                        className={cn(
+                            "hidden lg:inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] text-white/60 transition-all hover:bg-white/[0.08] hover:text-white",
+                            sidebarOpen ? "w-full px-3 py-1.5 text-xs font-medium" : "w-9 h-9"
+                        )}
+                        aria-label={sidebarOpen ? "Colapsar menú lateral" : "Expandir menú lateral"}
+                        title={sidebarOpen ? "Colapsar menú lateral" : "Expandir menú lateral"}
+                        data-testid="sidebar-collapse-toggle"
+                    >
+                        {sidebarOpen ? (
+                            <>
                                 <PanelLeftClose className="h-4 w-4" />
-                            ) : (
-                                <PanelLeftOpen className="h-4 w-4" />
-                            )}
-                        </button>
-                    </div>
+                                <span className="uppercase tracking-wider">Colapsar</span>
+                            </>
+                        ) : (
+                            <PanelLeftOpen className="h-4 w-4" />
+                        )}
+                    </button>
 
                     {sidebarOpen && planData && (
                         <div className="w-full animate-in fade-in duration-500 flex flex-col gap-3">
@@ -318,7 +335,7 @@ export default function Sidebar({ effectivePermissions = null }: SidebarProps = 
 
                         const isActive =
                             pathname === item.href ||
-                            (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+                            (item.href !== "/dashboard" && !!item.href && !!pathname?.startsWith(item.href));
                         
                         return (
                             <Link
@@ -360,9 +377,24 @@ export default function Sidebar({ effectivePermissions = null }: SidebarProps = 
 
                 {/* Bottom section */}
                 <div className="px-3 py-4 border-t border-white/[0.04] space-y-1 bg-[#09090b]">
+                    <Link
+                        href="/"
+                        className="group flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-white/60 hover:text-brand-400 hover:bg-brand-500/10 transition-all duration-200"
+                        aria-label="Ir al sitio público"
+                        title="Ir al sitio público"
+                        data-testid="sidebar-back-to-landing"
+                    >
+                        <div className="flex items-center justify-center w-6 h-6 shrink-0">
+                            <Globe className="w-[18px] h-[18px] text-white/50 group-hover:text-brand-400 transition-colors" />
+                        </div>
+                        {sidebarOpen && <span className="truncate">Ir al sitio</span>}
+                    </Link>
+
                     <button
                         onClick={() => signOut({ callbackUrl: "/login" })}
                         className="group flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-white/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-200"
+                        aria-label="Cerrar sesión"
+                        title="Cerrar sesión"
                     >
                         <div className="flex items-center justify-center w-6 h-6 shrink-0">
                             <LogOut className="w-[18px] h-[18px] text-white/50 group-hover:text-rose-400 transition-colors" />
