@@ -435,7 +435,7 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
         ctaUrl: banner?.ctaUrl || banner?.linkDestino || "",
         tipo: (banner?.tipo as "IMAGEN" | "VIDEO") || "IMAGEN",
         mediaUrl: banner?.mediaUrl || "",
-        context: banner?.context || "ORG_LANDING",
+        context: banner?.context || (isAdmin ? "SEVENTOOP_GLOBAL" : "ORG_LANDING"),
         projectId: banner?.projectId || "",
         fechaInicio: banner?.fechaInicio ? new Date(banner.fechaInicio).toISOString().split("T")[0] : "",
         fechaFin: banner?.fechaFin ? new Date(banner.fechaFin).toISOString().split("T")[0] : "",
@@ -551,6 +551,15 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
         }
     };
 
+    // Estados que NO requieren reenviar a publicación al guardar:
+    // basta con actualizar campos del banner existente.
+    const isLiveState = !isNew && (
+        banner?.estado === BANNER_ESTADOS.PUBLISHED ||
+        banner?.estado === BANNER_ESTADOS.PAUSED ||
+        banner?.estado === BANNER_ESTADOS.PENDING_APPROVAL ||
+        banner?.estado === BANNER_ESTADOS.ARCHIVED
+    );
+
     const handleSubmitForApproval = async () => {
         setErrors({});
         if (!form.mediaUrl && !file) {
@@ -569,6 +578,16 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
             if (mediaUrl === null && file) return;
             const payload = buildPayload(mediaUrl || form.mediaUrl);
 
+            // Caso 1 — banner ya en estado "vivo" (PUBLISHED/PAUSED/PENDING/ARCHIVED):
+            // solo actualizar campos, sin re-enviar a aprobación.
+            if (isLiveState) {
+                const updateRes = await updateBanner(banner.id, payload);
+                if (updateRes.success) { onSaved?.(); onClose(); }
+                else setErrors({ submit: updateRes.error || "Error al actualizar" });
+                return;
+            }
+
+            // Caso 2 — banner nuevo o en DRAFT/REJECTED: crear/actualizar y enviar a aprobación.
             let bannerId = banner?.id;
             if (isNew) {
                 const createRes = await createBanner(payload);
@@ -999,21 +1018,28 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                                 >
                                     {isAdmin && (
                                         <option value="SEVENTOOP_GLOBAL">
-                                            SevenToop Global — visible en toda la plataforma
+                                            Landing global / Home pública SevenToop (seventoop.com)
                                         </option>
                                     )}
-                                    <option value="ORG_LANDING">Landing de la organización</option>
-                                    <option value="PROJECT_LANDING">Landing de un proyecto específico</option>
+                                    <option value="ORG_LANDING">Landing de tu organización</option>
+                                    <option value="PROJECT_LANDING">Página de un proyecto específico</option>
                                 </select>
                                 <p className="text-sm text-slate-400 mt-1">
                                     Se pueden publicar hasta {MAX_PUBLISHED_PER_CONTEXT} banners por contexto de forma simultánea.
-                                    Al publicar un cuarto, el más antiguo se pausa automáticamente.
+                                    Al publicar uno extra, el más antiguo se pausa automáticamente.
                                 </p>
                                 {form.context === "SEVENTOOP_GLOBAL" && (
                                     <div className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                                         <Globe className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
                                         <p className="text-sm text-blue-700 dark:text-blue-300">
-                                            Los banners globales aparecen en la landing principal de SevenToop y en todas las landings de organizaciones.
+                                            Este banner se muestra en la home pública de SevenToop (la landing principal del sitio) y también aparece en las landings de cada organización.
+                                        </p>
+                                    </div>
+                                )}
+                                {form.context === "ORG_LANDING" && (
+                                    <div className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+                                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                                            Solo se muestra en la landing de tu organización (no en la home pública de SevenToop).
                                         </p>
                                     </div>
                                 )}
@@ -1150,9 +1176,20 @@ export default function BannerEditor({ banner, onClose, onSaved, isAdmin = false
                             onClick={handleSubmitForApproval}
                             disabled={submitting || !canSubmit || uploading}
                             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-all disabled:opacity-50 shadow-lg shadow-brand-600/20"
+                            title={
+                                isLiveState
+                                    ? "Actualiza los campos del banner sin cambiar su estado actual."
+                                    : isAdmin
+                                        ? "Publicar el banner ahora."
+                                        : "Enviar el banner a revisión del admin."
+                            }
                         >
                             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                            {isAdmin ? "Publicar" : "Enviar a revisión"}
+                            {isLiveState
+                                ? "Guardar cambios"
+                                : isAdmin
+                                    ? "Publicar"
+                                    : "Enviar a revisión"}
                         </button>
                     </div>
                 </div>

@@ -1,0 +1,80 @@
+Necesito corregir bugs restantes del administrador de banners.
+
+Contexto real:
+- Ya puedo crear un banner subiendo solo imagen.
+- El banner nuevo se creó correctamente.
+- Pero no aparece en la landing pública.
+- En el admin se ve con etiqueta ORG, no GLOBAL.
+- La landing principal usa context = SEVENTOOP_GLOBAL.
+- El editor en Publicación muestra “Landing de la organización”, lo cual probablemente guarda ORG_LANDING.
+- Al editar un banner ya PUBLICADO y volver a tocar Publicación, aparece:
+  “No se puede enviar un banner en estado "PUBLISHED".”
+- Yo no quiero reenviarlo a publicar: quiero actualizar/editar el banner existente.
+- También quiero poder ordenar banners, aunque sea por prioridad numérica.
+
+Objetivo 1: corregir context para home global
+Auditar y corregir:
+- creación de banners desde /dashboard/admin/banners
+- edición de banners
+- tab Publicación
+- actions/API de guardado/publicación
+- query de landing
+
+Para banners del admin global, debe usarse:
+context = SEVENTOOP_GLOBAL
+
+No usar ORG_LANDING para la home pública global.
+
+Confirmar:
+- por qué los banners aparecen como ORG
+- por qué el nuevo “Banner Barrio Capinota” no aparece en landing
+- qué condición exacta usa la landing para mostrar banners
+
+Objetivo 2: editar banners publicados sin error
+Corregir el flujo para que:
+- si un banner ya está PUBLISHED, editarlo y guardar cambios NO intente “enviarlo a publicación” nuevamente
+- permita actualizar campos del banner publicado
+- no muestre “No se puede enviar un banner en estado PUBLISHED”
+- si hace falta, separar acciones:
+  - Guardar cambios
+  - Publicar
+  - Pausar
+  - Reanudar
+
+Objetivo 3: orden/prioridad
+Auditar si ya existe campo de prioridad/orden.
+Si existe:
+- usarlo claramente en UI
+- explicar qué número aparece primero
+- asegurar que la landing ordene por prioridad DESC y luego fecha DESC
+
+Si no existe:
+- proponer fix mínimo con campo existente si lo hay
+- no migrar sin avisar
+
+Por ahora no hace falta drag & drop.
+Alcanza con prioridad numérica editable.
+
+Objetivo 4: UI
+Mejorar claridad:
+- En cards, mostrar si el banner es GLOBAL u ORG correctamente.
+- En publicación, para banners globales debería decir “Landing global / home pública” o similar.
+- Que sea evidente cuál banner debería aparecer en la home.
+
+Reglas:
+- No hacer push.
+- No tocar proyectos.
+- No tocar seeds.
+- No correr migraciones sin avisar.
+- No borrar banners.
+- No resetear DB.
+- Mantener el fallback temporal de upload sin S3.
+
+Al terminar devolver:
+A. Causa exacta por la que el banner nuevo no aparecía.
+B. Causa exacta del error al editar PUBLISHED.
+C. Cambios aplicados.
+D. Archivos modificados.
+E. Cómo queda el criterio de orden en landing.
+F. Pruebas realizadas.
+G. git status.

@@ -220,8 +220,28 @@ export default function AdminBannersPage() {
                                 </div>
                                 {banner.context && (
                                     <div className="absolute top-3 left-3">
-                                        <span className="px-2 py-0.5 rounded-md text-xs font-black bg-white/[0.06] text-slate-300 uppercase tracking-widest backdrop-blur-sm border-none">
-                                            {banner.context === "PROJECT_LANDING" ? "PROYECTO" : "ORG"}
+                                        <span
+                                            className={cn(
+                                                "px-2 py-0.5 rounded-md text-xs font-black uppercase tracking-widest backdrop-blur-sm border-none",
+                                                banner.context === "SEVENTOOP_GLOBAL"
+                                                    ? "bg-blue-500/30 text-blue-100 ring-1 ring-blue-300/40"
+                                                    : banner.context === "PROJECT_LANDING"
+                                                        ? "bg-amber-500/25 text-amber-100"
+                                                        : "bg-white/[0.06] text-slate-300"
+                                            )}
+                                            title={
+                                                banner.context === "SEVENTOOP_GLOBAL"
+                                                    ? "Banner global — visible en la home pública de SevenToop"
+                                                    : banner.context === "PROJECT_LANDING"
+                                                        ? "Banner de un proyecto específico"
+                                                        : "Banner de una organización"
+                                            }
+                                        >
+                                            {banner.context === "SEVENTOOP_GLOBAL"
+                                                ? "GLOBAL"
+                                                : banner.context === "PROJECT_LANDING"
+                                                    ? "PROYECTO"
+                                                    : "ORG"}
                                         </span>
                                     </div>
                                 )}
