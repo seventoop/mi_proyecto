@@ -92,13 +92,22 @@ function RegisterForm() {
                 </span>
             </div>
 
-            <Link
-                href="/login"
-                className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-6"
-            >
-                <ArrowLeft className="w-4 h-4" />
-                Volver al login
-            </Link>
+            <div className="flex items-center gap-4 mb-6">
+                <Link
+                    href="/"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-brand-400 transition-colors"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Volver al sitio
+                </Link>
+                <span className="text-slate-700">·</span>
+                <Link
+                    href="/login"
+                    className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-brand-400 transition-colors"
+                >
+                    Volver al login
+                </Link>
+            </div>
 
             <div className="space-y-2 mb-8">
                 <h2 className="text-2xl font-bold text-white">

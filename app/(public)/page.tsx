@@ -37,7 +37,7 @@ export default async function HomePage() {
     return (
         <main className="min-h-screen bg-background text-foreground">
             <section id="inicio" className="relative pt-[72px] sm:pt-[80px]">
-                <MediaBanner banners={banners} />
+                {banners.length > 0 && <MediaBanner banners={banners} />}
                 <div className="relative z-20">
                     <Hero
                         title={heroTitle?.value || undefined}

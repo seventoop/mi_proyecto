@@ -5,7 +5,7 @@ import { signIn, getSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Mail, Lock, Eye, EyeOff, Loader2, Info } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Loader2, Info, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type LoginErrorKind = "google_only" | "generic";
@@ -138,6 +138,14 @@ function LoginForm() {
                     priority
                 />
             </div>
+
+            <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-brand-400 transition-colors mb-6"
+            >
+                <ArrowLeft className="w-4 h-4" />
+                Volver al sitio
+            </Link>
 
             <div className="space-y-2 mb-8">
                 <h2 className="text-2xl font-bold text-white">Iniciar sesión</h2>

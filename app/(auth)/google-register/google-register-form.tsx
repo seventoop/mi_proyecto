@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { ArrowRight, Briefcase, Building2, Loader2, Shield, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Briefcase, Building2, Loader2, Shield, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type RoleOption = {
@@ -61,6 +62,14 @@ export default function GoogleRegisterForm({
 
     return (
         <div className="animate-fade-in space-y-4">
+            <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-brand-400 transition-colors"
+            >
+                <ArrowLeft className="w-4 h-4" />
+                Volver al sitio
+            </Link>
+
             <div className="space-y-1">
                 <h2 className="text-xl font-bold text-white">Elegí cómo querés usar tu cuenta</h2>
                 <p className="text-sm text-slate-400">
