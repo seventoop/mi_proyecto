@@ -143,7 +143,64 @@ If `RESEND_API_KEY` is missing, the action returns an honest error
 so the team can detect the misconfiguration in production logs. The
 script in section 4 is still available as a fallback for that scenario.
 
-### 3.1 In-product hints that point users to this self-service flow
+### 3.1 Sentry alerts for the add-password email pipeline
+
+Add-password email failures reach Sentry too, mirroring the reset
+pipeline (see section 5.1). The team finds out before a Google-only
+user tries to self-serve a password and quietly gets nothing. Three
+failure modes emit events, all tagged `area: "auth.setup"` plus a
+`reason` tag identifying the branch:
+
+| `reason` tag             | When it fires                                                          | Sentry event type                       |
+| ------------------------ | ---------------------------------------------------------------------- | --------------------------------------- |
+| `RESEND_API_KEY_MISSING` | `requestPasswordSetup` hit and `process.env.RESEND_API_KEY` is unset.  | `captureMessage` (`level: "error"`)     |
+| `RESEND_SEND_ERROR`      | `resend.emails.send` returned an `error` payload.                      | `captureException` of that error        |
+| `RESEND_THREW`           | `resend.emails.send` threw (network, SDK, etc.).                       | `captureException` of the thrown value  |
+
+The `area:` tag is intentionally **different** from the reset
+pipeline's `area:auth.reset` so each flow can be filtered (and paged
+on) independently in Sentry.
+
+Rate limiting reuses the shared in-process helper
+`shouldEmitAuthEmailAlert` in `lib/actions/auth-actions.ts`: **one event
+per hour per `reason` per Node process per flow**. The keys are
+namespaced by flow (`reset:RESEND_THREW`, `setup:RESEND_THREW`, …) so a
+failure in the reset pipeline does not silence the alert from the setup
+pipeline (or vice versa). A redeploy resets the limiter, so a
+persistent issue re-alerts on the next cold start.
+
+How to verify the alerting is wired:
+
+1. Open Sentry → Issues → filter `area:auth.setup`. After a real
+   failure (or a deliberate test like temporarily unsetting
+   `RESEND_API_KEY` in a preview deploy and clicking _"Agregar
+   contraseña a mi cuenta"_ from `/dashboard/configuracion`) you
+   should see an event within ~1 minute. The `reason` tag tells you
+   which branch fired.
+2. If you fire two add-password requests back-to-back, you should
+   still see only **one** Sentry event for the same `reason` — that
+   confirms the per-process rate limit is in effect.
+3. Filtering by `area:auth.reset` at the same time should show the
+   reset pipeline's events independently — confirming the namespaces
+   are not colliding.
+4. The Vercel logs continue to carry the corresponding
+   `[set-password] RESEND_API_KEY missing …` /
+   `[set-password] resend.emails.send failed …` /
+   `[set-password] resend.emails.send threw …` lines on every request,
+   so log search remains the source of truth for volume; Sentry is the
+   paging surface.
+
+If `SENTRY_DSN` (or `NEXT_PUBLIC_SENTRY_DSN`) is unset, the captures
+become no-ops — `sentry.server.config.ts` initializes with whichever
+DSN is present. There is no separate kill switch for `auth.setup`.
+
+In the `RESEND_SEND_ERROR` and `RESEND_THREW` branches, the Sentry
+capture happens **before** the token rollback and the
+`AUTH_PASSWORD_SET_REQUEST_FAILED` audit row, so even if the
+subsequent DB writes fail the team is still paged on the Resend
+incident.
+
+### 3.2 In-product hints that point users to this self-service flow
 
 Two surfaces nudge only-Google users toward the self-service path
 described above instead of toward soporte:
