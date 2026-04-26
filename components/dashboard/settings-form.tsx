@@ -8,11 +8,14 @@ import { updateUserConfig } from "@/lib/actions/configuration";
 import { requestPasswordSetup } from "@/lib/actions/auth-actions";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface AccountInfo {
     email: string;
     hasPassword: boolean;
     hasGoogle: boolean;
+    passwordUpdatedAt?: string | null;
 }
 
 interface SettingsFormProps {
@@ -195,9 +198,19 @@ export default function SettingsForm({ initialConfig = {}, account = null }: Set
                             </p>
                             {account ? (
                                 account.hasPassword ? (
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Tu cuenta ya tiene contraseña configurada{account.hasGoogle ? " y también podés iniciar sesión con Google." : "."} Para cambiarla, usá <span className="font-semibold">¿Olvidaste tu contraseña?</span> desde el login.
-                                    </p>
+                                    <>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Tu cuenta ya tiene contraseña configurada{account.hasGoogle ? " y también podés iniciar sesión con Google." : "."} Para cambiarla, usá <span className="font-semibold">¿Olvidaste tu contraseña?</span> desde el login.
+                                        </p>
+                                        {account.passwordUpdatedAt && (
+                                            <p className="text-xs text-slate-500 mt-1">
+                                                Última actualización:{" "}
+                                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                                    {formatDistanceToNow(new Date(account.passwordUpdatedAt), { addSuffix: true, locale: es })}
+                                                </span>
+                                            </p>
+                                        )}
+                                    </>
                                 ) : account.hasGoogle ? (
                                     <p className="text-xs text-slate-500 mt-1">
                                         Hoy entrás solo con Google. Agregá una contraseña para poder iniciar sesión también con email + contraseña. Tu acceso con Google va a seguir funcionando.

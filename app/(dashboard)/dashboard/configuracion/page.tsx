@@ -17,13 +17,29 @@ export default async function ConfiguracionPage() {
     const userId = (session?.user as any)?.id as string | undefined;
 
     // Fetch Configs in Parallel on the Server
-    const [configRes, userRes, accountRow] = await Promise.all([
+    const [configRes, userRes, accountRow, lastPasswordChangeRow] = await Promise.all([
         getAllSystemConfig(),
         getUserConfig(),
         userId
             ? prisma.user.findUnique({
                 where: { id: userId },
                 select: { email: true, password: true, googleId: true },
+            })
+            : Promise.resolve(null),
+        userId
+            ? prisma.auditLog.findFirst({
+                where: {
+                    userId,
+                    action: {
+                        in: [
+                            "AUTH_PASSWORD_SET_BY_USER",
+                            "AUTH_PASSWORD_RESET_SUCCESS",
+                            "AUTH_PASSWORD_SET_BY_ADMIN",
+                        ],
+                    },
+                },
+                orderBy: { createdAt: "desc" },
+                select: { createdAt: true },
             })
             : Promise.resolve(null),
     ]);
@@ -34,6 +50,7 @@ export default async function ConfiguracionPage() {
             email: accountRow.email,
             hasPassword: accountRow.password !== null,
             hasGoogle: accountRow.googleId !== null,
+            passwordUpdatedAt: lastPasswordChangeRow?.createdAt?.toISOString() ?? null,
         }
         : null;
 
