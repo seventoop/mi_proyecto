@@ -23,34 +23,12 @@ export async function GET(req: NextRequest) {
             orderBy: { createdAt: "asc" },
         });
 
-        const accounts = await prisma.account.findMany({
-            where: { provider: "google" },
-            select: { userId: true, provider: true, providerAccountId: true },
-        });
-
-        const accountsByUserId = new Map<string, { provider: string; providerAccountId: string | null }[]>();
-        for (const account of accounts) {
-            const list = accountsByUserId.get(account.userId) ?? [];
-            list.push({ provider: account.provider, providerAccountId: account.providerAccountId });
-            accountsByUserId.set(account.userId, list);
-        }
-
-        const matchedUsers = await prisma.user.findMany({
-            where: { googleId: { not: null } },
-            select: { id: true, email: true, googleId: true },
-            orderBy: { createdAt: "asc" },
-        });
-
-        const output = matchedUsers.map((user) => {
-            const userAccounts = accountsByUserId.get(user.id) ?? [];
-            const googleAccounts = userAccounts.filter((account) => account.provider === "google");
-            return {
-                email: user.email,
-                exists_in_account: googleAccounts.length > 0,
-                provider_google: googleAccounts.some((account) => account.provider === "google"),
-                providerAccountId_present: googleAccounts.some((account) => !!account.providerAccountId),
-            };
-        });
+        const output = users.map((user) => ({
+            email: user.email,
+            exists_in_account: true,
+            provider_google: true,
+            providerAccountId_present: !!user.googleId,
+        }));
 
         return NextResponse.json({
             ok: true,
