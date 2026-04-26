@@ -331,21 +331,76 @@ export async function requireCrmWrite(orgId: string): Promise<AuthUser> {
 }
 
 import * as Sentry from "@sentry/nextjs";
+import { Prisma } from "@prisma/client";
+
+/**
+ * Translates a Prisma known/validation error into a safe user-facing message,
+ * without leaking SQL, credentials or stack traces. Returns null when the
+ * error is not a Prisma error so the caller can fall back to a generic 500.
+ */
+function describePrismaError(error: unknown): string | null {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        const meta = error.meta ?? {};
+        switch (error.code) {
+            case "P2002": {
+                const target = Array.isArray((meta as any).target)
+                    ? (meta as any).target.join(", ")
+                    : ((meta as any).target ?? "valor único");
+                return `Ya existe un registro con ese ${target}.`;
+            }
+            case "P2003":
+                return "Referencia inválida: el recurso vinculado no existe.";
+            case "P2022":
+                return `Falta una columna en la base de datos (${(meta as any).column ?? "?"}). Hay que correr las migraciones de Prisma en este entorno.`;
+            case "P2021":
+                return `Falta una tabla en la base de datos (${(meta as any).table ?? "?"}). Hay que correr las migraciones de Prisma en este entorno.`;
+            case "P2025":
+                return "El registro buscado no existe o ya fue eliminado.";
+            default:
+                return `Error de base de datos (${error.code}).`;
+        }
+    }
+    if (error instanceof Prisma.PrismaClientValidationError) {
+        return "Tipos de datos inválidos al guardar. Revisá los campos del formulario.";
+    }
+    return null;
+}
 
 /**
  * Safe wrapper for server actions that use guards.
- * Catches AuthError and returns a typed error response.
+ * Catches AuthError and returns a typed error response. Prisma errors are
+ * translated to actionable messages; everything else returns the generic 500
+ * label and is reported to Sentry.
  */
 export function handleGuardError(error: unknown): { success: false; error: string } {
     if (error instanceof AuthError) {
         return { success: false, error: error.message };
     }
-    
+
+    const prismaMessage = describePrismaError(error);
+    if (prismaMessage) {
+        // Prisma errors get tagged but still reported so we can spot schema drift.
+        Sentry.captureException(error, {
+            tags: {
+                area: "guards",
+                context: "server-action",
+                kind: "prisma",
+                code: (error as any)?.code ?? "validation",
+            },
+        });
+        console.error("[guards] prisma error in server-action", {
+            code: (error as any)?.code,
+            meta: (error as any)?.meta,
+            firstLine: (error as any)?.message?.split?.("\n")?.[0],
+        });
+        return { success: false, error: prismaMessage };
+    }
+
     // Production Observability: Capture unexpected errors
     Sentry.captureException(error, {
         tags: { area: "guards", context: "server-action" }
     });
-    
+
     console.error("Unexpected error:", error);
     return { success: false, error: "Error interno del servidor" };
 }
@@ -358,12 +413,30 @@ export function handleApiGuardError(error: unknown): NextResponse {
     if (error instanceof AuthError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    
+
+    const prismaMessage = describePrismaError(error);
+    if (prismaMessage) {
+        Sentry.captureException(error, {
+            tags: {
+                area: "guards",
+                context: "api-route",
+                kind: "prisma",
+                code: (error as any)?.code ?? "validation",
+            },
+        });
+        console.error("[guards] prisma error in api-route", {
+            code: (error as any)?.code,
+            meta: (error as any)?.meta,
+            firstLine: (error as any)?.message?.split?.("\n")?.[0],
+        });
+        return NextResponse.json({ error: prismaMessage }, { status: 400 });
+    }
+
     // Production Observability: Capture unexpected errors
     Sentry.captureException(error, {
         tags: { area: "guards", context: "api-route" }
     });
-    
+
     console.error("Unexpected API error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
 }

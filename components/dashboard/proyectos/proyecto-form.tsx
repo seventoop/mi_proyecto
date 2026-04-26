@@ -155,6 +155,17 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                 }
             }
 
+            // Sanea NaN: si el usuario borró las coordenadas, mandamos undefined
+            // para que el backend caiga en los defaults del schema.
+            const safeFloat = (v: string) => {
+                const n = parseFloat(v);
+                return Number.isFinite(n) ? n : undefined;
+            };
+            const safeInt = (v: string) => {
+                const n = parseInt(v);
+                return Number.isFinite(n) ? n : undefined;
+            };
+
             const payload = {
                 nombre: form.nombre,
                 slug: form.slug || undefined,
@@ -162,15 +173,15 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                 ubicacion: form.ubicacion,
                 estado: form.estado,
                 tipo: form.tipo,
-                imagenPortada,
+                imagenPortada: imagenPortada || undefined,
                 invertible: form.invertible,
-                precioM2Inversor: form.precioM2Inversor ? parseFloat(form.precioM2Inversor) : undefined,
-                precioM2Mercado: form.precioM2Mercado ? parseFloat(form.precioM2Mercado) : undefined,
-                metaM2Objetivo: form.metaM2Objetivo ? parseFloat(form.metaM2Objetivo) : undefined,
+                precioM2Inversor: form.precioM2Inversor ? safeFloat(form.precioM2Inversor) : undefined,
+                precioM2Mercado: form.precioM2Mercado ? safeFloat(form.precioM2Mercado) : undefined,
+                metaM2Objetivo: form.metaM2Objetivo ? safeFloat(form.metaM2Objetivo) : undefined,
                 fechaLimiteFondeo: form.fechaLimiteFondeo ? new Date(form.fechaLimiteFondeo) : undefined,
-                mapCenterLat: parseFloat(form.mapCenterLat),
-                mapCenterLng: parseFloat(form.mapCenterLng),
-                mapZoom: parseInt(form.mapZoom),
+                mapCenterLat: safeFloat(form.mapCenterLat),
+                mapCenterLng: safeFloat(form.mapCenterLng),
+                mapZoom: safeInt(form.mapZoom),
                 aiKnowledgeBase: form.aiKnowledgeBase || undefined,
                 aiSystemPrompt: form.aiSystemPrompt || undefined,
             };
@@ -619,7 +630,7 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
 
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-                    {kycStatus !== "VERIFICADO" && !proyecto?.isDemo && (
+                    {userRole !== "ADMIN" && userRole !== "SUPERADMIN" && kycStatus !== "VERIFICADO" && !proyecto?.isDemo && (
                         <div className="flex-1 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
                             <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                             {isNew

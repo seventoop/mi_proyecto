@@ -178,8 +178,12 @@ export async function getProyecto(id: string) {
 }
 
 export async function createProyecto(input: unknown) {
+    let actorId: string | null = null;
+    let actorRole: string | null = null;
     try {
         const user = await requireAuth();
+        actorId = user.id;
+        actorRole = user.role;
 
         const parsed = proyectoCreateSchema.safeParse(input);
         if (!parsed.success) {
@@ -291,6 +295,13 @@ export async function createProyecto(input: unknown) {
         revalidatePath("/dashboard/proyectos");
         return { success: true, data: proyecto };
     } catch (error) {
+        console.error("[createProyecto] failed", {
+            actorId,
+            actorRole,
+            errorName: (error as any)?.name,
+            prismaCode: (error as any)?.code,
+            firstLine: (error as any)?.message?.split?.("\n")?.[0],
+        });
         return handleGuardError(error);
     }
 }
