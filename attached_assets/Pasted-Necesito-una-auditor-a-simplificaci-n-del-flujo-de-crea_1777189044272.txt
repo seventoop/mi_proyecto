@@ -1,0 +1,163 @@
+Necesito una auditoría + simplificación del flujo de creación de proyectos en el dashboard, con foco en producción real.
+
+Contexto:
+
+* Ya detectamos que la creación falla si hay imagen (upload).
+* El sistema hoy muestra errores genéricos.
+* El objetivo es que cualquier usuario pueda crear un proyecto con lo mínimo indispensable sin fricción.
+* Después completará el resto en pasos posteriores (planos, imágenes, etc).
+* Esto es crítico porque es el core del producto.
+
+OBJETIVO PRINCIPAL:
+Permitir crear proyectos con el mínimo de datos posibles, de forma robusta, sin errores silenciosos ni bloqueos innecesarios.
+
+---
+
+## 1. Auditoría completa del flujo actual
+
+Revisar:
+
+* components/dashboard/proyectos/proyecto-form.tsx
+* lib/actions/proyectos.ts (createProyecto)
+* validaciones (zod o similares)
+* upload de imagen (/api/upload si aplica)
+
+Necesito que identifiques:
+
+1. Qué campos hoy son obligatorios realmente en backend.
+2. Qué campos está obligando el frontend.
+3. Qué campos deberían ser opcionales pero hoy rompen:
+
+   * imagenPortada
+   * coordenadas (lat/lng)
+   * descripción
+   * mapa
+4. Qué valores default se están inyectando (ej: coordenadas Buenos Aires) y por qué.
+
+---
+
+## 2. Nueva regla de negocio (muy importante)
+
+Definir como obligatorio SOLO:
+
+* nombre (requerido)
+* ubicación (requerido)
+
+TODO lo demás debe ser opcional:
+
+* descripción
+* imagenPortada
+* coordenadas
+* mapa
+* galería
+* flags
+* etc
+
+Si falta algo opcional:
+→ NO debe romper
+→ NO debe bloquear creación
+
+---
+
+## 3. UX / Validaciones (frontend)
+
+Implementar:
+
+1. Validación clara:
+
+   * nombre vacío → "El nombre es obligatorio"
+   * ubicación vacía → "La ubicación es obligatoria"
+
+2. NO usar:
+
+   * errores genéricos tipo "Error interno del servidor"
+
+3. Manejo de imagen:
+
+   * si falla upload → mostrar error claro
+   * permitir continuar SIN imagen
+   * nunca romper el submit completo
+
+4. Coordenadas:
+
+   * eliminar defaults automáticos (-34, -58)
+   * si están vacías → enviar undefined, no NaN
+
+5. Feedback:
+
+   * toast o mensaje específico según error
+
+---
+
+## 4. Backend (createProyecto)
+
+Asegurar que:
+
+* acepta campos opcionales como undefined
+* no depende de imagenPortada
+* no depende de coordenadas
+* no rompe si faltan flags
+
+Agregar:
+
+* logs claros (sin datos sensibles)
+* distinguir error de validación vs error de DB
+
+---
+
+## 5. Flujo ideal final
+
+El usuario debería poder:
+
+1. Ir a "Nuevo proyecto"
+2. Completar SOLO:
+
+   * nombre
+   * ubicación
+3. Click en guardar
+4. Proyecto se crea SIEMPRE
+
+Luego:
+→ completa plano
+→ completa imágenes
+→ completa datos
+
+---
+
+## 6. NO HACER
+
+* No tocar Railway
+* No tocar Neon
+* No correr migraciones
+* No modificar schema
+* No borrar datos
+* No romper otras features
+
+---
+
+## 7. Al terminar necesito
+
+A. Qué campos eran obligatorios y ahora no
+B. Qué errores reales encontraste (especialmente el de imagen)
+C. Qué cambios hiciste (archivo por archivo)
+D. Confirmación de que:
+
+* crear proyecto sin imagen funciona
+* crear proyecto con datos mínimos funciona
+  E. git status
+  F. git diff --stat
+  G. NO hacer push
+
+---
+
+## PRIORIDAD
+
+Esto es lo más importante del sistema hoy:
+crear proyectos fácil y sin errores.
+
+Debe quedar:
+
+* simple
+* robusto
+* sin fricción
+* listo para clientes reales

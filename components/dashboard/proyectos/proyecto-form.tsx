@@ -54,9 +54,12 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
         precioM2Mercado: proyecto?.precioM2Mercado?.toString() || "",
         metaM2Objetivo: proyecto?.metaM2Objetivo?.toString() || "",
         fechaLimiteFondeo: proyecto?.fechaLimiteFondeo ? new Date(proyecto.fechaLimiteFondeo).toISOString().split('T')[0] : "",
-        mapCenterLat: proyecto?.mapCenterLat?.toString() || "-34.6037",
-        mapCenterLng: proyecto?.mapCenterLng?.toString() || "-58.3816",
-        mapZoom: proyecto?.mapZoom?.toString() || "16",
+        // Defaults vacíos a propósito: si el usuario no toca el mapa, mandamos
+        // undefined al backend y Prisma aplica los defaults del schema.
+        // No inyectamos coordenadas de Buenos Aires para no falsear ubicaciones.
+        mapCenterLat: proyecto?.mapCenterLat?.toString() || "",
+        mapCenterLng: proyecto?.mapCenterLng?.toString() || "",
+        mapZoom: proyecto?.mapZoom?.toString() || "",
         aiKnowledgeBase: proyecto?.aiKnowledgeBase || "",
         aiSystemPrompt: proyecto?.aiSystemPrompt || "",
     });
@@ -139,19 +142,33 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
         try {
             let imagenPortada = form.imagenPortada;
 
-            // Upload image if file selected
+            // Subida de imagen (opcional). Si falla, NO rompemos el flujo:
+            // mostramos un toast claro, dejamos el form abierto y el usuario
+            // puede reintentar o eliminar la imagen y crear el proyecto sin foto.
             if (file) {
-                const formData = new FormData();
-                formData.append("file", file);
-                const uploadRes = await fetch("/api/upload", {
-                    method: "POST",
-                    body: formData,
-                });
-                const uploadData = await uploadRes.json();
-                if (uploadData.success) {
-                    imagenPortada = uploadData.url;
-                } else {
-                    throw new Error(uploadData.error || "Error al subir imagen");
+                try {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const uploadRes = await fetch("/api/upload", {
+                        method: "POST",
+                        body: formData,
+                    });
+                    const uploadData = await uploadRes.json().catch(() => ({ success: false, error: "Respuesta inválida del servidor" }));
+                    if (uploadRes.ok && uploadData.success) {
+                        imagenPortada = uploadData.url;
+                    } else {
+                        const msg = uploadData.error || `No se pudo subir la imagen (HTTP ${uploadRes.status}).`;
+                        toast.error(`${msg} Podés reintentar o eliminar la imagen para crear el proyecto sin foto.`);
+                        setErrors({ submit: msg });
+                        setLoading(false);
+                        return;
+                    }
+                } catch (uploadErr: any) {
+                    const msg = uploadErr?.message || "Error de red al subir la imagen.";
+                    toast.error(`${msg} Podés reintentar o eliminar la imagen para crear el proyecto sin foto.`);
+                    setErrors({ submit: msg });
+                    setLoading(false);
+                    return;
                 }
             }
 

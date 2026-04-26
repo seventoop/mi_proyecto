@@ -11,19 +11,25 @@ import { buildPublicProjectWhere } from "@/lib/public-projects";
 
 // ─── Scemas ───
 
+// Regla de negocio: SOLO `nombre` y `ubicacion` son obligatorios.
+// Todo lo demás es opcional y, si viene vacío, debe entrar como undefined
+// para que Prisma use los defaults del schema (no romper por NaN/string vacío).
 const proyectoCreateSchema = z.object({
-    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres").max(100),
+    nombre: z.string().trim().min(1, "El nombre es obligatorio").max(100, "Máximo 100 caracteres"),
     slug: slugSchema.optional(),
-    descripcion: z.string().max(2000).optional(),
-    ubicacion: z.string().max(200).optional(),
+    descripcion: z.string().max(2000, "Máximo 2000 caracteres").optional(),
+    ubicacion: z.string().trim().min(1, "La ubicación es obligatoria").max(200, "Máximo 200 caracteres"),
     estado: z.string().optional(),
     tipo: z.string().optional(),
-    imagenPortada: z.string().url("URL de imagen inválida").optional().or(z.literal("")),
+    imagenPortada: z.preprocess(
+        (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+        z.string().url("URL de imagen inválida").optional()
+    ),
     invertible: z.boolean().optional(),
     precioM2Inversor: z.number().positive().optional(),
     precioM2Mercado: z.number().positive().optional(),
     metaM2Objetivo: z.number().positive().optional(),
-    fechaLimiteFondeo: z.date().optional().or(z.string().transform(v => new Date(v))).optional(),
+    fechaLimiteFondeo: z.union([z.date(), z.string().transform((v) => new Date(v))]).optional(),
     mapCenterLat: z.number().optional(),
     mapCenterLng: z.number().optional(),
     mapZoom: z.number().int().optional(),
@@ -217,11 +223,28 @@ export async function createProyecto(input: unknown) {
             demoExpiresAt = isDemo && userRecord?.demoEndsAt ? new Date(userRecord.demoEndsAt) : null;
         }
 
-        const slug = data.slug || data.nombre.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+        // Generamos slug a partir del nombre y garantizamos que NO quede vacío
+        // (ej: nombre con sólo caracteres especiales). Si hay colisión, sumamos
+        // un sufijo numérico hasta encontrar uno libre — sin romper la creación.
+        const baseSlugRaw = (data.slug || data.nombre)
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim()
+            .replace(/\s+/g, "-")
+            .replace(/[^a-z0-9-]/g, "")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "");
+        const baseSlug = baseSlugRaw || `proyecto-${Date.now().toString(36)}`;
 
-        const existing = await prisma.proyecto.findUnique({ where: { slug } });
-        if (existing) {
-            return { success: false, error: "Ya existe un proyecto con ese slug" };
+        let slug = baseSlug;
+        for (let i = 2; i <= 10; i++) {
+            const existing = await prisma.proyecto.findUnique({ where: { slug }, select: { id: true } });
+            if (!existing) break;
+            slug = `${baseSlug}-${i}`;
+            if (i === 10) {
+                slug = `${baseSlug}-${Date.now().toString(36)}`;
+            }
         }
 
         let estado = data.estado || "PLANIFICACION";
