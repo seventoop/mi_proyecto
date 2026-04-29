@@ -3,6 +3,8 @@ import LeadsTable from "./leads-table";
 import { Suspense } from "react";
 import { Loader2, UserPlus } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function LeadsPage() {
     const res = await getLeads();
 

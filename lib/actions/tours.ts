@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
@@ -6,6 +6,18 @@ import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } f
 import { z } from "zod";
 import { toStoredTourSceneCategory } from "@/lib/tour-media";
 import { buildFallbackTour360Scenes } from "@/lib/tour360-fallback";
+import fs from "fs";
+import path from "path";
+
+function forensicLog(msg: string) {
+    try {
+        const logPath = path.join(process.cwd(), "forensic_logs.txt");
+        const timestamp = new Date().toISOString();
+        fs.appendFileSync(logPath, `[${timestamp}] ${msg}\n`);
+    } catch (e) {
+        // Ignorar errores de log
+    }
+}
 
 // ─── Schemas ───
 
@@ -29,8 +41,10 @@ const imageUrlSchema = z
 
 const sceneSchema = z.object({
     id: z.string().optional(),
+    clientSceneId: z.string().optional(),
     title: z.string().min(1, "Título de escena requerido"),
     imageUrl: imageUrlSchema,
+    thumbnailUrl: imageUrlSchema.optional().nullable(),
     masterplanOverlay: z.any().optional().nullable(),
     isDefault: z.boolean().default(false),
     order: z.number().default(0),
@@ -49,6 +63,64 @@ const updateTourSchema = createTourSchema.extend({
     id: z.string().min(1),
 });
 
+const hydratedTourInclude = {
+    scenes: {
+        include: {
+            hotspots: {
+                include: {
+                    unidad: {
+                        select: {
+                            id: true,
+                            numero: true,
+                            estado: true,
+                            precio: true,
+                            moneda: true,
+                        }
+                    }
+                }
+            }
+        },
+        orderBy: { order: "asc" as const }
+    }
+} as const;
+
+async function revalidateTourProjectPaths(proyectoId: string) {
+    const project = await prisma.proyecto.findUnique({
+        where: { id: proyectoId },
+        select: { slug: true },
+    });
+
+    revalidatePath(`/dashboard/proyectos/${proyectoId}`);
+    revalidatePath(`/dashboard/admin/proyectos/${proyectoId}`);
+    revalidatePath(`/dashboard/developer/proyectos/${proyectoId}`);
+
+    if (project) {
+        revalidatePath(`/proyectos/${project.slug || proyectoId}`);
+        revalidatePath(`/proyectos/${project.slug || proyectoId}/tour360`);
+    }
+}
+
+function registerSceneReference(
+    sceneRefToDbId: Map<string, string>,
+    scene: { id?: string; clientSceneId?: string },
+    dbSceneId: string
+) {
+    if (scene.clientSceneId) {
+        sceneRefToDbId.set(scene.clientSceneId, dbSceneId);
+    }
+    if (scene.id) {
+        sceneRefToDbId.set(scene.id, dbSceneId);
+    }
+}
+
+function resolveHotspotTargetSceneId(
+    rawTargetSceneId: string | null | undefined,
+    sceneRefToDbId: Map<string, string>
+) {
+    if (!rawTargetSceneId) return null;
+    return sceneRefToDbId.get(rawTargetSceneId) ?? rawTargetSceneId;
+}
+
 // ─── Queries ───
 
 export async function getProjectTours(proyectoId: string) {
@@ -58,26 +130,7 @@ export async function getProjectTours(proyectoId: string) {
 
         const tours = await prisma.tour360.findMany({
             where: { proyectoId },
-            include: {
-                scenes: {
-                    include: {
-                        hotspots: {
-                            include: {
-                                unidad: {
-                                    select: {
-                                        id: true,
-                                        numero: true,
-                                        estado: true,
-                                        precio: true,
-                                        moneda: true,
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    orderBy: { order: "asc" }
-                }
-            },
+            include: hydratedTourInclude,
             orderBy: { updatedAt: "desc" },
         });
         return { success: true, data: tours };
@@ -135,6 +188,8 @@ export async function updateTour(id: string, input: any) {
 }
 
 export async function bootstrapTour360FromProjectAssets(proyectoId: string) {
+    console.log("[Tour360][bootstrap][action][start]", { proyectoId });
+    forensicLog(`BOOTSTRAP: Iniciando para proyecto ${proyectoId}`);
     try {
         await requireProjectOwnership(proyectoId);
 
@@ -180,6 +235,8 @@ export async function bootstrapTour360FromProjectAssets(proyectoId: string) {
                 existingScene.title === expectedBootstrapTitle;
 
             if (existingScene && isBootstrapScene) {
+                console.log("[Tour360][bootstrap][action][result]", { created: false, updated: true, tourId: existingTourWith360.id });
+                forensicLog(`BOOTSTRAP: Ya existe un tour de bootstrap para ${proyectoId} (${existingTourWith360.id}). Actualizando imágenes.`);
                 await prisma.tourScene.update({
                     where: { id: existingScene.id },
                     data: {
@@ -203,8 +260,12 @@ export async function bootstrapTour360FromProjectAssets(proyectoId: string) {
                 return { success: true, data: existingTourWith360, created: false, updated: true };
             }
 
+            console.log("[Tour360][bootstrap][action][result]", { created: false, updated: false, tourId: existingTourWith360.id });
+            forensicLog(`BOOTSTRAP: El proyecto ${proyectoId} ya tiene un tour con escenas 360 (${existingTourWith360.id}). No se crea nada nuevo.`);
             return { success: true, data: existingTourWith360, created: false };
         }
+
+        forensicLog(`BOOTSTRAP: No hay tours con escenas 360 para ${proyectoId}. Procediendo a crear un nuevo tour de bootstrap.`);
 
         const created = await prisma.$transaction(async (tx: any) => {
             const tour = await tx.tour360.create({
@@ -241,6 +302,8 @@ export async function bootstrapTour360FromProjectAssets(proyectoId: string) {
         revalidatePath(`/proyectos/${project.slug || project.id}`);
         revalidatePath(`/proyectos/${project.slug || project.id}/tour360`);
 
+        console.log("[Tour360][bootstrap][action][result]", { created: true, tourId: created.id });
+        forensicLog(`BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para ${proyectoId}: ${created.id}`);
         return { success: true, data: created, created: true };
     } catch (error) {
         console.error("Tour bootstrap error:", error);
@@ -289,30 +352,37 @@ export async function upsertTour(input: unknown) {
                 await tx.tourScene.deleteMany({ where: { tourId: tour.id } });
             }
 
+            const sceneRefToDbId = new Map<string, string>();
+            const createdScenes: Array<{ sourceScene: any; createdSceneId: string }> = [];
+
             for (const scene of data.scenes) {
                 const createdScene = await tx.tourScene.create({
                     data: {
                         tourId: tour.id,
                         title: scene.title,
                         imageUrl: scene.imageUrl,
+                        thumbnailUrl: scene.thumbnailUrl ?? undefined,
                         masterplanOverlay: scene.masterplanOverlay ?? undefined,
                         isDefault: scene.isDefault,
                         order: scene.order,
                         category: toStoredTourSceneCategory(scene.category),
                     }
                 });
+                registerSceneReference(sceneRefToDbId, scene, createdScene.id);
+                createdScenes.push({ sourceScene: scene, createdSceneId: createdScene.id });
+            }
 
-                // 3. Create Hotspots
-                if (scene.hotspots && scene.hotspots.length > 0) {
+            for (const { sourceScene, createdSceneId } of createdScenes) {
+                if (sourceScene.hotspots && sourceScene.hotspots.length > 0) {
                     await tx.hotspot.createMany({
-                        data: scene.hotspots.map((hs: any) => ({
-                            sceneId: createdScene.id,
+                        data: sourceScene.hotspots.map((hs: any) => ({
+                            sceneId: createdSceneId,
                             unidadId: hs.unidadId,
                             type: hs.type,
                             pitch: hs.pitch,
                             yaw: hs.yaw,
                             text: hs.text,
-                            targetSceneId: hs.targetSceneId,
+                            targetSceneId: resolveHotspotTargetSceneId(hs.targetSceneId, sceneRefToDbId),
                         }))
                     });
                 }
@@ -321,8 +391,13 @@ export async function upsertTour(input: unknown) {
             return tour;
         });
 
-        revalidatePath(`/dashboard/proyectos/${proyectoId}`);
-        return { success: true, data: result };
+        const hydratedTour = await prisma.tour360.findUnique({
+            where: { id: result.id },
+            include: hydratedTourInclude,
+        });
+
+        await revalidateTourProjectPaths(proyectoId);
+        return { success: true, data: hydratedTour ?? result };
     } catch (error) {
         console.error("Tour Upsert Error:", error);
         return handleGuardError(error);
@@ -339,10 +414,77 @@ export async function deleteTour(id: string) {
 
         await requireProjectOwnership(existing.proyectoId);
 
+        console.log("[Tour360][deleteTour] deleting", { tourId: id, proyectoId: existing.proyectoId });
+        forensicLog(`DELETE: Borrando tour ${id} del proyecto ${existing.proyectoId}`);
         await prisma.tour360.delete({ where: { id } });
 
-        revalidatePath(`/dashboard/proyectos/${existing.proyectoId}`);
+        console.log("[Tour360][deleteTour] deleted", { tourId: id });
+        forensicLog(`DELETE: Tour ${id} borrado exitosamente en DB`);
+        await revalidateTourProjectPaths(existing.proyectoId);
         return { success: true };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function publishTour360(proyectoId: string, tourId: string) {
+    try {
+        await requireProjectOwnership(proyectoId);
+
+        const existing = await prisma.tour360.findUnique({
+            where: { id: tourId },
+            select: { id: true, proyectoId: true },
+        });
+
+        if (!existing || existing.proyectoId !== proyectoId) {
+            return { success: false, error: "Tour no encontrado en este proyecto" };
+        }
+
+        const publishedTour = await prisma.$transaction(async (tx: any) => {
+            await tx.tour360.updateMany({
+                where: { proyectoId },
+                data: { isPublished: false },
+            });
+
+            await tx.tour360.update({
+                where: { id: tourId },
+                data: { isPublished: true },
+            });
+
+            return tx.tour360.findUnique({
+                where: { id: tourId },
+                include: hydratedTourInclude,
+            });
+        });
+
+        await revalidateTourProjectPaths(proyectoId);
+        return { success: true, data: publishedTour };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function unpublishTour360(proyectoId: string, tourId: string) {
+    try {
+        await requireProjectOwnership(proyectoId);
+
+        const existing = await prisma.tour360.findUnique({
+            where: { id: tourId },
+            select: { id: true, proyectoId: true },
+        });
+
+        if (!existing || existing.proyectoId !== proyectoId) {
+            return { success: false, error: "Tour no encontrado en este proyecto" };
+        }
+
+        const unpublishedTour = await prisma.tour360.update({
+            where: { id: tourId },
+            data: { isPublished: false },
+            include: hydratedTourInclude,
+        });
+
+        await revalidateTourProjectPaths(proyectoId);
+        return { success: true, data: unpublishedTour };
     } catch (error) {
         return handleGuardError(error);
     }
@@ -356,7 +498,7 @@ export async function approveTour(id: string) {
             where: { id },
             data: { estado: "APROBADO", notasAdmin: null },
         });
-        revalidatePath(`/dashboard/proyectos/${tour.proyectoId}`);
+        await revalidateTourProjectPaths(tour.proyectoId);
         return { success: true, data: tour };
     } catch (error) {
         return handleGuardError(error);
@@ -370,10 +512,18 @@ export async function rejectTour(id: string, reason: string) {
             where: { id },
             data: { estado: "RECHAZADO", notasAdmin: reason.trim() },
         });
-        revalidatePath(`/dashboard/proyectos/${tour.proyectoId}`);
+        await revalidateTourProjectPaths(tour.proyectoId);
         return { success: true, data: tour };
     } catch (error) {
         return handleGuardError(error);
     }
 }
 
+export async function logForensicEvent(event: string) {
+    try {
+        forensicLog("CLIENT: " + event);
+        return { success: true };
+    } catch (e) {
+        return { success: false };
+    }
+}

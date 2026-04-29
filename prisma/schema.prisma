@@ -248,6 +248,7 @@ model ProyectoImagen {
   url         String
   categoria   String
   esPrincipal Boolean  @default(false)
+    masterplanOverlay Json?
   orden       Int      @default(0)
   createdAt   DateTime @default(now())
   proyecto    Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
@@ -560,6 +561,7 @@ model Tour360 {
   unidadId   String?
   nombre     String
   estado     String      @default("PENDIENTE")
+  isPublished Boolean    @default(false)
   notasAdmin String?
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt

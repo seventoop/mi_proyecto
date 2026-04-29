@@ -117,6 +117,7 @@ export interface Scene {
     category?: TourMediaCategory | "raw" | "rendered";
     direction?: SceneDirection;
     masterplanOverlay?: MasterplanOverlay;
+    galleryImageId?: string;
 }
 
 interface UploadProgress {
@@ -137,12 +138,29 @@ interface SceneImageFormState {
     imageHeading: number;
 }
 
+interface TourSaveOptions {
+    keepEditing?: boolean;
+    successMessage?: string;
+    suppressSuccessToast?: boolean;
+    targetSceneId?: string;
+}
+
+interface TourSaveResult {
+    success: boolean;
+    tour?: any;
+    scenes?: Scene[];
+}
+
 interface TourCreatorProps {
     proyectoId: string;
     tourId?: string; // Optional for delete action
     initialScenes?: Scene[];
-    onSave: (scenes: Scene[]) => boolean | void | Promise<boolean | void>;
-    onDelete?: () => void; // Callback for delete
+    onSave: (scenes: Scene[], options?: TourSaveOptions) => boolean | void | TourSaveResult | Promise<boolean | void | TourSaveResult>;
+    onSaveGalleryImage?: (scene: Scene) => Promise<{ success: boolean; data?: Scene }>;
+    onDeleteGalleryImage?: (scene: Scene) => boolean | void | Promise<boolean | void>;
+    onSendToTourImage?: (scene: Scene) => boolean | void | Promise<boolean | void>;
+    onDelete?: () => void;
+    onClose?: () => void;
 }
 
 const MAX_TOUR_UPLOAD_MB = 50;
@@ -154,24 +172,150 @@ function createDefaultGeoOverlay(): MasterplanOverlay {
     return { ...DEFAULT_SCENE_OVERLAY };
 }
 
-// Direction → default yaw mapping for auto-placing scene hotspots
 const DIRECTION_YAW: Record<SceneDirection, number> = {
     centro: 0, norte: 0, noreste: 45, este: 90, sureste: 135,
     sur: 180, suroeste: -135, oeste: -90, noroeste: -45,
 };
 
+const SCENE_DIRECTIONS: SceneDirection[] = ["centro", "norte", "noreste", "este", "sureste", "sur", "suroeste", "oeste", "noroeste"];
+
 const DIRECTION_GRID: { dir: SceneDirection; label: string }[][] = [
     [{ dir: "noroeste", label: "NO" }, { dir: "norte", label: "N" }, { dir: "noreste", label: "NE" }],
-    [{ dir: "oeste",    label: "O"  }, { dir: "centro", label: "●" }, { dir: "este",    label: "E"  }],
-    [{ dir: "suroeste", label: "SO" }, { dir: "sur",    label: "S" }, { dir: "sureste", label: "SE" }],
+    [{ dir: "oeste", label: "O" }, { dir: "centro", label: "●" }, { dir: "este", label: "E" }],
+    [{ dir: "suroeste", label: "SO" }, { dir: "sur", label: "S" }, { dir: "sureste", label: "SE" }],
 ];
+
+function getSceneDirection(scene?: Pick<Scene, "direction" | "masterplanOverlay"> | null): SceneDirection | undefined {
+    const rawDirection = scene?.direction ?? scene?.masterplanOverlay?.direction;
+    return SCENE_DIRECTIONS.includes(rawDirection as SceneDirection)
+        ? (rawDirection as SceneDirection)
+        : undefined;
+}
+
+function getOverlayAssetMetadata(scene: Scene, overlay?: Partial<MasterplanOverlay> | null) {
+    const assetVersion = overlay?.assetVersion === "edited" || scene.masterplanOverlay?.assetVersion === "edited"
+        ? "edited"
+        : "original";
+
+    return {
+        assetVersion,
+        originalSceneId:
+            assetVersion === "edited"
+                ? (overlay?.originalSceneId ?? scene.masterplanOverlay?.originalSceneId ?? scene.id)
+                : undefined,
+        hasOverlayEdits: overlay?.hasOverlayEdits ?? scene.masterplanOverlay?.hasOverlayEdits ?? false,
+    } satisfies Pick<MasterplanOverlay, "assetVersion" | "originalSceneId" | "hasOverlayEdits">;
+}
+
+function createStableSceneKey() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return `scene-key-${crypto.randomUUID()}`;
+    }
+    return `scene-key-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getScenePersistentKey(scene: Scene): string | undefined {
+    return scene.masterplanOverlay?.sceneKey;
+}
+
+function ensureSceneHasStableKey(scene: Scene): Scene {
+    if (getScenePersistentKey(scene)) return scene;
+
+    return {
+        ...scene,
+        masterplanOverlay: {
+            ...(scene.masterplanOverlay ?? createDefaultGeoOverlay()),
+            sceneKey: createStableSceneKey(),
+        },
+    };
+}
+
+function hydrateSceneForEditor(scene: Scene): Scene {
+    const persistedDirection = getSceneDirection(scene);
+    const nextThumbnailUrl = scene.thumbnailUrl ?? scene.imageUrl;
+
+    if (persistedDirection === scene.direction && nextThumbnailUrl === scene.thumbnailUrl) {
+        return scene;
+    }
+
+    return {
+        ...scene,
+        ...(persistedDirection ? { direction: persistedDirection } : {}),
+        thumbnailUrl: nextThumbnailUrl,
+    };
+}
+
+function migrateScenePortalTargets(
+    scene: Scene,
+    sceneKeyById: Map<string, string>,
+    sceneIdByKey: Map<string, string>
+): Scene {
+    const ensuredScene = ensureSceneHasStableKey(scene);
+    const canvasState = (ensuredScene.masterplanOverlay as any)?.canvasState;
+
+    if (!canvasState) return ensuredScene;
+
+    let changed = false;
+    const migrateFrame = (frame: any) => {
+        if (!frame) return frame;
+
+        const targetSceneKey =
+            frame.targetSceneKey ??
+            (frame.targetSceneId ? sceneKeyById.get(frame.targetSceneId) : undefined);
+        const targetSceneId =
+            targetSceneKey ? (sceneIdByKey.get(targetSceneKey) ?? frame.targetSceneId) : frame.targetSceneId;
+
+        if (targetSceneKey === frame.targetSceneKey && targetSceneId === frame.targetSceneId) {
+            return frame;
+        }
+
+        changed = true;
+        return {
+            ...frame,
+            ...(targetSceneKey ? { targetSceneKey } : {}),
+            ...(targetSceneId ? { targetSceneId } : {}),
+        };
+    };
+
+    const nextFrames = Array.isArray(canvasState.frames) ? canvasState.frames.map(migrateFrame) : canvasState.frames;
+    const nextAnchoredFrames = Array.isArray(canvasState.anchoredFrames) ? canvasState.anchoredFrames.map(migrateFrame) : canvasState.anchoredFrames;
+
+    if (!changed) return ensuredScene;
+
+    return {
+        ...ensuredScene,
+        masterplanOverlay: {
+            ...(ensuredScene.masterplanOverlay ?? createDefaultGeoOverlay()),
+            canvasState: {
+                ...canvasState,
+                frames: nextFrames,
+                anchoredFrames: nextAnchoredFrames,
+            },
+        } as MasterplanOverlay,
+    };
+}
+
+function prepareScenesForPersistence(scenes: Scene[]): Scene[] {
+    const scenesWithKeys = scenes.map((scene) => hydrateSceneForEditor(ensureSceneHasStableKey(scene)));
+    const sceneKeyById = new Map<string, string>();
+    const sceneIdByKey = new Map<string, string>();
+
+    for (const scene of scenesWithKeys) {
+        const sceneKey = getScenePersistentKey(scene);
+        if (!sceneKey) continue;
+        sceneKeyById.set(scene.id, sceneKey);
+        sceneIdByKey.set(sceneKey, scene.id);
+    }
+
+    return scenesWithKeys.map((scene) => migrateScenePortalTargets(scene, sceneKeyById, sceneIdByKey));
+}
 
 function buildSceneImageForm(scene: Scene | null): SceneImageFormState {
     const mediaCategory = normalizeTourMediaCategory(scene);
     return {
         title: scene?.title || "",
         mediaCategory,
-        direction: scene?.direction || "centro",
+        direction: getSceneDirection(scene) || "centro",
         linkedUnitId: scene?.masterplanOverlay?.linkedUnitId || "",
         altitudM: scene?.masterplanOverlay?.altitudM ?? 500,
         imageHeading: scene?.masterplanOverlay?.imageHeading ?? 0,
@@ -343,35 +487,35 @@ function PanoramicOverlay({
                 activeScene.masterplanOverlay?.imageUrl &&
                 Array.isArray(activeScene.masterplanOverlay?.points) &&
                 activeScene.masterplanOverlay.points.length === 4 && (() => {
-                const overlay = activeScene.masterplanOverlay as MasterplanOverlay & {
-                    imageUrl: string;
-                    points: { pitch: number; yaw: number }[];
-                };
-                const coords = overlay.points.map((p: { pitch: number; yaw: number }) => projectCoords(p.pitch, p.yaw));
+                    const overlay = activeScene.masterplanOverlay as MasterplanOverlay & {
+                        imageUrl: string;
+                        points: { pitch: number; yaw: number }[];
+                    };
+                    const coords = overlay.points.map((p: { pitch: number; yaw: number }) => projectCoords(p.pitch, p.yaw));
 
-                if (coords.some((c) => !c)) return null;
+                    if (coords.some((c) => !c)) return null;
 
-                const src = [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }];
-                const dst = coords as { x: number, y: number }[];
-                const matrix = getPerspectiveMatrix(src, dst);
+                    const src = [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }];
+                    const dst = coords as { x: number, y: number }[];
+                    const matrix = getPerspectiveMatrix(src, dst);
 
-                return (
-                    <div
-                        className="absolute inset-0 pointer-events-none overflow-hidden z-0"
-                        style={{ perspective: '1000px' }}
-                    >
+                    return (
                         <div
-                            className="absolute top-0 left-0 w-[1000px] h-[1000px] origin-top-left"
-                            style={{
-                                transform: `matrix3d(${matrix.join(',')})`,
-                                opacity: overlay.opacity ?? 0.55,
-                                backgroundImage: `url(${overlay.imageUrl})`,
-                                backgroundSize: '100% 100%'
-                            }}
-                        />
-                    </div>
-                );
-            })()}
+                            className="absolute inset-0 pointer-events-none overflow-hidden z-0"
+                            style={{ perspective: '1000px' }}
+                        >
+                            <div
+                                className="absolute top-0 left-0 w-[1000px] h-[1000px] origin-top-left"
+                                style={{
+                                    transform: `matrix3d(${matrix.join(',')})`,
+                                    opacity: overlay.opacity ?? 0.55,
+                                    backgroundImage: `url(${overlay.imageUrl})`,
+                                    backgroundSize: '100% 100%'
+                                }}
+                            />
+                        </div>
+                    );
+                })()}
 
             {/* SVG Overlay for Polygons & Lines */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
@@ -532,12 +676,23 @@ export default function TourCreator({
     tourId,
     initialScenes = [],
     onSave,
+    onSaveGalleryImage,
+    onDeleteGalleryImage,
+    onSendToTourImage,
     onDelete,
+    onClose,
 }: TourCreatorProps) {
-    const [scenes, setScenes] = useState<Scene[]>(initialScenes);
-    const [activeSceneId, setActiveSceneId] = useState<string | null>(
-        initialScenes[0]?.id || null
-    );
+    const preparedInitialScenes = prepareScenesForPersistence(initialScenes);
+    const [scenes, setScenes] = useState<Scene[]>(preparedInitialScenes);
+    useEffect(() => {
+        const next = prepareScenesForPersistence(initialScenes);
+        setScenes(next);
+        setActiveSceneId((prev) => (prev && next.some((scene) => scene.id === prev) ? prev : next[0]?.id || null));
+    }, [initialScenes]);
+
+    const [activeSceneId, setActiveSceneId] = useState<string | null>(() => {
+        return preparedInitialScenes[0]?.id || initialScenes[0]?.id || null;
+    });
     const [uploads, setUploads] = useState<UploadProgress[]>([]);
     const [isDragging, setIsDragging] = useState(false);
     const [isPlacingHotspot, setIsPlacingHotspot] = useState(false);
@@ -581,6 +736,7 @@ export default function TourCreator({
     const [sceneForm, setSceneForm] = useState<SceneImageFormState>(() => buildSceneImageForm(null));
     // Drives the "Confirmar imagen" overlay — only truthy right after a new upload
     const [pendingConfirmSceneId, setPendingConfirmSceneId] = useState<string | null>(null);
+    const [isSavingPendingImage, setIsSavingPendingImage] = useState(false);
 
     // Landmark Placement State
     const [pendingLandmarkAnchor, setPendingLandmarkAnchor] = useState<{ pitch: number, yaw: number } | null>(null);
@@ -593,14 +749,17 @@ export default function TourCreator({
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const activeScene = scenes.find((s) => s.id === activeSceneId) || null;
+    const pendingConfirmScene = pendingConfirmSceneId
+        ? scenes.find((s) => s.id === pendingConfirmSceneId) || null
+        : null;
     const canAlignProjectPlan = Boolean(projectOverlayBounds && projectSvgViewBox && overlayUnits.length > 0);
 
     // Filter scenes by category with backward compatibility for legacy values.
     const filteredScenes = scenes.filter((scene) => normalizeTourMediaCategory(scene) === activeTab);
 
     useEffect(() => {
-        setSceneForm(buildSceneImageForm(activeScene));
-    }, [activeSceneId, activeScene]);
+        setSceneForm(buildSceneImageForm(pendingConfirmScene ?? activeScene));
+    }, [pendingConfirmScene, activeScene]);
 
     useEffect(() => {
         setTourSaved(false);
@@ -730,7 +889,7 @@ export default function TourCreator({
         if (!viewerRef.current || !(window as any).pannellum) return;
 
         if (viewerInstance.current) {
-            try { viewerInstance.current.destroy(); } catch (_) {}
+            try { viewerInstance.current.destroy(); } catch (_) { }
             viewerInstance.current = null;
         }
 
@@ -797,7 +956,7 @@ export default function TourCreator({
         } catch (err) {
             console.error("Pannellum init error:", err);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scenes]);
 
     // ─── Initialize/reinitialize Pannellum viewer ───
@@ -854,7 +1013,7 @@ export default function TourCreator({
                                 path = parsed.path;
                                 cx = parsed.cx;
                                 cy = parsed.cy;
-                            } catch {}
+                            } catch { }
                         }
                         return {
                             id: u.id,
@@ -1214,7 +1373,15 @@ export default function TourCreator({
 
     // ─── Scene management ───
     // ─── Scene management ───
-    const deleteScene = (sceneId: string) => {
+    const deleteScene = async (sceneId: string) => {
+        const sceneToDelete = scenes.find((scene) => scene.id === sceneId) || null;
+        if (!sceneToDelete) return;
+
+        if (onDeleteGalleryImage) {
+            const result = await onDeleteGalleryImage(sceneToDelete);
+            if (result === false) return;
+        }
+
         setScenes((prev) => prev.filter((s) => s.id !== sceneId));
         if (activeSceneId === sceneId) {
             const remaining = scenes.filter((s) => s.id !== sceneId);
@@ -1238,34 +1405,84 @@ export default function TourCreator({
         setEditingTitle(null);
     };
 
-    const applySceneForm = useCallback(() => {
-        if (!activeSceneId) return;
+    const applySceneForm = useCallback(async () => {
+        const sceneIdToConfirm = pendingConfirmSceneId ?? activeSceneId;
+        if (!sceneIdToConfirm) return;
 
         const normalizedHeading = ((Number(sceneForm.imageHeading) % 360) + 360) % 360;
         const normalizedAltitude = Math.max(1, Number(sceneForm.altitudM) || 500);
 
-        setScenes((prev) =>
-            prev.map((scene) =>
-                scene.id === activeSceneId
-                    ? {
-                        ...scene,
-                        title: sceneForm.title.trim() || scene.title || "Sin título",
-                        category: sceneForm.mediaCategory,
-                        direction: sceneForm.direction,
-                        masterplanOverlay: {
-                            ...(scene.masterplanOverlay ?? createDefaultGeoOverlay()),
-                            imageKind: sceneForm.mediaCategory === "tour360" ? "360" : "foto",
-                            linkedUnitId: sceneForm.linkedUnitId || undefined,
-                            altitudM: sceneForm.mediaCategory === "tour360" ? normalizedAltitude : undefined,
-                            imageHeading: sceneForm.mediaCategory === "tour360" ? normalizedHeading : undefined,
-                        },
-                    }
-                    : scene
-            )
+        const nextScenes = scenes.map((scene) =>
+            scene.id === sceneIdToConfirm
+                ? {
+                    ...scene,
+                    title: sceneForm.title.trim() || scene.title || "Sin tÃ­tulo",
+                    category: sceneForm.mediaCategory,
+                    direction: sceneForm.direction,
+                    masterplanOverlay: {
+                        ...(scene.masterplanOverlay ?? createDefaultGeoOverlay()),
+                        imageKind: sceneForm.mediaCategory === "tour360" ? "360" : "foto",
+                        linkedUnitId: sceneForm.linkedUnitId || undefined,
+                        altitudM: sceneForm.mediaCategory === "tour360" ? normalizedAltitude : undefined,
+                        imageHeading: sceneForm.mediaCategory === "tour360" ? normalizedHeading : undefined,
+                    },
+                }
+                : scene
         );
-        setPendingConfirmSceneId(null); // hide confirm overlay
-        toast.success("Imagen confirmada. Guardá la galería para persistir.", { duration: 2000 });
-    }, [activeSceneId, sceneForm]);
+
+        const preparedScenes = prepareScenesForPersistence(nextScenes);
+        const confirmedScene = preparedScenes.find((scene) => scene.id === sceneIdToConfirm) || null;
+        const confirmedSceneKey = confirmedScene ? getScenePersistentKey(confirmedScene) : undefined;
+
+        setIsSavingPendingImage(true);
+        try {
+            if (onSaveGalleryImage) {
+                const res = await onSaveGalleryImage(confirmedScene!);
+                if (res.success && res.data) {
+                    const updatedScene = res.data;
+                    const updatedScenes = scenes.map(s => s.id === confirmedScene?.id ? updatedScene : s);
+                    setScenes(updatedScenes);
+                    setActiveSceneId(updatedScene.id);
+                    setPendingConfirmSceneId(null);
+                    setTourSaved(true);
+                }
+            } else {
+                const result = await onSave(preparedScenes, {
+                    keepEditing: true,
+                    successMessage: "Imagen guardada en Galería de imágenes",
+                    targetSceneId: sceneIdToConfirm
+                });
+
+                if (result === false) return;
+
+                const persistedScenes =
+                    result && typeof result === "object" && "scenes" in result && Array.isArray((result as TourSaveResult).scenes)
+                        ? prepareScenesForPersistence((result as TourSaveResult).scenes || [])
+                        : preparedScenes;
+
+                const persistedScene =
+                    (confirmedSceneKey
+                        ? persistedScenes.find((scene) => getScenePersistentKey(scene) === confirmedSceneKey)
+                        : null) ||
+                    persistedScenes.find((scene) => scene.imageUrl === confirmedScene?.imageUrl) ||
+                    null;
+
+                setScenes(persistedScenes);
+                if (persistedScene?.id) {
+                    setActiveSceneId(persistedScene.id);
+                    setSceneForm(buildSceneImageForm(persistedScene));
+                }
+                setPendingConfirmSceneId(null);
+                setTourSaved(true);
+            }
+        } catch (error) {
+            console.error("Image save error:", error);
+            toast.error("No se pudo guardar la imagen en Galeria de imagenes");
+        } finally {
+            setIsSavingPendingImage(false);
+        }
+        return;
+    }, [activeSceneId, onSave, onSaveGalleryImage, onClose, pendingConfirmSceneId, sceneForm, scenes]);
 
     const resetSceneForm = useCallback(() => {
         setSceneForm(buildSceneImageForm(activeScene));
@@ -1302,10 +1519,16 @@ export default function TourCreator({
         if (scenes.length === 0) return;
         setIsSaving(true);
         try {
-            const result = await onSave(scenes);
+            const scenesToSave = prepareScenesForPersistence(scenes);
+            const result = await onSave(scenesToSave);
             if (result === false) {
                 setTourSaved(false);
                 return;
+            }
+            if (result && typeof result === "object" && "scenes" in result && Array.isArray((result as TourSaveResult).scenes)) {
+                const persistedScenes = prepareScenesForPersistence((result as TourSaveResult).scenes || []);
+                setScenes(persistedScenes);
+                setActiveSceneId((prev) => (prev && persistedScenes.some((scene) => scene.id === prev) ? prev : persistedScenes[0]?.id || null));
             }
             setTourSaved(true);
         } catch (error) {
@@ -1380,54 +1603,7 @@ export default function TourCreator({
                                 viewerReady={viewerReady}
                             />
 
-                            {/* Plan overlay — read-only preview when scene has a saved alignment */}
-                            {viewerReady && viewerInstance.current &&
-                                projectOverlayBounds && projectSvgViewBox &&
-                                activeScene?.masterplanOverlay && (() => {
-                                    // Mirror TourSceneOverlayEditor: camLat/Lng = overlayBounds center + saved offsets
-                                    const ov = getGeoOverlayViewerState(activeScene.masterplanOverlay);
-                                    if (!ov.isVisible) return null;
-                                    const baseLat = (projectOverlayBounds[0][0] + projectOverlayBounds[1][0]) / 2;
-                                    const baseLng = (projectOverlayBounds[0][1] + projectOverlayBounds[1][1]) / 2;
-                                    const cosLat = Math.cos((baseLat * Math.PI) / 180) || 1;
-                                    const camLat = baseLat + ov.latOffset / 111320;
-                                    const camLng = baseLng + ov.lngOffset / (111320 * cosLat);
-                                    if (process.env.NODE_ENV !== "production") {
-                                        console.debug("[tour-overlay] viewer-render-state", ov);
-                                    }
-                                    return (
-                                        <Viewer360LotesOverlay
-                                            viewer={viewerInstance.current}
-                                            units={overlayUnits}
-                                            overlayBounds={projectOverlayBounds}
-                                            overlayRotation={projectOverlayRotation}
-                                            svgViewBox={projectSvgViewBox}
-                                            camLat={camLat}
-                                            camLng={camLng}
-                                            camAlt={ov.altitudM}
-                                            imageHeading={ov.imageHeading}
-                                            latOffset={ov.latOffset}
-                                            lngOffset={ov.lngOffset}
-                                            planRotation={ov.planRotation}
-                                            planScale={ov.planScale}
-                                            planScaleX={ov.planScaleX}
-                                            planScaleY={ov.planScaleY}
-                                            planCornerAdjustments={ov.planCornerAdjustments}
-                                            pitchBias={ov.pitchBias}
-                                            cameraRoll={ov.cameraRoll}
-                                            opacity={ov.opacity}
-                                            showLabels={ov.showLabels}
-                                            showPerimeter={ov.showPerimeter}
-                                            cleanMode={ov.cleanMode}
-                                            transformLocked={ov.transformLocked}
-                                            alignmentGuides={ov.alignmentGuides}
-                                            flipX={ov.flipX}
-                                            flipY={ov.flipY}
-                                            isEditing={false}
-                                        />
-                                    );
-                                })()
-                            }
+
 
                             {/* Editor Mode Indicator & Controls */}
                             <AnimatePresence>
@@ -1479,42 +1655,7 @@ export default function TourCreator({
                                 )}
                             </AnimatePresence>
 
-                            {/* Editor Toolbar (Bottom Left - Floating Stick) */}
-                            <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3">
-                                <div className="bg-black/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-2 flex flex-col gap-2 shadow-2xl">
-                                    <button
-                                        onClick={() => setEditorMode(editorMode === 'label' ? 'view' : 'label')}
-                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'label' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Ubicación"
-                                    >
-                                        <MapPin className="w-6 h-6" />
-                                    </button>
-                                    <button
-                                        onClick={() => setEditorMode(editorMode === 'polygon' ? 'view' : 'polygon')}
-                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'polygon' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Dibujar Polígono"
-                                    >
-                                        <Grid3x3 className="w-6 h-6" />
-                                    </button>
-                                    <button
-                                        onClick={() => setEditorMode(editorMode === 'hotspot' ? 'view' : 'hotspot')}
-                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", editorMode === 'hotspot' ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Editar"
-                                    >
-                                        <Pencil className="w-6 h-6" />
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            if (!canAlignProjectPlan || !activeScene) return;
-                                            setIsOverlayEditorOpen(true);
-                                        }}
-                                        className={cn("p-4 rounded-full transition-all duration-300 shadow-lg", !canAlignProjectPlan && "opacity-40 cursor-not-allowed", isOverlayEditorOpen ? "bg-white text-black scale-110" : "hover:bg-white/10 text-white/70")}
-                                        title="Ajustar Plano"
-                                    >
-                                        <ImageIcon className="w-6 h-6" />
-                                    </button>
-                                </div>
-                            </div>
+
 
                             {/* Viewer controls - Floating Pill */}
                             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4 bg-black/40 backdrop-blur-xl px-6 py-4 rounded-[1.5rem] border border-white/10 shadow-2xl min-w-[300px]">
@@ -1550,7 +1691,7 @@ export default function TourCreator({
 
                             {/* ─── Confirm image overlay — appears only right after upload ─── */}
                             <AnimatePresence>
-                                {pendingConfirmSceneId && activeScene && (
+                                {pendingConfirmScene && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 24 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -1560,7 +1701,11 @@ export default function TourCreator({
                                         <div className="w-full max-w-lg bg-[#141414] border border-white/10 rounded-2xl shadow-2xl p-5 space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-sm font-bold text-white">Confirmar imagen subida</p>
-                                                <button onClick={() => setPendingConfirmSceneId(null)} className="p-1 text-slate-400 hover:text-white transition-colors">
+                                                <button
+                                                    onClick={() => !isSavingPendingImage && setPendingConfirmSceneId(null)}
+                                                    disabled={isSavingPendingImage}
+                                                    className="p-1 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+                                                >
                                                     <X className="w-4 h-4" />
                                                 </button>
                                             </div>
@@ -1619,13 +1764,15 @@ export default function TourCreator({
                                             <div className="flex gap-3 pt-1">
                                                 <button
                                                     onClick={applySceneForm}
-                                                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-3 transition-all"
+                                                    disabled={isSavingPendingImage}
+                                                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-3 transition-all disabled:opacity-60"
                                                 >
-                                                    <Check className="w-4 h-4" /> Confirmar imagen
+                                                    {isSavingPendingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Guardar imagen
                                                 </button>
                                                 <button
-                                                    onClick={() => setPendingConfirmSceneId(null)}
-                                                    className="px-5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-semibold py-3 transition-all border border-white/10"
+                                                    onClick={() => !isSavingPendingImage && setPendingConfirmSceneId(null)}
+                                                    disabled={isSavingPendingImage}
+                                                    className="px-5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-semibold py-3 transition-all border border-white/10 disabled:opacity-50"
                                                 >
                                                     Ahora no
                                                 </button>
@@ -1803,55 +1950,55 @@ export default function TourCreator({
                                                     const kindColor = TOUR_MEDIA_CATEGORY_BADGE_STYLES[mediaCategory];
                                                     const isEditingThis = editingTitle === scene.id;
                                                     return (
-                                                    <div
-                                                        key={scene.id}
-                                                        className={`group relative rounded-xl bg-slate-900 overflow-hidden border-2 transition-all cursor-pointer ${isActive ? 'border-brand-500 shadow-lg shadow-brand-500/30' : 'border-slate-700 hover:border-slate-500'}`}
-                                                    >
-                                                        {/* Thumbnail */}
-                                                        <div className="aspect-video relative overflow-hidden" onClick={() => { setActiveSceneId(scene.id); setIsGalleryOpen(false); }}>
-                                                            <img src={scene.imageUrl} className="w-full h-full object-cover" alt={scene.title} />
-                                                            {/* Type badge — always visible */}
-                                                            <span className={`absolute top-2 left-2 text-[10px] font-black text-white px-1.5 py-0.5 rounded ${kindColor}`}>{kindLabel}</span>
-                                                            {/* Active indicator */}
-                                                            {isActive && (
-                                                                <span className="absolute top-2 right-2 text-[10px] font-black text-white bg-brand-500 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                                                    <Eye className="w-2.5 h-2.5" /> Activa
-                                                                </span>
-                                                            )}
+                                                        <div
+                                                            key={scene.id}
+                                                            className={`group relative rounded-xl bg-slate-900 overflow-hidden border-2 transition-all cursor-pointer ${isActive ? 'border-brand-500 shadow-lg shadow-brand-500/30' : 'border-slate-700 hover:border-slate-500'}`}
+                                                        >
+                                                            {/* Thumbnail */}
+                                                            <div className="aspect-video relative overflow-hidden" onClick={() => { setActiveSceneId(scene.id); setIsGalleryOpen(false); }}>
+                                                                <img src={scene.imageUrl} className="w-full h-full object-cover" alt={scene.title} />
+                                                                {/* Type badge — always visible */}
+                                                                <span className={`absolute top-2 left-2 text-[10px] font-black text-white px-1.5 py-0.5 rounded ${kindColor}`}>{kindLabel}</span>
+                                                                {/* Active indicator */}
+                                                                {isActive && (
+                                                                    <span className="absolute top-2 right-2 text-[10px] font-black text-white bg-brand-500 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                                        <Eye className="w-2.5 h-2.5" /> Activa
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            {/* Name row — always visible, editable */}
+                                                            <div className="px-2 py-1.5 flex items-center gap-1 bg-slate-900">
+                                                                {isEditingThis ? (
+                                                                    <input
+                                                                        value={editTitleValue}
+                                                                        onChange={(e) => setEditTitleValue(e.target.value)}
+                                                                        onKeyDown={(e) => { if (e.key === 'Enter') saveSceneTitle(); if (e.key === 'Escape') setEditingTitle(null); }}
+                                                                        onBlur={saveSceneTitle}
+                                                                        className="flex-1 bg-slate-800 border border-brand-500 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none"
+                                                                        autoFocus
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    />
+                                                                ) : (
+                                                                    <>
+                                                                        <span className="flex-1 text-xs font-semibold text-white/80 truncate">{scene.title || 'Sin nombre'}</span>
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); startEditingTitle(scene); }}
+                                                                            className="p-0.5 text-white/30 hover:text-white opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                                                                            title="Renombrar"
+                                                                        >
+                                                                            <Pencil className="w-3 h-3" />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); void deleteScene(scene.id); }}
+                                                                            className="p-0.5 text-white/30 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                                                                            title="Eliminar"
+                                                                        >
+                                                                            <Trash2 className="w-3 h-3" />
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        {/* Name row — always visible, editable */}
-                                                        <div className="px-2 py-1.5 flex items-center gap-1 bg-slate-900">
-                                                            {isEditingThis ? (
-                                                                <input
-                                                                    value={editTitleValue}
-                                                                    onChange={(e) => setEditTitleValue(e.target.value)}
-                                                                    onKeyDown={(e) => { if (e.key === 'Enter') saveSceneTitle(); if (e.key === 'Escape') setEditingTitle(null); }}
-                                                                    onBlur={saveSceneTitle}
-                                                                    className="flex-1 bg-slate-800 border border-brand-500 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none"
-                                                                    autoFocus
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                />
-                                                            ) : (
-                                                                <>
-                                                                    <span className="flex-1 text-xs font-semibold text-white/80 truncate">{scene.title || 'Sin nombre'}</span>
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); startEditingTitle(scene); }}
-                                                                        className="p-0.5 text-white/30 hover:text-white opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                                                                        title="Renombrar"
-                                                                    >
-                                                                        <Pencil className="w-3 h-3" />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); deleteScene(scene.id); }}
-                                                                        className="p-0.5 text-white/30 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                                                                        title="Eliminar"
-                                                                    >
-                                                                        <Trash2 className="w-3 h-3" />
-                                                                    </button>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    </div>
                                                     );
                                                 })}
                                             </div>
@@ -2039,10 +2186,22 @@ export default function TourCreator({
 
                                         {/* Quick Actions (Appear on hover) */}
                                         <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {onSendToTourImage && scene.galleryImageId && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        void onSendToTourImage(scene);
+                                                    }}
+                                                    className="p-1.5 rounded-lg bg-brand-500/20 hover:bg-brand-500 text-white backdrop-blur-md transition-colors border border-brand-500/20"
+                                                    title="Mandar a Tour"
+                                                >
+                                                    <Share2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    deleteScene(scene.id);
+                                                    void deleteScene(scene.id);
                                                 }}
                                                 className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500 text-white backdrop-blur-md transition-colors border border-red-500/20"
                                             >
@@ -2085,172 +2244,7 @@ export default function TourCreator({
                         )}
                     </div>
 
-                    {/* ─── Hotspot Controls ─── */}
-                    {activeScene && (
-                        <div className="border-t border-white/5 p-4 space-y-4">
-                            <div className="flex items-center justify-between px-1">
-                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                                    Hotspots
-                                </span>
-                            </div>
 
-                            {/* Add hotspot controls pills */}
-                            <div className="flex flex-col gap-3">
-                                {/* Unit Selector */}
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 pl-1 uppercase">Vincular a Unidad:</label>
-                                    <select
-                                        value={selectedUnitId}
-                                        onChange={(e) => setSelectedUnitId(e.target.value)}
-                                        className="w-full bg-[#1A1A1A] border border-white/5 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
-                                    >
-                                        <option value="">Seleccionar Unidad...</option>
-                                        {projectUnits.map((u) => (
-                                            <option key={u.id} value={u.id}>
-                                                Unidad {u.numero}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => {
-                                            setHotspotMode("info");
-                                            setIsPlacingHotspot(true);
-                                        }}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-all",
-                                            isPlacingHotspot && hotspotMode === "info"
-                                                ? "bg-white/10 text-white border-white/20"
-                                                : "bg-[#1A1A1A] text-slate-400 border-white/5 hover:border-white/10"
-                                        )}
-                                    >
-                                        <MapPin className="w-3.5 h-3.5" /> Info
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setHotspotMode("scene");
-                                            setIsPlacingHotspot(true);
-                                        }}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-all",
-                                            isPlacingHotspot && hotspotMode === "scene"
-                                                ? "bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/30"
-                                                : "bg-indigo-900/40 text-indigo-300 border-indigo-700/50 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
-                                        )}
-                                    >
-                                        <Navigation className="w-3.5 h-3.5" /> Conectar vista
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setHotspotMode("link");
-                                            setIsPlacingHotspot(true);
-                                        }}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-all",
-                                            isPlacingHotspot && hotspotMode === "link"
-                                                ? "bg-white/10 text-white border-white/20"
-                                                : "bg-[#1A1A1A] text-slate-400 border-white/5 hover:border-white/10"
-                                        )}
-                                    >
-                                        <Link2 className="w-3.5 h-3.5" /> Link
-                                    </button>
-                                </div>
-
-                                {/* Scene target selector + auto-place */}
-                                {isPlacingHotspot && hotspotMode === "scene" && (
-                                    <div className="space-y-2">
-                                        <select
-                                            value={linkTargetScene}
-                                            onChange={(e) => {
-                                                setLinkTargetScene(e.target.value);
-                                                // Auto-rotate viewer to face target scene's direction
-                                                const target = scenes.find(s => s.id === e.target.value);
-                                                if (target?.direction && viewerInstance.current) {
-                                                    try {
-                                                        viewerInstance.current.setYaw(DIRECTION_YAW[target.direction], false);
-                                                        viewerInstance.current.setPitch(0, false);
-                                                    } catch (_) {}
-                                                }
-                                            }}
-                                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
-                                        >
-                                            <option value="">Seleccionar escena destino</option>
-                                            {scenes
-                                                .filter((s) => s.id !== activeSceneId)
-                                                .map((s) => (
-                                                    <option key={s.id} value={s.id}>
-                                                        {s.direction ? `${s.direction.toUpperCase().slice(0,2)} — ` : ""}{s.title}
-                                                    </option>
-                                                ))}
-                                        </select>
-                                        {/* Auto-place at target direction */}
-                                        {linkTargetScene && (() => {
-                                            const target = scenes.find(s => s.id === linkTargetScene);
-                                            return target?.direction ? (
-                                                <button
-                                                    onClick={() => {
-                                                        const yaw = DIRECTION_YAW[target.direction!];
-                                                        const newHotspot: Hotspot = {
-                                                            id: `hs-${Date.now()}`,
-                                                            type: "scene",
-                                                            pitch: 0,
-                                                            yaw,
-                                                            text: target.title || "Ir a escena",
-                                                            unidadId: "",
-                                                            targetSceneId: linkTargetScene,
-                                                            targetThumbnail: target.imageUrl,
-                                                        };
-                                                        setScenes(prev => prev.map(s =>
-                                                            s.id === activeSceneId ? { ...s, hotspots: [...s.hotspots, newHotspot] } : s
-                                                        ));
-                                                        setEditorMode('view');
-                                                        setIsPlacingHotspot(false);
-                                                        toast.success(`Burbuja colocada hacia el ${target.direction}`);
-                                                    }}
-                                                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-700/50 hover:bg-indigo-600 text-indigo-200 text-[11px] font-bold border border-indigo-600/50 transition-all"
-                                                >
-                                                    <Navigation className="w-3 h-3" /> Colocar al {target.direction} automáticamente
-                                                </button>
-                                            ) : null;
-                                        })()}
-                                        <p className="text-[10px] text-slate-500">O hacé clic en el visor para colocar la burbuja manualmente.</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Existing hotspots list */}
-                            {activeScene.hotspots.length > 0 && (
-                                <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
-                                    {activeScene.hotspots.map((h) => (
-                                        <div
-                                            key={h.id}
-                                            className="flex items-center gap-2 p-2 bg-slate-900 rounded-lg border border-slate-800"
-
-                                        >
-                                            <span className="text-xs">
-                                                {h.type === "info" ? "ℹ️" : h.type === "scene" ? "➡️" : "🔗"}
-                                            </span>
-                                            <input
-                                                value={h.text}
-                                                onChange={(e) =>
-                                                    updateHotspot(activeScene.id, h.id, { text: e.target.value })
-                                                }
-                                                className="flex-1 bg-transparent text-xs text-slate-300 focus:outline-none"
-                                            />
-                                            <button
-                                                onClick={() => removeHotspot(activeScene.id, h.id)}
-                                                className="p-0.5 text-rose-500/60 hover:text-rose-400 transition-colors"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
                     {/* "Confirmar imagen" fue movido al overlay del viewer — ver abajo */}
 
                     {/* Masterplan Overlay Controls */}
@@ -2332,7 +2326,7 @@ export default function TourCreator({
                                         disabled={!canAlignProjectPlan}
                                         className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all"
                                     >
-                                        Ajustar Plano
+                                        Editar imagen
                                     </button>
                                     <p className="text-xs text-slate-400 leading-relaxed">
                                         Abrí el editor completo para ubicar el plano sobre la imagen 360 y guardar la alineación de esta escena.
@@ -2373,7 +2367,7 @@ export default function TourCreator({
                                 </>
                             ) : (
                                 <>
-                                    <ImageIcon className="w-5 h-5" /> Guardar Galería
+                                    <ImageIcon className="w-5 h-5" /> Guardar cambios
                                 </>
                             )}
                         </button>
@@ -2412,21 +2406,33 @@ export default function TourCreator({
                         );
                     }}
                     onClose={() => setIsOverlayEditorOpen(false)}
-                    onSaved={(overlay: SceneOverlayCalibration) => {
+                    saveMode={onSaveGalleryImage ? "parent-controlled" : "internal-tour-scene"}
+                    onSaved={async (overlay: SceneOverlayCalibration) => {
+                        const nextScene: Scene = {
+                            ...activeScene,
+                            masterplanOverlay: {
+                                ...activeScene.masterplanOverlay,
+                                ...overlay,
+                                isVisible: overlay.isVisible ?? activeScene.masterplanOverlay?.isVisible ?? true,
+                            },
+                        };
+
                         setScenes((prev) =>
-                            prev.map((scene) =>
-                                scene.id === activeScene.id
-                                    ? {
-                                        ...scene,
-                                        masterplanOverlay: {
-                                            ...scene.masterplanOverlay,
-                                            ...overlay,
-                                            isVisible: overlay.isVisible ?? scene.masterplanOverlay?.isVisible ?? true,
-                                        },
-                                    }
-                                    : scene
-                            )
+                            prev.map((scene) => (scene.id === activeScene.id ? nextScene : scene))
                         );
+
+                        if (onSaveGalleryImage && nextScene.galleryImageId) {
+                            const res = await onSaveGalleryImage(nextScene);
+                            if (!res.success || !res.data) {
+                                return;
+                            }
+
+                            setScenes((prev) =>
+                                prev.map((scene) => (scene.id === activeScene.id ? res.data! : scene))
+                            );
+                            setActiveSceneId(res.data.id);
+                        }
+
                         setIsOverlayEditorOpen(false);
                     }}
                 />

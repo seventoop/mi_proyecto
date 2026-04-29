@@ -20,6 +20,9 @@ declare global {
     }
 }
 
+const SCRIPT_LOAD_TIMEOUT_MS = 12000;
+const VIEWER_INIT_TIMEOUT_MS = 15000;
+
 export type HotspotType = "info" | "scene" | "link" | "lot" | "check" | "sold" | "gallery" | "video" | "UNIT";
 
 export interface Hotspot {
@@ -106,6 +109,7 @@ export interface Scene {
     order?: number;
     category?: string;
     masterplanOverlay?: MasterplanOverlay;
+    galleryImageId?: string;
 }
 
 interface TourViewerProps {
@@ -144,7 +148,6 @@ function normalizeViewerScene(scene: Scene, index: number): Scene {
         floatingLabels: Array.isArray(scene.floatingLabels) ? scene.floatingLabels : [],
     };
 }
-
 
 function PanoramicOverlay({
     viewer,
@@ -194,18 +197,14 @@ function PanoramicOverlay({
             }
         }
 
-        const hfov = viewState.hfov;
-        const viewPitch = viewState.pitch;
-        const viewYaw = viewState.yaw;
-        const container = viewerRef.current;
-        const width = container.clientWidth;
-        const height = container.clientHeight;
+        const width = viewerRef.current.clientWidth;
+        const height = viewerRef.current.clientHeight;
 
         const degToRad = Math.PI / 180;
         const p = pitch * degToRad;
         const y = yaw * degToRad;
-        const vp = viewPitch * degToRad;
-        const vy = viewYaw * degToRad;
+        const vp = viewState.pitch * degToRad;
+        const vy = viewState.yaw * degToRad;
 
         const vx = Math.cos(p) * Math.sin(y);
         const vy_vec = Math.sin(p);
@@ -223,7 +222,7 @@ function PanoramicOverlay({
 
         if (rz <= 0) return null;
 
-        const canvas_hfov = hfov * degToRad;
+        const canvas_hfov = viewState.hfov * degToRad;
         const focalLength = (width / 2) / Math.tan(canvas_hfov / 2);
 
         const px = (rx / rz) * focalLength + (width / 2);
@@ -238,47 +237,6 @@ function PanoramicOverlay({
             if (!c) return "";
             return `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)},${c.y.toFixed(1)}`;
         }).join(" ") + " Z";
-    };
-
-    const getPerspectiveMatrix = (src: { x: number, y: number }[], dst: { x: number, y: number }[]) => {
-        const solve = (A: number[][], b: number[]) => {
-            let n = A.length;
-            for (let i = 0; i < n; i++) {
-                let max = i;
-                for (let j = i + 1; j < n; j++) if (Math.abs(A[j][i]) > Math.abs(A[max][i])) max = j;
-                [A[i], A[max]] = [A[max], A[i]];
-                [b[i], b[max]] = [b[max], b[i]];
-                for (let j = i + 1; j < n; j++) {
-                    let f = A[j][i] / A[i][i];
-                    b[j] -= f * b[i];
-                    for (let k = i; k < n; k++) A[j][k] -= f * A[i][k];
-                }
-            }
-            let x = new Array(n);
-            for (let i = n - 1; i >= 0; i--) {
-                let s = 0;
-                for (let j = i + 1; j < n; j++) s += A[i][j] * x[j];
-                x[i] = (b[i] - s) / A[i][i];
-            }
-            return x;
-        };
-
-        let A = [], b = [];
-        for (let i = 0; i < 4; i++) {
-            A.push([src[i].x, src[i].y, 1, 0, 0, 0, -src[i].x * dst[i].x, -src[i].y * dst[i].x]);
-            b.push(dst[i].x);
-            A.push([0, 0, 0, src[i].x, src[i].y, 1, -src[i].x * dst[i].y, -src[i].y * dst[i].y]);
-            b.push(dst[i].y);
-        }
-
-        let h = solve(A, b);
-        if (!h) return null;
-        return [
-            h[0], h[3], 0, h[6],
-            h[1], h[4], 0, h[7],
-            0, 0, 1, 0,
-            h[2], h[5], 0, 1
-        ];
     };
 
     if (!viewerReady || !currentScene) return null;
@@ -417,12 +375,13 @@ export default function TourViewer({
     const [showSharePanel, setShowSharePanel] = useState(false);
     const [copied, setCopied] = useState(false);
     const [viewerReady, setViewerReady] = useState(false);
+    const [scriptAttempt, setScriptAttempt] = useState(0);
+    const [viewerInitAttempt, setViewerInitAttempt] = useState(0);
     const [isAutoTouring, setIsAutoTouring] = useState(false);
     const [showInfoPanel, setShowInfoPanel] = useState(false);
     const [showRadar, setShowRadar] = useState(true);
     const [showOverlays, setShowOverlays] = useState(true);
     const autoTourTimer = useRef<NodeJS.Timeout | null>(null);
-    const [viewState, setViewState] = useState({ hfov: 100, pitch: 0, yaw: 0 });
 
     const normalizedScenes = useMemo(
         () =>
@@ -431,23 +390,6 @@ export default function TourViewer({
                 .filter((scene) => !!scene.imageUrl),
         [scenes]
     );
-
-    useEffect(() => {
-        if (!viewerInstance.current || !viewerReady) return;
-        let rafId: number;
-        const update = () => {
-            if (viewerInstance.current) {
-                setViewState({
-                    hfov: viewerInstance.current.getHfov(),
-                    pitch: viewerInstance.current.getPitch(),
-                    yaw: viewerInstance.current.getYaw()
-                });
-            }
-            rafId = requestAnimationFrame(update);
-        };
-        rafId = requestAnimationFrame(update);
-        return () => cancelAnimationFrame(rafId);
-    }, [viewerReady]);
 
     const [dynamicScenes, setDynamicScenes] = useState<Scene[]>(normalizedScenes);
 
@@ -462,9 +404,41 @@ export default function TourViewer({
     const currentScene = dynamicScenes.find((s) => s.id === currentSceneId) || startScene || null;
 
     useEffect(() => {
-        if (!window.pannellum || !viewerRef.current || !startScene || viewerInstance.current) return;
+        if (error || !isLoaded) return;
+        if (!startScene) {
+            setError("No hay escenas válidas para mostrar en el tour.");
+            return;
+        }
+        if (!window.pannellum || !viewerRef.current || viewerInstance.current) return;
         initViewer(startScene.id);
-    }, [isLoaded, startScene]);
+    }, [error, isLoaded, startScene, scriptAttempt]);
+
+    useEffect(() => {
+        if (isLoaded || error) return;
+
+        const timeoutId = window.setTimeout(() => {
+            setError("No se pudo cargar el motor 360°. Revisá tu conexión e intentá nuevamente.");
+        }, SCRIPT_LOAD_TIMEOUT_MS);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [isLoaded, error, scriptAttempt]);
+
+    useEffect(() => {
+        if (viewerInitAttempt === 0 || viewerReady || error) return;
+
+        const timeoutId = window.setTimeout(() => {
+            if (viewerInstance.current) {
+                try {
+                    viewerInstance.current.destroy();
+                } catch (_) {}
+                viewerInstance.current = null;
+            }
+            setViewerReady(false);
+            setError("No se pudo iniciar el tour 360°.");
+        }, VIEWER_INIT_TIMEOUT_MS);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [viewerInitAttempt, viewerReady, error]);
 
     useEffect(() => {
         if (!proyectoId) return;
@@ -491,6 +465,9 @@ export default function TourViewer({
         if (!viewerRef.current) return;
 
         try {
+            setError(null);
+            setViewerReady(false);
+            setViewerInitAttempt((prev) => prev + 1);
             const scenesConfig: any = {};
             dynamicScenes.forEach((scene) => {
                 scenesConfig[scene.id] = {
@@ -519,6 +496,7 @@ export default function TourViewer({
                     showControls: false,
                     compass: false,
                     mouseZoom: false,
+                    crossOrigin: "anonymous", // Crucial para imágenes en S3/CDN
                 },
                 scenes: scenesConfig,
             });
@@ -530,16 +508,41 @@ export default function TourViewer({
 
             viewerInstance.current.on("error", () => {
                 setError("Error al cargar la imagen 360°.");
+                setViewerReady(false);
             });
 
             viewerInstance.current.on("load", () => {
                 setViewerReady(true);
+                setError(null);
             });
 
             setCurrentSceneId(firstSceneId);
         } catch (err) {
             setError("Error al inicializar el visor.");
+            setViewerReady(false);
         }
+    };
+
+    const retryViewerLoad = () => {
+        if (viewerInstance.current) {
+            try {
+                viewerInstance.current.destroy();
+            } catch (_) {}
+            viewerInstance.current = null;
+        }
+
+        setError(null);
+        setViewerReady(false);
+        setCurrentSceneId(null);
+
+        if (window.pannellum) {
+            setIsLoaded(true);
+            setScriptAttempt((prev) => prev + 1);
+            return;
+        }
+
+        setIsLoaded(false);
+        setScriptAttempt((prev) => prev + 1);
     };
 
     const hotspotTooltip = (hotSpotDiv: HTMLElement, args: Hotspot) => {
@@ -640,24 +643,39 @@ export default function TourViewer({
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleShareWhatsApp = () => {
-        const text = `🏡 Mirá el tour 360° de ${proyectoNombre || "este proyecto"}: ${shareUrl}`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-    };
-
     return (
-        <div className={cn("relative w-full h-[500px] bg-black overflow-hidden rounded-2xl group", className)}>
+        <div ref={containerRef} className={cn("relative bg-slate-900 overflow-hidden group", className)}>
             <Script
                 src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"
-                strategy="afterInteractive"
                 onLoad={() => setIsLoaded(true)}
+                onError={() => setError("Error al cargar Pannellum.")}
             />
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
+            <link
+                rel="stylesheet"
+                href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"
+            />
 
-            {!isLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-950 text-white z-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-                    <span className="ml-3 font-medium">Cargando motor 360°...</span>
+            {(!isLoaded || !viewerReady) && !error && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
+                    <div className="flex flex-col items-center">
+                        <Loader2 className="h-10 w-10 animate-spin text-brand-500 mb-4" />
+                        <p className="text-white font-medium animate-pulse">Cargando experiencia 360°...</p>
+                    </div>
+                </div>
+            )}
+
+            {error && (
+                <div className="absolute inset-0 z-[60] flex items-center justify-center bg-slate-900 px-6">
+                    <div className="flex max-w-md flex-col items-center text-center">
+                        <X className="mb-4 h-8 w-8 text-rose-400" />
+                        <p className="text-lg font-semibold">{error}</p>
+                        <button
+                            onClick={retryViewerLoad}
+                            className="mt-5 rounded-full bg-brand-500 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-600"
+                        >
+                            Reintentar
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -677,19 +695,147 @@ export default function TourViewer({
                 />
             )}
 
-            {/* Controls and Overlays UI (Simplified for brevity) */}
-            <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-                <button onClick={goPrev} className="bg-black/50 p-2 rounded-full text-white hover:bg-black/80"><ChevronLeft/></button>
-                <button onClick={goNext} className="bg-black/50 p-2 rounded-full text-white hover:bg-black/80"><ChevronRight/></button>
-            </div>
-            
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-black/50 px-4 py-2 rounded-full backdrop-blur-md">
-                <button onClick={togglePlay} className="text-white">{isPlaying ? <Pause/> : <Play/>}</button>
-                <div className="h-4 w-px bg-white/20mx-1" />
-                <button onClick={() => setShowOverlays(!showOverlays)} className={cn("text-white", !showOverlays && "opacity-50")}>
-                    <ImageIcon size={18}/>
-                </button>
-            </div>
+            {showControls && viewerReady && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 p-2 bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl transition-all hover:bg-slate-900">
+                    <button
+                        onClick={goPrev}
+                        className="p-3 text-white hover:bg-white/10 rounded-xl transition-colors"
+                        title="Anterior"
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
+
+                    <div className="h-6 w-px bg-white/10 mx-1" />
+
+                    <button
+                        onClick={togglePlay}
+                        className="p-3 text-white hover:bg-white/10 rounded-xl transition-colors"
+                        title={isPlaying ? "Pausar" : "Giro Automático"}
+                    >
+                        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                    </button>
+
+                    {showAutoTour && (
+                        <button
+                            onClick={() => (isAutoTouring ? stopAutoTour() : startAutoTour())}
+                            className={cn(
+                                "p-3 rounded-xl transition-all flex items-center gap-2",
+                                isAutoTouring ? "bg-brand-500 text-white" : "text-white hover:bg-white/10"
+                            )}
+                            title="Modo Tour"
+                        >
+                            {isAutoTouring ? (
+                                <SkipForward className="w-5 h-5 animate-pulse" />
+                            ) : (
+                                <Rotate3D className="w-5 h-5" />
+                            )}
+                        </button>
+                    )}
+
+                    <div className="h-6 w-px bg-white/10 mx-1" />
+
+                    <button
+                        onClick={goNext}
+                        className="p-3 text-white hover:bg-white/10 rounded-xl transition-colors"
+                        title="Siguiente"
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
+
+                    <div className="h-6 w-px bg-white/10 mx-1" />
+
+                    <button
+                        onClick={() => setShowRadar(!showRadar)}
+                        className={cn(
+                            "p-3 rounded-xl transition-all",
+                            showRadar ? "text-brand-400 bg-brand-500/10" : "text-white hover:bg-white/10"
+                        )}
+                        title="Radar"
+                    >
+                        <Radar className="w-5 h-5" />
+                    </button>
+
+                    <button
+                        onClick={() => setShowOverlays(!showOverlays)}
+                        className={cn(
+                            "p-3 rounded-xl transition-all",
+                            showOverlays ? "text-brand-400 bg-brand-500/10" : "text-white hover:bg-white/10"
+                        )}
+                        title="Capas"
+                    >
+                        <Layers className="w-5 h-5" />
+                    </button>
+                </div>
+            )}
         </div>
     );
+}
+
+function Rotate3D(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3.6 9h16.8" />
+      <path d="M3.6 15h16.8" />
+      <path d="M11.5 3L11.5 21" />
+      <path d="M11.5 3C7 3 3.5 7 3.5 12C3.5 17 7 21 11.5 21" />
+      <path d="M11.5 3C16 3 19.5 7 19.5 12C19.5 17 16 21 11.5 21" />
+    </svg>
+  );
+}
+
+function Radar(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19.07 4.93a10 10 0 0 0-14.14 0" />
+      <path d="M16.24 7.76a6 6 0 0 0-8.48 0" />
+      <path d="M12 12v.01" />
+      <path d="M12 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2Z" />
+      <path d="M12 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2Z" />
+      <path d="M12 12c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Z" />
+      <path d="M12 12c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2Z" />
+    </svg>
+  );
+}
+
+function Layers(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+      <path d="m2.6 12.08 8.58 3.9a2 2 0 0 0 1.66 0l8.58-3.9" />
+      <path d="m2.6 17.08 8.58 3.9a2 2 0 0 0 1.66 0l8.58-3.9" />
+    </svg>
+  );
 }

@@ -483,13 +483,14 @@ export async function addProyectoImagen(data: {
     categoria: string;
     esPrincipal?: boolean;
     orden?: number;
+    masterplanOverlay?: any;
 }) {
     try {
         await requireProjectOwnership(data.proyectoId);
 
         const esPrincipal = data.esPrincipal || false;
 
-        await prisma.$transaction(async (tx) => {
+        const createdImage = await prisma.$transaction(async (tx) => {
             if (esPrincipal) {
                 await tx.proyectoImagen.updateMany({
                     where: { proyectoId: data.proyectoId },
@@ -501,19 +502,45 @@ export async function addProyectoImagen(data: {
                 });
             }
 
-            await tx.proyectoImagen.create({
+            return await tx.proyectoImagen.create({
                 data: {
                     proyectoId: data.proyectoId,
                     url: data.url,
                     categoria: data.categoria,
                     esPrincipal,
-                    orden: data.orden || 0
+                    orden: data.orden || 0,
+                    masterplanOverlay: data.masterplanOverlay || null
                 }
             });
         });
 
         revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
-        return { success: true };
+        return { success: true, data: createdImage };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function updateProyectoImagen(id: string, data: {
+    url?: string;
+    categoria?: string;
+    masterplanOverlay?: any;
+    proyectoId: string;
+}) {
+    try {
+        await requireProjectOwnership(data.proyectoId);
+
+        const updated = await prisma.proyectoImagen.update({
+            where: { id },
+            data: {
+                url: data.url,
+                categoria: data.categoria,
+                masterplanOverlay: data.masterplanOverlay
+            }
+        });
+
+        revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
+        return { success: true, data: updated };
     } catch (error) {
         return handleGuardError(error);
     }

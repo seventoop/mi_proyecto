@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MasterplanUnit } from "@/lib/masterplan-store";
 import type { OverlayCornerAdjustment } from "@/lib/tour-overlay";
 import {
@@ -279,6 +279,18 @@ function solveLinearSystem(matrix: number[][], vector: number[]): number[] | nul
   return a.map((row) => row[n]);
 }
 
+function getInverseTransform(x0: number, y0: number, x1: number, y1: number, x2: number, y2: number, u0: number, v0: number, u1: number, v1: number, u2: number, v2: number) {
+    const det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+    if (Math.abs(det) < 1e-6) return null;
+    const a = ((u1 - u0) * (y2 - y0) - (u2 - u0) * (y1 - y0)) / det;
+    const b = ((u2 - u0) * (x1 - x0) - (u1 - u0) * (x2 - x0)) / det;
+    const c = u0 - a * x0 - b * y0;
+    const d = ((v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0)) / det;
+    const e = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / det;
+    const f = v0 - d * x0 - e * y0;
+    return [a, b, c, d, e, f];
+}
+
 function computeHomography(from: ScreenPt[], to: ScreenPt[]) {
   const matrix: number[][] = [];
   const vector: number[] = [];
@@ -378,6 +390,14 @@ export default function Viewer360LotesOverlay({
   const svgRef = useRef<SVGSVGElement>(null);
   const hitAreaRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>();
+  const [naturalSize, setNaturalSize] = useState<{w: number, h: number} | null>(null);
+
+  useEffect(() => {
+    if (!overlayImageUrl) return;
+    const img = new Image();
+    img.onload = () => setNaturalSize({ w: img.naturalWidth || 1000, h: img.naturalHeight || 1000 });
+    img.src = overlayImageUrl;
+  }, [overlayImageUrl]);
 
   const camAltRef = useRef(camAlt);
   const imageHeadingRef = useRef(imageHeading);
@@ -780,9 +800,46 @@ export default function Viewer360LotesOverlay({
       }
 
       if (overlayImageUrl && frameRef.current) {
-        const [c0, c1, , c3] = frameRef.current.corners;
-        const matrix = [c1.x - c0.x, c1.y - c0.y, c3.x - c0.x, c3.y - c0.y, c0.x, c0.y].join(" ");
-        svg.appendChild(svgEl("image", { href: overlayImageUrl, x: 0, y: 0, width: 1, height: 1, transform: `matrix(${matrix})` }));
+        if (manualCorners && naturalSize) {
+          const w = naturalSize.w, h = naturalSize.h;
+          const srcNodes = [{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}];
+          const dstNodes = manualCorners;
+          
+          const defs = svgEl("defs", {});
+          svg.appendChild(defs);
+
+          const indices = [[0, 1, 2], [0, 2, 3]];
+          for (let i = 0; i < indices.length; i++) {
+            const tri = indices[i];
+            const srcTri = [srcNodes[tri[0]], srcNodes[tri[1]], srcNodes[tri[2]]];
+            const dstTri = [dstNodes[tri[0]], dstNodes[tri[1]], dstNodes[tri[2]]];
+            
+            const t = getInverseTransform(
+                srcTri[0].x, srcTri[0].y, srcTri[1].x, srcTri[1].y, srcTri[2].x, srcTri[2].y,
+                dstTri[0].x, dstTri[0].y, dstTri[1].x, dstTri[1].y, dstTri[2].x, dstTri[2].y
+            );
+            
+            if (t) {
+              const clipId = `clip-tri-${i}`;
+              const clipPath = svgEl("clipPath", { id: clipId });
+              clipPath.appendChild(svgEl("polygon", { points: `${dstTri[0].x},${dstTri[0].y} ${dstTri[1].x},${dstTri[1].y} ${dstTri[2].x},${dstTri[2].y}` }));
+              defs.appendChild(clipPath);
+
+              const matrix = [t[0], t[3], t[1], t[4], t[2], t[5]].join(" ");
+              svg.appendChild(svgEl("image", { 
+                href: overlayImageUrl, 
+                x: 0, y: 0, 
+                width: w, height: h, 
+                transform: `matrix(${matrix})`,
+                "clip-path": `url(#${clipId})`
+              }));
+            }
+          }
+        } else {
+          const [c0, c1, , c3] = frameRef.current.corners;
+          const matrix = [c1.x - c0.x, c1.y - c0.y, c3.x - c0.x, c3.y - c0.y, c0.x, c0.y].join(" ");
+          svg.appendChild(svgEl("image", { href: overlayImageUrl, x: 0, y: 0, width: 1, height: 1, transform: `matrix(${matrix})` }));
+        }
       }
 
       if (_editing && frameRef.current) {

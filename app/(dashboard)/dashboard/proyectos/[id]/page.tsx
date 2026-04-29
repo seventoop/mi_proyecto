@@ -1,4 +1,7 @@
-﻿import prisma from "@/lib/db";
+import fs from "fs";
+import path from "path";
+function forensicLog(msg: string) { try { const logPath = path.join(process.cwd(), "forensic_logs.txt"); const timestamp = new Date().toISOString(); fs.appendFileSync(logPath, `[${timestamp}] ${msg}\n`); } catch (e) {} }
+import prisma from "@/lib/db";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -90,6 +93,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         userRole === "DESARROLLADOR" ? "/dashboard/developer/proyectos" :
         "/dashboard/proyectos";
 
+    forensicLog(`PAGE-FETCH: Cargando proyecto ${params.id}`);
     const proyecto = await prisma.proyecto.findUnique({
         where: { id: params.id },
         include: {
@@ -106,10 +110,25 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             pagos: true,
             documentacion: true,
             tours: {
+                orderBy: { updatedAt: "desc" },
                 include: {
                     scenes: {
+                        include: {
+                            hotspots: {
+                                include: {
+                                    unidad: {
+                                        select: {
+                                            id: true,
+                                            numero: true,
+                                            estado: true,
+                                            precio: true,
+                                            moneda: true,
+                                        }
+                                    }
+                                }
+                            }
+                        },
                         orderBy: { order: "asc" },
-                        take: 1,
                     },
                 },
             },
@@ -117,13 +136,15 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         },
     });
 
-    // Stats via aggregation — avoids loading all unidades into memory
+    // Stats via aggregation � avoids loading all unidades into memory
     const statsRaw = await prisma.unidad.groupBy({
         by: ["estado"],
         where: { manzana: { etapa: { proyectoId: params.id } } },
         _count: { _all: true },
         _sum: { precio: true },
     });
+
+    console.log("[Tour360][ServerRender][Page]", { proyectoId: params.id, tours: proyecto?.tours?.map((t: any) => t.id) || [] });
 
     if (!proyecto) {
         return (
@@ -195,79 +216,79 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         {
             id: "info",
             num: 1,
-            label: "Información General",
-            desc: "Datos básicos del proyecto",
+            label: "Informaci�n General",
+            desc: "Datos b�sicos del proyecto",
             required: true,
             icon: FileText,
             done: step1Done,
             guidance:
-                "Completá los datos del proyecto: nombre, ubicación y descripción. Estos campos son obligatorios para avanzar.",
+                "Complet� los datos del proyecto: nombre, ubicaci�n y descripci�n. Estos campos son obligatorios para avanzar.",
         },
         {
             id: "blueprint",
             num: 2,
             label: "Plano del Proyecto",
-            desc: "Cargá el plano del loteo",
+            desc: "Carg� el plano del loteo",
             required: false,
             icon: LayoutDashboard,
             done: step2Done,
             guidance:
-                "Subí el plano del loteo en DXF, DWG, SVG, PDF o imagen. El sistema intenta detectar lotes y, si no puede, guarda una base visual usable.",
+                "Sub� el plano del loteo en DXF, DWG, SVG, PDF o imagen. El sistema intenta detectar lotes y, si no puede, guarda una base visual usable.",
         },
         {
             id: "masterplan",
             num: 3,
             label: "Masterplan",
-            desc: "Gestión del inventario y lotes",
+            desc: "Gesti�n del inventario y lotes",
             required: false,
             icon: Layers,
             done: step3Done,
             guidance:
-                "Visualizá el plano del loteo, gestioná etapas, manzanas y lotes. Este paso centraliza todo el inventario del proyecto.",
+                "Visualiz� el plano del loteo, gestion� etapas, manzanas y lotes. Este paso centraliza todo el inventario del proyecto.",
         },
         {
             id: "mapa",
             num: 4,
             label: "Mapa Interactivo",
-            desc: "Posicioná el plano sobre el terreno",
+            desc: "Posicion� el plano sobre el terreno",
             required: false,
             icon: Globe,
             done: step4Done,
             guidance:
-                "Georreferenciá el proyecto en el mapa real. Calibrá el overlay del plano sobre el terreno para que los lotes queden ubicados correctamente.",
+                "Georreferenci� el proyecto en el mapa real. Calibr� el overlay del plano sobre el terreno para que los lotes queden ubicados correctamente.",
         },
         {
             id: "tour360",
             num: 5,
-            label: "Galería de Imágenes",
+            label: "Galer�a de Im�genes",
             desc: "Tour 360, reales, render y avance",
             required: false,
             icon: Camera,
             done: step5Done,
             guidance:
-                "Subí imágenes 360, fotos reales, renders o avance de obra. El Tour 360 sigue funcionando igual y el resto del material se organiza por categorías.",
+                "Sub� im�genes 360, fotos reales, renders o avance de obra. El Tour 360 sigue funcionando igual y el resto del material se organiza por categor�as.",
         },
         {
             id: "comercial",
             num: 6,
             label: "Comercial",
-            desc: "Pagos, documentación y métricas",
+            desc: "Pagos, documentaci�n y m�tricas",
             required: false,
             icon: DollarSign,
             done: step6Done,
             guidance:
-                "Gestioná los pagos, archivos técnicos, documentación legal y revisá las métricas de ventas del proyecto.",
+                "Gestion� los pagos, archivos t�cnicos, documentaci�n legal y revis� las m�tricas de ventas del proyecto.",
         },
         {
             id: "crm",
             num: 7,
-            label: "CRM / Gestión",
+            label: "CRM / Gesti�n",
             desc: "Leads, reservas y oportunidades",
             required: false,
             icon: Users,
             done: step7Done,
             guidance:
-                "Seguí los leads y reservas asociados a este proyecto. Gestioná el embudo comercial y las oportunidades de venta.",
+                "Segu� los leads y reservas asociados a este proyecto. Gestion� el embudo comercial y las oportunidades de venta.",
         },
     ];
 
@@ -278,7 +299,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         currentStepIdx < steps.length - 1 ? steps[currentStepIdx + 1] : null;
     const isWorkspaceTab = activeTab === "mapa" || activeTab === "tour360";
 
-    // Prepare Tour 360° markers for Paso 4 map (only lot-linked tours)
+    // Prepare Tour 360� markers for Paso 4 map (only lot-linked tours)
     const tours360ForMap = proyecto.tours
         .filter((t) => t.unidadId && (t.scenes as any[]).length > 0)
         .map((t) => ({
@@ -295,11 +316,11 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     return (
         <div className="animate-fade-in flex h-[calc(100dvh-6.5rem)] flex-col overflow-hidden lg:h-[calc(100dvh-7rem)]">
 
-            {/* â”€â”€ Project header: 3-column layout â”€â”€ */}
+            {/* ── Project header: 3-column layout ── */}
             <div className="mb-4">
-                {/* Row: Back · Title+Location · Progress */}
+                {/* Row: Back � Title+Location � Progress */}
                 <div className="flex items-center gap-3 mb-3">
-                    {/* LEFT — back button, more prominent */}
+                    {/* LEFT � back button, more prominent */}
                     <Link
                         href={backHref}
                         className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-500 dark:hover:text-brand-400 bg-slate-100 dark:bg-slate-800 hover:bg-brand-500/10 dark:hover:bg-brand-500/15 px-3 py-1.5 rounded-lg transition-all shrink-0 border border-slate-200 dark:border-slate-700 hover:border-brand-500/30"
@@ -308,7 +329,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         Volver a proyectos
                     </Link>
 
-                    {/* CENTER — project name + location */}
+                    {/* CENTER � project name + location */}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 min-w-0 flex-wrap">
                             <h1 className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[240px]">
@@ -329,13 +350,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             )}
                             {activeTab === "tour360" && (
                                 <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline">
-                                    · Subí fotos 360° y posicionalas en el mapa desde "Imágenes"
+                                    � Sub� fotos 360� y posicionalas en el mapa desde "Im�genes"
                                 </span>
                             )}
                         </div>
                     </div>
 
-                    {/* RIGHT — progress indicator */}
+                    {/* RIGHT � progress indicator */}
                     <div className="flex items-center gap-2 shrink-0">
                         <div className="text-right hidden sm:block">
                             <div className="text-sm font-black text-slate-800 dark:text-white tabular-nums leading-tight">
@@ -365,13 +386,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         <AlertCircle className="w-3 h-3 shrink-0" />
                         Proyecto temporal.{" "}
                         <Link href="/dashboard/developer/mi-perfil/kyc" className="underline font-bold ml-0.5">
-                            Completá tu KYC
+                            Complet� tu KYC
                         </Link>{" "}
                         para hacerlo oficial.
                     </p>
                 )}
 
-                {/* â”€â”€ Step bar with animated progress strip â”€â”€ */}
+                {/* ── Step bar with animated progress strip ── */}
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900/50">
                     {/* Top progress strip */}
                     <div className="h-1 w-full bg-slate-200 dark:bg-slate-800">
@@ -411,7 +432,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                     : "bg-slate-200 dark:bg-slate-700 text-slate-500"
                                             )}
                                         >
-                                            {step.done && !isActive ? "âœ“" : step.num}
+                                            {step.done && !isActive ? "✓" : step.num}
                                         </span>
                                         {step.label}
                                         {step.required && !step.done && !isActive && (
@@ -425,9 +446,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                 </div>
             </div>
 
-                {/* Content area — full width */}
+                {/* Content area � full width */}
                 <div className="w-full flex min-h-0 flex-1 flex-col overflow-hidden">
-                    {/* Active step guidance banner — only on non-visual steps */}
+                    {/* Active step guidance banner � only on non-visual steps */}
                     {(activeTab === "info" || activeTab === "comercial" || activeTab === "crm") && (
                     <div className="flex items-center gap-3 p-3 bg-brand-500/5 border border-brand-500/15 rounded-xl mb-4">
                         <div className="p-1.5 bg-brand-500/10 rounded-lg shrink-0">
@@ -468,7 +489,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                         )}
                     >
 
-                        {/* â”€â”€ PASO 1: INFORMACIÓN GENERAL â”€â”€ */}
+                        {/* ── PASO 1: INFORMACI�N GENERAL ── */}
                         {activeTab === "info" && (
                             <div className="space-y-4">
                                 <div className="glass-card p-6">
@@ -497,7 +518,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                             </div>
                                             <div>
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                                    Ubicación
+                                                    Ubicaci�n
                                                 </p>
                                                 <p className="text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                                     <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
@@ -532,7 +553,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                 </p>
                                                 <p className="text-slate-700 dark:text-slate-300 text-sm font-mono">
                                                     {proyecto.mapCenterLat?.toFixed(5)},{" "}
-                                                    {proyecto.mapCenterLng?.toFixed(5)} · zoom{" "}
+                                                    {proyecto.mapCenterLng?.toFixed(5)} � zoom{" "}
                                                     {proyecto.mapZoom}
                                                 </p>
                                             </div>
@@ -541,7 +562,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         <div className="space-y-5">
                                             <div>
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                                    Descripción
+                                                    Descripci�n
                                                 </p>
                                                 {proyecto.descripcion ? (
                                                     <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
@@ -549,21 +570,21 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                     </p>
                                                 ) : (
                                                     <p className="text-slate-400 italic text-sm">
-                                                        Sin descripción. Editá el proyecto para agregar una.
+                                                        Sin descripci�n. Edit� el proyecto para agregar una.
                                                     </p>
                                                 )}
                                             </div>
                                             {proyecto.invertible && (
                                                 <div>
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                                        Configuración de inversión
+                                                        Configuraci�n de inversi�n
                                                     </p>
                                                     <div className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
                                                         <p>
                                                             Precio inversor:{" "}
                                                             <strong>
                                                                 {proyecto.precioM2Inversor
-                                                                    ? `${formatCurrency(Number(proyecto.precioM2Inversor))}/mÂ²`
+                                                                    ? `${formatCurrency(Number(proyecto.precioM2Inversor))}/m²`
                                                                     : "No definido"}
                                                             </strong>
                                                         </p>
@@ -571,7 +592,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                             Precio mercado:{" "}
                                                             <strong>
                                                                 {proyecto.precioM2Mercado
-                                                                    ? `${formatCurrency(Number(proyecto.precioM2Mercado))}/mÂ²`
+                                                                    ? `${formatCurrency(Number(proyecto.precioM2Mercado))}/m²`
                                                                     : "No definido"}
                                                             </strong>
                                                         </p>
@@ -598,13 +619,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                                         <div className="flex-1">
                                             <p className="text-sm font-bold text-amber-600 dark:text-amber-400">
-                                                Información incompleta
+                                                Informaci�n incompleta
                                             </p>
                                             <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
-                                                {!proyecto.ubicacion && "Falta la ubicación del proyecto. "}
-                                                {!proyecto.descripcion && "Falta la descripción. "}
+                                                {!proyecto.ubicacion && "Falta la ubicaci�n del proyecto. "}
+                                                {!proyecto.descripcion && "Falta la descripci�n. "}
                                                 <span className="underline underline-offset-2 group-hover:text-amber-400 transition-colors">
-                                                    Tocá acá para completar estos campos →
+                                                    Toc� ac� para completar estos campos ?
                                                 </span>
                                             </p>
                                         </div>
@@ -613,14 +634,14 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* â”€â”€ PASO 2: PLANO â”€â”€ */}
+                        {/* ── PASO 2: PLANO ── */}
                         {activeTab === "blueprint" && (
                             <div className="animate-fade-in h-[calc(100vh-180px)] min-h-[640px]">
                                 <BlueprintEngine proyectoId={proyecto.id} />
                             </div>
                         )}
 
-                        {/* â”€â”€ PASO 3: MASTERPLAN â”€â”€ */}
+                        {/* ── PASO 3: MASTERPLAN ── */}
                         {activeTab === "masterplan" && (
                             <div className="space-y-6">
                                 {!step2Done && (
@@ -631,12 +652,12 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                 Plano no cargado
                                             </p>
                                             <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
-                                                Subí el plano del proyecto en el{" "}
+                                                Sub� el plano del proyecto en el{" "}
                                                 <Link
                                                     href="?tab=blueprint"
                                                     className="underline font-bold"
                                                 >
-                                                    Paso 2 — Plano del Proyecto
+                                                    Paso 2 � Plano del Proyecto
                                                 </Link>{" "}
                                                 para verlo en el masterplan.
                                             </p>
@@ -647,24 +668,24 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     <MasterplanViewer proyectoId={proyecto.id} modo="admin" />
                                 </ResizableContainer>
 
-                                {/* Inventario siempre accesible — no depende de etapas */}
+                                {/* Inventario siempre accesible � no depende de etapas */}
                                 <div className="glass-card p-6">
                                     <h3 className="font-bold text-slate-800 dark:text-white mb-1 flex items-center gap-2">
                                         <Home className="w-5 h-5 text-brand-500" />
                                         Inventario
                                     </h3>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
-                                        Editá estados, precios y datos de cada lote. No necesitás configurar etapas primero.
+                                        Edit� estados, precios y datos de cada lote. No necesit�s configurar etapas primero.
                                     </p>
                                     {total === 0 ? (
                                         <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
                                             <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                Todavía no hay unidades registradas. Cargá el plano del proyecto en el{" "}
+                                                Todav�a no hay unidades registradas. Carg� el plano del proyecto en el{" "}
                                                 <Link href="?tab=blueprint" className="text-brand-500 font-semibold underline underline-offset-2">
                                                     Paso 2
                                                 </Link>{" "}
-                                                y sincronizá para generar el inventario automáticamente.
+                                                y sincroniz� para generar el inventario autom�ticamente.
                                             </p>
                                         </div>
                                     ) : (
@@ -672,7 +693,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     )}
                                 </div>
 
-                                {/* Etapas después del inventario */}
+                                {/* Etapas despu�s del inventario */}
                                 <EtapasManager
                                     proyectoId={proyecto.id}
                                     etapas={proyecto.etapas as any}
@@ -680,7 +701,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* â”€â”€ PASO 5: IMÁGENES DEL PROYECTO â”€â”€ */}
+                        {/* ── PASO 5: IM�GENES DEL PROYECTO ── */}
                         {activeTab === "tour360" && (
                             <div className="flex min-h-0 flex-1 flex-col space-y-3 overflow-hidden">
                                 <div className="min-h-0 flex-1 overflow-hidden">
@@ -693,15 +714,15 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* â”€â”€ PASO 4: MAPA INTERACTIVO â”€â”€ */}
+                        {/* ── PASO 4: MAPA INTERACTIVO ── */}
                         {activeTab === "mapa" && (
                             <div className="flex min-h-0 flex-1 flex-col space-y-3 overflow-hidden">
                                 {!step3Done && (
                                     <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/5 border border-amber-500/20 rounded-xl text-xs text-amber-600 dark:text-amber-400">
                                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                                        Primero creá los lotes en el{" "}
+                                        Primero cre� los lotes en el{" "}
                                         <Link href="?tab=masterplan" className="underline font-bold">
-                                            Paso 3 — Masterplan
+                                            Paso 3 � Masterplan
                                         </Link>{" "}
                                         para verlos en el mapa.
                                     </div>
@@ -721,10 +742,10 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* â”€â”€ PASO 6: COMERCIAL â”€â”€ */}
+                        {/* ── PASO 6: COMERCIAL ── */}
                         {activeTab === "comercial" && (
                             <div className="space-y-6">
-                                {/* Métricas */}
+                                {/* M�tricas */}
                                 <div className="glass-card p-6">
                                     <div className="flex items-center gap-3 mb-5">
                                         <div className="p-2.5 bg-brand-500/10 rounded-xl">
@@ -732,7 +753,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-slate-800 dark:text-white">
-                                                Métricas del Proyecto
+                                                M�tricas del Proyecto
                                             </h3>
                                             <p className="text-xs text-slate-500 mt-0.5">
                                                 Resumen comercial del inventario.
@@ -874,7 +895,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                     />
                                 </div>
 
-                                {/* Archivos técnicos */}
+                                {/* Archivos t�cnicos */}
                                 <div className="glass-card p-6">
                                     <div className="flex items-center gap-3 mb-5">
                                         <div className="p-2.5 bg-brand-500/10 rounded-xl">
@@ -882,17 +903,17 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-slate-800 dark:text-white">
-                                                Archivos Técnicos
+                                                Archivos T�cnicos
                                             </h3>
                                             <p className="text-xs text-slate-500 mt-0.5">
-                                                Planos, memorias y documentación técnica pública.
+                                                Planos, memorias y documentaci�n t�cnica p�blica.
                                             </p>
                                         </div>
                                     </div>
                                     <ProjectTechnicalFiles proyectoId={proyecto.id} />
                                 </div>
 
-                                {/* Documentación */}
+                                {/* Documentaci�n */}
                                 <div className="glass-card p-6">
                                     <div className="flex items-center gap-3 mb-5">
                                         <div className="p-2.5 bg-brand-500/10 rounded-xl">
@@ -900,10 +921,10 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-slate-800 dark:text-white">
-                                                Documentación
+                                                Documentaci�n
                                             </h3>
                                             <p className="text-xs text-slate-500 mt-0.5">
-                                                Permisos, contratos y documentación legal del proyecto.
+                                                Permisos, contratos y documentaci�n legal del proyecto.
                                             </p>
                                         </div>
                                     </div>
@@ -917,7 +938,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                             </div>
                         )}
 
-                        {/* â”€â”€ PASO 7: CRM / GESTIÓN â”€â”€ */}
+                        {/* ── PASO 7: CRM / GESTI�N ── */}
                         {activeTab === "crm" && (
                             <div className="space-y-6">
                                 <div className="glass-card p-6">
@@ -944,7 +965,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                                 Sin leads registrados
                                             </p>
                                             <p className="text-sm text-slate-400 mt-1 max-w-xs">
-                                                Los leads aparecerán aquí cuando los compradores
+                                                Los leads aparecer�n aqu� cuando los compradores
                                                 consulten por este proyecto.
                                             </p>
                                         </div>
@@ -960,13 +981,13 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                                             </div>
                                             <div className="flex-1">
                                                 <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-                                                    Gestioná los leads desde el CRM global
+                                                    Gestion� los leads desde el CRM global
                                                 </p>
                                                 <Link
                                                     href="/dashboard/crm"
                                                     className="text-xs text-brand-500 font-bold underline underline-offset-2 mt-1 inline-block"
                                                 >
-                                                    Ir al CRM →
+                                                    Ir al CRM ?
                                                 </Link>
                                             </div>
                                         </div>

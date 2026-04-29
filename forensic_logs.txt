@@ -1,0 +1,682 @@
+[2026-04-28T15:26:58.136Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T15:26:58.516Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T15:29:02.470Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T15:29:02.783Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T15:29:03.129Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T15:29:03.425Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T15:29:04.072Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T15:29:04.297Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T20:20:36.316Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:28.271Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:31.853Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:27:31.898Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T20:27:31.925Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:27:31.961Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T20:27:32.003Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:32.082Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:27:32.105Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T20:27:32.127Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T20:27:47.005Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoil2fu1007ou9e2hbfqrz5w
+[2026-04-28T20:27:47.055Z] DELETE: Borrando tour cmoil2fu1007ou9e2hbfqrz5w del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:47.070Z] DELETE: Tour cmoil2fu1007ou9e2hbfqrz5w borrado exitosamente en DB
+[2026-04-28T20:27:47.106Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:47.160Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:27:47.197Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:47.242Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:27:47.268Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:47.300Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:47.383Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:27:47.424Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj2ve4h000214vl2jr9s84m
+[2026-04-28T20:27:47.435Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:47.486Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:27:47.517Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2ve4h000214vl2jr9s84m","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:27:47.392Z","updatedAt":"2026-04-28T20:27:47.392Z","anchors":null},"created":true}
+[2026-04-28T20:27:47.554Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:27:47.591Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:27:47.616Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:27:49.073Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj2ve4h000214vl2jr9s84m
+[2026-04-28T20:27:49.105Z] DELETE: Borrando tour cmoj2ve4h000214vl2jr9s84m del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:49.111Z] DELETE: Tour cmoj2ve4h000214vl2jr9s84m borrado exitosamente en DB
+[2026-04-28T20:27:49.125Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:49.164Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:27:49.199Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:49.241Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:27:49.282Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:27:49.313Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:27:49.343Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:27:55.419Z] CLIENT: handleCreateClick: Nuevo Tour 360 pulsado - viewMode: LIST, tours count: 0
+[2026-04-28T20:27:59.138Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:59.841Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:27:59.901Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:27:59.948Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:27:59.985Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:00.011Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:28:00.057Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj2vnv4000714vlqy0h89m5
+[2026-04-28T20:28:00.073Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:00.129Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:28:00.160Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:28:00.191Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:00.218Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:00.238Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj2vnv4000714vlqy0h89m5). Actualizando imágenes.
+[2026-04-28T20:28:00.270Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:00.307Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:00.337Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2vnv4000714vlqy0h89m5","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:28:00.017Z","updatedAt":"2026-04-28T20:28:00.017Z","anchors":null},"created":true}
+[2026-04-28T20:28:00.366Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2vnv4000714vlqy0h89m5","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:28:00.017Z","updatedAt":"2026-04-28T20:28:00.017Z","anchors":null,"scenes":[{"id":"cmoj2vnv8000914vl6ha73m5m","tourId":"cmoj2vnv4000714vlqy0h89m5","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:28:00.403Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:28:00.433Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:00.507Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:28:02.896Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj2vnv4000714vlqy0h89m5
+[2026-04-28T20:28:02.928Z] DELETE: Borrando tour cmoj2vnv4000714vlqy0h89m5 del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:02.932Z] DELETE: Tour cmoj2vnv4000714vlqy0h89m5 borrado exitosamente en DB
+[2026-04-28T20:28:02.946Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:02.987Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:28:03.029Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:03.069Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:03.117Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:28:03.146Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:03.180Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:08.094Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:08.645Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:28:08.718Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:28:08.767Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:08.815Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:08.835Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:28:08.867Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj2vuo8000c14vlcnnlx6ja
+[2026-04-28T20:28:08.877Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:08.924Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:28:08.962Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:28:08.987Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:09.017Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:09.037Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj2vuo8000c14vlcnnlx6ja). Actualizando imágenes.
+[2026-04-28T20:28:09.074Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:09.111Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:09.149Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2vuo8000c14vlcnnlx6ja","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:28:08.841Z","updatedAt":"2026-04-28T20:28:08.841Z","anchors":null},"created":true}
+[2026-04-28T20:28:09.178Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2vuo8000c14vlcnnlx6ja","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:28:08.841Z","updatedAt":"2026-04-28T20:28:08.841Z","anchors":null,"scenes":[{"id":"cmoj2vuoc000e14vlxo91v70v","tourId":"cmoj2vuo8000c14vlcnnlx6ja","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:28:09.215Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:28:09.242Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:09.302Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:28:34.392Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj2vuo8000c14vlcnnlx6ja
+[2026-04-28T20:28:34.428Z] DELETE: Borrando tour cmoj2vuo8000c14vlcnnlx6ja del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:34.431Z] DELETE: Tour cmoj2vuo8000c14vlcnnlx6ja borrado exitosamente en DB
+[2026-04-28T20:28:34.449Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:34.495Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:28:34.534Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:34.584Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:34.634Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:28:34.671Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:34.710Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:38.542Z] CLIENT: handleCreateClick: Nuevo Tour 360 pulsado - viewMode: LIST, tours count: 0
+[2026-04-28T20:28:44.766Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:45.333Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:28:45.406Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:28:45.455Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:45.491Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:45.511Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:28:45.540Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj2wmyz000h14vlgmbkh1ge
+[2026-04-28T20:28:45.551Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:45.597Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:28:45.627Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:28:45.666Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:45.706Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:45.726Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj2wmyz000h14vlgmbkh1ge). Actualizando imágenes.
+[2026-04-28T20:28:45.781Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:45.834Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:45.883Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2wmyz000h14vlgmbkh1ge","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:28:45.516Z","updatedAt":"2026-04-28T20:28:45.516Z","anchors":null},"created":true}
+[2026-04-28T20:28:45.920Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2wmyz000h14vlgmbkh1ge","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:28:45.516Z","updatedAt":"2026-04-28T20:28:45.516Z","anchors":null,"scenes":[{"id":"cmoj2wmz2000j14vlgxyyr6u4","tourId":"cmoj2wmyz000h14vlgmbkh1ge","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:28:45.960Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:28:46.240Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:46.285Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:28:49.286Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj2wmyz000h14vlgmbkh1ge
+[2026-04-28T20:28:49.317Z] DELETE: Borrando tour cmoj2wmyz000h14vlgmbkh1ge del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:49.320Z] DELETE: Tour cmoj2wmyz000h14vlgmbkh1ge borrado exitosamente en DB
+[2026-04-28T20:28:49.329Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:49.372Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:28:49.422Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:28:49.460Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:49.501Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:28:49.541Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:49.576Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:28:59.851Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:00.447Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:29:00.520Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:29:00.581Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:00.627Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:00.651Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:29:00.707Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj2wynk000m14vlw7ieprrq
+[2026-04-28T20:29:00.719Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:00.779Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:29:00.818Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:29:00.867Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:00.906Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:00.926Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj2wynk000m14vlw7ieprrq). Actualizando imágenes.
+[2026-04-28T20:29:00.957Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:01.005Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:29:01.163Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2wynk000m14vlw7ieprrq","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:29:00.657Z","updatedAt":"2026-04-28T20:29:00.657Z","anchors":null},"created":true}
+[2026-04-28T20:29:01.261Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2wynk000m14vlw7ieprrq","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:29:00.657Z","updatedAt":"2026-04-28T20:29:00.657Z","anchors":null,"scenes":[{"id":"cmoj2wyno000o14vlzv2orkax","tourId":"cmoj2wynk000m14vlw7ieprrq","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:29:01.329Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:29:01.394Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:29:01.518Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:29:03.260Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj2wynk000m14vlw7ieprrq
+[2026-04-28T20:29:03.291Z] DELETE: Borrando tour cmoj2wynk000m14vlw7ieprrq del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:03.300Z] DELETE: Tour cmoj2wynk000m14vlw7ieprrq borrado exitosamente en DB
+[2026-04-28T20:29:03.312Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:03.355Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:29:03.409Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:03.452Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:29:03.500Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:29:03.526Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:29:03.559Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:29:05.747Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:06.306Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:29:06.362Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:29:06.414Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:06.478Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:06.498Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:29:06.532Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj2x362000r14vl0rnzh0af
+[2026-04-28T20:29:06.542Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:06.590Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:29:06.620Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:29:06.651Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:06.686Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:06.706Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj2x362000r14vl0rnzh0af). Actualizando imágenes.
+[2026-04-28T20:29:06.743Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:06.787Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:29:06.818Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2x362000r14vl0rnzh0af","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:29:06.507Z","updatedAt":"2026-04-28T20:29:06.507Z","anchors":null},"created":true}
+[2026-04-28T20:29:06.846Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2x362000r14vl0rnzh0af","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:29:06.507Z","updatedAt":"2026-04-28T20:29:06.507Z","anchors":null,"scenes":[{"id":"cmoj2x367000t14vlvzy1m2vi","tourId":"cmoj2x362000r14vl0rnzh0af","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:29:06.918Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:29:06.946Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:29:07.034Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:29:08.903Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj2x362000r14vl0rnzh0af
+[2026-04-28T20:29:08.932Z] DELETE: Borrando tour cmoj2x362000r14vl0rnzh0af del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:08.935Z] DELETE: Tour cmoj2x362000r14vl0rnzh0af borrado exitosamente en DB
+[2026-04-28T20:29:08.947Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:08.985Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:29:09.023Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:29:09.058Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:29:09.098Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:29:09.142Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:29:09.180Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:30:49.719Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:30:50.252Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:30:50.328Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:30:50.378Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:30:50.419Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:30:50.438Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:30:50.468Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj2zbd7000w14vlas6z7tid
+[2026-04-28T20:30:50.479Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:30:50.536Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:30:50.568Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:30:50.601Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:30:50.630Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:30:50.654Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj2zbd7000w14vlas6z7tid). Actualizando imágenes.
+[2026-04-28T20:30:50.691Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:30:50.734Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:30:50.784Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2zbd7000w14vlas6z7tid","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:30:50.443Z","updatedAt":"2026-04-28T20:30:50.443Z","anchors":null},"created":true}
+[2026-04-28T20:30:50.819Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj2zbd7000w14vlas6z7tid","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:30:50.443Z","updatedAt":"2026-04-28T20:30:50.443Z","anchors":null,"scenes":[{"id":"cmoj2zbda000y14vl4k9njim3","tourId":"cmoj2zbd7000w14vlas6z7tid","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:30:50.856Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:30:50.966Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:30:50.993Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:33:48.442Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:33:48.651Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:33:48.674Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:33:48.693Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:34:59.536Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:35:36.764Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:35:38.718Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:35:38.792Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T20:35:38.835Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:35:38.873Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T20:35:38.926Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:35:39.015Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:35:39.055Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T20:35:39.077Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 1
+[2026-04-28T20:37:36.904Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj2zbd7000w14vlas6z7tid
+[2026-04-28T20:37:36.959Z] DELETE: Borrando tour cmoj2zbd7000w14vlas6z7tid del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:36.964Z] DELETE: Tour cmoj2zbd7000w14vlas6z7tid borrado exitosamente en DB
+[2026-04-28T20:37:37.003Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:37.068Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:37:37.113Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:37.163Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:37:37.198Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:37.235Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:37.257Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:37:37.290Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj3819p001114vl3w53g5hk
+[2026-04-28T20:37:37.301Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:37.360Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:37.396Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj3819p001114vl3w53g5hk","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:37:37.261Z","updatedAt":"2026-04-28T20:37:37.261Z","anchors":null},"created":true}
+[2026-04-28T20:37:37.450Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:37:37.485Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:37.523Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:37:38.748Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj3819p001114vl3w53g5hk
+[2026-04-28T20:37:38.786Z] DELETE: Borrando tour cmoj3819p001114vl3w53g5hk del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:38.793Z] DELETE: Tour cmoj3819p001114vl3w53g5hk borrado exitosamente en DB
+[2026-04-28T20:37:38.804Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:38.855Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:37:38.913Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:38.966Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:39.014Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:37:39.051Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:39.086Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:42.769Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:43.519Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:37:43.703Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:37:43.771Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:43.834Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:43.855Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:37:43.903Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj386cz001614vl45rvec77
+[2026-04-28T20:37:43.920Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:43.983Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:37:44.034Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:37:44.068Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:44.101Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:44.121Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj386cz001614vl45rvec77). Actualizando imágenes.
+[2026-04-28T20:37:44.152Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:44.210Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:44.245Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj386cz001614vl45rvec77","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:37:43.859Z","updatedAt":"2026-04-28T20:37:43.859Z","anchors":null},"created":true}
+[2026-04-28T20:37:44.278Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj386cz001614vl45rvec77","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:37:43.859Z","updatedAt":"2026-04-28T20:37:43.859Z","anchors":null,"scenes":[{"id":"cmoj386d2001814vlx4m0x4xy","tourId":"cmoj386cz001614vl45rvec77","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:37:44.325Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:37:44.359Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:44.469Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:37:47.698Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj386cz001614vl45rvec77
+[2026-04-28T20:37:47.735Z] DELETE: Borrando tour cmoj386cz001614vl45rvec77 del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:47.738Z] DELETE: Tour cmoj386cz001614vl45rvec77 borrado exitosamente en DB
+[2026-04-28T20:37:47.747Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:47.794Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:37:47.848Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:47.901Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:47.946Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:37:47.982Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:48.015Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:52.550Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:53.089Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:37:53.176Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:37:53.245Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:53.311Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:53.330Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:37:53.357Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj38do6001b14vl0kqmlst4
+[2026-04-28T20:37:53.366Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:53.417Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:37:53.449Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:37:53.484Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:53.517Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:53.537Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj38do6001b14vl0kqmlst4). Actualizando imágenes.
+[2026-04-28T20:37:53.571Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:37:53.621Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:53.661Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj38do6001b14vl0kqmlst4","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:37:53.334Z","updatedAt":"2026-04-28T20:37:53.334Z","anchors":null},"created":true}
+[2026-04-28T20:37:53.703Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj38do6001b14vl0kqmlst4","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:37:53.334Z","updatedAt":"2026-04-28T20:37:53.334Z","anchors":null,"scenes":[{"id":"cmoj38do9001d14vl07lpce0y","tourId":"cmoj38do6001b14vl0kqmlst4","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:37:53.747Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:37:53.780Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:37:53.827Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:38:19.410Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj38do6001b14vl0kqmlst4
+[2026-04-28T20:38:19.462Z] DELETE: Borrando tour cmoj38do6001b14vl0kqmlst4 del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:19.466Z] DELETE: Tour cmoj38do6001b14vl0kqmlst4 borrado exitosamente en DB
+[2026-04-28T20:38:19.484Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:19.543Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:38:19.595Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:19.644Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:19.720Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:19.756Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:19.798Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:24.147Z] CLIENT: handleCreateClick: Nuevo Tour 360 pulsado - viewMode: LIST, tours count: 0
+[2026-04-28T20:38:28.864Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:29.572Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:29.688Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:38:29.793Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:29.865Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:29.896Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:38:29.938Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj395vx001g14vlaqsaa68s
+[2026-04-28T20:38:29.953Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:30.015Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:30.062Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:38:30.104Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:30.151Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:30.171Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj395vx001g14vlaqsaa68s). Actualizando imágenes.
+[2026-04-28T20:38:30.208Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:30.280Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:30.323Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj395vx001g14vlaqsaa68s","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:38:29.901Z","updatedAt":"2026-04-28T20:38:29.901Z","anchors":null},"created":true}
+[2026-04-28T20:38:30.365Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj395vx001g14vlaqsaa68s","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:38:29.901Z","updatedAt":"2026-04-28T20:38:29.901Z","anchors":null,"scenes":[{"id":"cmoj395w2001i14vl9tmhtw0m","tourId":"cmoj395vx001g14vlaqsaa68s","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:38:30.426Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:38:30.638Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:30.715Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:38:32.156Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj395vx001g14vlaqsaa68s
+[2026-04-28T20:38:32.198Z] DELETE: Borrando tour cmoj395vx001g14vlaqsaa68s del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:32.202Z] DELETE: Tour cmoj395vx001g14vlaqsaa68s borrado exitosamente en DB
+[2026-04-28T20:38:32.221Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:32.280Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:38:32.329Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:32.384Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:32.446Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:32.494Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:32.532Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:33.823Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:34.424Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:34.536Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:38:34.665Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:34.726Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:34.746Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:38:34.778Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj399ml001l14vl4lkat007
+[2026-04-28T20:38:34.789Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:34.849Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:34.888Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:38:34.929Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:34.970Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:34.989Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj399ml001l14vl4lkat007). Actualizando imágenes.
+[2026-04-28T20:38:35.021Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:35.074Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:35.109Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj399ml001l14vl4lkat007","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:38:34.750Z","updatedAt":"2026-04-28T20:38:34.750Z","anchors":null},"created":true}
+[2026-04-28T20:38:35.150Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj399ml001l14vl4lkat007","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:38:34.750Z","updatedAt":"2026-04-28T20:38:34.750Z","anchors":null,"scenes":[{"id":"cmoj399mo001n14vlmww61y0z","tourId":"cmoj399ml001l14vl4lkat007","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:38:35.222Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:38:35.398Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:35.440Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:38:37.183Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj399ml001l14vl4lkat007
+[2026-04-28T20:38:37.223Z] DELETE: Borrando tour cmoj399ml001l14vl4lkat007 del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:37.227Z] DELETE: Tour cmoj399ml001l14vl4lkat007 borrado exitosamente en DB
+[2026-04-28T20:38:37.240Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:37.305Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:38:37.361Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:37.415Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:37.487Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:37.528Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:37.567Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:40.009Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:40.584Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:40.723Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:38:40.796Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:40.867Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:40.885Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:38:40.913Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj39ed4001q14vllke4sw2h
+[2026-04-28T20:38:40.927Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:40.981Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:41.021Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:38:41.071Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:41.150Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:41.174Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj39ed4001q14vllke4sw2h). Actualizando imágenes.
+[2026-04-28T20:38:41.205Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:41.261Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:41.312Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj39ed4001q14vllke4sw2h","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:38:40.889Z","updatedAt":"2026-04-28T20:38:40.889Z","anchors":null},"created":true}
+[2026-04-28T20:38:41.352Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj39ed4001q14vllke4sw2h","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:38:40.889Z","updatedAt":"2026-04-28T20:38:40.889Z","anchors":null,"scenes":[{"id":"cmoj39ed7001s14vlpmauyeih","tourId":"cmoj39ed4001q14vllke4sw2h","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:38:41.414Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:38:41.503Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:41.549Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:38:42.677Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj39ed4001q14vllke4sw2h
+[2026-04-28T20:38:42.718Z] DELETE: Borrando tour cmoj39ed4001q14vllke4sw2h del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:42.722Z] DELETE: Tour cmoj39ed4001q14vllke4sw2h borrado exitosamente en DB
+[2026-04-28T20:38:42.738Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:42.791Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:38:42.860Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:42.914Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:42.981Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:43.035Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:43.079Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:48.090Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:48.723Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:48.857Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:38:48.936Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:48.993Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:49.013Z] BOOTSTRAP: No hay tours con escenas 360 para cmnj4rifi000dg2wlwpe77uyu. Procediendo a crear un nuevo tour de bootstrap.
+[2026-04-28T20:38:49.064Z] BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para cmnj4rifi000dg2wlwpe77uyu: cmoj39kmx001v14vl0ajkwe5c
+[2026-04-28T20:38:49.075Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:49.130Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:49.179Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: false, tours: 0
+[2026-04-28T20:38:49.219Z] CLIENT: runBootstrap: Triggereando bootstrap para cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:49.281Z] BOOTSTRAP: Iniciando para proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:49.317Z] BOOTSTRAP: Ya existe un tour de bootstrap para cmnj4rifi000dg2wlwpe77uyu (cmoj39kmx001v14vl0ajkwe5c). Actualizando imágenes.
+[2026-04-28T20:38:49.371Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:49.427Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:49.469Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj39kmx001v14vl0ajkwe5c","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:38:49.017Z","updatedAt":"2026-04-28T20:38:49.017Z","anchors":null},"created":true}
+[2026-04-28T20:38:49.508Z] CLIENT: runBootstrap: Resultado bootstrap: {"success":true,"data":{"id":"cmoj39kmx001v14vl0ajkwe5c","proyectoId":"cmnj4rifi000dg2wlwpe77uyu","unidadId":null,"nombre":"Tour 360","estado":"PENDIENTE","notasAdmin":null,"createdAt":"2026-04-28T20:38:49.017Z","updatedAt":"2026-04-28T20:38:49.017Z","anchors":null,"scenes":[{"id":"cmoj39kn0001x14vlhn8dsmqc","tourId":"cmoj39kmx001v14vl0ajkwe5c","title":"Valles del Pino  360","imageUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","isDefault":true,"order":0,"category":"TOUR360","pannellumHotspots":null,"thumbnailUrl":"/uploads/360/05ecc5b0-15cb-4889-ae95-ebe0e41bd7d6-valles3-optimized.jpg","masterplanOverlay":{"mode":"geo-calibrated","flipX":false,"flipY":false,"marks":[],"opacity":0.55,"altitudM":1045,"imageUrl":"/uploads/proyectos/cmnj4rifi000dg2wlwpe77uyu/plans/488954cd-e34a-443d-a22a-65f7528c625d-b572b8d4-1829-4a73-a0a1-140a232f0874.svg","cleanMode":false,"imageKind":"360","isVisible":true,"latOffset":-474,"lngOffset":7892,"pitchBias":0,"planScale":1,"cameraRoll":0,"planScaleX":1,"planScaleY":1,"showLabels":false,"snapEnabled":false,"imageHeading":347,"planRotation":52,"showPerimeter":true,"selectedPlanId":"e0629c6e-6eca-42dc-9744-f1dd9bef5ac7","alignmentGuides":true,"transformLocked":false,"planCornersAbsolute":[],"planCornerAdjustments":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]}}]},"created":false,"updated":true}
+[2026-04-28T20:38:49.590Z] CLIENT: Prop initialTours cambió. Nueva longitud: 1
+[2026-04-28T20:38:49.681Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:49.733Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 1
+[2026-04-28T20:38:51.030Z] CLIENT: handleDeleteClick: Iniciando eliminación de cmoj39kmx001v14vl0ajkwe5c
+[2026-04-28T20:38:51.075Z] DELETE: Borrando tour cmoj39kmx001v14vl0ajkwe5c del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:51.081Z] DELETE: Tour cmoj39kmx001v14vl0ajkwe5c borrado exitosamente en DB
+[2026-04-28T20:38:51.100Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:51.149Z] CLIENT: handleDeleteClick: Resultado deleteTour: {"success":true}
+[2026-04-28T20:38:51.195Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:38:51.248Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:51.300Z] CLIENT: Prop initialTours cambió. Nueva longitud: 0
+[2026-04-28T20:38:51.354Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:38:51.395Z] CLIENT: runBootstrap: checking. isSuppressedNow: false, isBootstrapping: true, tours: 0
+[2026-04-28T20:45:51.752Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:46:05.530Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:46:07.757Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:46:15.387Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T20:46:32.926Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:04:56.143Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:04:56.211Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:04:59.532Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:06:54.588Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:14:59.202Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:16:03.557Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:16:12.124Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:19:17.123Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:24:20.006Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:24:45.300Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:29:26.232Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:29:26.333Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:29:30.225Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:29:34.015Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:30:56.496Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:31:13.550Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:41:59.163Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:41:59.313Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:44:41.389Z] DELETE: Borrando tour cmoj5it2n002014vliedeoiln del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:44:41.394Z] DELETE: Tour cmoj5it2n002014vliedeoiln borrado exitosamente en DB
+[2026-04-28T21:44:41.412Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T21:44:41.516Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:15:48.823Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:15:51.283Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:16:01.632Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:16:25.287Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:16:56.496Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:17:33.265Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:17:36.003Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:18:08.593Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:18:35.739Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:18:37.964Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:18:56.573Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:19:04.535Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:19:08.372Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:19:22.728Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:19:56.607Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:20:28.436Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:20:33.540Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:20:50.469Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T22:21:02.048Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:21:21.406Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:21:26.661Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:32:13.554Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:32:13.735Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:47:26.129Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:47:26.313Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:47:30.031Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:48:14.608Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:49:07.168Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:49:22.553Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:49:52.139Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:50:05.568Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:54:41.416Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:55:35.475Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:58:53.460Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:58:57.186Z] DELETE: Borrando tour cmoj9gkr8002914vluyuasior del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:58:57.206Z] DELETE: Tour cmoj9gkr8002914vluyuasior borrado exitosamente en DB
+[2026-04-28T23:58:57.260Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:58:57.397Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-28T23:58:59.874Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:02:03.012Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:02:03.187Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:12:46.766Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:12:48.495Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:26:49.225Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:26:49.702Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:28:44.897Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:28:47.812Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:28:50.677Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T00:29:45.482Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:35:24.856Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:35:31.051Z] DELETE: Borrando tour cmojaixio002i14vlymlssnlr del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:35:31.062Z] DELETE: Tour cmojaixio002i14vlymlssnlr borrado exitosamente en DB
+[2026-04-29T01:35:31.128Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:35:31.476Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:35:34.207Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:35:38.791Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:37:36.867Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:42:15.707Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:42:15.846Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:42:25.605Z] DELETE: Borrando tour cmoje3syt002r14vlcfu685za del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:42:25.613Z] DELETE: Tour cmoje3syt002r14vlcfu685za borrado exitosamente en DB
+[2026-04-29T01:42:25.632Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:42:25.752Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:49:11.429Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:53:00.700Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T01:54:04.498Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T03:33:05.891Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T03:34:58.721Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T03:51:20.634Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T03:58:25.109Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:14:04.229Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:14:46.089Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:14:46.356Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:26:42.283Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:27:36.368Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:27:58.043Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:28:05.596Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:28:08.726Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:28:21.987Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:29:01.812Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:29:04.587Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:29:12.450Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:29:15.198Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:29:47.936Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:29:56.903Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:30:29.056Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:30:33.397Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:30:43.981Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T04:32:33.064Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:11:41.095Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:28:45.108Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:40:24.393Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:40:31.538Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:40:36.543Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:41:49.815Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:42:03.346Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:42:19.602Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:42:20.118Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:42:32.424Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:42:37.962Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:43:27.567Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:43:46.341Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:44:32.571Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:44:33.089Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:44:33.313Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:44:49.652Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:44:57.473Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:45:03.309Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:45:34.361Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:45:53.445Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T11:46:01.546Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:01:40.045Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:01:40.343Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:02:03.675Z] DELETE: Borrando tour cmojzmc6q003014vlsqu5ept4 del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:02:03.683Z] DELETE: Tour cmojzmc6q003014vlsqu5ept4 borrado exitosamente en DB
+[2026-04-29T12:02:03.708Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:02:03.909Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:02:05.336Z] DELETE: Borrando tour cmok08d4v003514vlybqvateu del proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:02:05.343Z] DELETE: Tour cmok08d4v003514vlybqvateu borrado exitosamente en DB
+[2026-04-29T12:02:05.365Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:02:05.555Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:08:37.952Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:08:49.660Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:09:28.251Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:09:51.642Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:10:33.715Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:11:47.377Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:12:05.350Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:13:05.503Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:13:19.095Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:18:57.352Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:18:57.546Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:19:23.071Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:20:03.625Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:20:24.824Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:20:58.840Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:21:41.251Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:22:41.658Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:25:08.850Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:25:13.370Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:25:25.783Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:37:48.765Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:38:01.799Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:38:18.171Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:38:33.796Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T12:41:10.491Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T13:43:22.270Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T13:43:42.037Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T13:53:19.517Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T13:59:03.435Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T13:59:14.396Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T13:59:26.125Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T13:59:39.564Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T13:59:48.573Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:00:38.597Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:00:57.765Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:03:40.186Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:03:52.921Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:04:02.565Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:05:52.967Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:09:45.429Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:09:52.016Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:17:57.814Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:18:04.097Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:21:19.004Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:23:49.249Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:23:52.062Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:25:23.860Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:25:30.086Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:29:20.716Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:29:57.540Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:35:12.732Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:35:13.315Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:35:14.437Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:37:53.749Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:43:24.475Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:43:27.299Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:43:47.028Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:43:48.922Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:43:52.459Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:43:55.137Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:43:58.423Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:48:04.111Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:48:29.891Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T14:58:29.635Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T15:00:47.903Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T15:02:07.823Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T15:02:20.754Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T15:04:41.013Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T15:04:46.370Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T15:05:36.781Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T16:09:45.248Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T16:09:45.549Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T16:18:13.648Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T16:58:36.264Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T16:58:43.866Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T16:59:08.712Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:17:17.316Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:48:06.132Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:48:11.887Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:48:42.440Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:49:11.838Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:50:06.764Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:51:01.726Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:51:49.400Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:52:26.817Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:52:26.822Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:52:27.616Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:52:43.018Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:52:59.666Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:53:05.749Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:53:56.993Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T17:54:13.547Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T18:01:31.830Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T18:01:31.835Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
+[2026-04-29T18:02:17.059Z] PAGE-FETCH: Cargando proyecto cmnj4rifi000dg2wlwpe77uyu
