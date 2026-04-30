@@ -90,10 +90,12 @@ function sceneCategoryToGalleryCategory(scene: Scene, fallback: string) {
 
 function galleryImageToScene(img: ProyectoImagen): Scene {
     const category = GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(img.categoria)] ?? "real";
+    const overlay = img.masterplanOverlay as any;
 
     return {
         id: img.id,
-        title: img.categoria?.replaceAll("_", " ") || "Imagen",
+        title: overlay?.title || img.categoria?.replaceAll("_", " ") || "Imagen",
+        direction: overlay?.direction || undefined,
         imageUrl: img.url,
         thumbnailUrl: img.url,
         hotspots: [],
@@ -224,17 +226,19 @@ export default function Tour360TabWrapper({
                 });
 
                 if (!res.success || !res.data) {
-                    return { success: false };
+                    return { success: false, error: res.error || "Update failed" };
                 }
 
                 const nextScene = {
                     ...scene,
-                    id: res.data.id,
-                    galleryImageId: res.data.id,
                     category: GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(res.data.categoria)] ?? scene.category,
                 } as Scene;
-
-                setEditorScenes((prev) => prev.map((item) => (item.id === scene.id ? nextScene : item)));
+                
+                setEditorScenes((prev) => {
+                    const idx = prev.findIndex((item) => item.id === scene.id);
+                    if (idx !== -1) return prev.map((item) => (item.id === scene.id ? nextScene : item));
+                    return [...prev, nextScene];
+                });
                 return { success: true, data: nextScene };
             }
 
@@ -246,7 +250,7 @@ export default function Tour360TabWrapper({
             });
 
             if (!res.success || !res.data) {
-                return { success: false };
+                return { success: false, error: res.error || "Add failed" };
             }
 
             const nextScene = {
@@ -256,7 +260,11 @@ export default function Tour360TabWrapper({
                 category: GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(res.data.categoria)] ?? scene.category,
             } as Scene;
 
-            setEditorScenes((prev) => prev.map((item) => (item.id === scene.id ? nextScene : item)));
+            setEditorScenes((prev) => {
+                const idx = prev.findIndex((item) => item.id === scene.id);
+                if (idx !== -1) return prev.map((item) => (item.id === scene.id ? nextScene : item));
+                return [...prev, nextScene];
+            });
             return { success: true, data: nextScene };
         } catch (error) {
             console.error("Gallery save error:", error);
@@ -433,7 +441,7 @@ export default function Tour360TabWrapper({
         };
 
         const normalizedScenes = scenes.map((s: any, idx) => ({
-            id: s.id?.startsWith("scene-") ? undefined : s.id,
+            ...(s.id?.startsWith("scene-") ? {} : { id: s.id }),
             clientSceneId: s.id,
             title: s.title || "Sin título",
             imageUrl: s.imageUrl,

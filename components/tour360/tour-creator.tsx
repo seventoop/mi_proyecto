@@ -1421,10 +1421,12 @@ export default function TourCreator({
                     direction: sceneForm.direction,
                     masterplanOverlay: {
                         ...(scene.masterplanOverlay ?? createDefaultGeoOverlay()),
+                        title: sceneForm.title.trim() || scene.title || "Sin título",
+                        direction: sceneForm.direction,
                         imageKind: sceneForm.mediaCategory === "tour360" ? "360" : "foto",
-                        linkedUnitId: sceneForm.linkedUnitId || undefined,
-                        altitudM: sceneForm.mediaCategory === "tour360" ? normalizedAltitude : undefined,
-                        imageHeading: sceneForm.mediaCategory === "tour360" ? normalizedHeading : undefined,
+                        ...(sceneForm.linkedUnitId ? { linkedUnitId: sceneForm.linkedUnitId } : {}),
+                        ...(sceneForm.mediaCategory === "tour360" ? { altitudM: normalizedAltitude } : {}),
+                        ...(sceneForm.mediaCategory === "tour360" ? { imageHeading: normalizedHeading } : {}),
                     },
                 }
                 : scene
@@ -1439,12 +1441,16 @@ export default function TourCreator({
             if (onSaveGalleryImage) {
                 const res = await onSaveGalleryImage(confirmedScene!);
                 if (res.success && res.data) {
-                    const updatedScene = res.data;
-                    const updatedScenes = scenes.map(s => s.id === confirmedScene?.id ? updatedScene : s);
-                    setScenes(updatedScenes);
+                    const updatedScene = res.data as Scene;
+                    setScenes((prev) => 
+                        prev.map((s) => (s.id === confirmedScene?.id ? updatedScene : s))
+                    );
                     setActiveSceneId(updatedScene.id);
                     setPendingConfirmSceneId(null);
                     setTourSaved(true);
+                    toast.success("Imagen guardada en Galería");
+                } else {
+                    toast.error("No se pudo guardar en Galería");
                 }
             } else {
                 const result = await onSave(preparedScenes, {
