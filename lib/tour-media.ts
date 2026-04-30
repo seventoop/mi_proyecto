@@ -29,6 +29,62 @@ export const TOUR_MEDIA_CATEGORY_BADGE_STYLES: Record<TourMediaCategory, string>
   avance: "bg-amber-500",
 };
 
+export type GalleryCategory =
+  | "MASTERPLAN"
+  | "EXTERIOR"
+  | "INTERIOR"
+  | "RENDER"
+  | "AVANCE_OBRA";
+
+export const GALLERY_CATEGORIES = [
+  "MASTERPLAN",
+  "EXTERIOR",
+  "INTERIOR",
+  "RENDER",
+  "AVANCE_OBRA",
+] as const;
+
+export const DEFAULT_GALLERY_CATEGORY: GalleryCategory = "EXTERIOR";
+
+const GALLERY_TO_SCENE_CATEGORY: Record<GalleryCategory, TourMediaCategory> = {
+  MASTERPLAN: "tour360",
+  EXTERIOR: "real",
+  INTERIOR: "real",
+  RENDER: "render",
+  AVANCE_OBRA: "avance",
+};
+
+export function normalizeGalleryCategory(raw?: string | null): GalleryCategory {
+  if (!raw) {
+    return DEFAULT_GALLERY_CATEGORY;
+  }
+
+  const normalized = String(raw).trim().toUpperCase();
+  return GALLERY_CATEGORIES.includes(normalized as GalleryCategory)
+    ? (normalized as GalleryCategory)
+    : DEFAULT_GALLERY_CATEGORY;
+}
+
+export function galleryCategoryToSceneCategory(raw?: string | null): TourMediaCategory {
+  return GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(raw)];
+}
+
+export function sceneCategoryToGalleryCategory(
+  raw?: string | null,
+  fallback: string | GalleryCategory = DEFAULT_GALLERY_CATEGORY
+): GalleryCategory {
+  const normalizedSceneCategory = String(raw || "").trim().toLowerCase();
+
+  if (normalizedSceneCategory === "tour360") return "MASTERPLAN";
+  if (normalizedSceneCategory === "real") return "EXTERIOR";
+  if (normalizedSceneCategory === "rendered") return "RENDER";
+  if (normalizedSceneCategory === "render") return "RENDER";
+  if (normalizedSceneCategory === "avance") return "AVANCE_OBRA";
+  if (normalizedSceneCategory === "raw") return "EXTERIOR";
+
+  return normalizeGalleryCategory(fallback as string | null);
+}
+
 export function normalizeTourMediaCategory(input?: {
   category?: string | null;
   masterplanOverlay?: { imageKind?: string | null } | null;

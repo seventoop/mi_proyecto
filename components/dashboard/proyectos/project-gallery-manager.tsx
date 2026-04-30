@@ -39,6 +39,11 @@ import {
 import { createTour, getProjectTours, updateTour } from "@/lib/actions/tours";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+    galleryCategoryToSceneCategory,
+    normalizeGalleryCategory,
+    sceneCategoryToGalleryCategory,
+} from "@/lib/tour-media";
 import TourSceneOverlayEditor from "@/components/tour360/tour-scene-overlay-editor";
 import TourCreator from "@/components/tour360/tour-creator";
 import type { Scene } from "@/components/tour360/tour-viewer";
@@ -65,36 +70,10 @@ interface ProjectGalleryManagerProps {
     proyectoId: string;
 }
 
-const CATEGORIES = ["MASTERPLAN", "EXTERIOR", "INTERIOR", "RENDER", "AVANCE_OBRA"];
-
-const GALLERY_TO_SCENE_CATEGORY: Record<string, any> = {
-    MASTERPLAN: "tour360",
-    EXTERIOR: "real",
-    INTERIOR: "real",
-    RENDER: "render",
-    AVANCE_OBRA: "avance",
-};
-
-const SCENE_TO_GALLERY_CATEGORY: Record<string, string> = {
-    tour360: "MASTERPLAN",
-    real: "EXTERIOR",
-    render: "RENDER",
-    avance: "AVANCE_OBRA",
-};
-
-function normalizeGalleryCategory(raw?: string | null) {
-    if (!raw) return "EXTERIOR";
-    const normalized = String(raw).toUpperCase();
-    return CATEGORIES.includes(normalized) ? normalized : "EXTERIOR";
-}
-
-function sceneCategoryToGalleryCategory(scene: Scene, fallback: string) {
-    const raw = String(scene.category ?? "");
-    return SCENE_TO_GALLERY_CATEGORY[raw] ?? normalizeGalleryCategory(fallback);
-}
+const CATEGORIES = ["MASTERPLAN", "EXTERIOR", "INTERIOR", "RENDER", "AVANCE_OBRA"] as const;
 
 function galleryImageToScene(img: ProyectoImagen): Scene {
-    const category = GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(img.categoria)] ?? "real";
+    const category = galleryCategoryToSceneCategory(img.categoria);
 
     return {
         id: img.id,
@@ -153,7 +132,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
 
     const handleSaveGalleryImage = async (scene: Scene) => {
         try {
-            const categoria = sceneCategoryToGalleryCategory(scene, selectedCategory);
+            const categoria = sceneCategoryToGalleryCategory(scene.category, selectedCategory);
 
             if (scene.galleryImageId) {
                 const res = await updateProyectoImagen(scene.galleryImageId, {
@@ -175,7 +154,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                         ...scene,
                         id: res.data.id,
                         galleryImageId: res.data.id,
-                        category: GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(res.data.categoria)] ?? scene.category,
+                        category: galleryCategoryToSceneCategory(res.data.categoria),
                     } as Scene,
                 };
             }
@@ -199,7 +178,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                     ...scene,
                     id: res.data.id,
                     galleryImageId: res.data.id,
-                    category: GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(res.data.categoria)] ?? scene.category,
+                    category: galleryCategoryToSceneCategory(res.data.categoria),
                 } as Scene,
             };
         } catch (error) {
@@ -219,7 +198,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
             const nextScenes = scenes.map((scene) => ({ ...scene }));
 
             for (const scene of scenesToSave) {
-                const categoria = sceneCategoryToGalleryCategory(scene, selectedCategory);
+                const categoria = sceneCategoryToGalleryCategory(scene.category, selectedCategory);
 
                 if (scene.galleryImageId) {
                     const res = await updateProyectoImagen(scene.galleryImageId, {
@@ -250,9 +229,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                             ...nextScenes[index],
                             id: res.data.id,
                             galleryImageId: res.data.id,
-                            category:
-                                GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(res.data.categoria)] ??
-                                nextScenes[index].category,
+                            category: galleryCategoryToSceneCategory(res.data.categoria),
                         };
                     }
                 }
@@ -329,8 +306,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                 currentScenes = biblio.scenes || [];
             }
 
-            const normalizedCategory = normalizeGalleryCategory(img.categoria);
-            const sceneCategory = GALLERY_TO_SCENE_CATEGORY[normalizedCategory] ?? "real";
+            const sceneCategory = galleryCategoryToSceneCategory(img.categoria);
             const duplicateScene = currentScenes.find(
                 (scene: any) =>
                     scene.galleryImageId === img.id ||

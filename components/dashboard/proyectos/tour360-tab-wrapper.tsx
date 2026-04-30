@@ -34,7 +34,12 @@ import TourCreator from "@/components/tour360/tour-creator";
 import TourViewer from "@/components/tour360/tour-viewer";
 import { Scene } from "@/components/tour360/tour-viewer";
 import { toast } from "sonner";
-import { isTour360Category, toStoredTourSceneCategory } from "@/lib/tour-media";
+import {
+    galleryCategoryToSceneCategory,
+    isTour360Category,
+    sceneCategoryToGalleryCategory,
+    toStoredTourSceneCategory,
+} from "@/lib/tour-media";
 
 interface Tour360TabWrapperProps {
     proyectoId: string;
@@ -60,36 +65,8 @@ interface ProyectoImagen {
     masterplanOverlay?: any;
 }
 
-const GALLERY_CATEGORIES = ["MASTERPLAN", "EXTERIOR", "INTERIOR", "RENDER", "AVANCE_OBRA"] as const;
-
-const GALLERY_TO_SCENE_CATEGORY: Record<string, any> = {
-    MASTERPLAN: "tour360",
-    EXTERIOR: "real",
-    INTERIOR: "real",
-    RENDER: "render",
-    AVANCE_OBRA: "avance",
-};
-
-const SCENE_TO_GALLERY_CATEGORY: Record<string, string> = {
-    tour360: "MASTERPLAN",
-    real: "EXTERIOR",
-    render: "RENDER",
-    avance: "AVANCE_OBRA",
-};
-
-function normalizeGalleryCategory(raw?: string | null) {
-    if (!raw) return "EXTERIOR";
-    const normalized = String(raw).toUpperCase();
-    return GALLERY_CATEGORIES.includes(normalized as any) ? normalized : "EXTERIOR";
-}
-
-function sceneCategoryToGalleryCategory(scene: Scene, fallback: string) {
-    const raw = String(scene.category ?? "");
-    return SCENE_TO_GALLERY_CATEGORY[raw] ?? normalizeGalleryCategory(fallback);
-}
-
 function galleryImageToScene(img: ProyectoImagen): Scene {
-    const category = GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(img.categoria)] ?? "real";
+    const category = galleryCategoryToSceneCategory(img.categoria);
     const overlay = img.masterplanOverlay as any;
 
     return {
@@ -144,7 +121,7 @@ export default function Tour360TabWrapper({
                 throw new Error("No se pudo cargar la Galería de Imágenes");
             }
             const galleryScenes = (res.data ?? []).map((img: any) =>
-                galleryImageToScene({ ...img, categoria: normalizeGalleryCategory(img.categoria) })
+                galleryImageToScene(img)
             );
             setEditorScenes(galleryScenes);
             return galleryScenes;
@@ -215,7 +192,7 @@ export default function Tour360TabWrapper({
 
     const handleSaveGalleryImage = async (scene: Scene) => {
         try {
-            const categoria = sceneCategoryToGalleryCategory(scene, "EXTERIOR");
+            const categoria = sceneCategoryToGalleryCategory(scene.category, "EXTERIOR");
 
             if (scene.galleryImageId) {
                 const res = await updateProyectoImagen(scene.galleryImageId, {
@@ -231,7 +208,7 @@ export default function Tour360TabWrapper({
 
                 const nextScene = {
                     ...scene,
-                    category: GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(res.data.categoria)] ?? scene.category,
+                    category: galleryCategoryToSceneCategory(res.data.categoria),
                 } as Scene;
                 
                 setEditorScenes((prev) => {
@@ -257,7 +234,7 @@ export default function Tour360TabWrapper({
                 ...scene,
                 id: res.data.id,
                 galleryImageId: res.data.id,
-                category: GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(res.data.categoria)] ?? scene.category,
+                category: galleryCategoryToSceneCategory(res.data.categoria),
             } as Scene;
 
             setEditorScenes((prev) => {
@@ -265,6 +242,7 @@ export default function Tour360TabWrapper({
                 if (idx !== -1) return prev.map((item) => (item.id === scene.id ? nextScene : item));
                 return [...prev, nextScene];
             });
+
             return { success: true, data: nextScene };
         } catch (error) {
             console.error("Gallery save error:", error);
@@ -280,7 +258,7 @@ export default function Tour360TabWrapper({
             const nextScenes = scenes.map((scene) => ({ ...scene }));
 
             for (const scene of scenesToSave) {
-                const categoria = sceneCategoryToGalleryCategory(scene, "EXTERIOR");
+                const categoria = sceneCategoryToGalleryCategory(scene.category, "EXTERIOR");
 
                 if (scene.galleryImageId) {
                     const res = await updateProyectoImagen(scene.galleryImageId, {
@@ -311,9 +289,7 @@ export default function Tour360TabWrapper({
                             ...nextScenes[index],
                             id: res.data.id,
                             galleryImageId: res.data.id,
-                            category:
-                                GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(res.data.categoria)] ??
-                                nextScenes[index].category,
+                            category: galleryCategoryToSceneCategory(res.data.categoria),
                         };
                     }
                 }
@@ -377,12 +353,12 @@ export default function Tour360TabWrapper({
                 return;
             }
 
-            const galleryCategory = sceneCategoryToGalleryCategory(scene, "EXTERIOR");
+            const galleryCategory = sceneCategoryToGalleryCategory(scene.category, "EXTERIOR");
             const newScene = {
                 title: scene.title || galleryCategory.replaceAll("_", " "),
                 imageUrl: scene.imageUrl,
                 thumbnailUrl: scene.thumbnailUrl ?? scene.imageUrl,
-                category: GALLERY_TO_SCENE_CATEGORY[normalizeGalleryCategory(galleryCategory)] ?? "real",
+                category: galleryCategoryToSceneCategory(galleryCategory),
                 galleryImageId,
                 masterplanOverlay: {
                     ...(scene.masterplanOverlay ?? {}),
