@@ -502,6 +502,8 @@ export async function addProyectoImagen(data: {
                 });
             }
 
+            const safeOverlay = data.masterplanOverlay ? JSON.parse(JSON.stringify(data.masterplanOverlay)) : null;
+
             return await tx.proyectoImagen.create({
                 data: {
                     proyectoId: data.proyectoId,
@@ -509,7 +511,7 @@ export async function addProyectoImagen(data: {
                     categoria: data.categoria,
                     esPrincipal,
                     orden: data.orden || 0,
-                    masterplanOverlay: data.masterplanOverlay || null
+                    masterplanOverlay: safeOverlay
                 }
             });
         });
@@ -530,12 +532,16 @@ export async function updateProyectoImagen(id: string, data: {
     try {
         await requireProjectOwnership(data.proyectoId);
 
+        const safeOverlay = data.masterplanOverlay === undefined 
+            ? undefined 
+            : (data.masterplanOverlay === null ? null : JSON.parse(JSON.stringify(data.masterplanOverlay)));
+
         const updated = await prisma.proyectoImagen.update({
             where: { id },
             data: {
                 url: data.url,
                 categoria: data.categoria,
-                masterplanOverlay: data.masterplanOverlay
+                ...(safeOverlay !== undefined && { masterplanOverlay: safeOverlay })
             }
         });
 
