@@ -66,7 +66,7 @@ export default function ManzanasManager({ etapaId, manzanas }: ManzanasManagerPr
                 router.refresh();
                 return "Manzana eliminada";
             }
-            throw new Error(res.error || "Error al eliminar manzana");
+            throw new Error((res as any).error || "Error al eliminar manzana");
         });
 
         toast.promise(deletePromise, {

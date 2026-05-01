@@ -1,9 +1,9 @@
 "use client";
 
 import { useTransition } from "react";
-import { 
-    AlertTriangle, CheckCircle, Search, Clock, 
-    XCircle, ShieldAlert, Loader2, ArrowRight 
+import {
+    AlertTriangle, CheckCircle, Search, Clock,
+    XCircle, ShieldAlert, Loader2, ArrowRight
 } from "lucide-react";
 import { adminTransitionProyectoState } from "@/lib/actions/project-state-actions";
 import { cn } from "@/lib/utils";
@@ -16,22 +16,22 @@ interface ProjectStatusBannerProps {
     estadoValidacion: string;
 }
 
-export default function ProjectStatusBanner({ 
-    proyectoId, 
-    proyectoNombre, 
-    estadoValidacion 
+export default function ProjectStatusBanner({
+    proyectoId,
+    proyectoNombre,
+    estadoValidacion
 }: ProjectStatusBannerProps) {
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
 
     if (estadoValidacion === "APROBADO") return null;
 
-    const config: Record<string, { 
-        bg: string, 
-        border: string, 
-        text: string, 
-        icon: any, 
-        title: string, 
+    const config: Record<string, {
+        bg: string,
+        border: string,
+        text: string,
+        icon: any,
+        title: string,
         desc: string,
         btnText?: string,
         nextState?: any
@@ -103,7 +103,7 @@ export default function ProjectStatusBanner({
                 toast.success(`Estado actualizado a ${toEstado}`);
                 router.refresh();
             } else {
-                toast.error(res.error || "Error al actualizar estado");
+                toast.error((res as any).error || "Error al actualizar estado");
             }
         });
     };
@@ -139,7 +139,7 @@ export default function ProjectStatusBanner({
                         {current.btnText}
                     </button>
                 )}
-                
+
                 <button
                     onClick={() => router.push('/dashboard/admin/validaciones')}
                     className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-semibold transition-colors"

@@ -1,134 +1,147 @@
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
-import { stripSvgLabels } from "@/lib/svg-strip-labels";
-import MasterplanCanvas from "@/components/public/masterplan-canvas";
-import UnitsGridPublic, { type PublicUnitItem } from "@/components/public/units-grid-public";
-import ContactForm from "@/components/public/contact-form";
-import type { MasterplanUnit } from "@/lib/masterplan-store";
+import dynamic from "next/dynamic";
+import { ArrowLeft, Globe, LayoutTemplate } from "lucide-react";
+import { db } from "@/lib/db";
+import MasterplanViewer from "@/components/masterplan/masterplan-viewer";
+
+const MasterplanMap = dynamic(
+    () => import("@/components/masterplan/masterplan-map"),
+    { ssr: false, loading: () => <div className="flex-1 flex items-center justify-center text-slate-500">Cargando mapa...</div> }
+);
+
+async function getProject(slugOrId: string) {
+    return db.proyecto.findFirst({
+        where: { OR: [{ slug: slugOrId }, { id: slugOrId }] },
+        select: {
+            id: true,
+            nombre: true,
+            slug: true,
+            masterplanSVG: true,
+            overlayUrl: true,
+            mapCenterLat: true,
+            mapCenterLng: true,
+            mapZoom: true,
+            tours: {
+                select: {
+                    id: true,
+                    nombre: true,
+                    scenes: { take: 1, select: { imageUrl: true } }
+                }
+            }
+        }
+    });
+}
 
 export const metadata: Metadata = {
     title: "Masterplan | Seventoop",
 };
 
-export default async function PublicMasterplanPage({ params }: { params: { slug: string } }) {
-    const project = await getPublicProjectShowcaseBySlug(params.slug);
+export default async function PublicMasterplanPage({
+    params,
+    searchParams,
+}: {
+    params: { slug: string };
+    searchParams: { view?: string };
+}) {
+    const project = await getProject(params.slug);
     if (!project) notFound();
 
-    const hasMap = project.mapCenterLat != null && project.mapCenterLng != null;
-    const hasTour360 = project.tours.some((tour) => tour.sceneCount > 0);
+    // Default to "mapa" (Google Maps) when arriving from "Mapa Interactivo"
+    const view = searchParams.view === "plano" ? "plano" : "mapa";
 
-    // Single source of truth para el plano de fondo del canvas interactivo.
-    // Quitamos texto Y neutralizamos los rellenos del SVG: si dejáramos los
-    // fills nativos, los polígonos de estados que el viewer pinta encima se
-    // sumarían a los fills del SVG y aparecerían DOS capas de color sobre cada
-    // lote (la "superposición de planos"). Manteniendo sólo las líneas se
-    // garantiza UNA sola base + UNA sola capa de color (los polígonos).
-    const cleanedSvg = stripSvgLabels(project.masterplanSvg, { neutralizeFills: true });
-    const planAsset = cleanedSvg
-        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanedSvg)}`
-        : project.overlayUrl || null;
-
-    const initialUnits: MasterplanUnit[] = project.units.map((unit): MasterplanUnit => {
-        let parsed: any = null;
-        if (unit.coordenadasMasterplan) {
-            try { parsed = JSON.parse(unit.coordenadasMasterplan); } catch {}
-        }
-        return {
-            ...unit,
-            estado: unit.estado as MasterplanUnit["estado"],
-            path: parsed?.path,
-            cx: parsed?.cx ?? parsed?.center?.x,
-            cy: parsed?.cy ?? parsed?.center?.y,
-            geoJSON: unit.coordenadasMasterplan,
-        };
-    });
-
-    const gridUnits: PublicUnitItem[] = project.units.map((u) => ({
-        id: u.id,
-        numero: u.numero,
-        estado: u.estado,
-        superficie: u.superficie,
-        precio: u.precio,
-        moneda: u.moneda,
-        orientacion: u.orientacion,
-        esEsquina: u.esEsquina,
-        etapaNombre: u.etapaNombre,
-        manzanaNombre: u.manzanaNombre,
+    const tours360ForMap = (project.tours ?? []).map((t: any) => ({
+        tourId: t.id,
+        nombre: t.nombre,
+        thumbnailUrl: t.scenes?.[0]?.imageUrl ?? null,
+        lat: null,
+        lng: null,
+        unidadId: "",
     }));
 
     return (
-        <div className="min-h-screen bg-background pt-24 pb-16">
-            <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
-                <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div className="h-screen w-screen bg-[#080808] flex flex-col overflow-hidden">
+            {/* ── Header ── */}
+            <div className="h-14 flex-shrink-0 border-b border-white/8 flex items-center justify-between px-4 sm:px-6 bg-[#0E0E0E] z-50">
+                <div className="flex items-center gap-3 min-w-0">
+                    <Link
+                        href={`/proyectos/${params.slug}`}
+                        className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors flex-shrink-0"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </Link>
                     <div className="min-w-0">
-                        <Link
-                            href={`/proyectos/${params.slug}`}
-                            className="mb-3 inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-                        >
-                            <ArrowLeft className="h-4 w-4" />
-                            Volver al proyecto
-                        </Link>
-                        <p className="text-sm text-muted-foreground">{project.nombre}</p>
-                        <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                            Masterplan interactivo
-                        </h1>
-                        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                            Cambiá entre <strong className="text-foreground">Plano</strong> y{" "}
-                            <strong className="text-foreground">Mapa</strong> para ver los lotes sobre el plano técnico
-                            o sobre la ubicación real. Hacé click en cualquier lote para consultar.
+                        <p className="text-xs text-slate-500 truncate">{project.nombre}</p>
+                        <p className="text-sm font-bold text-white leading-tight">
+                            {view === "mapa" ? "Mapa Interactivo" : "Masterplan del Proyecto"}
                         </p>
                     </div>
                 </div>
 
-                <MasterplanCanvas
-                    proyectoId={project.id}
-                    units={initialUnits}
-                    planAsset={planAsset}
-                    mapCenterLat={project.mapCenterLat}
-                    mapCenterLng={project.mapCenterLng}
-                    mapZoom={project.mapZoom}
-                    hasMap={hasMap}
-                    hasTour360={hasTour360}
-                    slug={params.slug}
-                />
+                {/* Tab switcher */}
+                <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1 border border-white/8">
+                    <Link
+                        href={`/proyectos/${params.slug}/masterplan?view=mapa`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            view === "mapa"
+                                ? "bg-brand-500 text-white shadow-glow"
+                                : "text-slate-400 hover:text-white"
+                        }`}
+                    >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Mapa</span>
+                    </Link>
+                    <Link
+                        href={`/proyectos/${params.slug}/masterplan?view=plano`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            view === "plano"
+                                ? "bg-indigo-600 text-white"
+                                : "text-slate-400 hover:text-white"
+                        }`}
+                    >
+                        <LayoutTemplate className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Plano</span>
+                    </Link>
+                </div>
 
-                <section className="mt-14">
-                    <div className="mb-6 max-w-2xl">
-                        <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                            Lotes y unidades
-                        </p>
-                        <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-                            Listado completo del proyecto
-                        </h2>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                            Filtrá por estado, buscá por código, ordená por precio o superficie y consultá el lote que te interese.
-                        </p>
+                {/* Legend + CTA */}
+                <div className="flex items-center gap-3">
+                    <div className="hidden md:flex items-center gap-3 text-xs text-slate-400">
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />Disponible</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block" />Reservado</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block" />Vendido</span>
                     </div>
-                    <UnitsGridPublic
-                        units={gridUnits}
-                        slug={params.slug}
-                        mode="full"
-                        pageSize={12}
+                    <Link
+                        href={`/proyectos/${params.slug}#contacto`}
+                        className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white text-xs font-bold shadow-glow transition-all"
+                    >
+                        Reservar lote
+                    </Link>
+                </div>
+            </div>
+
+            {/* ── Content ── */}
+            <div className="flex-1 relative overflow-hidden">
+                {view === "mapa" ? (
+                    <MasterplanMap
+                        proyectoId={project.id}
+                        modo="public"
+                        canEdit={false}
+                        centerLat={project.mapCenterLat ?? undefined}
+                        centerLng={project.mapCenterLng ?? undefined}
+                        mapZoom={project.mapZoom ?? undefined}
+                        tours360={tours360ForMap}
                     />
-                </section>
-
-                <section id="contacto" className="mt-16 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
-                    <div className="mb-6 max-w-2xl">
-                        <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                            Consultá un lote
-                        </p>
-                        <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-                            Hablemos de {project.nombre}
-                        </h2>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                            Si seleccionás un lote desde el plano o la grilla, lo vamos a anclar acá automáticamente.
-                        </p>
+                ) : (
+                    <div className="w-full h-full">
+                        <MasterplanViewer
+                            proyectoId={project.id}
+                            modo="public"
+                            canEdit={false}
+                        />
                     </div>
-                    <ContactForm proyectoId={project.id} origen="WEB_MASTERPLAN" />
-                </section>
+                )}
             </div>
         </div>
     );

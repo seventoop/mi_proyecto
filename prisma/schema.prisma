@@ -84,6 +84,7 @@ model User {
   estadoLogsRealizados  ProyectoEstadoLog[]
   mandatosAprobados     ProyectoUsuario[]   @relation("AprobadorMandato")
   relacionesCreadas     ProyectoUsuario[]   @relation("AsignadorRelacion")
+  roleChangeRequests    RoleChangeRequest[]
   proyectosRelaciones   ProyectoUsuario[]
   proyectosCreados      Proyecto[]          @relation("ProyectoCreador")
   reservasComoComprador Reserva[]           @relation("ReservasComprador")
@@ -94,6 +95,21 @@ model User {
 
   @@index([orgId])
   @@map("users")
+}
+
+model RoleChangeRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  currentRole   String
+  requestedRole String
+  status        String   @default("PENDIENTE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([requestedRole, status])
+  @@map("role_change_requests")
 }
 
 model KycProfile {
@@ -249,6 +265,7 @@ model ProyectoImagen {
   url         String
   categoria   String
   esPrincipal Boolean  @default(false)
+  masterplanOverlay Json?
   orden       Int      @default(0)
   createdAt   DateTime @default(now())
   proyecto    Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
@@ -561,6 +578,7 @@ model Tour360 {
   unidadId   String?
   nombre     String
   estado     String      @default("PENDIENTE")
+  isPublished Boolean    @default(false)
   notasAdmin String?
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt

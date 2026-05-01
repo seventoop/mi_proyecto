@@ -1,8 +1,8 @@
 import { Metadata } from "next";
+import { db } from "@/lib/db";
 import ProjectsFilter from "@/components/public/projects-filter";
 import { Building2, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { listPublicProjectCards } from "@/lib/project-showcase";
 
 export const metadata: Metadata = {
     title: "Desarrollos | SevenToop — Infraestructura para Lanzamientos Inmobiliarios",
@@ -12,7 +12,30 @@ export const metadata: Metadata = {
 
 async function getProjects() {
     try {
-        return await listPublicProjectCards();
+        const projects = await db.proyecto.findMany({
+            where: {
+                visibilityStatus: "PUBLICADO",
+                estado: { not: "SUSPENDIDO" },
+                OR: [
+                    { isDemo: false },
+                    {
+                        isDemo: true,
+                        demoExpiresAt: { gt: new Date() }
+                    }
+                ]
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        const projectsWithPrices = await Promise.all(
+            projects.map(async (p) => ({
+                ...p,
+                _count: { unidades: 0 },
+                unidades: [],
+            }))
+        );
+
+        return projectsWithPrices;
     } catch (error) {
         return [];
     }

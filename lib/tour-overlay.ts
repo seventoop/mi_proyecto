@@ -3,6 +3,13 @@ export interface OverlayGuideMarkPoint {
   y: number;
 }
 
+export interface OverlayCornerAdjustment {
+  x: number;
+  y: number;
+}
+
+export const TOUR_OVERLAY_CONTROL_POINT_COUNT = 4;
+
 export interface OverlayGuideMark {
   id: string;
   type: "line" | "rect" | "zone";
@@ -11,7 +18,7 @@ export interface OverlayGuideMark {
 }
 
 export interface SceneOverlayCalibration {
-  mode?: "geo-calibrated";
+  mode?: "geo-calibrated" | "manual";
   isVisible?: boolean;
   opacity?: number;
   altitudM?: number;
@@ -45,11 +52,24 @@ export interface SceneOverlayCalibration {
   alignmentGuides?: boolean;
   flipX?: boolean;
   flipY?: boolean;
+  planCornerAdjustments?: OverlayCornerAdjustment[];
+  /** Absolute spherical coordinates (pitch/yaw) for each corner. Use for 'manual' mode. */
+  planCornersAbsolute?: { pitch: number; yaw: number }[];
   marks?: OverlayGuideMark[];
+  // Added common optional fields for editor/persistence compatibility
+  imageUrl?: string;
+  selectedPlanId?: string;
+  canvasState?: any;
+  direction?: any;
+  assetVersion?: any;
+  originalSceneId?: string;
+  hasOverlayEdits?: boolean;
+  sceneKey?: string;
+  imageKind?: "360" | "foto" | "panoramica";
 }
 
 export interface NormalizedSceneOverlayCalibration {
-  mode: "geo-calibrated";
+  mode: "geo-calibrated" | "manual";
   isVisible: boolean;
   opacity: number;
   altitudM: number;
@@ -70,7 +90,19 @@ export interface NormalizedSceneOverlayCalibration {
   alignmentGuides: boolean;
   flipX: boolean;
   flipY: boolean;
+  planCornerAdjustments: OverlayCornerAdjustment[];
+  planCornersAbsolute: { pitch: number; yaw: number }[];
   marks: OverlayGuideMark[];
+  // Added common optional fields for editor/persistence compatibility
+  imageUrl?: string;
+  selectedPlanId?: string;
+  canvasState?: any;
+  direction?: any;
+  assetVersion?: any;
+  originalSceneId?: string;
+  hasOverlayEdits?: boolean;
+  sceneKey?: string;
+  imageKind?: "360" | "foto" | "panoramica";
 }
 
 export const DEFAULT_SCENE_OVERLAY: NormalizedSceneOverlayCalibration = {
@@ -95,21 +127,48 @@ export const DEFAULT_SCENE_OVERLAY: NormalizedSceneOverlayCalibration = {
   alignmentGuides: true,
   flipX: false,
   flipY: false,
+  planCornerAdjustments: [
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+  ],
+  planCornersAbsolute: [],
   marks: [],
 };
+
+function normalizeCornerAdjustments(
+  adjustments?: OverlayCornerAdjustment[] | null
+): OverlayCornerAdjustment[] {
+  if (!Array.isArray(adjustments) || adjustments.length !== TOUR_OVERLAY_CONTROL_POINT_COUNT) {
+    return Array.from({ length: TOUR_OVERLAY_CONTROL_POINT_COUNT }, () => ({ x: 0, y: 0 }));
+  }
+  return Array.from({ length: TOUR_OVERLAY_CONTROL_POINT_COUNT }, (_, index) => ({
+    x: adjustments?.[index]?.x ?? 0,
+    y: adjustments?.[index]?.y ?? 0,
+  }));
+}
 
 export function normalizeSceneOverlay(
   overlay?: SceneOverlayCalibration | null
 ): NormalizedSceneOverlayCalibration {
-  return {
+  const base = {
     ...DEFAULT_SCENE_OVERLAY,
     ...(overlay ?? {}),
-    mode: "geo-calibrated",
+  };
+
+  if (overlay?.mode) base.mode = overlay.mode;
+
+  return {
+    ...base,
+    planCornerAdjustments: normalizeCornerAdjustments(overlay?.planCornerAdjustments),
+    planCornersAbsolute: Array.isArray(overlay?.planCornersAbsolute) ? overlay!.planCornersAbsolute : [],
     marks: Array.isArray(overlay?.marks) ? overlay!.marks : [],
   };
 }
 
 export interface GeoOverlayViewerState {
+  mode: "geo-calibrated" | "manual";
   isVisible: boolean;
   opacity: number;
   altitudM: number;
@@ -129,31 +188,36 @@ export interface GeoOverlayViewerState {
   alignmentGuides: boolean;
   flipX: boolean;
   flipY: boolean;
+  planCornerAdjustments: OverlayCornerAdjustment[];
+  planCornersAbsolute: { pitch: number; yaw: number }[];
 }
 
 export function getGeoOverlayViewerState(
   overlay?: SceneOverlayCalibration | null
 ): GeoOverlayViewerState {
-  const normalized = normalizeSceneOverlay(overlay);
+  const n = normalizeSceneOverlay(overlay);
   return {
-    isVisible: normalized.isVisible,
-    opacity: normalized.opacity,
-    altitudM: normalized.altitudM,
-    imageHeading: normalized.imageHeading,
-    latOffset: normalized.latOffset,
-    lngOffset: normalized.lngOffset,
-    planRotation: normalized.planRotation,
-    planScale: normalized.planScale,
-    planScaleX: normalized.planScaleX,
-    planScaleY: normalized.planScaleY,
-    pitchBias: normalized.pitchBias,
-    cameraRoll: normalized.cameraRoll,
-    showLabels: normalized.showLabels,
-    showPerimeter: normalized.showPerimeter,
-    cleanMode: normalized.cleanMode,
-    transformLocked: normalized.transformLocked,
-    alignmentGuides: normalized.alignmentGuides,
-    flipX: normalized.flipX,
-    flipY: normalized.flipY,
+    mode: n.mode,
+    isVisible: n.isVisible,
+    opacity: n.opacity,
+    altitudM: n.altitudM,
+    imageHeading: n.imageHeading,
+    latOffset: n.latOffset,
+    lngOffset: n.lngOffset,
+    planRotation: n.planRotation,
+    planScale: n.planScale,
+    planScaleX: n.planScaleX,
+    planScaleY: n.planScaleY,
+    pitchBias: n.pitchBias,
+    cameraRoll: n.cameraRoll,
+    showLabels: n.showLabels,
+    showPerimeter: n.showPerimeter,
+    cleanMode: n.cleanMode,
+    transformLocked: n.transformLocked,
+    alignmentGuides: n.alignmentGuides,
+    flipX: n.flipX,
+    flipY: n.flipY,
+    planCornerAdjustments: n.planCornerAdjustments,
+    planCornersAbsolute: n.planCornersAbsolute,
   };
 }

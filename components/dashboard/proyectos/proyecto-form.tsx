@@ -9,7 +9,10 @@ import ProjectTechnicalFiles from "./project-technical-files";
 import ProjectGalleryManager from "./project-gallery-manager";
 import AIDescriptionModal from "./ai-description-modal";
 import { improveProjectDescription } from "@/lib/actions/ai";
+import { useSession } from "next-auth/react";
+import { type AuthUser } from "@/lib/auth-types";
 import { toast } from "sonner";
+
 import { Wand2, Sparkles, Loader2 } from "lucide-react";
 
 interface ProyectoFormProps {
@@ -31,7 +34,18 @@ const tipoOptions = [
     { value: "DEPARTAMENTOS", label: "Departamentos" },
 ];
 
-export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, riskLevel }: ProyectoFormProps) {
+export default function ProyectoForm({ proyecto, onClose, userRole: propUserRole, kycStatus: propKycStatus, riskLevel }: ProyectoFormProps) {
+    const { data: session } = useSession();
+    const user = session?.user as AuthUser | undefined;
+
+    // effective roles/status (prop override session)
+    const userRole = propUserRole || user?.role;
+    const kycStatus = propKycStatus || user?.kycStatus;
+
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPERADMIN";
+    const isVerified = kycStatus === "VERIFICADO" || isAdmin;
+
+
     const isNew = !proyecto;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -54,12 +68,9 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
         precioM2Mercado: proyecto?.precioM2Mercado?.toString() || "",
         metaM2Objetivo: proyecto?.metaM2Objetivo?.toString() || "",
         fechaLimiteFondeo: proyecto?.fechaLimiteFondeo ? new Date(proyecto.fechaLimiteFondeo).toISOString().split('T')[0] : "",
-        // Defaults vacíos a propósito: si el usuario no toca el mapa, mandamos
-        // undefined al backend y Prisma aplica los defaults del schema.
-        // No inyectamos coordenadas de Buenos Aires para no falsear ubicaciones.
-        mapCenterLat: proyecto?.mapCenterLat?.toString() || "",
-        mapCenterLng: proyecto?.mapCenterLng?.toString() || "",
-        mapZoom: proyecto?.mapZoom?.toString() || "",
+        mapCenterLat: proyecto?.mapCenterLat?.toString() || "-34.6037",
+        mapCenterLng: proyecto?.mapCenterLng?.toString() || "-58.3816",
+        mapZoom: proyecto?.mapZoom?.toString() || "16",
         aiKnowledgeBase: proyecto?.aiKnowledgeBase || "",
         aiSystemPrompt: proyecto?.aiSystemPrompt || "",
     });
@@ -89,7 +100,7 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
             if (res.success && res.data) {
                 setAiSuggestion(res.data);
             } else {
-                toast.error(res.error || "Error al mejorar descripción");
+                toast.error((res as any).error || "Error al mejorar descripción");
                 setAiModalOpen(false);
             }
         } catch (error) {
@@ -142,46 +153,21 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
         try {
             let imagenPortada = form.imagenPortada;
 
-            // Subida de imagen (opcional). Si falla, NO rompemos el flujo:
-            // mostramos un toast claro, dejamos el form abierto y el usuario
-            // puede reintentar o eliminar la imagen y crear el proyecto sin foto.
+            // Upload image if file selected
             if (file) {
-                try {
-                    const formData = new FormData();
-                    formData.append("file", file);
-                    const uploadRes = await fetch("/api/upload", {
-                        method: "POST",
-                        body: formData,
-                    });
-                    const uploadData = await uploadRes.json().catch(() => ({ success: false, error: "Respuesta inválida del servidor" }));
-                    if (uploadRes.ok && uploadData.success) {
-                        imagenPortada = uploadData.url;
-                    } else {
-                        const msg = uploadData.error || `No se pudo subir la imagen (HTTP ${uploadRes.status}).`;
-                        toast.error(`${msg} Podés reintentar o eliminar la imagen para crear el proyecto sin foto.`);
-                        setErrors({ submit: msg });
-                        setLoading(false);
-                        return;
-                    }
-                } catch (uploadErr: any) {
-                    const msg = uploadErr?.message || "Error de red al subir la imagen.";
-                    toast.error(`${msg} Podés reintentar o eliminar la imagen para crear el proyecto sin foto.`);
-                    setErrors({ submit: msg });
-                    setLoading(false);
-                    return;
+                const formData = new FormData();
+                formData.append("file", file);
+                const uploadRes = await fetch("/api/upload", {
+                    method: "POST",
+                    body: formData,
+                });
+                const uploadData = await uploadRes.json();
+                if (uploadData.success) {
+                    imagenPortada = uploadData.url;
+                } else {
+                    throw new Error(uploadData.error || "Error al subir imagen");
                 }
             }
-
-            // Sanea NaN: si el usuario borró las coordenadas, mandamos undefined
-            // para que el backend caiga en los defaults del schema.
-            const safeFloat = (v: string) => {
-                const n = parseFloat(v);
-                return Number.isFinite(n) ? n : undefined;
-            };
-            const safeInt = (v: string) => {
-                const n = parseInt(v);
-                return Number.isFinite(n) ? n : undefined;
-            };
 
             const payload = {
                 nombre: form.nombre,
@@ -190,15 +176,15 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                 ubicacion: form.ubicacion,
                 estado: form.estado,
                 tipo: form.tipo,
-                imagenPortada: imagenPortada || undefined,
+                imagenPortada,
                 invertible: form.invertible,
-                precioM2Inversor: form.precioM2Inversor ? safeFloat(form.precioM2Inversor) : undefined,
-                precioM2Mercado: form.precioM2Mercado ? safeFloat(form.precioM2Mercado) : undefined,
-                metaM2Objetivo: form.metaM2Objetivo ? safeFloat(form.metaM2Objetivo) : undefined,
+                precioM2Inversor: form.precioM2Inversor ? parseFloat(form.precioM2Inversor) : undefined,
+                precioM2Mercado: form.precioM2Mercado ? parseFloat(form.precioM2Mercado) : undefined,
+                metaM2Objetivo: form.metaM2Objetivo ? parseFloat(form.metaM2Objetivo) : undefined,
                 fechaLimiteFondeo: form.fechaLimiteFondeo ? new Date(form.fechaLimiteFondeo) : undefined,
-                mapCenterLat: safeFloat(form.mapCenterLat),
-                mapCenterLng: safeFloat(form.mapCenterLng),
-                mapZoom: safeInt(form.mapZoom),
+                mapCenterLat: parseFloat(form.mapCenterLat),
+                mapCenterLng: parseFloat(form.mapCenterLng),
+                mapZoom: parseInt(form.mapZoom),
                 aiKnowledgeBase: form.aiKnowledgeBase || undefined,
                 aiSystemPrompt: form.aiSystemPrompt || undefined,
             };
@@ -647,7 +633,7 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
 
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-                    {userRole !== "ADMIN" && userRole !== "SUPERADMIN" && kycStatus !== "VERIFICADO" && !proyecto?.isDemo && (
+                    {!isVerified && !proyecto?.isDemo && (
                         <div className="flex-1 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
                             <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                             {isNew
@@ -669,10 +655,10 @@ export default function ProyectoForm({ proyecto, onClose, userRole, kycStatus, r
                     </button>
                     <button
                         onClick={handleSave}
-                        disabled={loading || (kycStatus !== "VERIFICADO" && !isNew && !proyecto?.isDemo)}
+                        disabled={loading || (!isVerified && !isNew && !proyecto?.isDemo)}
                         className={cn(
                             "px-5 py-2.5 rounded-xl font-semibold text-sm shadow-glow transition-all disabled:opacity-50 flex items-center gap-2",
-                            (kycStatus === "VERIFICADO" || isNew || proyecto?.isDemo)
+                            (isVerified || isNew || proyecto?.isDemo)
                                 ? "gradient-brand text-white shadow-glow"
                                 : "bg-slate-200 dark:bg-slate-800 text-slate-400"
                         )}

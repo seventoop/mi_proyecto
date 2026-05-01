@@ -71,7 +71,7 @@ export default function PagosManager({ proyectoId, pagos, cuentas, saldoDisponib
                 router.refresh();
                 return `Solicitud ${estado.toLowerCase()}`;
             }
-            throw new Error(res.error || `Error al ${estado.toLowerCase()} solicitud`);
+            throw new Error((res as any).error || `Error al ${estado.toLowerCase()} solicitud`);
         });
 
         toast.promise(statusPromise, {

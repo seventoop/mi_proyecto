@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import SafeDate from "@/components/ui/safe-date";
 
 interface AdminManagementPanelProps {
     financials: {
@@ -151,7 +152,10 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                                             <div className="hidden sm:block">
                                                 <p className="text-xs text-slate-500 font-black uppercase">Registrado</p>
                                                 <p className="text-xs text-slate-900 dark:text-slate-400 font-bold whitespace-nowrap">
-                                                    {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true, locale: es })}
+                                                    <SafeDate
+                                                        date={project.createdAt}
+                                                        format={(d) => formatDistanceToNow(d, { addSuffix: true, locale: es })}
+                                                    />
                                                 </p>
                                             </div>
                                             <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-brand-500 transition-colors" />
@@ -185,7 +189,12 @@ export default function AdminManagementPanel({ financials, queues, recentUsers }
                                         <p className="text-xs font-black text-slate-900 dark:text-white truncate uppercase tracking-tight">{user.nombre}</p>
                                         <div className="flex items-center justify-between mt-0.5">
                                             <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{user.rol}</span>
-                                            <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">hace {formatDistanceToNow(new Date(user.createdAt), { locale: es })}</span>
+                                            <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                                                hace <SafeDate
+                                                    date={user.createdAt}
+                                                    format={(d) => formatDistanceToNow(d, { locale: es })}
+                                                />
+                                            </span>
                                         </div>
                                     </div>
                                 </div>

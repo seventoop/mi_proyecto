@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import ModuleHelp from "@/components/dashboard/module-help";
 import { MODULE_HELP_CONTENT } from "@/config/dashboard/module-help-content";
 import RoleCapabilitiesCard from "@/components/dashboard/role-capabilities-card";
+import SafeDate from "@/components/ui/safe-date";
+
 
 interface DashboardData {
     financials: {
@@ -135,7 +137,9 @@ export default async function AdminDashboard() {
                                             </span>
                                         </td>
                                         <td className="px-3 py-3 text-slate-500 font-bold uppercase tracking-widest text-xs">{log.entity}</td>
-                                        <td className="px-3 py-3 text-slate-500 font-bold uppercase tracking-widest text-xs">{new Date(log.createdAt).toLocaleString()}</td>
+                                        <td className="px-3 py-3 text-slate-500 font-bold uppercase tracking-widest text-xs">
+                                            <SafeDate date={log.createdAt} />
+                                        </td>
                                     </tr>
                                 ))}
                                 {auditLogs.length === 0 && (

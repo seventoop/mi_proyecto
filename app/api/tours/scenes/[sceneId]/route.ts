@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireAuth, AuthError } from "@/lib/guards";
+import { requireAuth, requireProjectOwnership, AuthError } from "@/lib/guards";
 
 export async function PATCH(
     request: Request,
@@ -15,6 +15,25 @@ export async function PATCH(
         if (masterplanOverlay === undefined) {
             return NextResponse.json({ message: "masterplanOverlay es requerido" }, { status: 400 });
         }
+
+        const existingScene = await db.tourScene.findUnique({
+            where: { id: params.sceneId },
+            select: {
+                id: true,
+                tour: {
+                    select: {
+                        id: true,
+                        proyectoId: true,
+                    }
+                }
+            },
+        });
+
+        if (!existingScene) {
+            return NextResponse.json({ message: "Escena no encontrada" }, { status: 404 });
+        }
+
+        await requireProjectOwnership(existingScene.tour.proyectoId);
 
         const scene = await db.tourScene.update({
             where: { id: params.sceneId },

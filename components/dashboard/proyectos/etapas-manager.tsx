@@ -82,7 +82,7 @@ export default function EtapasManager({ proyectoId, etapas }: EtapasManagerProps
                 router.refresh();
                 return "Etapa eliminada";
             }
-            throw new Error(res.error || "Error al eliminar etapa");
+            throw new Error((res as any).error || "Error al eliminar etapa");
         });
 
         toast.promise(deletePromise, {
