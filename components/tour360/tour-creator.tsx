@@ -33,6 +33,7 @@ import {
     normalizeTourMediaCategory,
     TOUR_MEDIA_CATEGORY_BADGE_STYLES,
     TOUR_MEDIA_CATEGORY_SHORT_LABELS,
+    isTour360Category,
     type TourMediaCategory,
 } from "@/lib/tour-media";
 
@@ -775,6 +776,12 @@ export default function TourCreator({
         : null;
     const canAlignProjectPlan = Boolean(projectOverlayBounds && projectSvgViewBox && overlayUnits.length > 0);
 
+    // Determine if active scene is 360 (should use Pannellum) or flat (should use <img>)
+    const activeSceneIs360 = activeScene ? isTour360Category({
+        category: activeScene.category,
+        masterplanOverlay: activeScene.masterplanOverlay
+    }) : true; // Default to 360 for backward compatibility
+
     // Filter scenes by category with backward compatibility for legacy values.
     const filteredScenes = scenes.filter((scene) => normalizeTourMediaCategory(scene) === activeTab);
 
@@ -985,8 +992,27 @@ export default function TourCreator({
         if (!pannellumLoaded || !viewerRef.current || scenes.length === 0) return;
 
         const sceneId = activeSceneId || scenes[0].id;
-        if (!scenes.find((s) => s.id === sceneId)) return;
+        const scene = scenes.find((s) => s.id === sceneId);
+        if (!scene) return;
 
+        // Determine if this scene should use Pannellum (360) or flat image
+        const is360 = isTour360Category({
+            category: scene.category,
+            masterplanOverlay: scene.masterplanOverlay
+        });
+
+        // If scene is flat (NOT 360), destroy Pannellum instance if exists
+        if (!is360) {
+            if (viewerInstance.current) {
+                viewerInstance.current.destroy();
+                viewerInstance.current = null;
+                setViewerReady(false);
+                pannellumSceneCountRef.current = 0;
+            }
+            return;
+        }
+
+        // Scene is 360, proceed with Pannellum
         // If scene count changed or no instance → full rebuild (picks up new uploads)
         const needsRebuild = scenes.length !== pannellumSceneCountRef.current || !viewerInstance.current;
 
@@ -1599,36 +1625,58 @@ export default function TourCreator({
                 <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/50 min-h-[400px]">
                     {scenes.length > 0 ? (
                         <>
-                            <div
-                                ref={viewerRef}
-                                className={cn(
-                                    "w-full h-full",
-                                    (editorMode !== 'view' || draggingHotspotId || draggingLabelId) && "cursor-crosshair"
-                                )}
-                                onClick={(e) => {
-                                    // Prevent click if recently finished a drag
-                                    if (Date.now() - lastDragTime < 200) return;
-                                    handleViewerClick(e);
-                                }}
-                                onMouseMove={handleViewerMouseMove}
-                                onMouseUp={handleGlobalMouseUp}
-                                onMouseLeave={() => setMouseCoords(null)}
-                            />
+                            {/* Conditional rendering: Pannellum for 360, <img> for flat */}
+                            {activeSceneIs360 ? (
+                                <>
+                                    <div
+                                        ref={viewerRef}
+                                        className={cn(
+                                            "w-full h-full",
+                                            (editorMode !== 'view' || draggingHotspotId || draggingLabelId) && "cursor-crosshair"
+                                        )}
+                                        onClick={(e) => {
+                                            // Prevent click if recently finished a drag
+                                            if (Date.now() - lastDragTime < 200) return;
+                                            handleViewerClick(e);
+                                        }}
+                                        onMouseMove={handleViewerMouseMove}
+                                        onMouseUp={handleGlobalMouseUp}
+                                        onMouseLeave={() => setMouseCoords(null)}
+                                    />
 
-                            <PanoramicOverlay
-                                viewer={viewerInstance.current}
-                                viewerRef={viewerRef}
-                                activeScene={activeScene}
-                                editorMode={editorMode}
-                                mouseCoords={mouseCoords}
-                                draggingHotspotId={draggingHotspotId}
-                                setDraggingHotspotId={setDraggingHotspotId}
-                                draggingLabelId={draggingLabelId}
-                                setDraggingLabelId={setDraggingLabelId}
-                                pendingLandmarkAnchor={pendingLandmarkAnchor}
-                                currentPolygonPoints={currentPolygonPoints}
-                                viewerReady={viewerReady}
-                            />
+                                    <PanoramicOverlay
+                                        viewer={viewerInstance.current}
+                                        viewerRef={viewerRef}
+                                        activeScene={activeScene}
+                                        editorMode={editorMode}
+                                        mouseCoords={mouseCoords}
+                                        draggingHotspotId={draggingHotspotId}
+                                        setDraggingHotspotId={setDraggingHotspotId}
+                                        draggingLabelId={draggingLabelId}
+                                        setDraggingLabelId={setDraggingLabelId}
+                                        pendingLandmarkAnchor={pendingLandmarkAnchor}
+                                        currentPolygonPoints={currentPolygonPoints}
+                                        viewerReady={viewerReady}
+                                    />
+                                </>
+                            ) : (
+                                // Flat image viewer for non-360 images
+                                <div className="relative w-full h-full flex items-center justify-center bg-slate-950">
+                                    {activeScene?.imageUrl && (
+                                        <img
+                                            src={activeScene.imageUrl}
+                                            alt={activeScene.title || "Imagen"}
+                                            className="max-w-full max-h-full object-contain"
+                                            style={{ userSelect: 'none' }}
+                                        />
+                                    )}
+                                    {/* Indicator badge for flat images */}
+                                    <div className="absolute top-4 right-4 bg-slate-800/90 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 border border-slate-700">
+                                        <ImageIcon className="w-3 h-3 inline-block mr-1.5" />
+                                        Imagen plana
+                                    </div>
+                                </div>
+                            )}
 
 
 
