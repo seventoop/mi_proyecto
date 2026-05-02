@@ -263,11 +263,13 @@ interface MasterplanViewerProps {
     backgroundAssetUrl?: string | null;
 }
 
+const EMPTY_UNITS: MasterplanUnit[] = [];
+
 export default function MasterplanViewer({
     proyectoId,
     modo,
     canEdit = false,
-    initialUnits = [],
+    initialUnits = EMPTY_UNITS,
     backgroundAssetUrl = null,
 }: MasterplanViewerProps) {
     const {
