@@ -88,8 +88,9 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
 
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role || "INVITADO";
+    const isAuthorizedAdmin = userRole === "ADMIN" || userRole === "SUPERADMIN";
     const backHref =
-        userRole === "ADMIN" || userRole === "SUPERADMIN" ? "/dashboard/admin/proyectos" :
+        isAuthorizedAdmin ? "/dashboard/admin/proyectos" :
         userRole === "DESARROLLADOR" ? "/dashboard/developer/proyectos" :
         "/dashboard/proyectos";
 
@@ -158,7 +159,7 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     }
 
     const userId = session?.user?.id;
-    if (userRole !== "ADMIN" && proyecto.creadoPorId !== userId) {
+    if (!isAuthorizedAdmin && proyecto.creadoPorId !== userId) {
         return (
             <div className="p-20 text-center">
                 <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />

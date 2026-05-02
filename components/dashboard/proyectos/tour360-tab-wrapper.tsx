@@ -649,7 +649,7 @@ export default function Tour360TabWrapper({
                             Carga imágenes, trabájalas en la galería y después decide qué material mandar al tour.
                         </p>
                     </div>
-                    {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && (
+                    {["SUPERADMIN", "ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole) && (
                         <button
                             onClick={handleCreateClick}
                             className="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-brand-500/20 transition-all"
@@ -663,7 +663,7 @@ export default function Tour360TabWrapper({
                 {tours.length === 0 ? (
                     <div className="text-center py-20 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
                         <ImageIcon className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-                        {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) ? (
+                        {["SUPERADMIN", "ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole) ? (
                             <>
                                 <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">No hay material cargado</h3>
                                 <p className="text-sm text-slate-400 mb-6">
@@ -678,7 +678,7 @@ export default function Tour360TabWrapper({
                                 </p>
                             </>
                         )}
-                        {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && (
+                        {["SUPERADMIN", "ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole) && (
                             <button onClick={handleCreateClick} className="text-brand-500 font-bold text-sm hover:underline">
                                 Cargar imágenes
                             </button>
@@ -718,7 +718,7 @@ export default function Tour360TabWrapper({
                                                     <Eye className="w-5 h-5" />
                                                 </button>
                                             )}
-                                            {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && (
+                                            {["SUPERADMIN", "ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole) && (
                                                 <>
                                                     <button
                                                         onClick={() => handleEditClick(tour)}
@@ -754,7 +754,7 @@ export default function Tour360TabWrapper({
                                             </div>
                                         )}
 
-                                        {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && canViewTour360 && (
+                                        {["SUPERADMIN", "ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole) && canViewTour360 && (
                                             <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                                                 <button
                                                     onClick={() => (tour.isPublished ? handleUnpublish(tour.id) : handlePublish(tour.id))}
@@ -768,7 +768,7 @@ export default function Tour360TabWrapper({
                                             </div>
                                         )}
 
-                                        {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && tour.estado !== "APROBADO" && (
+                                        {["SUPERADMIN", "ADMIN", "VENDEDOR", "DESARROLLADOR"].includes(userRole) && tour.estado !== "APROBADO" && (
                                             <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                                                 <button
                                                     onClick={() => handleApprove(tour.id)}

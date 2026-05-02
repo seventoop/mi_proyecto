@@ -13,6 +13,7 @@ import {
     type SceneOverlayCalibration,
 } from "@/lib/tour-overlay";
 import PlanGalleryPicker from "@/components/plan-gallery/plan-gallery-picker";
+import { getProyectoImagenes } from "@/lib/actions/proyectos";
 
 declare global {
     interface Window {
@@ -26,6 +27,7 @@ interface TourSceneOverlayEditorProps {
         id: string;
         title: string;
         imageUrl: string;
+        galleryImageId?: string;
         masterplanOverlay?: (SceneOverlayCalibration & {
             imageUrl?: string;
             selectedPlanId?: string;
@@ -105,6 +107,8 @@ type CanvasOverlayState = {
     poiBadges?: any[];
     anchoredPoiBadges?: any[];
     freehandStrokes?: any[];
+    polygons?: any[];
+    anchoredPolygons?: any[];
 };
 
 function createEmptyCanvasState(): CanvasOverlayState {
@@ -128,6 +132,8 @@ function createEmptyCanvasState(): CanvasOverlayState {
         poiBadges: [],
         anchoredPoiBadges: [],
         freehandStrokes: [],
+        polygons: [],
+        anchoredPolygons: [],
     };
 }
 
@@ -164,6 +170,8 @@ function hasRealCanvasContent(canvasState?: CanvasOverlayState | null): boolean 
         hasCanvasItems(canvasState.poiBadges) ||
         hasCanvasItems(canvasState.anchoredPoiBadges) ||
         hasCanvasItems(canvasState.freehandStrokes) ||
+        hasCanvasItems(canvasState.polygons) ||
+        hasCanvasItems(canvasState.anchoredPolygons) ||
         hasOverlayImage ||
         hasOverlayPoints
     );
@@ -270,6 +278,26 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
     const [anchorTrigger, setAnchorTrigger] = useState(0);
     const [fixTrigger, setFixTrigger] = useState(0);
     const [showPlanosGallery, setShowPlanosGallery] = useState(false);
+
+    const [galleryAssets, setGalleryAssets] = useState<any[]>([]);
+    
+    useEffect(() => {
+        let mounted = true;
+        const fetchAssets = async () => {
+            try {
+                const res = await getProyectoImagenes(proyectoId);
+                if (mounted && res.success && res.data) {
+                    setGalleryAssets(res.data);
+                }
+            } catch (err) {
+                console.error("Error loading gallery assets:", err);
+            }
+        };
+        if (proyectoId) {
+            fetchAssets();
+        }
+        return () => { mounted = false; };
+    }, [proyectoId]);
     const [calibSaved, setCalibSaved] = useState(false);
     const [addTextTrigger, setAddTextTrigger] = useState<{ type: string; text: string; timestamp: number } | null>(null);
     const [addFrameTrigger, setAddFrameTrigger] = useState<{ type: "circle" | "square"; timestamp: number } | null>(null);
@@ -1117,7 +1145,7 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                             onClick={() => setActiveTool(activeTool === "location" ? "select" : "location")}
                         />
                         <ToolButton
-                            label="Polígonos / Grilla"
+                            label="Polígono Libre"
                             active={activeTool === "polygon"}
                             onClick={() => setActiveTool(activeTool === "polygon" ? "select" : "polygon")}
                         />
@@ -1373,31 +1401,30 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                         </div>
 
                         <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
-                            {projectScenes.length > 0 ? (
-                                projectScenes.filter(s => s.id !== scene.id).map((item) => (
+                            {galleryAssets.length > 0 ? (
+                                galleryAssets.filter(s => s.id !== scene.id && s.id !== scene.galleryImageId).map((item) => (
                                     <div
                                         key={item.id}
                                         draggable="true"
                                         onDragStart={(e) => {
                                             e.dataTransfer.setData("application/json", JSON.stringify({
                                                 id: item.id,
-                                                sceneKey: getProjectSceneKey(item),
-                                                url: item.imageUrl,
+                                                url: item.url,
                                                 type: "scene-asset"
                                             }));
                                         }}
                                         className="relative aspect-video rounded-xl border border-white/10 bg-white/5 overflow-hidden group cursor-grab active:cursor-grabbing hover:border-white/30 transition-all shadow-inner"
                                     >
-                                        {item.imageUrl ? (
-                                            <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                                        {item.url ? (
+                                            <img src={item.url} alt={item.categoria || "Asset"} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-white/20 text-[10px]">Sin imagen</div>
                                         )}
                                         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[9px] text-white/70 font-bold uppercase tracking-wider">
-                                            {item.category || "360"}
+                                            {item.categoria?.replaceAll("_", " ") || "ASSET"}
                                         </div>
                                         <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity truncate">
-                                            {item.title || "Sin nombre"}
+                                            {item.masterplanOverlay?.title || item.categoria?.replaceAll("_", " ") || "Sin nombre"}
                                         </div>
                                     </div>
                                 ))
@@ -1536,6 +1563,8 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                         initialPoiBadges={canvasState.poiBadges}
                         initialAnchoredPoiBadges={canvasState.anchoredPoiBadges}
                         initialFreehandStrokes={canvasState.freehandStrokes}
+                        initialPolygons={canvasState.polygons}
+                        initialAnchoredPolygons={canvasState.anchoredPolygons}
                         addTextTrigger={addTextTrigger}
                         activeArrowPreset={activeArrowPreset}
                         addFrameTrigger={addFrameTrigger}
