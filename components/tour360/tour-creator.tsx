@@ -7,7 +7,7 @@ import {
     Upload, Trash2, Save, MapPin, ImageIcon,
     Plus, X, Loader2, GripVertical, Pencil, Check,
     Link2, Navigation, Eye, Share2, Play, Pause, Globe,
-    Maximize2, RotateCcw, Camera, Grid3x3, Sparkles
+    Maximize2, RotateCcw, Camera, Grid3x3, Sparkles, AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -2403,9 +2403,18 @@ export default function TourCreator({
                                     >
                                         Editar imagen
                                     </button>
-                                    <p className="text-xs text-slate-400 leading-relaxed">
-                                        Abrí el editor completo para ubicar el plano sobre la imagen 360 y guardar la alineación de esta escena.
-                                    </p>
+                                    {!canAlignProjectPlan ? (
+                                        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex gap-2">
+                                            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                            <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 leading-relaxed">
+                                                Para editar o alinear imágenes, primero completá el <span className="font-bold underline">Paso 2: Plano del Proyecto</span> y el <span className="font-bold underline">Paso 4: Mapa Interactivo</span>.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-400 leading-relaxed">
+                                            Abrí el editor completo para ubicar el plano sobre la imagen 360 y guardar la alineación de esta escena.
+                                        </p>
+                                    )}
                                 </>
                             )}
 
