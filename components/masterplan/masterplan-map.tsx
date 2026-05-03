@@ -495,6 +495,9 @@ export default function MasterplanMap({
                     rotate: true,
                     touchRotate: true,
                     rotateControl: false,
+                    zoomSnap: 0.25,
+                    zoomDelta: 0.5,
+                    wheelPxPerZoomLevel: 120,
                 };
 
                 const map = (L as any).map(mapRef.current, mapOptions);
@@ -1260,31 +1263,87 @@ export default function MasterplanMap({
                                 <ZoomOut className="w-4 h-4" />
                             </button>
                             
-                            {/* Compass / Rotation Control */}
-                            <button 
-                                onClick={() => {
-                                    if (leafletMapRef.current) {
-                                        (leafletMapRef.current as any).setBearing(0);
-                                    }
-                                }}
-                                title="Resetear Norte"
-                                className={cn(
-                                    "w-8 h-8 rounded-lg flex items-center justify-center transition-all relative overflow-hidden",
-                                    Math.abs(mapRotation) > 1 
-                                        ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" 
-                                        : "hover:bg-slate-700 text-slate-400"
-                                )}
-                            >
-                                <div 
-                                    className="transition-transform duration-300 ease-out"
-                                    style={{ transform: `rotate(${-mapRotation}deg)` }}
+                            {/* Map Base Rotation Controls */}
+                            <div className="flex items-center gap-0.5 bg-slate-900/50 rounded-lg p-0.5 border border-slate-700/50 ml-1">
+                                <button 
+                                    onClick={() => {
+                                        if (leafletMapRef.current) {
+                                            const current = (leafletMapRef.current as any).getBearing() || 0;
+                                            (leafletMapRef.current as any).setBearing(current - 5);
+                                        }
+                                    }}
+                                    title="Rotar izquierda (-5°)"
+                                    className="w-7 h-7 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors text-[9px] font-bold"
                                 >
-                                    <div className="relative">
-                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[8px] font-bold text-red-500">N</div>
-                                        <Compass className="w-4 h-4" />
+                                    -5°
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (leafletMapRef.current) {
+                                            const current = (leafletMapRef.current as any).getBearing() || 0;
+                                            (leafletMapRef.current as any).setBearing(current - 1);
+                                        }
+                                    }}
+                                    title="Rotar izquierda fino (-1°)"
+                                    className="w-7 h-7 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors text-[9px] font-bold"
+                                >
+                                    -1°
+                                </button>
+                                
+                                {/* Compass / Reset North */}
+                                <button 
+                                    onClick={() => {
+                                        if (leafletMapRef.current) {
+                                            (leafletMapRef.current as any).setBearing(0);
+                                        }
+                                    }}
+                                    title="Resetear Norte (0°)"
+                                    className={cn(
+                                        "w-12 h-7 mx-1 rounded flex items-center justify-center gap-1 transition-all relative overflow-hidden",
+                                        Math.abs(mapRotation) > 0.5 
+                                            ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" 
+                                            : "hover:bg-slate-700 text-slate-400"
+                                    )}
+                                >
+                                    <div 
+                                        className="transition-transform duration-300 ease-out flex-shrink-0"
+                                        style={{ transform: `rotate(${-mapRotation}deg)` }}
+                                    >
+                                        <div className="relative">
+                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[8px] font-bold text-red-500">N</div>
+                                            <Compass className="w-3.5 h-3.5" />
+                                        </div>
                                     </div>
-                                </div>
-                            </button>
+                                    <span className="text-[10px] font-bold font-mono tracking-tighter">
+                                        {Math.abs(mapRotation) < 0.5 ? "0°" : `${mapRotation > 0 ? "+" : ""}${Math.round(mapRotation)}°`}
+                                    </span>
+                                </button>
+
+                                <button 
+                                    onClick={() => {
+                                        if (leafletMapRef.current) {
+                                            const current = (leafletMapRef.current as any).getBearing() || 0;
+                                            (leafletMapRef.current as any).setBearing(current + 1);
+                                        }
+                                    }}
+                                    title="Rotar derecha fino (+1°)"
+                                    className="w-7 h-7 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors text-[9px] font-bold"
+                                >
+                                    +1°
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (leafletMapRef.current) {
+                                            const current = (leafletMapRef.current as any).getBearing() || 0;
+                                            (leafletMapRef.current as any).setBearing(current + 5);
+                                        }
+                                    }}
+                                    title="Rotar derecha (+5°)"
+                                    className="w-7 h-7 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors text-[9px] font-bold"
+                                >
+                                    +5°
+                                </button>
+                            </div>
 
                             <button onClick={handleResetView} title="Centrar vista" className="w-8 h-8 rounded-lg hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">
                                 <Crosshair className="w-4 h-4" />
