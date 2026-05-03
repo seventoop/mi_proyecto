@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getAiTasks } from "@/lib/actions/logictoop-ai";
+import { ApprovalsClient } from "./_components/approvals-client";
 
 export default async function AiApprovalsPage() {
     const session = await getServerSession(authOptions);
@@ -25,6 +27,10 @@ export default async function AiApprovalsPage() {
         );
     }
 
+    // Obtener datos reales
+    const orgId = session.user.orgId;
+    const { data: tasks, error } = await getAiTasks(orgId);
+
     // 2. Caso: UI habilitada pero Backend IA inerte
     if (!isCoreEnabled) {
         return (
@@ -39,17 +45,24 @@ export default async function AiApprovalsPage() {
                         </div>
                     </div>
                 </div>
-                <p className="text-muted-foreground">No hay tareas pendientes en modo inerte.</p>
+                {/* Mostramos tareas existentes aunque el core esté apagado (Modo lectura) */}
+                <ApprovalsClient tasks={tasks || []} orgId={orgId} canWrite={false} />
             </div>
         );
     }
 
-    // 3. Caso: Módulo activo (Fase 2C.2+)
+    if (error) {
+        return <div className="p-6 text-red-500">Error al cargar datos de IA: {error}</div>;
+    }
+
+    // 3. Caso: Módulo activo
     return (
-        <div className="p-6">
+        <div className="p-6 space-y-4">
             <h1 className="text-2xl font-bold">Bandeja de Aprobaciones</h1>
-            <p className="text-muted-foreground">Consultando base de datos local...</p>
-            {/* Aquí se inyectará el ApprovalsClient en la Subfase 2C.2 */}
+            <p className="text-muted-foreground text-sm">
+                Gestiona las solicitudes de inteligencia artificial que requieren revisión humana.
+            </p>
+            <ApprovalsClient tasks={tasks || []} orgId={orgId} canWrite={true} />
         </div>
     );
 }

@@ -2,16 +2,15 @@
 
 import { db } from "@/lib/db";
 import { requireAuth, AuthError } from "@/lib/guards";
+import { revalidatePath } from "next/cache";
 
 /**
- * Obtiene los agentes de IA registrados para una organización.
+ * Obtiene la lista de agentes de IA activos para la organización.
  */
 export async function getAiAgents(orgId: string) {
     const user = await requireAuth();
-    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") throw new AuthError("No tienes permisos de administrador", 403);
-    if (user.role !== "SUPERADMIN" && user.orgId !== orgId) throw new AuthError("No tienes acceso a esta organización", 403);
-
-    if (process.env.FEATURE_FLAG_LOGICTOOP_AI_UI !== "true") {
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") throw new AuthError("No tienes permisos", 403);
+    if (user.role !== "SUPERADMIN" && user.orgId !== orgId) {
         return { success: true, data: [] };
     }
 
@@ -28,25 +27,22 @@ export async function getAiAgents(orgId: string) {
 }
 
 /**
- * Obtiene tareas que requieren aprobación humana.
+ * Obtiene tareas de IA registradas para una organización (Fase 2D).
+ * Incluye estados diversos para visualización en el dashboard.
  */
-export async function getPendingApprovals(orgId: string) {
+export async function getAiTasks(orgId: string) {
     const user = await requireAuth();
-    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") throw new AuthError("No tienes permisos de administrador", 403);
-    if (user.role !== "SUPERADMIN" && user.orgId !== orgId) throw new AuthError("No tienes acceso a esta organización", 403);
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") throw new AuthError("No tienes permisos", 403);
+    if (user.role !== "SUPERADMIN" && user.orgId !== orgId) throw new AuthError("Acceso denegado", 403);
 
     const isUiEnabled = process.env.FEATURE_FLAG_LOGICTOOP_AI_UI === "true";
-    const isCoreEnabled = process.env.FEATURE_FLAG_LOGICTOOP_AI_CORE === "true";
-
-    if (!isUiEnabled || !isCoreEnabled) {
-        return { success: true, data: [] };
-    }
+    if (!isUiEnabled) return { success: true, data: [] };
 
     try {
         const tasks = await db.logicToopAiTask.findMany({
             where: { 
-                orgId, 
-                status: "NEEDS_APPROVAL" 
+                orgId,
+                status: { in: ["PENDING", "NEEDS_APPROVAL", "APPROVED", "REJECTED"] }
             },
             include: {
                 agent: true,
@@ -58,29 +54,25 @@ export async function getPendingApprovals(orgId: string) {
         });
         return { success: true, data: tasks };
     } catch (error) {
-        console.error("[LogicToop AI] Error fetching pending approvals:", error);
-        return { success: false, error: "Error al cargar aprobaciones" };
+        console.error("[LogicToop AI] Error fetching tasks:", error);
+        return { success: false, error: "Error al cargar tareas" };
     }
 }
 
 /**
  * Rechaza una tarea de IA y registra el motivo.
  */
-export async function rejectAiTask(taskId: string, comments: string) {
+export async function rejectAiTask(taskId: string, comments: string): Promise<{ success: boolean; error?: string; taskId?: string }> {
     const user = await requireAuth();
     if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
         throw new AuthError("Solo administradores pueden rechazar tareas", 403);
     }
 
-    // 1. Validar Flag de Core
     if (process.env.FEATURE_FLAG_LOGICTOOP_AI_CORE !== "true") {
         return { success: false, error: "El motor de IA está desactivado (CORE=false)" };
     }
 
     try {
-        // 2. Validar que la tarea exista y pertenezca a la organización (Tenant Isolation)
-        // SUPERADMIN puede saltarse la validación de orgId si fuera necesario, 
-        // pero por consistencia validamos contra el orgId de la tarea.
         const existingTask = await db.logicToopAiTask.findFirst({
             where: {
                 id: taskId,
@@ -92,14 +84,12 @@ export async function rejectAiTask(taskId: string, comments: string) {
             return { success: false, error: "Tarea no encontrada o no pertenece a tu organización" };
         }
 
-        return await db.$transaction(async (tx) => {
-            // 3. Actualizar estado de la tarea
+        const result = await db.$transaction(async (tx) => {
             const task = await tx.logicToopAiTask.update({
                 where: { id: taskId },
                 data: { status: "REJECTED" }
             });
 
-            // 4. Registrar la aprobación como rechazo
             await tx.logicToopAiApproval.create({
                 data: {
                     taskId,
@@ -111,6 +101,9 @@ export async function rejectAiTask(taskId: string, comments: string) {
 
             return { success: true, taskId: task.id };
         });
+
+        revalidatePath("/dashboard/admin/logictoop/orchestrator/approvals");
+        return result;
     } catch (error) {
         console.error("[LogicToop AI] Error rejecting task:", error);
         return { success: false, error: "Error al rechazar tarea" };
