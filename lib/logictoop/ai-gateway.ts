@@ -1,4 +1,6 @@
-import { requireAnyRole } from "@/lib/guards";
+import { requireAuth, AuthError } from "@/lib/guards";
+import crypto from "crypto";
+
 interface AiTaskPayload {
     agentId: string;
     flowExecutionId?: string;
@@ -6,35 +8,49 @@ interface AiTaskPayload {
 }
 
 /**
- * AI Gateway Interno - Módulo MOCK para la Fase 1
- * Si la feature flag FEATURE_FLAG_PAPERCLIP es 'false', solo simula la creación de tarea
- * y no persiste nada en la base de datos (incluso si estuviera en true, en Fase 1 no está implementado).
+ * AI Gateway Interno - Fase 2C
+ * Orquesta la creación de tareas de IA. En esta fase, valida sesión y tenant, 
+ * pero mantiene la persistencia real desactivada hasta la Subfase 2C.2.
  */
 export async function dispatchAiTask(orgId: string, payload: AiTaskPayload) {
-    // 1. Validación de Roles y Seguridad
-    await requireAnyRole(["ADMIN", "SUPERADMIN"]);
+    // 1. Obtener usuario de la sesión y validar autenticación
+    const user = await requireAuth();
 
-    const isPaperclipEnabled = process.env.FEATURE_FLAG_PAPERCLIP === "true";
+    // 2. Validación de Roles (Solo ADMIN y SUPERADMIN por ahora)
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+        throw new AuthError("Solo administradores pueden orquestar procesos de IA", 403);
+    }
 
-    // 2. Mocking AI Task local (Pendiente)
-    // Asumiremos que el requester es el usuario actual. Por simplicidad en esta fase mock, 
-    // pasaremos un ID genérico o fallaremos graciosamente si se requiere sesión.
-    // Esto se adaptará en Fase 2.
-    
-    console.log("[AI Gateway] Dispatching AI Task:", { orgId, payload });
+    // 3. Validación de Tenant (Fail-secure)
+    if (user.role !== "SUPERADMIN" && user.orgId !== orgId) {
+        throw new AuthError("No tienes permisos para esta organización", 403);
+    }
 
-    if (!isPaperclipEnabled) {
-        console.log("[AI Gateway] Paperclip está desactivado. Simulando creación de tarea.");
+    const isCoreEnabled = process.env.FEATURE_FLAG_LOGICTOOP_AI_CORE === "true";
+    const isRealConnection = process.env.FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION === "true";
+
+    console.log("[AI Gateway] Solicitud de Tarea IA:", { orgId, userId: user.id, agentId: payload.agentId });
+
+    // 4. Lógica de Persistencia (Subfase 2C.2)
+    if (!isCoreEnabled) {
+        // Modo Mock Seguro (Inerte)
         return {
             success: true,
             taskId: `mock_task_${crypto.randomUUID()}`,
-            status: "draft_mode",
-            message: "La tarea se registró como borrador (Feature Flag desactivada)"
+            status: "DRAFT_MODE",
+            message: "Tarea simulada correctamente (CORE desactivado)"
         };
     }
 
-    // Lógica futura de conexión a Paperclip:
-    // const response = await fetch(`${process.env.PAPERCLIP_API_URL}/api/v1/tasks`, { ... })
+    // TODO: En Subfase 2C.2 implementaremos la escritura real en db.logicToopAiTask
+    if (isRealConnection) {
+        throw new Error("Conexión real con Paperclip no permitida en esta fase del desarrollo.");
+    }
 
-    throw new Error("Conexión a Paperclip no implementada en Fase 1.");
+    return {
+        success: true,
+        taskId: `pending_db_${crypto.randomUUID()}`,
+        status: "PENDING",
+        message: "Tarea validada pero persistencia real pendiente de Subfase 2C.2"
+    };
 }

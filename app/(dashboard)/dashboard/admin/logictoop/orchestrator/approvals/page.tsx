@@ -8,8 +8,11 @@ export default async function AiApprovalsPage() {
         redirect("/dashboard");
     }
 
-    // SECURITY FLAG: Fallback seguro si el módulo está apagado o la DB no está migrada
-    if (process.env.FEATURE_FLAG_LOGICTOOP_AI_UI !== "true") {
+    const isUiEnabled = process.env.FEATURE_FLAG_LOGICTOOP_AI_UI === "true";
+    const isCoreEnabled = process.env.FEATURE_FLAG_LOGICTOOP_AI_CORE === "true";
+
+    // 1. Caso: Módulo totalmente deshabilitado
+    if (!isUiEnabled) {
         return (
             <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] p-6">
                 <div className="text-center space-y-4 max-w-md">
@@ -22,11 +25,31 @@ export default async function AiApprovalsPage() {
         );
     }
 
-    // TODO: En subfases futuras, cuando la DB esté lista, importaremos getPendingApprovals y ApprovalsClient.
+    // 2. Caso: UI habilitada pero Backend IA inerte
+    if (!isCoreEnabled) {
+        return (
+            <div className="p-6 space-y-4">
+                <h1 className="text-2xl font-bold">Bandeja de Aprobaciones</h1>
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                    <div className="flex">
+                        <div className="ml-3">
+                            <p className="text-sm text-yellow-700">
+                                <span className="font-bold">Modo Lectura:</span> El motor central de IA (`CORE`) está desactivado. No se pueden procesar nuevas tareas en este momento.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <p className="text-muted-foreground">No hay tareas pendientes en modo inerte.</p>
+            </div>
+        );
+    }
+
+    // 3. Caso: Módulo activo (Fase 2C.2+)
     return (
         <div className="p-6">
             <h1 className="text-2xl font-bold">Bandeja de Aprobaciones</h1>
-            <p className="text-muted-foreground">Cargando...</p>
+            <p className="text-muted-foreground">Consultando base de datos local...</p>
+            {/* Aquí se inyectará el ApprovalsClient en la Subfase 2C.2 */}
         </div>
     );
 }
