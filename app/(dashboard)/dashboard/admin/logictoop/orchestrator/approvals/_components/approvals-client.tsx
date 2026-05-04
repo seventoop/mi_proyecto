@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { rejectAiTask, approveAiTask, processAiTaskLocally } from "@/lib/actions/logictoop-ai";
-import { Loader2, XCircle, CheckCircle2, AlertCircle, PlayCircle } from "lucide-react";
+import { Loader2, XCircle, CheckCircle2, AlertCircle, PlayCircle, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { TaskDetailDialog } from "./task-detail-dialog";
 
 interface ApprovalsClientProps {
     tasks: any[];
@@ -21,6 +22,8 @@ interface ApprovalsClientProps {
 export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: ApprovalsClientProps) {
     const [tasks, setTasks] = useState(initialTasks);
     const [loadingId, setLoadingId] = useState<string | null>(null);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const [detailOpen, setDetailOpen] = useState(false);
 
     const handleReject = async (taskId: string) => {
         if (!canWrite) {
@@ -189,6 +192,17 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                                                         </Button>
                                                     </>
                                                 )}
+                                                <Button 
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    title="Ver detalle"
+                                                    onClick={() => {
+                                                        setSelectedTaskId(task.id);
+                                                        setDetailOpen(true);
+                                                    }}
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -198,6 +212,12 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                     )}
                 </CardContent>
             </Card>
+
+            <TaskDetailDialog 
+                taskId={selectedTaskId} 
+                open={detailOpen} 
+                onOpenChange={setDetailOpen} 
+            />
         </div>
     );
 }

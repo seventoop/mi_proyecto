@@ -215,3 +215,47 @@ export async function processAiTaskLocally(taskId: string): Promise<{ success: b
         return { success: false, error: error instanceof Error ? error.message : "Error al procesar tarea localmente" };
     }
 }
+
+/**
+ * Obtiene los detalles profundos de una tarea, incluyendo auditoría y payloads.
+ * Exclusivo de modo lectura (UI=true) y protegido por Tenant Isolation.
+ */
+export async function getAiTaskDetail(taskId: string) {
+    const user = await requireAuth();
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") throw new AuthError("No tienes permisos", 403);
+
+    const isUiEnabled = process.env.FEATURE_FLAG_LOGICTOOP_AI_UI === "true";
+    if (!isUiEnabled) return { success: false, error: "La interfaz de IA está desactivada" };
+
+    try {
+        const task = await db.logicToopAiTask.findFirst({
+            where: {
+                id: taskId,
+                ...(user.role !== "SUPERADMIN" ? { orgId: user.orgId as string } : {})
+            },
+            include: {
+                agent: true,
+                requestedBy: {
+                    select: { id: true, nombre: true }
+                },
+                approvals: {
+                    include: {
+                        approvedBy: {
+                            select: { id: true, nombre: true }
+                        }
+                    },
+                    orderBy: { createdAt: "asc" }
+                }
+            }
+        });
+
+        if (!task) {
+            return { success: false, error: "Tarea no encontrada o no pertenece a tu organización" };
+        }
+
+        return { success: true, data: task };
+    } catch (error) {
+        console.error("[LogicToop AI] Error fetching task detail:", error);
+        return { success: false, error: "Error al cargar el detalle de la tarea" };
+    }
+}
