@@ -169,7 +169,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
                   <ShieldCheck className="w-8 h-8" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black italic uppercase tracking-tighter">Bandeja de Aprobaciones IA</h2>
+                  <h2 className="text-xl font-black italic uppercase tracking-tighter">Bandeja de Aprobaciones&nbsp;IA</h2>
                   <p className="text-sm font-bold text-slate-400 uppercase">Revisá tareas generadas por agentes y gestioná aprobaciones humanas.</p>
                 </div>
               </div>
