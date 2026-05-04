@@ -1,35 +1,63 @@
 # LogicToop AI — Documentación Interna del Módulo
 
-> **Estado**: MVP human-in-the-loop (Fase 2E.1 cerrada)
+> **Estado**: Internal Agent Runner / Human-in-the-loop MVP (Fase 3A completada)
 > **Rama**: `dani-dev4`
-> **Último commit**: `d14aac1 fix(ai): set approval timestamp explicitly`
+> **Últimos commits relevantes**: 
+> - `28f48b3 feat(ai): add internal logictoop task runner`
+> - `d14aac1 fix(ai): set approval timestamp explicitly`
+> 
+> ⚠️ **Documento rector — no recortar ni reemplazar sin aprobación explícita.**
 
 ---
 
-## 1. Resumen del módulo
+## B. Reglas obligatorias para Antigravity/agentes
+
+**LEER ANTES DE MODIFICAR CUALQUIER CÓDIGO DEL MÓDULO:**
+
+1. **No reemplazar este documento por un resumen.** Este archivo es el manual definitivo y rector de la arquitectura de IA.
+2. **No borrar secciones históricas útiles.** La historia de diseño es crítica para entender las decisiones de arquitectura.
+3. **Proceso obligatorio antes de implementar:**
+   - Inspección exhaustiva del estado actual.
+   - Creación de un plan técnico (`implementation_plan.md`).
+   - Aprobación explícita del usuario.
+   - Implementación mínima viable (aislada).
+   - Diff completo validado visualmente.
+   - Verificación de tipos (`npm run typecheck`).
+   - Verificación de esquema (`npx prisma validate`).
+   - Commit aislado de la funcionalidad.
+4. **Prohibiciones permanentes:**
+   - NO ejecutar side-effects en la DB (modificar proyectos, leads, banners, emails) sin una fase aprobada explícitamente.
+   - NO conectar Paperclip real a la red sin un diseño de seguridad aprobado.
+   - NO crear webhooks sin firma, idempotencia y rate limiting implementados.
+   - NO tocar Canvas ni Marketplace sin un plan técnico específico.
+   - NO correr migraciones, `db push` o reset de base de datos sin aprobación explícita.
+   - NO borrar feature flags legacy.
+   - NO recortar este documento.
+5. **Sanitización de datos**: Nunca incluir en la documentación correos electrónicos personales reales, contraseñas, tokens JWT, claves API u otros secretos.
+
+---
+
+## C. Resumen del módulo
 
 LogicToop AI es el subsistema de orquestación de inteligencia artificial dentro de SevenToop. Permite registrar agentes IA, crear tareas que requieren aprobación humana, y gestionar el ciclo de vida de esas tareas a través de un panel de administración protegido.
 
-En su estado actual, el módulo opera como un **MVP inerte**: registra y gestiona estados de tareas IA sin ejecutar ningún efecto secundario real en la plataforma (no modifica proyectos, leads, banners, ni envía emails).
+En su estado actual (Fase 3A), el módulo opera como un **MVP human-in-the-loop**: registra tareas, permite su procesamiento local (mocking) a través de un `Internal Agent Runner`, y gestiona la aprobación/rechazo humano. Sigue siendo inerte en cuanto a efectos secundarios reales en la plataforma (no toca el negocio principal).
 
 ---
 
-## 2. Objetivo del MVP human-in-the-loop
+## D. Inspiración Paperclip y estrategia de fusión
 
-Establecer la infraestructura base para que un administrador humano pueda:
-
-- Visualizar tareas generadas por agentes IA.
-- Aprobar o rechazar cada tarea de forma individual.
-- Dejar registro de auditoría de cada decisión.
-- Mantener el control total sobre cualquier acción que la IA proponga.
-
-**Principio rector**: Ninguna acción de IA se ejecuta sin aprobación humana explícita.
+- **Paperclip es referencia arquitectónica**: La visión multiagente y de orquestación está fuertemente inspirada en Paperclip.
+- **SevenToop mantiene el control**: SevenToop *no* debe ser reemplazado. Sigue siendo el dueño absoluto de la Autenticación, `orgId`, Roles, Base de Datos, UI, capa de aprobaciones y auditoría.
+- **LogicToop como Control Plane**: LogicToop será el panel oficial interno para administrar la orquestación.
+- **Paperclip futuro (Sidecar)**: Paperclip real será conectado en el futuro como un *sidecar* opcional para offload de tareas de IA pesadas, pero no como un reemplazo del core.
+- **Copiar código**: Cualquier adopción o copia directa de código desde un repositorio de Paperclip requiere revisión estricta de licencia, compatibilidad técnica y aprobación humana explícita.
 
 ---
 
-## 3. Arquitectura actual
+## E. Arquitectura actual (Fase 3A)
 
-```
+```text
 ┌─────────────────────────────────────────────────────┐
 │                   Frontend (Next.js)                │
 │                                                     │
@@ -48,6 +76,12 @@ Establecer la infraestructura base para que un administrador humano pueda:
 │  │  (validación) │    │  - getAiTasks       │       │
 │  └───────────────┘    │  - approveAiTask    │       │
 │                       │  - rejectAiTask     │       │
+│                       │  - processAiTask... │       │
+│                       └──────────┬──────────┘       │
+│                                  │                  │
+│                       ┌──────────▼──────────┐       │
+│                       │ internal-ai-runner  │       │
+│                       │ (Generación Mocks)  │       │
 │                       └──────────┬──────────┘       │
 │                                  │                  │
 │                       ┌──────────▼──────────┐       │
@@ -68,389 +102,286 @@ Establecer la infraestructura base para que un administrador humano pueda:
 
 ---
 
-## 4. Rutas existentes
+## F. Arquitectura objetivo
+
+La visión a largo plazo para el ecosistema de IA en SevenToop:
+
+- **LogicToop**: Panel oficial (UI) y capa rectora (Control Plane) de aprobaciones y auditoría human-in-the-loop.
+- **Internal Agent Runner**: Motor local para tareas sencillas, pre-procesamiento, validaciones (QA_OPS) o "mocks" en entornos de desarrollo.
+- **Paperclip**: Sidecar futuro y opcional. Un servicio externo seguro especializado en LLM routing, memory, y tool orchestration complejas.
+- **AI Gateway**: Capa de seguridad, rate limiting y tenant isolation centralizada.
+
+---
+
+## G. Rutas existentes
 
 | Ruta | Tipo | Descripción |
 |---|---|---|
 | `/dashboard/admin/logictoop/orchestrator` | Page (Server + Client) | Panel principal del AI Orchestrator |
 | `/dashboard/admin/logictoop/orchestrator/approvals` | Page (Server + Client) | Bandeja de aprobaciones IA |
 
-Ambas rutas están protegidas por:
-- Autenticación (`requireAuth`)
-- Validación de rol (`ADMIN` / `SUPERADMIN`)
-- Feature flag (`FEATURE_FLAG_LOGICTOOP_AI_UI`)
+Ambas protegidas por: `requireAuth`, rol `ADMIN/SUPERADMIN`, y `FEATURE_FLAG_LOGICTOOP_AI_UI`.
 
 ---
 
-## 5. Archivos principales
+## H. Archivos principales
 
-### Backend
+**Backend:**
+- `lib/actions/logictoop-ai.ts`: Server Actions (`getAiTasks`, `approveAiTask`, `rejectAiTask`, `processAiTaskLocally`).
+- `lib/logictoop/ai-gateway.ts`: Validación de seguridad, tenant isolation, feature flags.
+- `lib/logictoop/internal-ai-runner.ts`: Motor local (Mock) de ejecución de tareas para Fase 3A.
 
-| Archivo | Responsabilidad |
-|---|---|
-| `lib/actions/logictoop-ai.ts` | Server Actions: `getAiTasks`, `getAiAgents`, `rejectAiTask`, `approveAiTask` |
-| `lib/logictoop/ai-gateway.ts` | Validación de seguridad, payload limits, feature flags |
+**Frontend:**
+- `app/(dashboard)/dashboard/admin/logictoop/orchestrator/page.tsx`: Server component principal.
+- `app/.../orchestrator/orchestrator-client.tsx`: Client component de navegación.
+- `app/.../orchestrator/approvals/page.tsx`: Server component (data fetching).
+- `app/.../orchestrator/approvals/_components/approvals-client.tsx`: Interfaz interactiva (tabla y acciones `Procesar`, `Aprobar`, `Rechazar`).
 
-### Frontend
-
-| Archivo | Responsabilidad |
-|---|---|
-| `app/(dashboard)/dashboard/admin/logictoop/orchestrator/page.tsx` | Server component del Orchestrator |
-| `app/(dashboard)/dashboard/admin/logictoop/orchestrator/orchestrator-client.tsx` | Client component con tarjeta de navegación a Approvals |
-| `app/(dashboard)/dashboard/admin/logictoop/orchestrator/approvals/page.tsx` | Server component de Approvals (auth, flags, data fetching) |
-| `app/(dashboard)/dashboard/admin/logictoop/orchestrator/approvals/_components/approvals-client.tsx` | Client component: tabla, botones Aprobar/Rechazar, feedback |
-
-### Datos
-
-| Archivo | Responsabilidad |
-|---|---|
-| `prisma/schema.prisma` | Modelos `LogicToopAiAgent`, `LogicToopAiTask`, `LogicToopAiApproval` |
-| `prisma/migrations/20260503110000_add_logictoop_ai_foundations/migration.sql` | Migración formal de las tablas AI |
+**Base de Datos:**
+- `prisma/schema.prisma`: Modelos de datos.
+- `prisma/migrations/.../migration.sql`: Migración de cimientos IA.
 
 ---
 
-## 6. Feature flags
+## I. Feature flags
 
-Definidos en `.env` / `.env.local`:
+Ubicados en `.env` o `.env.local`:
 
-| Variable | Default | Controla |
-|---|---|---|
-| `FEATURE_FLAG_LOGICTOOP_AI_UI` | `"true"` | Acceso a las páginas UI del módulo AI |
-| `FEATURE_FLAG_LOGICTOOP_AI_CORE` | `"true"` | Habilitación de escritura en DB (aprobar/rechazar) |
-| `FEATURE_FLAG_PAPERCLIP` | `"false"` | Habilitación general del motor Paperclip |
-| `FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION` | `"false"` | Conexión HTTP real a la API de Paperclip |
-
-### Matriz de comportamiento
-
-| UI | CORE | Resultado |
-|---|---|---|
-| `false` | `*` | Páginas inaccesibles |
-| `true` | `false` | **Modo lectura**: tabla visible, botones deshabilitados, Server Actions bloqueadas |
-| `true` | `true` | **Modo operativo**: aprobación y rechazo funcionales |
+| Variable | Descripción |
+|---|---|
+| `FEATURE_FLAG_LOGICTOOP_AI_UI` | Habilita acceso a las páginas del dashboard. (Def: `true`) |
+| `FEATURE_FLAG_LOGICTOOP_AI_CORE` | Habilita operaciones de escritura (Procesar/Aprobar/Rechazar). (Def: `true`) |
+| `FEATURE_FLAG_PAPERCLIP` | Habilita integración general con orquestador Paperclip. (Def: `false`) |
+| `FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION` | Permite requests HTTP externos hacia la API de Paperclip. (Def: `false`) |
 
 ---
 
-## 7. Modelos Prisma
+## J. Modelos Prisma detallados
+
+Los modelos están diseñados con estricto Tenant Isolation (`orgId`).
 
 ### `LogicToopAiAgent`
-
 Tabla: `logictoop_ai_agents`
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | String (cuid) | PK |
-| `orgId` | String | Organización propietaria |
-| `name` | String | Nombre del agente |
-| `role` | String | Rol del agente (e.g. "QA/Ops Agent") |
-| `systemPrompt` | String? | Prompt del sistema |
-| `tools` | Json | Lista de herramientas disponibles |
-| `status` | String | `ACTIVE` / `INACTIVE` |
+- `id` (String, cuid): PK
+- `orgId` (String): Tenant propietario
+- `name` (String): Nombre legible
+- `role` (String): Rol operativo (ej. QA_OPS)
+- `systemPrompt` (String?): Instrucciones base
+- `tools` (Json): Herramientas permitidas
+- `status` (String): `ACTIVE` | `INACTIVE`
 
 ### `LogicToopAiTask`
-
 Tabla: `logictoop_ai_tasks`
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | String (cuid) | PK |
-| `orgId` | String | Organización propietaria |
-| `agentId` | String | FK → `LogicToopAiAgent` |
-| `requestedById` | String | FK → `User` que solicitó la tarea |
-| `executionId` | String? | FK → `LogicToopExecution` (opcional) |
-| `inputPayload` | Json | Datos de entrada de la tarea |
-| `outputResult` | Json? | Resultado (null en fase actual) |
-| `status` | String | Estado actual de la tarea |
-| `costTokens` | Int | Tokens consumidos (0 en fase actual) |
-| `costEstimated` | Float | Costo estimado (0 en fase actual) |
-| `paperclipRunId` | String? | ID de ejecución en Paperclip (null, no conectado) |
-| `errorLogs` | Json? | Logs de error |
+- `id` (String, cuid): PK
+- `orgId` (String): Tenant propietario
+- `agentId` (String): FK a LogicToopAiAgent
+- `requestedById` (String): FK a User creador
+- `executionId` (String?): FK a LogicToopExecution (Flows)
+- `inputPayload` (Json): Contexto y parámetros enviados
+- `outputResult` (Json?): Resultado devuelto por el Runner/IA
+- `status` (String): Estado operativo
+- `costTokens` (Int): Tokens consumidos
+- `costEstimated` (Float): Costo en USD
+- `paperclipRunId` (String?): ID externo (nulo si es local)
+- `errorLogs` (Json?): Detalle de fallos
 
 ### `LogicToopAiApproval`
-
 Tabla: `logictoop_ai_approvals`
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | String (cuid) | PK |
-| `taskId` | String | FK → `LogicToopAiTask` |
-| `approvedById` | String | FK → `User` que tomó la decisión |
-| `approvedAt` | DateTime? | Timestamp explícito de la decisión |
-| `comments` | String? | Motivo o comentario del administrador |
-| `actionTaken` | String | Acción registrada (ver sección 12/13) |
+- `id` (String, cuid): PK
+- `taskId` (String): FK a LogicToopAiTask
+- `approvedById` (String): FK a User autorizador
+- `approvedAt` (DateTime?): Fecha de decisión
+- `comments` (String?): Feedback del admin
+- `actionTaken` (String): Enum string de la acción exacta ejecutada (ej. `APPROVED_NO_SIDE_EFFECTS`)
 
 ---
 
-## 8. Estados de `LogicToopAiTask`
+## K. Estados de LogicToopAiTask
 
-| Estado | Descripción | Se puede aprobar | Se puede rechazar |
-|---|---|---|---|
-| `PENDING` | Tarea recién creada | ✅ | ✅ |
-| `NEEDS_APPROVAL` | Requiere revisión humana explícita | ✅ | ✅ |
-| `APPROVED` | Aprobada por admin | ❌ | ❌ |
-| `REJECTED` | Rechazada por admin | ❌ | ❌ |
-| `COMPLETED` | Ejecutada exitosamente (futuro) | ❌ | ❌ |
-| `FAILED` | Error de ejecución (futuro) | ❌ | ❌ |
-| `CANCELLED` | Cancelada (futuro) | ❌ | ❌ |
+Matriz de transiciones permitidas:
 
----
-
-## 9. Flujo de creación de task
-
-> **Nota**: En la fase actual, las tasks se crean manualmente via seed o script de prueba. No existe aún un flujo automatizado de creación.
-
-Flujo futuro previsto:
-
-1. Un agente IA (interno o Paperclip) genera una propuesta de acción.
-2. SevenToop recibe la propuesta y crea un `LogicToopAiTask` con `status = "PENDING"` o `"NEEDS_APPROVAL"`.
-3. La tarea aparece en la Bandeja de Aprobaciones para revisión humana.
+| Estado | Descripción | ¿Se puede Procesar? | ¿Se puede Aprobar/Rechazar? |
+|---|---|:---:|:---:|
+| `PENDING` | Tarea recién creada. | ✅ | ❌ |
+| `NEEDS_APPROVAL` | Tarea ejecutada localmente o por IA, esperando veredicto. | ❌ | ✅ |
+| `APPROVED` | Aprobada por un humano. Estado terminal de revisión. | ❌ | ❌ |
+| `REJECTED` | Rechazada por un humano. Estado terminal de revisión. | ❌ | ❌ |
+| `COMPLETED` | Ejecución final (side-effects) completada. (Futuro) | ❌ | ❌ |
+| `FAILED` | Tarea falló internamente. | ❌ | ❌ |
+| `CANCELLED` | Abortada manualmente antes de procesar. | ❌ | ❌ |
 
 ---
 
-## 10. Flujo de aprobación (`approveAiTask`)
+## L. Flujo actual completo
 
-1. **`requireAuth()`** — Verifica sesión activa.
-2. **Validación de rol** — Solo `ADMIN` o `SUPERADMIN`. Lanza `AuthError(403)` si no cumple.
-3. **Feature flag** — Verifica `FEATURE_FLAG_LOGICTOOP_AI_CORE === "true"`. Retorna error controlado si no.
-4. **Búsqueda con tenant isolation** — `findFirst` con filtro `orgId`:
-   - `ADMIN`: limitado a su propia organización.
-   - `SUPERADMIN`: puede operar globalmente.
-5. **Validación de estado** — Solo permite `PENDING` o `NEEDS_APPROVAL`.
-6. **Transacción atómica** (`$transaction`):
-   - Actualiza `LogicToopAiTask.status` → `"APPROVED"`.
-   - Crea registro en `LogicToopAiApproval`:
-     - `actionTaken` = `"APPROVED_NO_SIDE_EFFECTS"`
-     - `approvedAt` = timestamp actual
-     - `approvedById` = ID del usuario autenticado
-     - `comments` = input del usuario o `"Aprobado sin side-effects (Fase 2E.1)"`
-7. **`revalidatePath()`** — Refresca la página de approvals.
-8. **Retorna** `{ success: true, taskId }`.
-
-**En esta fase, aprobar NO ejecuta ninguna acción real.** Solo cambia el estado y registra la auditoría.
+1. **Crear task**: (Vía script o DB local) Se crea registro con status `PENDING`.
+2. **Procesar localmente**: Usuario presiona "Procesar". La tarea cambia a `NEEDS_APPROVAL` y genera un output mock.
+3. **Revisar outputResult**: El administrador lee el resultado propuesto.
+4. **Aprobar/Rechazar**: Admin decide la acción final, creando registro en `LogicToopAiApproval` y cerrando la tarea en `APPROVED` o `REJECTED`.
+5. **Auditoría**: Queda traza permanente de quién, cuándo y por qué se decidió.
 
 ---
 
-## 11. Flujo de rechazo (`rejectAiTask`)
+## M. Flujo de `processAiTaskLocally`
 
-1. Mismas validaciones de auth, rol, flag y tenant isolation que la aprobación.
-2. **Transacción atómica** (`$transaction`):
-   - Actualiza `LogicToopAiTask.status` → `"REJECTED"`.
-   - Crea registro en `LogicToopAiApproval`:
-     - `actionTaken` = `"REJECTED"`
-     - `approvedAt` = timestamp actual
-     - `approvedById` = ID del usuario autenticado
-     - `comments` = motivo proporcionado por el admin
-3. `revalidatePath()` y retorno.
-
-**En esta fase, rechazar NO ejecuta ninguna acción real.** Solo cambia el estado y registra la auditoría.
-
----
-
-## 12. Qué significa `APPROVED_NO_SIDE_EFFECTS`
-
-Este valor en `LogicToopAiApproval.actionTaken` indica que:
-
-- El administrador aprobó la tarea propuesta por la IA.
-- La aprobación **no disparó ninguna acción** en el sistema (no modificó proyectos, leads, banners, etc.).
-- Es una marca explícita de que la aprobación ocurrió en la **Fase 2E.1** (MVP inerte).
-- En fases futuras, cuando se habiliten side-effects reales, el `actionTaken` cambiará a un valor diferente (e.g. `"APPROVED"`, `"APPROVED_WITH_EXECUTION"`).
+El método simula la ejecución segura sin salir de la infraestructura:
+- Verifica `requireAuth` y roles (`ADMIN`/`SUPERADMIN`).
+- Verifica `FEATURE_FLAG_LOGICTOOP_AI_CORE === "true"`.
+- Verifica `FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION !== "true"` (protección contra ejecución remota).
+- Verifica tenant isolation (`orgId`).
+- Valida que el status actual sea estrictamente `PENDING`.
+- Ejecuta `internalAiRunner.processTaskInternal(taskId)`.
+- El runner genera un JSON `outputResult` tipo mock (ej. para `QA_OPS`).
+- Cambia status a `NEEDS_APPROVAL`.
+- Retorna sin ejecutar ningún side-effect en otras tablas de la DB.
+- Llama a `revalidatePath` para actualizar la UI.
 
 ---
 
-## 13. Qué significa `REJECTED`
+## N. Flujo de `approveAiTask` completo
 
-Este valor en `LogicToopAiApproval.actionTaken` indica que:
-
-- El administrador rechazó la tarea propuesta por la IA.
-- El rechazo incluye un motivo en el campo `comments`.
-- La tarea queda en estado terminal `REJECTED` y no puede ser re-procesada en esta fase.
-
----
-
-## 14. Seguridad
-
-### Autenticación
-
-Todas las Server Actions llaman a `requireAuth()` como primera línea. Si no hay sesión válida, se lanza un error y la acción se aborta.
-
-### Roles
-
-Solo `ADMIN` y `SUPERADMIN` pueden acceder al módulo. Otros roles (`VENDEDOR`, `INVERSOR`, `CLIENTE`) son bloqueados con `AuthError(403)`.
-
-### Tenant isolation (orgId)
-
-- **ADMIN**: Todas las queries filtran por `orgId = user.orgId`. Un ADMIN no puede ver ni operar sobre tareas de otra organización.
-- **SUPERADMIN**: Puede operar globalmente (sin filtro de `orgId`). Esto es intencional para soporte y administración cross-tenant.
-
-### Feature flags
-
-- `FEATURE_FLAG_LOGICTOOP_AI_UI`: Controla acceso a las páginas. Si es `false`, las rutas retornan vacío o redirigen.
-- `FEATURE_FLAG_LOGICTOOP_AI_CORE`: Controla escritura. Si es `false`, las Server Actions de escritura retornan error controlado y los botones en la UI están deshabilitados.
-
-### No conexión directa frontend → Paperclip
-
-El frontend **nunca** llama directamente a la API de Paperclip. Todo pasa por Server Actions de SevenToop. Actualmente no existe ninguna llamada HTTP a Paperclip en el codebase.
+La aprobación es un evento puramente inerte y auditable:
+- Verifica `requireAuth` y roles validos.
+- Verifica `FEATURE_FLAG_LOGICTOOP_AI_CORE === "true"`.
+- Busca la tarea filtrando por `orgId` (Tenant Isolation).
+- Valida que el estado sea `NEEDS_APPROVAL` (o `PENDING` si la UI lo permitiera por override).
+- Ejecuta una `$transaction` en Prisma:
+  1. Actualiza tarea a status `APPROVED`.
+  2. Crea registro en `LogicToopAiApproval`.
+- Setea explícitamente `approvedAt: new Date()`.
+- Setea `actionTaken: "APPROVED_NO_SIDE_EFFECTS"`.
+- Llama a `revalidatePath`.
+- **Cero Side-effects**: Finaliza sin tocar ninguna otra entidad comercial del sistema.
 
 ---
 
-## 15. Cómo probar en local
+## O. Flujo de `rejectAiTask` completo
 
-### Prerrequisitos
-
-1. Docker Desktop corriendo.
-2. Base de datos levantada:
-   ```bash
-   docker-compose up -d
-   ```
-3. Migraciones aplicadas:
-   ```bash
-   npm run db:migrate:dev
-   ```
-4. Seed ejecutado:
-   ```bash
-   npm run db:seed
-   ```
-
-### Variables de entorno requeridas (`.env.local`)
-
-```
-FEATURE_FLAG_LOGICTOOP_AI_CORE="true"
-FEATURE_FLAG_LOGICTOOP_AI_UI="true"
-FEATURE_FLAG_PAPERCLIP="false"
-FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION="false"
-```
-
-### Usuarios de prueba
-
-Usar un usuario local con rol `ADMIN` o `SUPERADMIN` perteneciente a la organización de desarrollo.
-
-Requisitos del usuario de prueba:
-- `rol`: `ADMIN` o `SUPERADMIN`
-- `orgId`: `seventoop-main`
-- `FEATURE_FLAG_LOGICTOOP_AI_UI` = `"true"`
-- `FEATURE_FLAG_LOGICTOOP_AI_CORE` = `"true"`
-
-Las credenciales concretas deben obtenerse del entorno local (`prisma/seed.ts`), del administrador del proyecto, o ejecutando `npm run db:seed` para crear los usuarios de desarrollo. **No documentar contraseñas en este archivo.**
-
-### Acceso
-
-1. Levantar la app: `npm run dev`
-2. Abrir: `http://localhost:5000`
-3. Iniciar sesión con alguno de los usuarios de prueba.
-4. Navegar a: `/dashboard/admin/logictoop/orchestrator`
-5. Hacer clic en la tarjeta de "Bandeja de Aprobaciones IA".
+El rechazo sigue el mismo rigor de seguridad:
+- Verifica `requireAuth`, roles y `CORE=true`.
+- Búsqueda de tarea bajo Tenant Isolation.
+- Valida estado pendiente/necesita aprobación.
+- Ejecuta `$transaction` en Prisma:
+  1. Actualiza tarea a status `REJECTED`.
+  2. Crea registro `LogicToopAiApproval` capturando el comentario del administrador.
+- Setea `approvedAt: new Date()`.
+- Setea `actionTaken: "REJECTED"`.
+- Llama a `revalidatePath`.
+- **Cero Side-effects**.
 
 ---
 
-## 16. Datos dummy usados en validación
+## P. Qué significa `APPROVED_NO_SIDE_EFFECTS`
 
-Estos datos fueron creados manualmente para validar la Fase 2E.1:
-
-| Entidad | ID | Detalles |
-|---|---|---|
-| Organization | `seventoop-main` | Org principal de desarrollo |
-| Agent | `cmopxbg210000nqowfvwgc7i5` | "QA/Ops Agent" |
-| Task | `cmopxcbyv0001xpangj8hbiu3` | Tarea dummy, status: `APPROVED` |
-| Approval | `cmoqly99r000ac2g5qhk3bhkb` | `APPROVED_NO_SIDE_EFFECTS` |
-| Approver | `cmokqi4os0000nh18zaxv8sm4` | SUPERADMIN local de desarrollo |
+Es el string insertado en el log de aprobación. Garantiza histórica y contextualmente que, aunque un humano aprobó la tarea de IA, el sistema estaba en Fase de MVP (2E.1 / 3A) y estaba configurado deliberadamente para ignorar la ejecución real (no mutar leads, proyectos, enviar emails).
 
 ---
 
-## 17. Qué NO hace todavía
+## Q. Qué significa `REJECTED`
 
-| Capacidad | Estado |
-|---|---|
-| Ejecutar acciones reales post-aprobación | ❌ No implementado |
-| Conexión HTTP a Paperclip API | ❌ No implementado |
-| Webhooks de entrada o salida | ❌ No implementado |
-| Nodos IA dentro de LogicToop Flows (Canvas) | ❌ No implementado |
-| Marketplace de agentes IA | ❌ No implementado |
-| Modificar proyectos al aprobar | ❌ No implementado (por diseño) |
-| Modificar leads al aprobar | ❌ No implementado (por diseño) |
-| Modificar banners al aprobar | ❌ No implementado (por diseño) |
-| Enviar emails al aprobar/rechazar | ❌ No implementado |
-| Notificaciones push | ❌ No implementado |
-| Re-aprobar tareas rechazadas | ❌ No implementado |
-| Creación automática de tasks por agentes | ❌ No implementado |
+Es el estado final de una decisión negativa humana. Implica que la propuesta del agente IA fue desestimada, bloqueando permanentemente su ejecución futura y almacenando el comentario justificativo del administrador para reentrenamiento o auditoría.
 
 ---
 
-## 18. Riesgos mitigados
+## R. Seguridad (Capa de blindaje)
 
-| Riesgo | Mitigación |
-|---|---|
-| Acceso no autorizado | `requireAuth()` + validación de rol |
-| Cross-tenant data leak | Filtro `orgId` en todas las queries |
-| Side-effects accidentales | `actionTaken = "APPROVED_NO_SIDE_EFFECTS"`, sin lógica de ejecución |
-| Double-approval | Validación de estado: solo `PENDING`/`NEEDS_APPROVAL` pueden ser procesados |
-| Escritura sin feature flag | `FEATURE_FLAG_LOGICTOOP_AI_CORE` bloquea Server Actions |
-| Conexión prematura a Paperclip | `FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION = false`, sin código de conexión |
-| UI habilitada sin backend | Botones deshabilitados cuando `canWrite = false` |
-| Inconsistencia de datos | Transacciones Prisma (`$transaction`) para atomicidad |
+- **`requireAuth()`**: Protección de rutas y Server Actions.
+- **Roles `ADMIN` / `SUPERADMIN`**: Únicos autorizados a interactuar con el módulo.
+- **`orgId` (Tenant Isolation)**: Filtro hardcodeado en las consultas Prisma de DB; un ADMIN nunca ve tareas ajenas a su organización.
+- **Feature Flags**: Múltiples kill-switches (`UI`, `CORE`, `PAPERCLIP`).
+- **No acceso directo Frontend → Paperclip**: El frontend no sabe de la existencia de Paperclip.
+- **Sin vulnerabilidades RCE en el Runner**: El `internal-ai-runner.ts` NO utiliza `fetch` externo, NO usa `eval()`, NO invoca `child_process` ni comandos `shell`. Es puramente determinista (genera JSON estático basado en roles).
+- **No Side-Effects**: Operatividad confinada exclusivamente a tablas del ecosistema IA (`tasks`, `approvals`).
 
 ---
 
-## 19. Pendientes de UX
+## S. Cómo probar en local
 
-Mejoras de interfaz que no afectan la lógica de negocio:
-
-- **Filtros**: Filtrar tareas por estado, agente o fecha.
-- **Paginación**: La tabla actual carga todas las tareas. Agregar paginación server-side para escalabilidad.
-- **Detalle expandido**: Mostrar `inputPayload` y `outputResult` en un modal o drawer al hacer clic en una tarea.
-- **Historial por task**: Mostrar todos los registros de `LogicToopAiApproval` asociados a una tarea.
-- **Confirmación mejorada**: Reemplazar `window.confirm` y `window.prompt` por modales de la UI.
-
----
-
-## 20. Opciones para Fase 3
-
-> ⚠️ **Ninguna opción debe implementarse sin un plan técnico aprobado previamente.**
-
-### A. Agentes internos sin Paperclip
-
-Crear un motor de ejecución propio dentro de SevenToop que procese las tareas aprobadas internamente, sin dependencias externas.
-
-- **Pro**: Máximo control, sin latencia de red, sin dependencia de servicio externo.
-- **Contra**: Requiere diseñar queue management, retry policy y cost tracking.
-
-### B. Nodos IA dentro de LogicToop Flow
-
-Extender el workflow engine existente (Canvas) para incluir nodos de tipo "IA" que puedan generar tareas automáticamente.
-
-- **Pro**: Reutiliza infraestructura existente, integración natural con automatizaciones.
-- **Contra**: Requiere extensión del modelo de nodos y del executor del workflow.
-
-### C. Paperclip real como sidecar
-
-Conectar Paperclip como servicio externo que recibe tareas aprobadas y retorna resultados.
-
-- **Pro**: Motor de IA dedicado, separación de concerns.
-- **Contra**: Requiere autenticación service-to-service, circuit breaker, retry policy, health checks.
-
-### D. Webhooks de resultados IA
-
-Exponer un endpoint que reciba resultados de ejecución de IA desde servicios externos.
-
-- **Pro**: Desacoplamiento, compatibilidad con múltiples proveedores.
-- **Contra**: Requiere endpoint público, validación de firmas, idempotencia, manejo de reintentos.
+1. No se requiere conexión a servicios reales ni credenciales externas.
+2. Usar un usuario local (por `seed.ts`) genérico con rol `ADMIN` o `SUPERADMIN` perteneciente a `seventoop-main`.
+3. Validar flags en `.env.local`: `FEATURE_FLAG_LOGICTOOP_AI_UI="true"`, `FEATURE_FLAG_LOGICTOOP_AI_CORE="true"`, `FEATURE_FLAG_PAPERCLIP="false"`, `FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION="false"`.
+4. Iniciar server: `npm run dev` en puerto `5000`.
+5. Navegar a `/dashboard/admin/logictoop/orchestrator/approvals`.
+6. Insertar tarea `PENDING` vía un script local Prisma (`ts-node` o `tsx`).
+7. Probar flujo visual: Procesar -> Ver status cambiar -> Aprobar/Rechazar -> Confirmar registros.
 
 ---
 
-## 21. Recomendación
+## T. Datos dummy de validación
 
-**Priorizar opciones A o B** (agentes internos o nodos IA en flows) antes de conectar Paperclip real:
+Historial de validaciones técnicas locales (seguras y sanitizadas):
 
-1. Ambas opciones mantienen el control total dentro de SevenToop.
-2. No introducen dependencias externas.
-3. Permiten iterar rápido sobre el flujo de ejecución.
-4. La infraestructura de human-in-the-loop ya está lista para soportarlas.
+- OrgId base: `seventoop-main`
+- AgentId dummy (`QA_OPS`): `cmopxbg210000nqowfvwgc7i5`
+- TaskId de validación Fase 2E.1: `cmopxcbyv0001xpangj8hbiu3`
+- TaskId de validación Fase 3A: `cmor6wruh00014kmumhth49id`
+- Rol que aprobó: `SUPERADMIN`
+- Mode devuelto por runner: `internal_mock_agent`
+- Status alcanzados: `PENDING` -> `NEEDS_APPROVAL` -> `APPROVED`.
 
-**Paperclip real** (opción C) debe diferirse hasta tener un caso de uso concreto que justifique la complejidad operativa de mantener un servicio externo.
+*Nota: No se deben incluir identificadores que comprometan datos de usuarios reales.*
 
 ---
 
-## Historial de commits
+## U. Qué NO hace todavía
 
-```
+Para prevenir alucinaciones arquitectónicas, se detalla explícitamente lo que el módulo aún no implementa:
+
+- **Paperclip Real**: Conexión HTTP apagada.
+- **Webhooks**: Sin infraestructura de callbacks externos entrantes ni salientes.
+- **Side-effects reales**: No se envían emails. No se modifican ni se crean Proyectos, Leads, Banners, Reservas ni Unidades al aprobar.
+- **Nodos en Canvas**: LogicToop Flows no posee actualmente integración gráfica con IA.
+- **Marketplace de Agentes**: No existe repositorio público real de agentes.
+- **Post-ejecución**: El estado terminal actual es `APPROVED`/`REJECTED`, no se cuenta con worker post-aprobación (`COMPLETED`).
+
+---
+
+## V. Riesgos mitigados
+
+- **Acceso no autorizado**: Cubierto por `requireAuth()` estricto.
+- **Fuga de datos cruzados**: Cubierto por Tenant Isolation (`orgId`).
+- **Modificación destructiva accidental**: Cubierta por la marca inerte `APPROVED_NO_SIDE_EFFECTS`.
+- **Doble procesamiento**: Validado mediante el chequeo estricto del campo `status` antes de transacciones.
+- **Conexión prematura no testeada a IA**: Bloqueada preventivamente por `FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION=false`.
+- **Inconsistencia de datos relacionales**: Prevenida usando transacciones de Prisma (`$transaction`).
+
+---
+
+## W. Pendientes UX
+
+- **Filtros**: Por estado, agente o fechas.
+- **Paginación**: Evitar sobrecarga en la vista `approvals-client.tsx`.
+- **OutputResult Expandido**: Un modal o panel deslizable para inspeccionar detalladamente el JSON devuelto por el agente o el runner.
+- **Historial de Task**: Ver auditorías y comentarios anidados cronológicamente.
+- **Modales mejores**: Remplazar `window.prompt` y `window.confirm` por componentes accesibles Radix UI.
+- **Limpieza de dummies**: Scripts de purga para tareas de desarrollo generadas localmente.
+
+---
+
+## X. Opciones Fase 3B
+
+> ⚠️ NO IMPLEMENTAR NADA DE ESTO SIN PLAN APROBADO PREVIO.
+
+- **Detalle UI de Resultados**: Expandir la UI para leer el `outputResult` cómodamente.
+- **Agentes Internos Avanzados**: Desarrollar lógica real para el runner interno antes de requerir LLMs externos.
+- **Nodos IA en LogicToop Flow**: Conectar el Canvas visual existente con la tabla `LogicToopAiTask`.
+- **Paperclip Sidecar**: Comenzar el diseño de seguridad HTTP para conexión real a agentes remotos complejos.
+- **Webhooks Entrantes**: Diseñar la especificación para recibir respuestas asíncronas de servicios LLM long-running.
+
+---
+
+## Y. Recomendación estratégica
+
+1. **Corto plazo**: Consolidar la experiencia local del `Internal Agent Runner` y desarrollar componentes UI que permitan ver claramente el `outputResult` propuesto. Esto maximizará la eficacia del rol humano sin costos de API externa.
+2. **Mediano plazo**: Integrar nodos básicos de creación de tasks IA dentro del Canvas LogicToop Flow.
+3. **Largo plazo**: Diferir la conexión con **Paperclip real** hasta tener un caso de uso comercial irrefutable y haber diseñado por completo los esquemas de rate limit, firma de payloads, e idempotencia para los endpoints externos.
+
+---
+
+## Z. Historial de commits
+
+```text
+28f48b3 feat(ai): add internal logictoop task runner
 cdaf5a5 feat(ai): setup logictoop ai orchestrator foundations
 ce47204 feat(ai): add inert logictoop approvals flags
 b5c11b2 chore(db): add logictoop ai foundations migration
