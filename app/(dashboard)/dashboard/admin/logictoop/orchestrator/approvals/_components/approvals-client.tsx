@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { rejectAiTask } from "@/lib/actions/logictoop-ai";
+import { rejectAiTask, approveAiTask } from "@/lib/actions/logictoop-ai";
 import { Loader2, XCircle, CheckCircle2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 
@@ -47,12 +47,29 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
         }
     };
 
-    const handleApprove = () => {
+    const handleApprove = async (taskId: string) => {
         if (!canWrite) {
             toast.error("El motor de IA está desactivado (Modo Lectura)");
             return;
         }
-        toast.info("La lógica de aprobación (side-effects) se habilitará en la Fase 2E.");
+
+        const confirmed = window.confirm("¿Confirmar aprobación de esta tarea IA? No se aplicarán cambios reales en esta fase.");
+        if (!confirmed) return;
+
+        setLoadingId(taskId);
+        try {
+            const res = await approveAiTask(taskId);
+            if (res.success) {
+                toast.success("Tarea aprobada. No se aplicaron cambios reales en esta fase.");
+                setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: "APPROVED" } : t));
+            } else {
+                toast.error(res.error || "Error al aprobar");
+            }
+        } catch (error) {
+            toast.error("Error de conexión");
+        } finally {
+            setLoadingId(null);
+        }
     };
 
     const getStatusBadge = (status: string) => {
@@ -128,11 +145,11 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                                                         </Button>
                                                         <Button 
                                                             size="sm"
-                                                            disabled={!canWrite}
+                                                            disabled={!canWrite || loadingId === task.id}
                                                             title={!canWrite ? "Modo Lectura Activo" : "Aprobar tarea"}
-                                                            onClick={handleApprove}
+                                                            onClick={() => handleApprove(task.id)}
                                                         >
-                                                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                            {loadingId === task.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                                                             Aprobar
                                                         </Button>
                                                     </>

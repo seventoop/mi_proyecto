@@ -109,3 +109,61 @@ export async function rejectAiTask(taskId: string, comments: string): Promise<{ 
         return { success: false, error: "Error al rechazar tarea" };
     }
 }
+
+/**
+ * Aprueba una tarea de IA y registra la decisión (Fase 2E.1).
+ * IMPORTANTE: En esta fase no se ejecutan side-effects reales.
+ */
+export async function approveAiTask(taskId: string, comments?: string): Promise<{ success: boolean; error?: string; taskId?: string }> {
+    const user = await requireAuth();
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+        throw new AuthError("Solo administradores pueden aprobar tareas", 403);
+    }
+
+    if (process.env.FEATURE_FLAG_LOGICTOOP_AI_CORE !== "true") {
+        return { success: false, error: "El motor de IA está desactivado (CORE=false)" };
+    }
+
+    try {
+        const existingTask = await db.logicToopAiTask.findFirst({
+            where: {
+                id: taskId,
+                ...(user.role !== "SUPERADMIN" ? { orgId: user.orgId as string } : {})
+            }
+        });
+
+        if (!existingTask) {
+            return { success: false, error: "Tarea no encontrada o no pertenece a tu organización" };
+        }
+
+        // Validar estados permitidos
+        const allowedStatuses = ["PENDING", "NEEDS_APPROVAL"];
+        if (!allowedStatuses.includes(existingTask.status)) {
+            return { success: false, error: `No se puede aprobar una tarea en estado ${existingTask.status}` };
+        }
+
+        const result = await db.$transaction(async (tx) => {
+            const task = await tx.logicToopAiTask.update({
+                where: { id: taskId },
+                data: { status: "APPROVED" }
+            });
+
+            await tx.logicToopAiApproval.create({
+                data: {
+                    taskId,
+                    approvedById: user.id,
+                    comments: comments || "Aprobado sin side-effects (Fase 2E.1)",
+                    actionTaken: "APPROVED_NO_SIDE_EFFECTS"
+                }
+            });
+
+            return { success: true, taskId: task.id };
+        });
+
+        revalidatePath("/dashboard/admin/logictoop/orchestrator/approvals");
+        return result;
+    } catch (error) {
+        console.error("[LogicToop AI] Error approving task:", error);
+        return { success: false, error: "Error al aprobar tarea" };
+    }
+}
