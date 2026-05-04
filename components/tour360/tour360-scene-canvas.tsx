@@ -83,7 +83,6 @@ export type PoiBadge = {
     pitch?: number;
     yaw?: number;
     anchorHfov?: number;
-    color?: string;
 };
 
 export type FreehandStroke = {
@@ -91,15 +90,6 @@ export type FreehandStroke = {
     points: { pitch: number; yaw: number }[];
     strokeWidth?: number;
     color?: string;
-};
-
-export type ScenePolygon = {
-    id: string;
-    points: Point[];
-    pitchPoints?: { pitch: number; yaw: number }[];
-    anchorHfov?: number;
-    fillColor?: string;
-    strokeColor?: string;
 };
 
 export type ControlPoint = {
@@ -127,7 +117,6 @@ type DragTarget =
     | { type: "frame"; frameId: string }
     | { type: "frame-resize"; frameId: string; startWidth: number; startHeight: number; startX: number; startY: number }
     | { type: "resize"; textId: string; startSize: number; startX: number; startY: number; corner: "nw" | "ne" | "sw" | "se" }
-    | { type: "poly-vertex"; polyId: string; vertexIndex: number }
     | { type: "group"; origin: Point }
     | null;
 
@@ -791,8 +780,6 @@ export default function Tour360SceneCanvas({
     initialFreehandStrokes = [],
     initialFrames = [],
     initialAnchoredFrames = [],
-    initialPolygons = [],
-    initialAnchoredPolygons = [],
     onNavigate,
     onDropAsset,
 }: {
@@ -821,8 +808,6 @@ export default function Tour360SceneCanvas({
     initialPoiBadges?: PoiBadge[];
     initialAnchoredPoiBadges?: PoiBadge[];
     initialFreehandStrokes?: FreehandStroke[];
-    initialPolygons?: ScenePolygon[];
-    initialAnchoredPolygons?: ScenePolygon[];
     onNavigate?: (target: { sceneId?: string; sceneKey?: string }) => void;
     initialFrames?: SceneFrame[];
     initialAnchoredFrames?: SceneFrame[];
@@ -861,11 +846,8 @@ export default function Tour360SceneCanvas({
     const [poiBadges, setPoiBadges] = useState<PoiBadge[]>(initialPoiBadges || []);
     const [anchoredPoiBadges, setAnchoredPoiBadges] = useState<PoiBadge[]>(initialAnchoredPoiBadges || []);
     const [freehandStrokes, setFreehandStrokes] = useState<FreehandStroke[]>(initialFreehandStrokes || []);
-    const [polygons, setPolygons] = useState<ScenePolygon[]>(initialPolygons || []);
-    const [anchoredPolygons, setAnchoredPolygons] = useState<ScenePolygon[]>(initialAnchoredPolygons || []);
     const [draftFreehandStroke, setDraftFreehandStroke] = useState<FreehandStroke | null>(null);
     const [draftFreehandDisplayPoints, setDraftFreehandDisplayPoints] = useState<Point[]>([]);
-    const [draftPolygonPoints, setDraftPolygonPoints] = useState<Point[]>([]);
     const [mapMode, setMapMode] = useState<"TERRAIN" | "IMAGE">("TERRAIN");
     
     const [draftTextItem, setDraftTextItem] = useState<TextItem | null>(null);
@@ -912,8 +894,6 @@ export default function Tour360SceneCanvas({
     const [planOpacity, setPlanOpacity] = useState(0.8);
     const [planFixed, setPlanFixed] = useState(false);
     const [imgSize, setImgSize] = useState({ w: 800, h: 600 });
-
-
 
     const initialSrc = initialActiveOverlay
         ? initialActiveOverlay.points.map(p => ({ x: p.src.u * imgSize.w, y: p.src.v * imgSize.h }))
@@ -1025,39 +1005,6 @@ export default function Tour360SceneCanvas({
         [viewer]
     );
 
-    const finalizePolygon = useCallback((points: Point[]) => {
-        if (points.length < 3) {
-            setDraftPolygonPoints([]);
-            return;
-        }
-
-        const newId = `poly-${Date.now()}`;
-        const basePoly: ScenePolygon = {
-            id: newId,
-            points: points,
-            fillColor: "rgba(16, 185, 129, 0.4)",
-            strokeColor: "white",
-        };
-
-        if (isAnchored) {
-            const pitchPoints = points.map(p => getPitchYawFromScreenPoint(p));
-            if (pitchPoints.every(p => p !== null)) {
-                setAnchoredPolygons((prev) => [...prev, {
-                    ...basePoly,
-                    pitchPoints: pitchPoints.map(p => ({ pitch: p![0], yaw: p![1] })),
-                    anchorHfov: viewerState?.hfov
-                }]);
-            } else {
-                setPolygons((prev) => [...prev, basePoly]);
-            }
-        } else {
-            setPolygons((prev) => [...prev, basePoly]);
-        }
-
-        setSelectedLineIds(new Set([newId]));
-        setDraftPolygonPoints([]);
-    }, [isAnchored, getPitchYawFromScreenPoint, viewerState]);
-
     const projectPitchYaw = useCallback(
         (pitch: number, yaw: number): Point | null => {
             if (!viewer || !svgRef.current) return null;
@@ -1153,27 +1100,6 @@ export default function Tour360SceneCanvas({
 
         return [...filtered2D, ...projectedAnchored];
     }, [frames, anchoredFrames, projectPitchYaw, viewerState, dragTarget]);
-
-    const displayPolygons = useMemo(() => {
-        const projectedAnchored = anchoredPolygons.map((poly) => {
-            if (!poly.pitchPoints || poly.pitchPoints.length !== poly.points.length) {
-                return { ...poly, points: poly.points.map(() => ({ x: -9999, y: -9999 })) };
-            }
-            const pts = poly.pitchPoints.map(p => {
-                const proj = projectPitchYaw(p.pitch, p.yaw);
-                return proj || { x: -9999, y: -9999 };
-            });
-            if (pts.some(p => p.x === -9999)) {
-                return { ...poly, points: poly.points.map(() => ({ x: -9999, y: -9999 })) };
-            }
-            return { ...poly, points: pts };
-        });
-
-        const anchoredIds = new Set(anchoredPolygons.map(p => p.id));
-        const filtered2D = polygons.filter(p => !anchoredIds.has(p.id));
-
-        return [...filtered2D, ...projectedAnchored];
-    }, [polygons, anchoredPolygons, projectPitchYaw, viewerState]);
 
     const displayLines = useMemo(() => {
         // Proyectar líneas ancladas (con world-space) a coordenadas de pantalla
@@ -1502,23 +1428,6 @@ export default function Tour360SceneCanvas({
                         setAnchoredPoiBadges(prev => prev.filter(p => p.id !== id));
                     }
                 }
-
-                // Caso: POLYGONS
-                const poly2D = polygons.find(p => p.id === id);
-                if (poly2D) {
-                    const pitchPoints = poly2D.points.map(p => getPitchYawFromScreenPoint(p));
-                    if (pitchPoints.every(p => p !== null)) {
-                        setAnchoredPolygons(prev => [...prev, { ...poly2D, pitchPoints: pitchPoints.map(p => ({ pitch: p![0], yaw: p![1] })), anchorHfov: viewerState?.hfov }]);
-                        setPolygons(prev => prev.filter(p => p.id !== id));
-                        hasAnchoredAnything = true;
-                    }
-                } else {
-                    const poly3D = anchoredPolygons.find(p => p.id === id);
-                    if (poly3D) {
-                        setPolygons(prev => [...prev, poly3D]);
-                        setAnchoredPolygons(prev => prev.filter(p => p.id !== id));
-                    }
-                }
             });
 
             if (hasAnchoredAnything) setIsAnchored(true);
@@ -1554,37 +1463,25 @@ export default function Tour360SceneCanvas({
                 return c ? { ...p, pitch: c[0], yaw: c[1], anchorHfov: viewerState?.hfov } : null;
             }).filter(Boolean) as PoiBadge[];
 
-            const newAnchoredPolygons = polygons.map(p => {
-                const pitchPoints = p.points.map(pt => getPitchYawFromScreenPoint(pt));
-                if (pitchPoints.every(pt => pt !== null)) {
-                    return { ...p, pitchPoints: pitchPoints.map(pt => ({ pitch: pt![0], yaw: pt![1] })), anchorHfov: viewerState?.hfov };
-                }
-                return null;
-            }).filter(Boolean) as ScenePolygon[];
-
             setAnchoredLines(newAnchoredLines);
             setAnchoredTexts(newAnchoredTexts);
             setAnchoredFrames(newAnchoredFrames);
             setAnchoredPoiBadges(newAnchoredPoiBadges);
-            setAnchoredPolygons(newAnchoredPolygons);
             setIsAnchored(true);
             setLines([]);
             setTexts([]);
             setFrames([]);
             setPoiBadges([]);
-            setPolygons([]);
         } else {
             setIsAnchored(false);
             setLines(prev => [...prev, ...anchoredLines]);
             setTexts(prev => [...prev, ...anchoredTexts]);
             setFrames(prev => [...prev, ...anchoredFrames]);
             setPoiBadges(prev => [...prev, ...anchoredPoiBadges]);
-            setPolygons(prev => [...prev, ...anchoredPolygons]);
             setAnchoredLines([]);
             setAnchoredTexts([]);
             setAnchoredFrames([]);
             setAnchoredPoiBadges([]);
-            setAnchoredPolygons([]);
         }
     }, [
         anchorTrigger,
@@ -1854,8 +1751,6 @@ export default function Tour360SceneCanvas({
                 poiBadges,
                 anchoredPoiBadges,
                 freehandStrokes,
-                polygons,
-                anchoredPolygons,
                 srcNodes,
                 dstNodes,
                 anchoredDstNodes,
@@ -1872,7 +1767,7 @@ export default function Tour360SceneCanvas({
         }, 100); // Debounce de 100ms para fluidez total
 
         return () => clearTimeout(timer);
-    }, [lines, anchoredLines, texts, anchoredTexts, poiBadges, anchoredPoiBadges, freehandStrokes, polygons, anchoredPolygons, frames, anchoredFrames, images, anchoredImages, srcNodes, dstNodes, anchoredDstNodes, isAnchored, isFixed, fixedLineIds, selectedLineIds, planImageUrl, planOpacity, imgSize.w, imgSize.h, onStateChange]);
+    }, [lines, anchoredLines, texts, anchoredTexts, poiBadges, anchoredPoiBadges, freehandStrokes, frames, anchoredFrames, images, anchoredImages, srcNodes, dstNodes, anchoredDstNodes, isAnchored, isFixed, fixedLineIds, selectedLineIds, planImageUrl, planOpacity, imgSize.w, imgSize.h, onStateChange]);
 
     // EFECTO: Detectar trigger de añadir texto desde el panel lateral
     useEffect(() => {
@@ -2125,29 +2020,31 @@ export default function Tour360SceneCanvas({
             }
 
             setSelectedLineIds(new Set([newId]));
-            setEditingTextValue("Ubicación");
-            setEditingTextId(newId);
         }
 
         if (activeTool === "polygon") {
-            if (e.detail === 1) {
-                // Si clickeamos cerca del primer punto, cerramos el polígono
-                if (draftPolygonPoints.length >= 3) {
-                    const firstPoint = draftPolygonPoints[0];
-                    const dist = Math.hypot(point.x - firstPoint.x, point.y - firstPoint.y);
-                    if (dist < 15) {
-                        finalizePolygon(draftPolygonPoints);
-                        return;
-                    }
+            const newId = `grid-${Date.now()}`;
+            const baseFrame: SceneFrame = {
+                id: newId,
+                type: "grid",
+                x: point.x,
+                y: point.y,
+                width: 180,
+                height: 140,
+            };
+
+            if (isAnchored) {
+                const coords = getPitchYawFromScreenPoint(point);
+                if (coords) {
+                    setAnchoredFrames((prev) => [...prev, { ...baseFrame, pitch: coords[0], yaw: coords[1], anchorHfov: viewerState?.hfov }]);
+                } else {
+                    setFrames((prev) => [...prev, baseFrame]);
                 }
-                // De lo contrario, agregamos un punto
-                setDraftPolygonPoints(prev => [...prev, point]);
-            } else if (e.detail > 1 && draftPolygonPoints.length >= 3) {
-                // Al hacer doble clic, cerramos el polígono. 
-                // El primer clic ya agregó un punto, así que lo quitamos para que el polígono no tenga un vértice duplicado al final.
-                finalizePolygon(draftPolygonPoints.slice(0, -1));
+            } else {
+                setFrames((prev) => [...prev, baseFrame]);
             }
-            return;
+
+            setSelectedLineIds(new Set([newId]));
         }
 
         if (activeTool === "drawing") {
@@ -2274,30 +2171,6 @@ export default function Tour360SceneCanvas({
             return;
         }
 
-        if (dragTarget?.type === "poly-vertex" && dragTarget.polyId) {
-            const updatePoly = (poly: ScenePolygon) => {
-                if (poly.id !== dragTarget.polyId) return poly;
-
-                let nextPitchPoints = poly.pitchPoints ? [...poly.pitchPoints] : undefined;
-                let nextPoints = [...poly.points];
-                
-                nextPoints[dragTarget.vertexIndex] = point;
-
-                if (isAnchored && nextPitchPoints) {
-                    const coords = getPitchYawFromScreenPoint(point);
-                    if (coords) {
-                        nextPitchPoints[dragTarget.vertexIndex] = { pitch: coords[0], yaw: coords[1] };
-                    }
-                }
-
-                return { ...poly, points: nextPoints, pitchPoints: nextPitchPoints };
-            };
-
-            setPolygons(prev => prev.map(updatePoly));
-            setAnchoredPolygons(prev => prev.map(updatePoly));
-            return;
-        }
-
         if (dragTarget?.type === "frame" && dragTarget.frameId) {
             const updateFrame = (f: SceneFrame) => {
                 if (f.id !== dragTarget.frameId) return f;
@@ -2346,10 +2219,6 @@ export default function Tour360SceneCanvas({
             const sr = getSnapResult(point, displayLines, null, displayFrames);
             setPreview(sr.point);
             setSnapResult(sr);
-        }
-
-        if (activeTool === "polygon" && draftPolygonPoints.length > 0) {
-            setPreview(point);
         }
 
         if (activeTool === "drawing" && draftFreehandStroke) {
@@ -2502,11 +2371,6 @@ export default function Tour360SceneCanvas({
                 setPreview(null);
                 setDraftFreehandStroke(null);
                 setDraftFreehandDisplayPoints([]);
-                setDraftPolygonPoints([]);
-            }
-
-            if (e.key === "Enter" && draftPolygonPoints.length >= 3) {
-                finalizePolygon(draftPolygonPoints);
             }
 
             if ((e.key === "Delete" || e.key === "Backspace") && editingTextId !== null) {
@@ -2528,8 +2392,6 @@ export default function Tour360SceneCanvas({
                     setAnchoredFrames((prev) => prev.filter((f) => !deletableIds.has(f.id)));
                     setImages((prev) => prev.filter((i) => !deletableIds.has(i.id)));
                     setAnchoredImages((prev) => prev.filter((i) => !deletableIds.has(i.id)));
-                    setPolygons((prev) => prev.filter((p) => !deletableIds.has(p.id)));
-                    setAnchoredPolygons((prev) => prev.filter((p) => !deletableIds.has(p.id)));
                     // Mantener seleccionadas las fijadas (no borrables)
                     setSelectedLineIds(new Set(Array.from(selectedLineIds).filter((id) => fixedLineIds.has(id))));
                 }
@@ -2538,7 +2400,7 @@ export default function Tour360SceneCanvas({
 
         window.addEventListener("keydown", keyMap);
         return () => window.removeEventListener("keydown", keyMap);
-    }, [selectedLineIds, fixedLineIds, isAnchored, editingTextId, draftFreehandStroke, draftPolygonPoints, finalizePolygon]);
+    }, [selectedLineIds, fixedLineIds, isAnchored, editingTextId, draftFreehandStroke]);
 
     return (
         <div 
@@ -2961,105 +2823,6 @@ export default function Tour360SceneCanvas({
                         ));
                     })}
                 </defs>
-
-                {displayPolygons.map((poly) => {
-                    if (poly.points.some(p => p.x === -9999)) return null;
-
-                    const isSelected = selectedLineIds.has(poly.id);
-                    const isPolyFixed = fixedLineIds.has(poly.id);
-                    const isPolyAnchored = anchoredPolygons.some((p) => p.id === poly.id);
-
-                    const pointsStr = poly.points.map(p => `${p.x},${p.y}`).join(" ");
-
-                    const strokeColor = isSelected ? "#ec4899" : isPolyFixed ? "#60a5fa" : isPolyAnchored ? "#22c55e" : (poly.strokeColor || "white");
-                    const strokeWidth = isSelected ? 3 : 2;
-                    
-                    return (
-                        <g key={poly.id} style={{ pointerEvents: (activeTool === "select" || activeTool === "polygon") ? "auto" : "none" }}>
-                            <polygon
-                                points={pointsStr}
-                                fill={poly.fillColor || "rgba(16, 185, 129, 0.4)"}
-                                stroke={strokeColor}
-                                strokeWidth={strokeWidth}
-                                style={{ cursor: activeTool === "select" ? "pointer" : "default" }}
-                                onMouseDown={(e) => {
-                                    if (isPolyFixed) return;
-                                    if (activeTool !== "select") return;
-                                    e.stopPropagation();
-                                    setSelectedLineIds(new Set([poly.id]));
-                                }}
-                            />
-                            {isSelected && !isPolyFixed && poly.points.map((pt, idx) => (
-                                <circle
-                                    key={`vertex-${idx}`}
-                                    cx={pt.x}
-                                    cy={pt.y}
-                                    r={6}
-                                    fill="white"
-                                    stroke={strokeColor}
-                                    strokeWidth={2}
-                                    style={{ cursor: "move", pointerEvents: "auto" }}
-                                    onMouseDown={(e) => {
-                                        e.stopPropagation();
-                                        setDragTarget({ type: "poly-vertex", polyId: poly.id, vertexIndex: idx });
-                                    }}
-                                />
-                            ))}
-                        </g>
-                    );
-                })}
-
-                {draftPolygonPoints.length > 0 && (
-                    <g>
-                        {draftPolygonPoints.length >= 2 && (
-                            <polygon
-                                points={[...draftPolygonPoints, preview].filter(Boolean).map(p => `${p!.x},${p!.y}`).join(" ")}
-                                fill="rgba(16, 185, 129, 0.2)"
-                                stroke="none"
-                                pointerEvents="none"
-                            />
-                        )}
-                        <polyline
-                            points={draftPolygonPoints.map(p => `${p.x},${p.y}`).join(" ")}
-                            fill="none"
-                            stroke="white"
-                            strokeWidth={2}
-                            strokeDasharray="5,5"
-                            pointerEvents="none"
-                        />
-                        {/* Línea hacia el mouse si queremos previsualizar */}
-                        {preview && (
-                            <line
-                                x1={draftPolygonPoints[draftPolygonPoints.length - 1].x}
-                                y1={draftPolygonPoints[draftPolygonPoints.length - 1].y}
-                                x2={preview.x}
-                                y2={preview.y}
-                                stroke="white"
-                                strokeWidth={2}
-                                strokeDasharray="5,5"
-                                pointerEvents="none"
-                            />
-                        )}
-                        {draftPolygonPoints.map((p, idx) => (
-                            <circle
-                                key={`draft-poly-${idx}`}
-                                cx={p.x}
-                                cy={p.y}
-                                r={idx === 0 ? 8 : 4} // El primero es más grande para cerrar
-                                fill={idx === 0 ? "rgba(16, 185, 129, 0.8)" : "white"}
-                                stroke="white"
-                                strokeWidth={1}
-                                style={{ cursor: idx === 0 ? "pointer" : "default", pointerEvents: "auto" }}
-                                onMouseDown={(e) => {
-                                    if (idx === 0 && draftPolygonPoints.length >= 3) {
-                                        e.stopPropagation();
-                                        finalizePolygon(draftPolygonPoints);
-                                    }
-                                }}
-                            />
-                        ))}
-                    </g>
-                )}
 
                 {displayFreehandStrokes.map((stroke) => {
                     const isSelected = selectedLineIds.has(stroke.id);
@@ -3610,125 +3373,8 @@ export default function Tour360SceneCanvas({
                 {displayPoiBadges.map((badge) => {
                     const isSelected = selectedLineIds.has(badge.id);
                     const isLocked = fixedLineIds.has(badge.id);
-                    const isEditing = editingTextId === badge.id;
                     if (badge.x === -9999) return null;
                     const poiScale = anchoredPoiBadgeIds.has(badge.id) ? getAnchoredObjectScale(badge.anchorHfov) : 1;
-
-                    if (badge.kind === "location") {
-                        const badgeColor = badge.color || "#f97316";
-                        return (
-                            <div
-                                key={badge.id}
-                                className="absolute pointer-events-auto"
-                                style={{
-                                    left: badge.x,
-                                    top: badge.y,
-                                    transform: `translate(-50%, -100%) scale(${poiScale})`,
-                                    transformOrigin: "center bottom",
-                                    zIndex: isEditing ? 50 : (isSelected ? 42 : 34),
-                                }}
-                                onMouseDown={(e) => {
-                                    e.stopPropagation();
-                                    if (activeTool === "select") {
-                                        setSelectedLineIds(new Set([badge.id]));
-                                        if (!isLocked && !isEditing) {
-                                            setDragTarget({ type: "poi-badge", poiBadgeId: badge.id });
-                                        }
-                                    }
-                                }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (activeTool === "select") {
-                                        setSelectedLineIds(new Set([badge.id]));
-                                    }
-                                }}
-                                onDoubleClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingTextValue(badge.title || "Ubicación");
-                                    setEditingTextId(badge.id);
-                                    setDragTarget(null);
-                                }}
-                            >
-                                {/* Barra de Colores (Estilo Canva) - Solo visible en edición */}
-                                {isEditing && (
-                                    <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/80 backdrop-blur-md px-3 py-2 rounded-full border border-white/20 shadow-2xl z-50">
-                                        {["#f97316", "#22c55e", "#3b82f6", "#ef4444", "#8b5cf6", "#eab308"].map(color => (
-                                            <button
-                                                key={color}
-                                                onMouseDown={(e) => {
-                                                    // Prevent focus loss from input
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const update = (b: PoiBadge) => b.id === badge.id ? { ...b, color } : b;
-                                                    setPoiBadges(prev => prev.map(update));
-                                                    setAnchoredPoiBadges(prev => prev.map(update));
-                                                }}
-                                                className="w-5 h-5 rounded-full border border-white/20 hover:scale-125 transition-transform"
-                                                style={{ backgroundColor: color }}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-
-                                <div
-                                    className="relative flex flex-col items-center justify-end"
-                                    style={{ height: 90, minWidth: 100 }}
-                                >
-                                    {/* Etiqueta editable (Pill) */}
-                                    <div className="absolute top-0 flex justify-center z-10 w-max max-w-[300px]" style={{ pointerEvents: "auto" }}>
-                                        {isEditing ? (
-                                            <input
-                                                autoFocus
-                                                value={editingTextValue}
-                                                onChange={(e) => setEditingTextValue(e.target.value)}
-                                                onFocus={(e) => {
-                                                    const len = e.target.value.length;
-                                                    e.target.setSelectionRange(len, len);
-                                                }}
-                                                className="text-white text-[11px] font-bold px-4 py-1.5 rounded-full outline-none text-center pointer-events-auto border-2 border-white min-w-[120px]"
-                                                style={{ backgroundColor: badgeColor, boxShadow: `0 4px 12px ${badgeColor}66` }}
-                                                onBlur={() => {
-                                                    const val = editingTextValue.trim();
-                                                    const update = (b: PoiBadge) => b.id === badge.id ? { ...b, title: val || "Ubicación" } : b;
-                                                    setPoiBadges(prev => prev.map(update));
-                                                    setAnchoredPoiBadges(prev => prev.map(update));
-                                                    setEditingTextId(null);
-                                                }}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === "Enter") {
-                                                        e.currentTarget.blur();
-                                                    }
-                                                    e.stopPropagation();
-                                                }}
-                                                onMouseDown={(e) => e.stopPropagation()}
-                                            />
-                                        ) : (
-                                            <div
-                                                className={`text-white text-[11px] font-bold px-4 py-1.5 rounded-full whitespace-nowrap overflow-hidden text-ellipsis transition-transform border-2 ${isSelected ? "border-white scale-105" : "border-white/20 hover:scale-105 hover:border-white/50"}`}
-                                                style={{ cursor: "pointer", pointerEvents: "auto", backgroundColor: badgeColor, boxShadow: `0 4px 12px ${badgeColor}66` }}
-                                            >
-                                                {badge.title || "Ubicación"}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Línea guía punteada vertical */}
-                                    <div
-                                        className="w-px border-l-2 border-dashed pointer-events-none"
-                                        style={{ height: "50px", marginTop: "12px", marginBottom: "0px", borderColor: badgeColor }}
-                                    />
-
-                                    {/* Punto/ancla convertido en flecha sutil */}
-                                    <svg width="12" height="6" viewBox="0 0 12 6" fill="none" className="pointer-events-none drop-shadow-md">
-                                        <path d="M0 0L6 6L12 0H0Z" fill={badgeColor} />
-                                    </svg>
-                                </div>
-                            </div>
-                        );
-                    }
 
                     const tailHeight = Math.max(26, Math.round(badge.height * 0.45));
                     const baseWidth = badge.variant === "circle" ? 20 : 26;
@@ -3748,7 +3394,7 @@ export default function Tour360SceneCanvas({
                             }}
                             onMouseDown={(e) => {
                                 e.stopPropagation();
-                                if (activeTool === "select") {
+                                if (activeTool === "select" && isEditing) {
                                     setSelectedLineIds(new Set([badge.id]));
                                     if (!isLocked) {
                                         setDragTarget({ type: "poi-badge", poiBadgeId: badge.id });
@@ -3811,7 +3457,11 @@ export default function Tour360SceneCanvas({
                                         boxShadow: isSelected ? "0 0 28px rgba(139, 92, 246, 0.35)" : "0 8px 24px rgba(0,0,0,0.35)",
                                     }}
                                 >
-                                    {badge.imageUrl ? (
+                                    {badge.kind === "location" ? (
+                                        <div className="w-full h-full flex items-center justify-center text-white">
+                                            <MapPin size={24} />
+                                        </div>
+                                    ) : badge.imageUrl ? (
                                         <img src={badge.imageUrl} alt={badge.title || "POI"} className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-white/70">

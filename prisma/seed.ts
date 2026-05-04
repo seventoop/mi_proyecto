@@ -23,28 +23,28 @@ async function main() {
 
     console.log(`✅ Organization: ${org.nombre} (id: ${org.id})`);
 
-    // ─── 1. Admin User ───
+    // ─── 1. Superadmin User ───
     const admin = await prisma.user.upsert({
         where: { email: "dany76162@gmail.com" },
-        update: { password: hashedPassword, rol: "ADMIN", orgId: org.id },
+        update: { password: hashedPassword, rol: "SUPERADMIN", orgId: org.id },
         create: {
             email: "dany76162@gmail.com",
             password: hashedPassword,
-            nombre: "Dany Admin",
-            rol: "ADMIN",
+            nombre: "Dany Superadmin",
+            rol: "SUPERADMIN",
             orgId: org.id,
         },
     });
 
-    // ─── 2. Developer User ───
+    // ─── 2. Admin User ───
     const developer = await prisma.user.upsert({
         where: { email: "dany202109@gmail.com" },
-        update: { password: hashedPassword, rol: "VENDEDOR", orgId: org.id },
+        update: { password: hashedPassword, rol: "ADMIN", orgId: org.id },
         create: {
             email: "dany202109@gmail.com",
             password: hashedPassword,
-            nombre: "Héctor Desarrollador",
-            rol: "VENDEDOR",
+            nombre: "Dany Admin",
+            rol: "ADMIN",
             orgId: org.id,
         },
     });

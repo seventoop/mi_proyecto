@@ -7,7 +7,7 @@ import {
     Upload, Trash2, Save, MapPin, ImageIcon,
     Plus, X, Loader2, GripVertical, Pencil, Check,
     Link2, Navigation, Eye, Share2, Play, Pause, Globe,
-    Maximize2, RotateCcw, Camera, Grid3x3, Sparkles, AlertCircle
+    Maximize2, RotateCcw, Camera, Grid3x3, Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -1620,9 +1620,9 @@ export default function TourCreator({
             </AnimatePresence>
 
             {/* Main editor layout */}
-            <div className="flex-1 grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-3 xl:gap-4 min-h-0 overflow-x-hidden">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 min-h-0">
                 {/* ─── Left: Viewer ─── */}
-                <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/50 min-h-[280px] sm:min-h-[340px] lg:min-h-[400px]">
+                <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/50 min-h-[400px]">
                     {scenes.length > 0 ? (
                         <>
                             {/* Conditional rendering: Pannellum for 360, <img> for flat */}
@@ -1687,7 +1687,7 @@ export default function TourCreator({
                                         initial={{ y: -20, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
                                         exit={{ y: -20, opacity: 0 }}
-                                        className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-700 text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl shadow-xl flex flex-col items-center gap-2 sm:gap-3 min-w-[220px] sm:min-w-[300px] max-w-[90%]"
+                                        className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-700 text-white px-4 py-3 rounded-xl shadow-xl flex flex-col items-center gap-3 min-w-[300px]"
                                     >
                                         <div className="flex items-center gap-2 text-sm font-semibold text-brand-400">
                                             {editorMode === 'hotspot' && <><MapPin className="w-4 h-4" /> Colocando Hotspot</>}
@@ -1733,7 +1733,7 @@ export default function TourCreator({
 
 
                             {/* Viewer controls - Floating Pill */}
-                            <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 sm:gap-4 bg-black/40 backdrop-blur-xl px-3 py-2 sm:px-6 sm:py-4 rounded-[1.5rem] border border-white/10 shadow-2xl min-w-0 max-w-[calc(100%-2rem)]">
+                            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4 bg-black/40 backdrop-blur-xl px-6 py-4 rounded-[1.5rem] border border-white/10 shadow-2xl min-w-[300px]">
                                 <button
                                     onClick={() => {
                                         if (!viewerInstance.current) return;
@@ -1745,22 +1745,22 @@ export default function TourCreator({
                                             setIsAutoRotating(true);
                                         }
                                     }}
-                                    className="p-2 sm:p-3 bg-white/5 hover:bg-white/20 rounded-xl text-white transition-all shadow-inner"
+                                    className="p-3 bg-white/5 hover:bg-white/20 rounded-xl text-white transition-all shadow-inner"
                                     title="Auto-rotar"
                                 >
-                                    <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6" />
+                                    <RotateCcw className="w-6 h-6" />
                                 </button>
 
-                                <span className="text-xs sm:text-sm font-bold text-white tracking-wide truncate flex-1 text-center">
+                                <span className="text-sm font-bold text-white tracking-wide truncate flex-1 text-center">
                                     {activeScene?.title || "Sin escena"}
                                 </span>
 
                                 <button
                                     onClick={() => viewerInstance.current?.toggleFullscreen()}
-                                    className="p-2 sm:p-3 bg-white/5 hover:bg-white/20 rounded-xl text-white transition-all shadow-inner"
+                                    className="p-3 bg-white/5 hover:bg-white/20 rounded-xl text-white transition-all shadow-inner"
                                     title="Pantalla completa"
                                 >
-                                    <Maximize2 className="w-5 h-5 sm:w-6 sm:h-6" />
+                                    <Maximize2 className="w-6 h-6" />
                                 </button>
                             </div>
 
@@ -1771,9 +1771,9 @@ export default function TourCreator({
                                         initial={{ opacity: 0, y: 24 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: 24 }}
-                                        className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-end justify-center p-3 sm:p-6 overflow-y-auto"
+                                        className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-end justify-center p-6"
                                     >
-                                        <div className="w-full max-w-lg bg-[#141414] border border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 space-y-3 sm:space-y-4">
+                                        <div className="w-full max-w-lg bg-[#141414] border border-white/10 rounded-2xl shadow-2xl p-5 space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-sm font-bold text-white">Confirmar imagen subida</p>
                                                 <button
@@ -1785,7 +1785,7 @@ export default function TourCreator({
                                                 </button>
                                             </div>
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-2 gap-3">
                                                 <div className="space-y-1">
                                                     <label className="text-[11px] text-slate-400 uppercase tracking-wide">Título</label>
                                                     <input
@@ -1934,7 +1934,7 @@ export default function TourCreator({
                 </div>
 
                 {/* ─── Right: Sidebar ─── */}
-                <div className="flex flex-col bg-black rounded-3xl border border-white/5 overflow-hidden min-h-0 shadow-2xl max-h-[60vh] xl:max-h-none overflow-y-auto">
+                <div className="flex flex-col bg-black rounded-3xl border border-white/5 overflow-hidden min-h-0 shadow-2xl">
                     {/* Toggle Gallery Button */}
                     <div className="flex items-center justify-between p-4 border-b border-slate-800/50">
                         <div className="flex items-center gap-2">
@@ -1945,7 +1945,7 @@ export default function TourCreator({
                                         Galería de Imágenes
                                     </button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-4xl h-[80vh] max-h-[90vh] flex flex-col p-0 bg-slate-950 border-slate-800 text-white w-[95vw] sm:w-auto">
+                                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 bg-slate-950 border-slate-800 text-white">
                                     <DialogHeader className="p-4 border-b border-slate-800">
                                         <DialogTitle>Galería de Imágenes</DialogTitle>
                                         <DialogDescription className="text-slate-400">
@@ -1953,8 +1953,8 @@ export default function TourCreator({
                                         </DialogDescription>
                                     </DialogHeader>
 
-                                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                                        <div className="flex flex-wrap p-2 gap-2 border-b border-slate-800 bg-slate-900/50">
+                                    <div className="flex-1 flex flex-col min-h-0">
+                                        <div className="flex p-2 gap-2 border-b border-slate-800 bg-slate-900/50">
                                             <button
                                                 onClick={() => setActiveTab('tour360')}
                                                 className={cn(
@@ -2403,18 +2403,9 @@ export default function TourCreator({
                                     >
                                         Editar imagen
                                     </button>
-                                    {!canAlignProjectPlan ? (
-                                        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex gap-2">
-                                            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                                            <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 leading-relaxed">
-                                                Para editar o alinear imágenes, primero completá el <span className="font-bold underline">Paso 2: Plano del Proyecto</span> y el <span className="font-bold underline">Paso 4: Mapa Interactivo</span>.
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-slate-400 leading-relaxed">
-                                            Abrí el editor completo para ubicar el plano sobre la imagen 360 y guardar la alineación de esta escena.
-                                        </p>
-                                    )}
+                                    <p className="text-xs text-slate-400 leading-relaxed">
+                                        Abrí el editor completo para ubicar el plano sobre la imagen 360 y guardar la alineación de esta escena.
+                                    </p>
                                 </>
                             )}
 

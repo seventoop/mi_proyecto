@@ -556,38 +556,21 @@ export default function OverlayEditor({
         });
     }, [updateByTransform]);
 
-    const isSavingRef = useRef(false);
-
-    const handleSave = async (e?: React.PointerEvent | React.MouseEvent) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        if (isSavingRef.current) return;
-
-        isSavingRef.current = true;
+    const handleSave = async () => {
         setIsSaving(true);
-        
-        // Capture current state IMMEDIATELY
-        const finalConfig = {
-            imageUrl: existingConfig?.imageUrl && !existingConfig.imageUrl.startsWith("blob:")
-                ? existingConfig.imageUrl
-                : null,
-            bounds: deriveBoundsFromCorners(cornersRef.current),
-            corners: [...cornersRef.current] as QuadCorners,
-            rotation: deriveRotationFromCorners(cornersRef.current),
-            opacity: opacityRef.current,
-        };
+        const savedImageUrl = existingConfig?.imageUrl && !existingConfig.imageUrl.startsWith("blob:")
+            ? existingConfig.imageUrl
+            : null;
 
         try {
             const res = await fetch(`/api/proyectos/${proyectoId}/overlay`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    imageUrl: finalConfig.imageUrl,
-                    bounds: finalConfig.bounds,
-                    corners: finalConfig.corners,
-                    rotation: finalConfig.rotation,
+                    imageUrl: savedImageUrl,
+                    bounds,
+                    corners,
+                    rotation,
                     mapCenter: {
                         lat: map.getCenter().lat,
                         lng: map.getCenter().lng,
@@ -595,18 +578,18 @@ export default function OverlayEditor({
                     },
                 }),
             });
-            
             if (res.ok) {
-                // Successful save — call onSave to notify parent and close editor
-                onSave(finalConfig);
-            } else {
-                console.error("Save failed with status:", res.status);
-                isSavingRef.current = false;
-                setIsSaving(false);
+                onSave({
+                    imageUrl: savedImageUrl,
+                    bounds,
+                    corners,
+                    rotation,
+                    opacity,
+                });
             }
         } catch (error) {
             console.error("Save failed", error);
-            isSavingRef.current = false;
+        } finally {
             setIsSaving(false);
         }
     };
@@ -811,79 +794,47 @@ export default function OverlayEditor({
                 </div>
 
                 <div className="mb-3 space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-slate-700">
-                    <div className="text-[10px] font-semibold text-slate-500">Ajuste de posición</div>
-                    <div className="grid grid-cols-3 gap-1 mb-4">
+                    <div className="text-[10px] font-semibold text-slate-500">Ajuste fino</div>
+                    <div className="grid grid-cols-3 gap-1.5">
                         <div />
-                        <button onClick={() => nudgeOverlay(0, -1)} className="flex items-center justify-center rounded-lg bg-slate-100 py-2 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveUp className="h-4 w-4" />
+                        <button onClick={() => nudgeOverlay(0, -6)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            <MoveUp className="h-3.5 w-3.5" />
                         </button>
                         <div />
-                        <button onClick={() => nudgeOverlay(-1, 0)} className="flex items-center justify-center rounded-lg bg-slate-100 py-2 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveLeft className="h-4 w-4" />
+                        <button onClick={() => nudgeOverlay(-6, 0)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            <MoveLeft className="h-3.5 w-3.5" />
                         </button>
-                        <div className="flex flex-col items-center justify-center text-[8px] font-bold text-indigo-500 leading-none">
-                            <span>Fino</span>
-                            <span className="mt-0.5">1px</span>
+                        <div className="flex items-center justify-center rounded-lg bg-indigo-50 py-1.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-300">
+                            Fino
                         </div>
-                        <button onClick={() => nudgeOverlay(1, 0)} className="flex items-center justify-center rounded-lg bg-slate-100 py-2 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveRight className="h-4 w-4" />
+                        <button onClick={() => nudgeOverlay(6, 0)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            <MoveRight className="h-3.5 w-3.5" />
                         </button>
                         <div />
-                        <button onClick={() => nudgeOverlay(0, 1)} className="flex items-center justify-center rounded-lg bg-slate-100 py-2 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveDown className="h-4 w-4" />
+                        <button onClick={() => nudgeOverlay(0, 6)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            <MoveDown className="h-3.5 w-3.5" />
                         </button>
                         <div />
                     </div>
-
-                    <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-800/30">
-                        {/* Rotación Slider + Botones */}
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rotación</span>
-                                <span className="text-[11px] font-mono font-bold text-indigo-600 bg-white px-2 py-0.5 rounded shadow-sm border border-slate-100 dark:bg-slate-900 dark:border-slate-700">
-                                    {rotation.toFixed(1)}°
-                                </span>
-                            </div>
-                            <input
-                                type="range"
-                                min={-180}
-                                max={180}
-                                step={0.1}
-                                value={rotation}
-                                onChange={(e) => {
-                                    const next = parseFloat(e.target.value);
-                                    rotateOverlay(next - rotation);
-                                }}
-                                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500 dark:bg-slate-700"
-                            />
-                            <div className="grid grid-cols-4 gap-1">
-                                <button onClick={() => rotateOverlay(-1)} className="py-1 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800">-1°</button>
-                                <button onClick={() => rotateOverlay(-0.1)} className="py-1 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800">-0.1°</button>
-                                <button onClick={() => rotateOverlay(0.1)} className="py-1 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800">+0.1°</button>
-                                <button onClick={() => rotateOverlay(1)} className="py-1 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800">+1°</button>
-                            </div>
-                        </div>
-
-                        {/* Escala Botones Precisos */}
-                        <div className="space-y-2">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Escala (Zoom)</span>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="flex gap-1">
-                                    <button onClick={() => scaleOverlay(0.99)} title="Escala -1%" className="flex-1 py-1.5 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800">-1%</button>
-                                    <button onClick={() => scaleOverlay(0.999)} title="Escala -0.1%" className="flex-1 py-1.5 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800">-0.1%</button>
-                                </div>
-                                <div className="flex gap-1">
-                                    <button onClick={() => scaleOverlay(1.001)} title="Escala +0.1%" className="flex-1 py-1.5 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800">+0.1%</button>
-                                    <button onClick={() => scaleOverlay(1.01)} title="Escala +1%" className="flex-1 py-1.5 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800">+1%</button>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                        <button onClick={() => rotateOverlay(-0.5)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            <RotateCcw className="h-3.5 w-3.5" /> -0.5°
+                        </button>
+                        <button onClick={() => rotateOverlay(0.5)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            <RotateCw className="h-3.5 w-3.5" /> +0.5°
+                        </button>
+                        <button onClick={() => scaleOverlay(0.985)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            <Minus className="h-3.5 w-3.5" /> Escala
+                        </button>
+                        <button onClick={() => scaleOverlay(1.015)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            <Plus className="h-3.5 w-3.5" /> Escala
+                        </button>
                     </div>
                 </div>
 
                 <div className="flex gap-2">
                     <button
-                        onPointerDown={handleSave}
+                        onClick={handleSave}
                         disabled={isSaving}
                         className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-500 py-2 text-xs font-bold text-white transition-all hover:bg-brand-600 disabled:opacity-50"
                     >
