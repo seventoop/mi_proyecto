@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { requireAuth, AuthError } from "@/lib/guards";
 import { revalidatePath } from "next/cache";
+import { internalAiRunner } from "@/lib/logictoop/internal-ai-runner";
 
 /**
  * Obtiene la lista de agentes de IA activos para la organización.
@@ -167,5 +168,50 @@ export async function approveAiTask(taskId: string, comments?: string): Promise<
     } catch (error) {
         console.error("[LogicToop AI] Error approving task:", error);
         return { success: false, error: "Error al aprobar tarea" };
+    }
+}
+
+/**
+ * Procesa una tarea localmente (Fase 3A) usando el runner interno.
+ * Solo disponible si FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION !== "true".
+ */
+export async function processAiTaskLocally(taskId: string): Promise<{ success: boolean; error?: string; taskId?: string; status?: string }> {
+    const user = await requireAuth();
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+        throw new AuthError("Solo administradores pueden procesar tareas", 403);
+    }
+
+    if (process.env.FEATURE_FLAG_LOGICTOOP_AI_CORE !== "true") {
+        return { success: false, error: "El motor de IA está desactivado (CORE=false)" };
+    }
+
+    if (process.env.FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION === "true") {
+        return { success: false, error: "No se puede procesar localmente con la conexión real a Paperclip activa" };
+    }
+
+    try {
+        // Aislamiento multi-tenant
+        const existingTask = await db.logicToopAiTask.findFirst({
+            where: {
+                id: taskId,
+                ...(user.role !== "SUPERADMIN" ? { orgId: user.orgId as string } : {})
+            }
+        });
+
+        if (!existingTask) {
+            return { success: false, error: "Tarea no encontrada o no pertenece a tu organización" };
+        }
+
+        if (existingTask.status !== "PENDING") {
+            return { success: false, error: `No se puede procesar una tarea en estado ${existingTask.status}` };
+        }
+
+        const task = await internalAiRunner.processTaskInternal(taskId);
+
+        revalidatePath("/dashboard/admin/logictoop/orchestrator/approvals");
+        return { success: true, taskId: task.id, status: task.status };
+    } catch (error) {
+        console.error("[LogicToop AI] Error processing task locally:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Error al procesar tarea localmente" };
     }
 }

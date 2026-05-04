@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { rejectAiTask, approveAiTask } from "@/lib/actions/logictoop-ai";
-import { Loader2, XCircle, CheckCircle2, AlertCircle } from "lucide-react";
+import { rejectAiTask, approveAiTask, processAiTaskLocally } from "@/lib/actions/logictoop-ai";
+import { Loader2, XCircle, CheckCircle2, AlertCircle, PlayCircle } from "lucide-react";
 import { format } from "date-fns";
 
 interface ApprovalsClientProps {
@@ -64,6 +64,28 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                 setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: "APPROVED" } : t));
             } else {
                 toast.error(res.error || "Error al aprobar");
+            }
+        } catch (error) {
+            toast.error("Error de conexión");
+        } finally {
+            setLoadingId(null);
+        }
+    };
+
+    const handleProcessLocally = async (taskId: string) => {
+        if (!canWrite) {
+            toast.error("El motor de IA está desactivado (Modo Lectura)");
+            return;
+        }
+
+        setLoadingId(taskId);
+        try {
+            const res = await processAiTaskLocally(taskId);
+            if (res.success) {
+                toast.success("Tarea procesada localmente. El resultado ya está disponible para revisión.");
+                setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: res.status } : t));
+            } else {
+                toast.error(res.error || "Error al procesar localmente");
             }
         } catch (error) {
             toast.error("Error de conexión");
@@ -130,7 +152,20 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                {(task.status === "PENDING" || task.status === "NEEDS_APPROVAL") && (
+                                                {task.status === "PENDING" && (
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="ghost"
+                                                        className="text-blue-600 hover:bg-blue-50"
+                                                        disabled={!canWrite || loadingId === task.id}
+                                                        title="Procesar usando el runner interno (MOCK)"
+                                                        onClick={() => handleProcessLocally(task.id)}
+                                                    >
+                                                        {loadingId === task.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4 mr-1" />}
+                                                        Procesar
+                                                    </Button>
+                                                )}
+                                                {task.status === "NEEDS_APPROVAL" && (
                                                     <>
                                                         <Button 
                                                             size="sm" 
