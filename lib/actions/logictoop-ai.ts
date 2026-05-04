@@ -94,6 +94,7 @@ export async function rejectAiTask(taskId: string, comments: string): Promise<{ 
                 data: {
                     taskId,
                     approvedById: user.id,
+                    approvedAt: new Date(),
                     comments,
                     actionTaken: "REJECTED"
                 }
@@ -152,6 +153,7 @@ export async function approveAiTask(taskId: string, comments?: string): Promise<
                 data: {
                     taskId,
                     approvedById: user.id,
+                    approvedAt: new Date(),
                     comments: comments || "Aprobado sin side-effects (Fase 2E.1)",
                     actionTaken: "APPROVED_NO_SIDE_EFFECTS"
                 }
