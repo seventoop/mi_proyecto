@@ -7,7 +7,11 @@ import { getAiTaskDetail } from "@/lib/actions/logictoop-ai";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, AlertCircle, Calendar, User, Cpu, History, ListChecks, FileJson, Info } from "lucide-react";
+import { Loader2, AlertCircle, Calendar, User, Cpu, History, ListChecks, FileJson, Info, Play } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { executeAiTaskDryRun } from "@/lib/actions/logictoop-ai-worker";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface TaskDetailDialogProps {
     taskId: string | null;
@@ -19,6 +23,10 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
     const [task, setTask] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [executingDryRun, setExecutingDryRun] = useState(false);
+    const { data: session } = useSession();
+
+    const isSuperAdmin = session?.user?.role === "SUPERADMIN";
 
     useEffect(() => {
         if (open && taskId) {
@@ -43,6 +51,29 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
             setError("Error de conexión");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleExecuteDryRun = async () => {
+        if (!taskId) return;
+        
+        const confirmMsg = "Esto simula el post-procesamiento técnico sin aplicar cambios reales. No se modifican proyectos, leads, banners ni emails. ¿Deseas continuar?";
+        if (!window.confirm(confirmMsg)) return;
+
+        setExecutingDryRun(true);
+        try {
+            const res = await executeAiTaskDryRun(taskId);
+            if (res.success) {
+                toast.success(res.message || "Dry-run completado exitosamente");
+                // Recargar detalle para ver los nuevos eventos
+                await loadTaskDetail(taskId);
+            } else {
+                toast.error(res.error || "Error al ejecutar dry-run");
+            }
+        } catch (err) {
+            toast.error("Error de conexión al ejecutar dry-run");
+        } finally {
+            setExecutingDryRun(false);
         }
     };
 
@@ -109,6 +140,34 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                                 <p>Run ID: {task.paperclipRunId || "N/A (Local)"}</p>
                             </div>
                         </div>
+
+                        {/* Controles de Worker (Fase 4A) */}
+                        {task.status === "APPROVED" && isSuperAdmin && (
+                            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-yellow-100 p-2 rounded-full text-yellow-700">
+                                        <Info className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-yellow-900">Post-procesamiento Disponible</p>
+                                        <p className="text-xs text-yellow-700">Simulación técnica del worker post-aprobación.</p>
+                                    </div>
+                                </div>
+                                <Button 
+                                    size="sm" 
+                                    onClick={handleExecuteDryRun} 
+                                    disabled={executingDryRun}
+                                    className="bg-yellow-600 hover:bg-yellow-700 text-white border-none"
+                                >
+                                    {executingDryRun ? (
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    ) : (
+                                        <Play className="w-4 h-4 mr-2 fill-current" />
+                                    )}
+                                    Ejecutar dry-run
+                                </Button>
+                            </div>
+                        )}
 
                         <Tabs defaultValue="payloads" className="w-full">
                             <TabsList className="grid w-full grid-cols-3">
