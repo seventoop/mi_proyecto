@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Loader2, X, Layout, Check } from "lucide-react";
+import { Loader2, X, Layout, Check, MousePointer2, Minus, ArrowUpRight, Type, Square, Image as ImageIcon, MapPin, Navigation, Route, Pencil, Hexagon } from "lucide-react";
 import { toast } from "sonner";
 
 import type { MasterplanUnit } from "@/lib/masterplan-store";
@@ -106,6 +106,7 @@ type CanvasOverlayState = {
     anchoredPoiBadges?: any[];
     freehandStrokes?: any[];
     isDrawingPolygon?: boolean;
+    isDrawingRoute?: boolean;
 };
 
 function createEmptyCanvasState(): CanvasOverlayState {
@@ -129,6 +130,8 @@ function createEmptyCanvasState(): CanvasOverlayState {
         poiBadges: [],
         anchoredPoiBadges: [],
         freehandStrokes: [],
+        isDrawingPolygon: false,
+        isDrawingRoute: false,
     };
 }
 
@@ -1074,21 +1077,25 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                     <div className="flex h-full flex-col items-center gap-3 px-2 py-4">
                         <ToolButton
                             label="Selección"
+                            icon={<MousePointer2 size={18} />}
                             active={activeTool === "select"}
                             onClick={() => setActiveTool("select")}
                         />
                         <ToolButton
                             label="Línea"
+                            icon={<Minus size={18} />}
                             active={activeTool === "line"}
                             onClick={() => setActiveTool("line")}
                         />
                         <ToolButton
                             label="Flecha"
+                            icon={<ArrowUpRight size={18} />}
                             active={activeTool === "arrow"}
                             onClick={() => setActiveTool("arrow")}
                         />
                         <ToolButton
                             label="Texto"
+                            icon={<Type size={18} />}
                             active={activeTool === "text"}
                             onClick={() => {
                                 console.log("Clic en herramienta Texto");
@@ -1098,6 +1105,7 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                         />
                         <ToolButton
                             label="Marco"
+                            icon={<Square size={18} />}
                             active={activeTool === "frame"}
                             onClick={() => {
                                 setActiveTool(activeTool === "frame" ? "select" : "frame");
@@ -1105,22 +1113,43 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                         />
                         <ToolButton
                             label="Imagen"
+                            icon={<ImageIcon size={18} />}
                             active={activeTool === "image"}
                             onClick={() => setActiveTool("image")}
                         />
                         <ToolButton
                             label="POI"
+                            icon={<MapPin size={18} />}
                             active={activeTool === "poi"}
                             onClick={() => setActiveTool(activeTool === "poi" ? "select" : "poi")}
                         />
                         <ToolButton
                             label="Ubicación"
+                            icon={<Navigation size={18} />}
                             active={activeTool === "location"}
                             onClick={() => setActiveTool(activeTool === "location" ? "select" : "location")}
                         />
                         <div className="relative w-full">
                             <ToolButton
+                                label="Ruta / Calles"
+                                icon={<Route size={18} />}
+                                active={activeTool === "route"}
+                                onClick={() => setActiveTool(activeTool === "route" ? "select" : "route")}
+                            />
+                            {activeTool === "route" && canvasState.isDrawingRoute && (
+                                <button
+                                    onClick={() => setFinishPolygonTrigger(prev => prev + 1)}
+                                    className="absolute -right-2 -top-2 bg-green-500 hover:bg-green-400 text-white p-1.5 rounded-full shadow-lg z-50 animate-bounce transition-colors"
+                                    title="Finalizar Ruta"
+                                >
+                                    <Check size={14} />
+                                </button>
+                            )}
+                        </div>
+                        <div className="relative w-full">
+                            <ToolButton
                                 label="Polígonos / Grilla"
+                                icon={<Hexagon size={18} />}
                                 active={activeTool === "polygon"}
                                 onClick={() => setActiveTool(activeTool === "polygon" ? "select" : "polygon")}
                             />
@@ -1136,6 +1165,7 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                         </div>
                         <ToolButton
                             label="Lápiz / Dibujo"
+                            icon={<Pencil size={18} />}
                             active={activeTool === "drawing"}
                             onClick={() => setActiveTool(activeTool === "drawing" ? "select" : "drawing")}
                         />

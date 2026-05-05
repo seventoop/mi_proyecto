@@ -92,7 +92,7 @@ export type FreehandStroke = {
     points: { pitch: number; yaw: number }[];
     strokeWidth?: number;
     color?: string;
-    type?: "freehand" | "polygon";
+    type?: "freehand" | "polygon" | "route";
 };
 
 export type ControlPoint = {
@@ -859,6 +859,8 @@ export default function Tour360SceneCanvas({
     // ESTADOS PARA POLÍGONOS PUNTO A PUNTO
     const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
     const [polygonPoints, setPolygonPoints] = useState<Point[]>([]);
+    const [isDrawingRoute, setIsDrawingRoute] = useState(false);
+    const [routePoints, setRoutePoints] = useState<Point[]>([]);
 
     const [mapMode, setMapMode] = useState<"TERRAIN" | "IMAGE">("TERRAIN");
 
@@ -1772,11 +1774,12 @@ export default function Tour360SceneCanvas({
                 images,
                 anchoredImages,
                 isDrawingPolygon,
+                isDrawingRoute,
             });
         }, 100); // Debounce de 100ms para fluidez total
 
         return () => clearTimeout(timer);
-    }, [lines, anchoredLines, texts, anchoredTexts, poiBadges, anchoredPoiBadges, freehandStrokes, frames, anchoredFrames, images, anchoredImages, srcNodes, dstNodes, anchoredDstNodes, isAnchored, isFixed, fixedLineIds, selectedLineIds, planImageUrl, planOpacity, imgSize.w, imgSize.h, onStateChange]);
+    }, [lines, anchoredLines, texts, anchoredTexts, poiBadges, anchoredPoiBadges, freehandStrokes, frames, anchoredFrames, images, anchoredImages, srcNodes, dstNodes, anchoredDstNodes, isAnchored, isFixed, fixedLineIds, selectedLineIds, planImageUrl, planOpacity, imgSize.w, imgSize.h, isDrawingPolygon, isDrawingRoute, onStateChange]);
 
     // EFECTO: Detectar trigger de añadir texto desde el panel lateral
     useEffect(() => {
@@ -1818,9 +1821,8 @@ export default function Tour360SceneCanvas({
         setEditingTextId(newId);
     }, [addTextTrigger, getPitchYawFromScreenPoint, isAnchored, viewerState]);
 
-    // EFECTO: Finalizar polígono vía trigger externo (botón sidebar)
-    useEffect(() => {
-        if ((finishPolygonTrigger ?? 0) > 0 && isDrawingPolygon && polygonPoints.length >= 3) {
+    const handleFinishDrawing = useCallback(() => {
+        if (isDrawingPolygon && polygonPoints.length >= 3) {
             const finalPoints = [...polygonPoints];
             const strokeId = `poly-${Date.now()}`;
 
@@ -1841,8 +1843,38 @@ export default function Tour360SceneCanvas({
             setIsDrawingPolygon(false);
             setPolygonPoints([]);
             setSelectedLineIds(new Set([strokeId]));
+            setPreview(null);
+        } else if (isDrawingRoute && routePoints.length >= 2) {
+            const finalPoints = [...routePoints];
+            const strokeId = `route-${Date.now()}`;
+
+            const worldPoints = finalPoints.map(p => {
+                const c = getPitchYawFromScreenPoint(p);
+                return c ? { pitch: c[0], yaw: c[1] } : { pitch: 0, yaw: 0 };
+            });
+
+            const newStroke: FreehandStroke = {
+                id: strokeId,
+                points: worldPoints,
+                strokeWidth: 5,
+                color: "#ff6b00",
+                type: "route"
+            };
+
+            setFreehandStrokes(prev => [...prev, newStroke]);
+            setIsDrawingRoute(false);
+            setRoutePoints([]);
+            setSelectedLineIds(new Set([strokeId]));
+            setPreview(null);
         }
-    }, [finishPolygonTrigger]);
+    }, [isDrawingPolygon, polygonPoints, isDrawingRoute, routePoints, getPitchYawFromScreenPoint]);
+
+    // EFECTO: Finalizar polígono/ruta vía trigger externo (botón sidebar)
+    useEffect(() => {
+        if ((finishPolygonTrigger ?? 0) > 0) {
+            handleFinishDrawing();
+        }
+    }, [finishPolygonTrigger, handleFinishDrawing]);
 
     // EFECTO: Detectar trigger de añadir MARCO
     useEffect(() => {
@@ -2251,6 +2283,15 @@ export default function Tour360SceneCanvas({
             }
         }
 
+        if (activeTool === "route") {
+            if (!isDrawingRoute) {
+                setIsDrawingRoute(true);
+                setRoutePoints([point]);
+            } else {
+                setRoutePoints(prev => [...prev, point]);
+            }
+        }
+
         if (activeTool === "drawing") {
             const coords = getPitchYawFromScreenPoint(point);
             if (!coords) return;
@@ -2443,7 +2484,7 @@ export default function Tour360SceneCanvas({
             setDraftFreehandDisplayPoints((prev) => [...prev, point]);
         }
 
-        if (activeTool === "polygon" && isDrawingPolygon && polygonPoints.length > 0) {
+        if ((activeTool === "polygon" || activeTool === "route") && (isDrawingPolygon || isDrawingRoute) && (polygonPoints.length > 0 || routePoints.length > 0)) {
             setPreview(point);
         }
 
@@ -2579,6 +2620,16 @@ export default function Tour360SceneCanvas({
                 setPreview(null);
                 setDraftFreehandStroke(null);
                 setDraftFreehandDisplayPoints([]);
+                setIsDrawingPolygon(false);
+                setPolygonPoints([]);
+                setIsDrawingRoute(false);
+                setRoutePoints([]);
+            }
+
+            if (e.key === "Enter") {
+                if (isDrawingPolygon || isDrawingRoute) {
+                    handleFinishDrawing();
+                }
             }
 
             if ((e.key === "Delete" || e.key === "Backspace") && editingTextId !== null) {
@@ -2608,7 +2659,7 @@ export default function Tour360SceneCanvas({
 
         window.addEventListener("keydown", keyMap);
         return () => window.removeEventListener("keydown", keyMap);
-    }, [selectedLineIds, fixedLineIds, isAnchored, editingTextId, draftFreehandStroke]);
+    }, [selectedLineIds, fixedLineIds, isAnchored, editingTextId, draftFreehandStroke, isDrawingPolygon, isDrawingRoute, handleFinishDrawing]);
 
     return (
         <div
@@ -2953,7 +3004,7 @@ export default function Tour360SceneCanvas({
                     // el fondo del SVG es 'none'. Solo las líneas y puntos capturan clics.
                     // EXCEPCIÓN: 'line' y 'arrow' necesitan 'auto' para empezar el trazo en el vacío,
                     // y cuando hay un ARRASTRE activo (!!dragTarget) necesitamos capturar el movimiento en todo el canvas.
-                    pointerEvents: isFixed ? "none" : ((activeTool === "line" || activeTool === "arrow" || activeTool === "location" || activeTool === "text" || activeTool === "polygon" || activeTool === "drawing" || !!dragTarget) ? "auto" : "none"),
+                    pointerEvents: isFixed ? "none" : ((activeTool === "line" || activeTool === "arrow" || activeTool === "location" || activeTool === "text" || activeTool === "polygon" || activeTool === "drawing" || activeTool === "route" || !!dragTarget) ? "auto" : "none"),
                 }}
                 onMouseDown={(e) => {
                     if (isFixed) return;
@@ -3007,6 +3058,13 @@ export default function Tour360SceneCanvas({
                 onMouseMove={handleCanvasMouseMove}
                 onMouseUp={handleCanvasMouseUp}
                 onMouseLeave={handleCanvasMouseUp}
+                onDoubleClick={(e) => {
+                    if (isFixed) return;
+                    if (isDrawingPolygon || isDrawingRoute) {
+                        e.stopPropagation();
+                        handleFinishDrawing();
+                    }
+                }}
             >
                 <defs>
                     {(["classic", "thin", "heavy-head", "wayfinding", "bold", "clean", "chevron", "brush", "curve-soft-left", "curve-soft-right", "curve-strong-left", "curve-strong-right"] as ArrowVariant[]).flatMap((variant) => {
@@ -3030,6 +3088,17 @@ export default function Tour360SceneCanvas({
                             </marker>
                         ));
                     })}
+                    <marker
+                        id="route-arrow"
+                        viewBox="0 0 10 10"
+                        refX="5"
+                        refY="5"
+                        markerWidth="4"
+                        markerHeight="4"
+                        orient="auto-start-reverse"
+                    >
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#ffffff" />
+                    </marker>
                 </defs>
 
                 {displayFreehandStrokes.map((stroke) => {
@@ -3068,6 +3137,7 @@ export default function Tour360SceneCanvas({
                                         e.stopPropagation();
                                         setSelectedLineIds(new Set([stroke.id]));
                                     }}
+                                    markerMid={stroke.type === "route" ? "url(#route-arrow)" : undefined}
                                 />
                             )}
                         </g>
@@ -3091,6 +3161,31 @@ export default function Tour360SceneCanvas({
                                 cy={p.y}
                                 r={4}
                                 fill={i === 0 ? "#22c55e" : "#3b82f6"}
+                                stroke="white"
+                                strokeWidth={1}
+                            />
+                        ))}
+                    </g>
+                )}
+
+                {isDrawingRoute && routePoints.length > 0 && (
+                    <g>
+                        <polyline
+                            points={[...routePoints, preview].filter((p): p is Point => !!p).map(p => `${p.x},${p.y}`).join(" ")}
+                            fill="none"
+                            stroke="#ff6b00"
+                            strokeWidth={4}
+                            strokeDasharray="4,4"
+                            pointerEvents="none"
+                            markerMid="url(#route-arrow)"
+                        />
+                        {routePoints.map((p, i) => (
+                            <circle
+                                key={i}
+                                cx={p.x}
+                                cy={p.y}
+                                r={4}
+                                fill={i === 0 ? "#22c55e" : "#ff6b00"}
                                 stroke="white"
                                 strokeWidth={1}
                             />

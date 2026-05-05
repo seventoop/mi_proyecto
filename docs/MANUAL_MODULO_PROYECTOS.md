@@ -532,6 +532,25 @@ Contrato obligatorio para herramientas interactivas del editor:
     *   No dejar referencias huérfanas a estados eliminados (ej: `draftTextItem`).
     *   No romper Marcos, Play, POI, Ubicación, Polígonos/Grilla ni Galería de Assets.
 
+#### Herramienta Ruta / Calles (Recorridos y Accesos)
+*   **Comportamiento**: Permite trazar recorridos, calles, accesos o caminos sobre una imagen 360/panorámica.
+*   **Interactividad**:
+    *   **Trazado**: Funciona punto por punto, permitiendo crear rutas abiertas.
+    *   **Visualización**: Renderiza una línea abierta con flechas direccionales que indican el sentido del trazado.
+    *   **Color**: El color por defecto es naranja SevenToop (`#ff6b00`).
+    *   **Preview**: Muestra previsualización elástica mientras se mueve el mouse antes de fijar cada punto.
+*   **Finalización**:
+    *   La ruta se puede finalizar mediante el botón **Finalizar** (Check verde), la tecla **Enter** o haciendo **doble click**.
+    *   La tecla **Escape** cancela el trazado en curso y limpia los puntos temporales.
+*   **Utilidad**: Diseñada para marcar accesos, calles internas, rutas cercanas, autopistas, caminos de llegada y recorridos destacados.
+*   **Persistencia**: La ruta, sus puntos (`world-space`), color y tipo deben persistir tras guardar y F5. Se rehidrata automáticamente al volver a editar.
+*   **Anti-regresión**:
+    *   No eliminar flechas direccionales.
+    *   No forzar el cierre de la ruta como polígono.
+    *   No quitar el color naranja por defecto.
+    *   No romper preview, Enter, doble click o Escape.
+    *   No alterar herramientas existentes: Texto, Marcos, Play, POI, Ubicación, Polígonos/Grilla ni Galería de Assets.
+
 ---
 
 ## 33. Prompt Base Obligatorio para IA
