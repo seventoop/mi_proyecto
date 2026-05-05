@@ -10,6 +10,7 @@ interface WorkerActionResult {
     taskId?: string;
     status?: string;
     message?: string;
+    alreadyExecuted?: boolean;
 }
 
 /**
@@ -52,7 +53,8 @@ export async function executeAiTaskDryRun(taskId: string): Promise<WorkerActionR
                 success: true,
                 taskId: result.taskId,
                 status: result.status,
-                message: result.message
+                message: result.message,
+                alreadyExecuted: result.alreadyExecuted
             };
         } else {
             return {

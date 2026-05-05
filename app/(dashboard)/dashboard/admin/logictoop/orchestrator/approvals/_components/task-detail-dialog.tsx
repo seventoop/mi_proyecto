@@ -66,7 +66,11 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         try {
             const res = await executeAiTaskDryRun(taskId);
             if (res.success) {
-                toast.success(res.message || "Dry-run completado exitosamente");
+                if (res.alreadyExecuted) {
+                    toast.info(res.message || "Dry-run ya ejecutado previamente");
+                } else {
+                    toast.success(res.message || "Dry-run completado exitosamente");
+                }
                 // Recargar detalle para ver los nuevos eventos
                 await loadTaskDetail(taskId);
             } else {

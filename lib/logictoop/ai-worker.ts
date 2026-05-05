@@ -52,9 +52,29 @@ export async function runApprovedAiTaskDryRun(params: DryRunParams) {
             throw new Error(`La tarea debe estar en estado APPROVED para ejecutar el worker. Estado actual: ${task.status}`);
         }
 
+        // 6. Idempotency Guard (Fase 4B)
+        // Buscamos si ya existe un evento de finalización para esta tarea
+        const existingCompletionEvent = await db.logicToopAiEvent.findFirst({
+            where: {
+                taskId,
+                type: "WORKER_DRY_RUN_COMPLETED"
+            }
+        });
+
+        if (existingCompletionEvent) {
+            console.log(`[AI Worker] Dry-run ya ejecutado previamente para tarea: ${taskId}`);
+            return {
+                success: true,
+                alreadyExecuted: true,
+                taskId,
+                status: task.status,
+                message: "Dry-run ya ejecutado previamente"
+            };
+        }
+
         console.log(`[AI Worker] Iniciando Dry-Run para tarea: ${taskId}`);
 
-        // 6. Registrar Evento de Inicio
+        // 7. Registrar Evento de Inicio
         await recordAiEvent({
             orgId: task.orgId,
             taskId,
