@@ -862,7 +862,6 @@ export default function Tour360SceneCanvas({
 
     const [mapMode, setMapMode] = useState<"TERRAIN" | "IMAGE">("TERRAIN");
 
-    const [draftTextItem, setDraftTextItem] = useState<TextItem | null>(null);
     const [editingTextId, setEditingTextId] = useState<string | null>(null);
     const [editingTextValue, setEditingTextValue] = useState("");
 
@@ -1163,9 +1162,6 @@ export default function Tour360SceneCanvas({
         });
 
         const allTexts = [...texts, ...projectedAnchored];
-        if (draftTextItem) {
-            allTexts.push(draftTextItem);
-        }
 
         // Sincronizar todos los textos con sus coordenadas actuales de arrastre si aplica
         return allTexts.map(t => {
@@ -1174,7 +1170,7 @@ export default function Tour360SceneCanvas({
             }
             return t;
         });
-    }, [texts, anchoredTexts, draftTextItem, projectPitchYaw, viewerState, dragTarget]);
+    }, [texts, anchoredTexts, projectPitchYaw, viewerState, dragTarget]);
 
     const displayFrames = useMemo(() => {
         // 1. Proyectamos los marcos anclados (3D)
@@ -2154,22 +2150,33 @@ export default function Tour360SceneCanvas({
         }
 
         if (activeTool === "text") {
-            if (!draftTextItem) {
-                const baseText: TextItem = {
-                    id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
-                    text: "Agregar un título", // Estilo Canva
-                    x: point.x,
-                    y: point.y,
-                };
-                if (isAnchored) {
-                    const coords = getPitchYawFromScreenPoint(point);
-                    if (coords) {
-                        baseText.pitch = coords[0];
-                        baseText.yaw = coords[1];
-                    }
+            const newId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
+            const baseText: TextItem = {
+                id: newId,
+                text: "Nuevo texto",
+                x: point.x,
+                y: point.y,
+                fontSize: 24,
+                color: "#ffffff"
+            };
+
+            if (isAnchored) {
+                const coords = getPitchYawFromScreenPoint(point);
+                if (coords) {
+                    baseText.pitch = coords[0];
+                    baseText.yaw = coords[1];
+                    baseText.anchorHfov = viewerState?.hfov;
+                    setAnchoredTexts((prev) => [...prev, baseText]);
+                } else {
+                    setTexts((prev) => [...prev, baseText]);
                 }
-                setDraftTextItem(baseText);
+            } else {
+                setTexts((prev) => [...prev, baseText]);
             }
+
+            setSelectedLineIds(new Set([newId]));
+            setEditingTextValue(baseText.text);
+            setEditingTextId(newId);
         }
 
         if (activeTool === "location") {
@@ -2946,7 +2953,7 @@ export default function Tour360SceneCanvas({
                     // el fondo del SVG es 'none'. Solo las líneas y puntos capturan clics.
                     // EXCEPCIÓN: 'line' y 'arrow' necesitan 'auto' para empezar el trazo en el vacío,
                     // y cuando hay un ARRASTRE activo (!!dragTarget) necesitamos capturar el movimiento en todo el canvas.
-                    pointerEvents: isFixed ? "none" : ((activeTool === "line" || activeTool === "arrow" || activeTool === "location" || activeTool === "polygon" || activeTool === "drawing" || !!dragTarget) ? "auto" : "none"),
+                    pointerEvents: isFixed ? "none" : ((activeTool === "line" || activeTool === "arrow" || activeTool === "location" || activeTool === "text" || activeTool === "polygon" || activeTool === "drawing" || !!dragTarget) ? "auto" : "none"),
                 }}
                 onMouseDown={(e) => {
                     if (isFixed) return;
@@ -3460,7 +3467,7 @@ export default function Tour360SceneCanvas({
                 {displayTexts.map((txt) => {
                     const isSelected = selectedLineIds.has(txt.id);
                     const isEditing = editingTextId === txt.id;
-                    const canInteract = activeTool === "select" || isEditing;
+                    const canInteract = activeTool === "select" || activeTool === "text" || isEditing;
                     if (txt.x === -9999) return null;
                     const textScale = anchoredTextIds.has(txt.id) ? getAnchoredObjectScale(txt.anchorHfov) : 1;
 
@@ -3479,7 +3486,7 @@ export default function Tour360SceneCanvas({
                             }}
                             onMouseDown={(e) => {
                                 e.stopPropagation();
-                                if (activeTool === "select") {
+                                if (activeTool === "select" || activeTool === "text") {
                                   setSelectedLineIds(new Set([txt.id]));
                                   if (!isEditing) {
                                     setDragTarget({ type: "text", textId: txt.id });
@@ -4090,17 +4097,6 @@ export default function Tour360SceneCanvas({
                     );
                 })}
 
-                {/* Preview de nuevo texto (Canva style) */}
-                {draftTextItem && (
-                    <div
-                        className="absolute animate-pulse"
-                        style={{ left: draftTextItem.x, top: draftTextItem.y, transform: "translate(-50%, -50%)" }}
-                    >
-                        <div className="border-2 border-dashed border-[#8b5cf6] px-4 py-2 bg-[#8b5cf6]/10 rounded-lg text-white font-bold opacity-70">
-                            {draftTextItem.text}
-                        </div>
-                    </div>
-                )}
             </div>
 
 

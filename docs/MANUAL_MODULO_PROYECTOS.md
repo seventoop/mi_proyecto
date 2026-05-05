@@ -517,6 +517,21 @@ Contrato obligatorio para herramientas interactivas del editor:
     *   No guardar imágenes como blob URLs.
     *   No romper marcos, Play, Ubicación, Polígonos/Grilla ni Galería de Assets.
 
+#### Herramienta Texto (Creación Inmediata e Interactiva)
+*   **Comportamiento**: Click en escena crea un elemento de texto real e interactivo inmediatamente.
+*   **Interactividad**:
+    *   **Selección**: El texto recién creado debe quedar seleccionado automáticamente.
+    *   **Edición**: El usuario debe poder escribir inmediatamente tras la creación. Permite editar contenido, posición, tamaño y color.
+    *   **Manipulación**: El usuario debe poder mover y agrandar/achicar el texto sin cambiar a otra herramienta (Marco, Selección, etc.).
+    *   **Fricción Cero**: Debe permitir crear múltiples textos consecutivos sin bloqueos de UX.
+*   **Estructura**: No debe implementarse como borrador temporal o "draft". Toda creación es un elemento real del estado del canvas.
+*   **Persistencia**: El texto, su posición, tamaño, color y contenido deben persistir tras guardar y F5.
+*   **Anti-regresión**:
+    *   No volver a implementar el texto como draft no interactivo.
+    *   No bloquear la interacción del texto mientras la herramienta Texto está activa (pointer-events habilitados).
+    *   No dejar referencias huérfanas a estados eliminados (ej: `draftTextItem`).
+    *   No romper Marcos, Play, POI, Ubicación, Polígonos/Grilla ni Galería de Assets.
+
 ---
 
 ## 33. Prompt Base Obligatorio para IA
