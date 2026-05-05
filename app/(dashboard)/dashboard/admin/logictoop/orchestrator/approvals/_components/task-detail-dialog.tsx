@@ -144,6 +144,11 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                                 <div className="flex items-center text-muted-foreground mb-1"><AlertCircle className="w-4 h-4 mr-2" /> <strong>Métricas</strong></div>
                                 <p>Tokens: {task.costTokens}</p>
                                 <p>Run ID: {task.paperclipRunId || "N/A (Local)"}</p>
+                                {task.executionId && (
+                                    <p className="text-xs font-mono text-blue-600 bg-blue-50 px-1 rounded inline-block mt-1">
+                                        Flow ID: {task.executionId}
+                                    </p>
+                                )}
                             </div>
                         </div>
 

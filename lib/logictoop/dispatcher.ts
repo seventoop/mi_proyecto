@@ -117,7 +117,30 @@ export async function executeFlow(flow: any, payload: any, executionId?: string)
                 break;
             }
 
-            // 3. CONDITION handling (Branching)
+            // 3. AI APPROVAL handling (Stateful Pause)
+            if (type === "AI_APPROVAL_TASK") {
+                // Ejecutamos el nodo primero para crear la tarea
+                const nodeDef = nodeRegistry.get(type);
+                if (nodeDef) {
+                    await nodeDef.handler(config, payload, flow.orgId);
+                }
+
+                stepLogs.push({
+                    action: "AI_APPROVAL_TASK",
+                    uid: uid,
+                    status: "WAITING_FOR_APPROVAL",
+                    details: { message: "Esperando aprobación humana de la tarea IA" },
+                    timestamp: new Date().toISOString()
+                });
+
+                finalStatus = "WAITING_FOR_APPROVAL";
+                // Identificar el siguiente paso para cuando se reanude
+                const candidateNext = node.next || null;
+                currentIndex = candidateNext ? actions.findIndex((a: any) => a.uid === candidateNext) : currentIndex + 1;
+                break;
+            }
+
+            // 4. CONDITION handling (Branching)
             if (type === "CONDITION") {
                 const isTrue = evaluateConditionSet(node.conditions || [], payload);
                 stepLogs.push({
@@ -139,7 +162,7 @@ export async function executeFlow(flow: any, payload: any, executionId?: string)
                 }
             }
 
-            // 4. ACTION handling via Registry
+            // 5. ACTION handling via Registry
             const stepLog = {
                 action: type,
                 uid: uid,

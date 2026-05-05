@@ -134,3 +134,49 @@ export const aiRouteNode: NodeDefinition = {
         return result;
     }
 };
+
+import { createAiTaskFromFlow } from "../../flow-ai-bridge";
+
+export const aiApprovalTaskNode: NodeDefinition = {
+    type: "AI_APPROVAL_TASK",
+    label: "IA Tarea (Aprobación)",
+    category: "AI",
+    icon: "user-check",
+    description: "Crea una tarea de IA que requiere revisión y aprobación humana antes de continuar.",
+    configSchema: [
+        { id: "agentId", label: "Agente de IA", type: "text", required: true },
+        { id: "instruction", label: "Instrucción / Prompt", type: "textarea", required: true }
+    ],
+    handler: async (config, payload, orgId) => {
+        const { agentId, instruction } = config;
+        const executionId = payload.executionId;
+
+        if (!agentId) throw new Error("Falta agentId en la configuración del nodo.");
+        if (!executionId) throw new Error("No hay una ejecución activa asociada a este nodo.");
+
+        // El inputPayload para la tarea será una mezcla de la instrucción y el payload actual del flow
+        const inputPayload = {
+            instruction,
+            flowData: payload,
+            timestamp: new Date().toISOString()
+        };
+
+        const result = await createAiTaskFromFlow({
+            executionId,
+            orgId,
+            agentId,
+            requestedById: payload.userId,
+            inputPayload
+        });
+
+        if (!result.success) {
+            throw new Error(result.error || "Fallo al crear la tarea de aprobación de IA");
+        }
+
+        return {
+            taskId: result.taskId,
+            status: "WAITING_FOR_APPROVAL",
+            message: "Tarea de IA creada. El flujo debe pausarse hasta la aprobación."
+        };
+    }
+};

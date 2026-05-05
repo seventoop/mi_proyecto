@@ -2,7 +2,7 @@ import { nodeRegistry } from "./nodeRegistry";
 import { assignLeadNode, createTaskNode, moveLeadStageNode } from "./definitions/crm";
 import { sendEmailNode, sendWhatsAppNode } from "./definitions/messaging";
 import { notifyInternalNode, addAuditLogNode, waitNode } from "./definitions/automation";
-import { aiClassifyLeadNode, aiScoreLeadNode, aiSummarizeNode, aiRouteNode } from "./definitions/ai";
+import { aiClassifyLeadNode, aiScoreLeadNode, aiSummarizeNode, aiRouteNode, aiApprovalTaskNode } from "./definitions/ai";
 import { httpRequestNode, whatsappSendMessageNode, metaConversionNode, googleSheetsAppendNode } from "./definitions/integrations";
 import { googleCalendarCreateEventNode, googleCalendarListAvailabilityNode, googleCalendarUpdateEventNode, googleCalendarGetEventNode } from "./definitions/google-calendar";
 import { webhookTriggerNode } from "./definitions/triggers";
@@ -29,6 +29,7 @@ export function initNodeRegistry() {
     nodeRegistry.register(aiScoreLeadNode);
     nodeRegistry.register(aiSummarizeNode);
     nodeRegistry.register(aiRouteNode);
+    nodeRegistry.register(aiApprovalTaskNode);
 
     // Integration Nodes
     nodeRegistry.register(httpRequestNode);
