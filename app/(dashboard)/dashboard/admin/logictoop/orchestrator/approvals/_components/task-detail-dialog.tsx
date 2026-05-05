@@ -152,6 +152,40 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                             </div>
                         </div>
 
+                        {/* Sincronización de Flow (Fase 5C.1) */}
+                        {task.executionId && (
+                            <div className={`p-4 rounded-lg flex items-center gap-3 border ${
+                                task.status === "APPROVED" 
+                                    ? "bg-green-50 border-green-200 text-green-900" 
+                                    : task.status === "REJECTED"
+                                    ? "bg-red-50 border-red-200 text-red-900"
+                                    : "bg-blue-50 border-blue-200 text-blue-900"
+                            }`}>
+                                <div className={`p-2 rounded-full ${
+                                    task.status === "APPROVED" ? "bg-green-100 text-green-700" : 
+                                    task.status === "REJECTED" ? "bg-red-100 text-red-700" : 
+                                    "bg-blue-100 text-blue-700"
+                                }`}>
+                                    <ListChecks className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium">Flow vinculado</p>
+                                    <p className="text-xs opacity-90">
+                                        {task.status === "APPROVED" 
+                                            ? "Listo para reanudación manual futura." 
+                                            : task.status === "REJECTED"
+                                            ? "Flow detenido por rechazo de IA."
+                                            : "Esta tarea está vinculada a un flujo de LogicToop. La aprobación no reanuda automáticamente el flujo en esta fase."}
+                                    </p>
+                                    {task.status === "APPROVED" && (
+                                        <p className="text-[10px] mt-1 font-semibold italic">
+                                            * La aprobación no reanuda automáticamente el flujo en esta fase.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Controles de Worker (Fase 4A) */}
                         {task.status === "APPROVED" && isSuperAdmin && (
                             <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg flex items-center justify-between">

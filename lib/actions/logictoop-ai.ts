@@ -113,6 +113,41 @@ export async function rejectAiTask(taskId: string, comments: string): Promise<{ 
                 tx
             });
 
+            // Sincronización con LogicToop Flow (Fase 5C.1)
+            if (existingTask.executionId) {
+                // Hardening: Verificar si ya se registró el rechazo para evitar duplicados
+                const alreadyRejected = await tx.logicToopAiEvent.findFirst({
+                    where: {
+                        taskId,
+                        type: "FLOW_AI_TASK_REJECTED"
+                    }
+                });
+
+                if (!alreadyRejected) {
+                    await tx.logicToopExecution.update({
+                        where: { id: existingTask.executionId },
+                        data: { status: "AI_REJECTED" }
+                    });
+
+                    await recordAiEvent({
+                        orgId: existingTask.orgId,
+                        taskId,
+                        type: "FLOW_AI_TASK_REJECTED",
+                        actorUserId: user.id,
+                        source: "SYSTEM",
+                        message: `Flujo detenido por rechazo de tarea IA (Execution: ${existingTask.executionId})`,
+                        metadata: { 
+                            executionId: existingTask.executionId, 
+                            mode: "flow_ai_rejected",
+                            sideEffects: false,
+                            autoResume: false,
+                            status: "AI_REJECTED" 
+                        },
+                        tx
+                    });
+                }
+            }
+
             return { success: true, taskId: task.id };
         });
 
@@ -182,6 +217,51 @@ export async function approveAiTask(taskId: string, comments?: string): Promise<
                 metadata: { actionTaken: "APPROVED_NO_SIDE_EFFECTS" },
                 tx
             });
+
+            // Sincronización con LogicToop Flow (Fase 5C.1)
+            if (existingTask.executionId) {
+                // Hardening: Verificar si ya se registró la aprobación para evitar duplicados
+                const alreadyApproved = await tx.logicToopAiEvent.findFirst({
+                    where: {
+                        taskId,
+                        type: "FLOW_AI_TASK_APPROVED"
+                    }
+                });
+
+                if (!alreadyApproved) {
+                    await tx.logicToopExecution.update({
+                        where: { id: existingTask.executionId },
+                        data: { status: "AI_APPROVED_WAITING_RESUME" }
+                    });
+
+                    await recordAiEvent({
+                        orgId: existingTask.orgId,
+                        taskId,
+                        type: "FLOW_AI_TASK_APPROVED",
+                        actorUserId: user.id,
+                        source: "SYSTEM",
+                        message: `Tarea IA aprobada. Flujo listo para reanudación manual (Execution: ${existingTask.executionId})`,
+                        metadata: { 
+                            executionId: existingTask.executionId, 
+                            mode: "flow_ai_resume_readiness", 
+                            sideEffects: false, 
+                            autoResume: false,
+                            status: "AI_APPROVED_WAITING_RESUME"
+                        },
+                        tx
+                    });
+
+                    await recordAiEvent({
+                        orgId: existingTask.orgId,
+                        taskId,
+                        type: "FLOW_WAITING_MANUAL_RESUME",
+                        actorUserId: null,
+                        source: "SYSTEM",
+                        message: "Flujo marcado como 'Listo para reanudación manual'",
+                        tx
+                    });
+                }
+            }
 
             return { success: true, taskId: task.id };
         });
