@@ -24,6 +24,9 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [detailOpen, setDetailOpen] = useState(false);
+    const [filterStatus, setFilterStatus] = useState<string>("ALL");
+
+    const filteredTasks = tasks.filter(t => filterStatus === "ALL" || t.status === filterStatus);
 
     const handleReject = async (taskId: string) => {
         if (!canWrite) {
@@ -119,13 +122,30 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
             </div>
 
             <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
                     <CardTitle className="text-lg">Tareas y Orquestaciones Recientes</CardTitle>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {["ALL", "PENDING", "NEEDS_APPROVAL", "APPROVED", "REJECTED"].map((status) => {
+                            const count = status === "ALL" ? tasks.length : tasks.filter(t => t.status === status).length;
+                            return (
+                                <Button
+                                    key={status}
+                                    variant={filterStatus === status ? "secondary" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setFilterStatus(status)}
+                                    className="text-xs h-7"
+                                >
+                                    {status === "ALL" ? "Todos" : status} 
+                                    <span className="ml-1.5 opacity-50">({count})</span>
+                                </Button>
+                            );
+                        })}
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    {tasks.length === 0 ? (
+                    {filteredTasks.length === 0 ? (
                         <div className="text-center py-10 text-muted-foreground">
-                            No se encontraron tareas registradas.
+                            No se encontraron tareas registradas con este estado.
                         </div>
                     ) : (
                         <Table>
@@ -139,7 +159,7 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {tasks.map((task) => (
+                                {filteredTasks.map((task) => (
                                     <TableRow key={task.id}>
                                         <TableCell className="text-xs">
                                             {format(new Date(task.createdAt), "dd/MM/yyyy HH:mm")}
