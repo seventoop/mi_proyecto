@@ -753,6 +753,9 @@ export default function TourCreator({
     const [showPlanGallery, setShowPlanGallery] = useState(false);
     const [projectOverlayRotation, setProjectOverlayRotation] = useState<number>(0);
     const [projectSvgViewBox, setProjectSvgViewBox] = useState<SvgViewBox | null>(null);
+    // True when blueprintData confirms masterplanSVG exists — independent of units/coordenadasMasterplan.
+    // Used to decide whether "Editar imagen" is available without depending on overlayUnits.length.
+    const [hasPersistentPlan, setHasPersistentPlan] = useState(false);
     const [isOverlayEditorOpen, setIsOverlayEditorOpen] = useState(false);
     const [selectedUnitId, setSelectedUnitId] = useState<string>("");
     const [sceneForm, setSceneForm] = useState<SceneImageFormState>(() => buildSceneImageForm(null));
@@ -774,7 +777,9 @@ export default function TourCreator({
     const pendingConfirmScene = pendingConfirmSceneId
         ? scenes.find((s) => s.id === pendingConfirmSceneId) || null
         : null;
-    const canAlignProjectPlan = Boolean(projectOverlayBounds && projectSvgViewBox && overlayUnits.length > 0);
+    // Requires both a valid georeference (overlay saved in DB) AND a real persistent plan (SVG exists).
+    // Does NOT depend on overlayUnits.length — the editor can align image against the plan without lots.
+    const canAlignProjectPlan = Boolean(projectOverlayBounds && hasPersistentPlan);
 
     // Determine if active scene is 360 (should use Pannellum) or flat (should use <img>)
     const activeSceneIs360 = activeScene ? isTour360Category({
@@ -1049,6 +1054,11 @@ export default function TourCreator({
                 ]);
 
                 const blueprintData = await readJsonResponse(blueprintRes);
+                // Persistent plan check — fires from masterplanSVG, independent of units or coordenadasMasterplan.
+                // This ensures "Editar imagen" is available whenever Paso 4 is saved and a real plan exists.
+                if (blueprintRes.ok && blueprintData?.masterplanSVG) {
+                    setHasPersistentPlan(true);
+                }
                 if (blueprintRes.ok && Array.isArray(blueprintData?.unidades)) {
                     const units: MasterplanUnit[] = blueprintData.unidades.map((u: any) => {
                         let path: string | undefined;

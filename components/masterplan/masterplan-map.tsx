@@ -407,6 +407,13 @@ export default function MasterplanMap({
                             opacity: prev?.opacity ?? cfg.opacity ?? 0.8,
                             corners: cfg.corners ?? prev?.corners ?? null,
                         }));
+                        // Bounds exist in DB: the user already positioned the plan.
+                        // Skip the auto-fitBounds in drawPolygons so the map keeps
+                        // the stored mapCenterLat/Lng/Zoom on every remount
+                        // (navigating away and back, or F5).
+                        if (cfg.bounds) {
+                            hasAutoFitContentRef.current = true;
+                        }
                     }
                 }
             } catch (err) {
@@ -995,7 +1002,9 @@ export default function MasterplanMap({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    imageUrl: overlayConfig.imageUrl,
+                    imageUrl: overlayConfig.imageUrl && !overlayConfig.imageUrl.startsWith("blob:")
+                        ? overlayConfig.imageUrl
+                        : null,
                     bounds: overlayConfig.bounds,
                     corners: overlayConfig.corners ?? null,
                     rotation: overlayConfig.rotation ?? 0,
@@ -1145,7 +1154,7 @@ export default function MasterplanMap({
                         {/* SECTION 2: Polygon positioning */}
                         <button
                             onClick={handleLoadPlanOverlay}
-                            disabled={!isMapReady || isLoadingPlan || isLoadingOverlay}
+                            disabled={!isMapReady || isLoadingPlan || !blueprintLoaded || isLoadingOverlay}
                             className={cn(
                                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50",
                                 isEditingOverlay
