@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Image as ImageIcon, Map as MapIcon, MapPin, Check, Maximize2, Play } from "lucide-react";
+import { Image as ImageIcon, Map as MapIcon, MapPin, Check, Maximize2, Play, Trash2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export type Line = {
     id: string;
@@ -83,6 +84,7 @@ export type PoiBadge = {
     pitch?: number;
     yaw?: number;
     anchorHfov?: number;
+    color?: string;
 };
 
 export type FreehandStroke = {
@@ -90,6 +92,7 @@ export type FreehandStroke = {
     points: { pitch: number; yaw: number }[];
     strokeWidth?: number;
     color?: string;
+    type?: "freehand" | "polygon";
 };
 
 export type ControlPoint = {
@@ -435,10 +438,10 @@ function getSnapResult(
     // --- PRIORIDAD 1: MARCOS (Magnetismo Fuerte) ---
     if (frames) {
         // Radio de atracción de marcos de 60px para que se "sienta" el imán
-        const FRAME_SNAP_DIST = 60; 
+        const FRAME_SNAP_DIST = 60;
         for (const frame of frames) {
             if (frame.x < -1000) continue;
-            
+
             // El imán está en el borde inferior exacto
             const snapPoint = getFrameSnapPoint(frame);
             const d = distance(point, snapPoint);
@@ -782,6 +785,7 @@ export default function Tour360SceneCanvas({
     initialAnchoredFrames = [],
     onNavigate,
     onDropAsset,
+    finishPolygonTrigger,
 }: {
     activeTool?: string;
     isEditing?: boolean;
@@ -812,6 +816,8 @@ export default function Tour360SceneCanvas({
     initialFrames?: SceneFrame[];
     initialAnchoredFrames?: SceneFrame[];
     onDropAsset?: (asset: any) => void;
+    finishPolygonTrigger?: number;
+    proyectoId?: string;
 }) {
     const svgRef = useRef<SVGSVGElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -839,7 +845,7 @@ export default function Tour360SceneCanvas({
     const [anchoredTexts, setAnchoredTexts] = useState<TextItem[]>(initialAnchoredTexts || []);
     const [frames, setFrames] = useState<SceneFrame[]>(initialFrames || []);
     const [anchoredFrames, setAnchoredFrames] = useState<SceneFrame[]>(initialAnchoredFrames || []);
-    
+
     // NATIVE IMAGES
     const [images, setImages] = useState<SceneImage[]>(initialImages || []);
     const [anchoredImages, setAnchoredImages] = useState<SceneImage[]>(initialAnchoredImages || []);
@@ -848,8 +854,13 @@ export default function Tour360SceneCanvas({
     const [freehandStrokes, setFreehandStrokes] = useState<FreehandStroke[]>(initialFreehandStrokes || []);
     const [draftFreehandStroke, setDraftFreehandStroke] = useState<FreehandStroke | null>(null);
     const [draftFreehandDisplayPoints, setDraftFreehandDisplayPoints] = useState<Point[]>([]);
+
+    // ESTADOS PARA POLÍGONOS PUNTO A PUNTO
+    const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
+    const [polygonPoints, setPolygonPoints] = useState<Point[]>([]);
+
     const [mapMode, setMapMode] = useState<"TERRAIN" | "IMAGE">("TERRAIN");
-    
+
     const [draftTextItem, setDraftTextItem] = useState<TextItem | null>(null);
     const [editingTextId, setEditingTextId] = useState<string | null>(null);
     const [editingTextValue, setEditingTextValue] = useState("");
@@ -1140,7 +1151,7 @@ export default function Tour360SceneCanvas({
 
     const displayTexts = useMemo(() => {
         const projectedAnchored = anchoredTexts.map((textItem) => {
-            // Si estamos arrastrando este texto específico, usamos x/y directos 
+            // Si estamos arrastrando este texto específico, usamos x/y directos
             // para que no haya lag de proyección 3D (Canva-like smoothness)
             if (dragTarget?.type === "text" && dragTarget.textId === textItem.id) {
                 return textItem;
@@ -1154,7 +1165,7 @@ export default function Tour360SceneCanvas({
         if (draftTextItem) {
             allTexts.push(draftTextItem);
         }
-        
+
         // Sincronizar todos los textos con sus coordenadas actuales de arrastre si aplica
         return allTexts.map(t => {
             if (dragTarget?.type === "text" && dragTarget.textId === t.id) {
@@ -1178,7 +1189,7 @@ export default function Tour360SceneCanvas({
                 };
             }
             if (f.pitch === undefined || f.yaw === undefined) return { ...f, x: -10000, y: -10000, renderScale: 1, snapX: -10000, snapY: -10000 };
-            
+
             const p = projectPitchYaw(f.pitch, f.yaw);
             if (!p) return { ...f, x: -10000, y: -10000, renderScale: 1, snapX: -10000, snapY: -10000 };
             const renderScale = getHfovScale(f.anchorHfov, viewerState?.hfov);
@@ -1325,7 +1336,7 @@ export default function Tour360SceneCanvas({
         if (selectedLineIds.size > 0) {
             const idsList = Array.from(selectedLineIds);
             let hasAnchoredAnything = false;
-            
+
             idsList.forEach(id => {
                 // Caso: LINEAS
                 const line2D = lines.find(l => l.id === id);
@@ -1763,6 +1774,7 @@ export default function Tour360SceneCanvas({
                 anchoredFrames,
                 images,
                 anchoredImages,
+                isDrawingPolygon,
             });
         }, 100); // Debounce de 100ms para fluidez total
 
@@ -1809,13 +1821,39 @@ export default function Tour360SceneCanvas({
         setEditingTextId(newId);
     }, [addTextTrigger, getPitchYawFromScreenPoint, isAnchored, viewerState]);
 
+    // EFECTO: Finalizar polígono vía trigger externo (botón sidebar)
+    useEffect(() => {
+        if (finishPolygonTrigger > 0 && isDrawingPolygon && polygonPoints.length >= 3) {
+            const finalPoints = [...polygonPoints];
+            const strokeId = `poly-${Date.now()}`;
+
+            const worldPoints = finalPoints.map(p => {
+                const c = getPitchYawFromScreenPoint(p);
+                return c ? { pitch: c[0], yaw: c[1] } : { pitch: 0, yaw: 0 };
+            });
+
+            const newStroke: FreehandStroke = {
+                id: strokeId,
+                points: worldPoints,
+                strokeWidth: 3,
+                color: "#3b82f6",
+                type: "polygon"
+            };
+
+            setFreehandStrokes(prev => [...prev, newStroke]);
+            setIsDrawingPolygon(false);
+            setPolygonPoints([]);
+            setSelectedLineIds(new Set([strokeId]));
+        }
+    }, [finishPolygonTrigger]);
+
     // EFECTO: Detectar trigger de añadir MARCO
     useEffect(() => {
         if (!addFrameTrigger) return;
         if (lastProcessedFrameTriggerRef.current === addFrameTrigger.timestamp) return;
         const frameTrigger = addFrameTrigger;
         lastProcessedFrameTriggerRef.current = frameTrigger.timestamp;
-        
+
         const container = containerRef.current;
         if (!container) return;
 
@@ -1843,7 +1881,7 @@ export default function Tour360SceneCanvas({
         } else {
             setFrames(prev => [...prev, newFrame]);
         }
-        
+
         setSelectedLineIds(new Set([newId]));
     }, [addFrameTrigger, getPitchYawFromScreenPoint, isAnchored, viewerState]);
 
@@ -1916,6 +1954,106 @@ export default function Tour360SceneCanvas({
             document.body.style.userSelect = "";
         };
     }, [dragTarget, pendingFrameDrag]);
+
+    // --- MANEJO DE PEGADO (CLIPBOARD PASTE) ---
+    useEffect(() => {
+        const handlePaste = async (e: ClipboardEvent) => {
+            // Solo actuar si hay exactamente un elemento seleccionado
+            if (selectedLineIds.size !== 1) return;
+
+            const selectedId = Array.from(selectedLineIds)[0];
+
+            // Buscar si el seleccionado es un POI
+            const poi2D = poiBadges.find(p => p.id === selectedId);
+            const poi3D = anchoredPoiBadges.find(p => p.id === selectedId);
+            const targetPoi = poi2D || poi3D;
+
+            if (!targetPoi || targetPoi.type !== "poi-badge") return;
+
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            let imageFile: File | null = null;
+
+            // 1. Intentar capturar archivo de imagen directo (Bitmap)
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf("image") !== -1) {
+                    imageFile = items[i].getAsFile();
+                    break;
+                }
+            }
+
+            // 2. Si no hay archivo, intentar capturar URL (Texto)
+            if (!imageFile) {
+                const text = e.clipboardData?.getData("text/plain");
+                if (text && (text.startsWith("http") || text.startsWith("data:image"))) {
+                    // Validar extensiones comunes
+                    const isImageUrl = /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(text) || text.startsWith("data:image");
+                    if (isImageUrl) {
+                        try {
+                            const loadingToast = toast.loading("Procesando imagen pegada...");
+                            const response = await fetch(text);
+                            const blob = await response.blob();
+
+                            if (blob.type.startsWith("image/")) {
+                                const filename = text.split("/").pop()?.split("?")[0] || "pasted-image.png";
+                                imageFile = new File([blob], filename, { type: blob.type });
+                            }
+                            toast.dismiss(loadingToast);
+                        } catch (err) {
+                            console.error("Error al descargar imagen desde URL:", err);
+                            toast.error("No se pudo procesar la URL de la imagen. Puede ser por restricciones de seguridad (CORS).");
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (imageFile) {
+                e.preventDefault(); // Evitar comportamiento por defecto si encontramos una imagen
+
+                const loadingToast = toast.loading("Subiendo imagen de marcador...");
+
+                try {
+                    const formData = new FormData();
+                    formData.append("file", imageFile);
+                    if (proyectoId) {
+                        formData.append("projectId", proyectoId);
+                    }
+
+                    const res = await fetch("/api/upload/360", {
+                        method: "POST",
+                        body: formData,
+                    });
+
+                    if (!res.ok) {
+                        const errorData = await res.json();
+                        throw new Error(errorData.error || "Error al subir imagen");
+                    }
+
+                    const data = await res.json();
+
+                    if (data.success && data.url) {
+                        // Actualizar el POI con la nueva URL
+                        const update = (p: PoiBadge) => p.id === selectedId ? { ...p, imageUrl: data.url } : p;
+
+                        setPoiBadges(prev => prev.map(update));
+                        setAnchoredPoiBadges(prev => prev.map(update));
+
+                        toast.success("Imagen del marcador actualizada");
+                    }
+                } catch (err: any) {
+                    console.error("Error al subir imagen pegada:", err);
+                    toast.error(`Error: ${err.message}`);
+                } finally {
+                    toast.dismiss(loadingToast);
+                }
+            }
+        };
+
+        window.addEventListener("paste", handlePaste);
+        return () => window.removeEventListener("paste", handlePaste);
+    }, [selectedLineIds, poiBadges, anchoredPoiBadges, proyectoId]);
 
     const handleCanvasMouseDown = (e: React.MouseEvent) => {
         if (isFixed) return;
@@ -2005,7 +2143,8 @@ export default function Tour360SceneCanvas({
                 y: point.y,
                 width: 46,
                 height: 46,
-                title: "Ubicaci\u00f3n",
+                title: "Ubicación",
+                color: "#facc15", // Amarillo por defecto
             };
 
             if (isAnchored) {
@@ -2020,31 +2159,49 @@ export default function Tour360SceneCanvas({
             }
 
             setSelectedLineIds(new Set([newId]));
+            // Habilitar edición inmediata del texto
+            setEditingTextValue(baseBadge.title || "");
+            setEditingTextId(newId);
         }
 
         if (activeTool === "polygon") {
-            const newId = `grid-${Date.now()}`;
-            const baseFrame: SceneFrame = {
-                id: newId,
-                type: "grid",
-                x: point.x,
-                y: point.y,
-                width: 180,
-                height: 140,
-            };
-
-            if (isAnchored) {
-                const coords = getPitchYawFromScreenPoint(point);
-                if (coords) {
-                    setAnchoredFrames((prev) => [...prev, { ...baseFrame, pitch: coords[0], yaw: coords[1], anchorHfov: viewerState?.hfov }]);
-                } else {
-                    setFrames((prev) => [...prev, baseFrame]);
-                }
+            // LÓGICA PUNTO A PUNTO
+            if (!isDrawingPolygon) {
+                setIsDrawingPolygon(true);
+                setPolygonPoints([point]);
             } else {
-                setFrames((prev) => [...prev, baseFrame]);
-            }
+                // Si el click es muy cerca del primer punto, cerramos el polígono
+                const firstPoint = polygonPoints[0];
+                const dist = Math.hypot(point.x - firstPoint.x, point.y - firstPoint.y);
 
-            setSelectedLineIds(new Set([newId]));
+                if (dist < 15 && polygonPoints.length >= 3) {
+                    // Cerrar polígono
+                    const finalPoints = [...polygonPoints];
+                    const strokeId = `poly-${Date.now()}`;
+
+                    // Convertir a world-space si está anclado
+                    const worldPoints = finalPoints.map(p => {
+                        const c = getPitchYawFromScreenPoint(p);
+                        return c ? { pitch: c[0], yaw: c[1] } : { pitch: 0, yaw: 0 };
+                    });
+
+                    const newStroke: FreehandStroke = {
+                        id: strokeId,
+                        points: worldPoints,
+                        strokeWidth: 3,
+                        color: "#3b82f6", // Azul por defecto
+                        type: "polygon"
+                    };
+
+                    setFreehandStrokes(prev => [...prev, newStroke]);
+                    setIsDrawingPolygon(false);
+                    setPolygonPoints([]);
+                    setSelectedLineIds(new Set([strokeId]));
+                } else {
+                    // Agregar nuevo vértice
+                    setPolygonPoints(prev => [...prev, point]);
+                }
+            }
         }
 
         if (activeTool === "drawing") {
@@ -2110,7 +2267,7 @@ export default function Tour360SceneCanvas({
             else if (dragTarget.corner === "sw") diff = (dragTarget.startX - point.x) + (point.y - dragTarget.startY);
 
             const newSize = Math.max(10, dragTarget.startSize + diff * 0.5);
-            
+
             const updateText = (t: TextItem) =>
                 t.id === dragTarget.textId
                     ? {
@@ -2193,11 +2350,11 @@ export default function Tour360SceneCanvas({
         if (dragTarget?.type === "frame-resize" && dragTarget.frameId) {
             const dx = point.x - dragTarget.startX;
             const dy = point.y - dragTarget.startY;
-            
+
             // Calculamos el factor de escala basado en el movimiento del mouse
             const updateFrame = (f: SceneFrame) => {
                 if (f.id !== dragTarget.frameId) return f;
-                
+
                 // Redimensionado simple pero efectivo: dx+dy
                 const sizeChange = (Math.abs(dx) > Math.abs(dy) ? dx : dy) * 2;
                 const newWidth = Math.max(50, dragTarget.startWidth + sizeChange);
@@ -2239,6 +2396,10 @@ export default function Tour360SceneCanvas({
             setDraftFreehandDisplayPoints((prev) => [...prev, point]);
         }
 
+        if (activeTool === "polygon" && isDrawingPolygon && polygonPoints.length > 0) {
+            setPreview(point);
+        }
+
         if (activeTool === "select" && dragTarget?.type === "endpoint") {
             const snapped = getSnapResult(point, displayLines, {
                 lineId: dragTarget.lineId,
@@ -2274,11 +2435,11 @@ export default function Tour360SceneCanvas({
         e.preventDefault();
         const data = e.dataTransfer.getData("application/json");
         if (!data) return;
-        
+
         try {
             const asset = JSON.parse(data);
             const point = getPoint(e as any);
-            
+
             // 1. Detectar colisión con marcos (Portales)
             // Usamos displayFrames que ya están proyectados en pantalla
             const hitFrame = displayFrames.find(f => {
@@ -2291,18 +2452,18 @@ export default function Tour360SceneCanvas({
             });
 
             if (hitFrame) {
-                const updateFrame = (f: SceneFrame) => 
+                const updateFrame = (f: SceneFrame) =>
                     f.id === hitFrame.id ? { ...f, targetSceneId: asset.id, targetSceneKey: asset.sceneKey, previewUrl: asset.url } : f;
-                
+
                 if (isAnchored) {
                     const coords = getPitchYawFromScreenPoint(hitFrame);
-                    const newAnchoredFrame = { 
-                        ...hitFrame, 
-                        pitch: coords?.[0] ?? hitFrame.pitch, 
-                        yaw: coords?.[1] ?? hitFrame.yaw, 
+                    const newAnchoredFrame = {
+                        ...hitFrame,
+                        pitch: coords?.[0] ?? hitFrame.pitch,
+                        yaw: coords?.[1] ?? hitFrame.yaw,
                         targetSceneId: asset.id,
                         targetSceneKey: asset.sceneKey,
-                        previewUrl: asset.url 
+                        previewUrl: asset.url
                     };
 
                     setAnchoredFrames(prev => {
@@ -2310,7 +2471,7 @@ export default function Tour360SceneCanvas({
                         if (exists) return prev.map(f => f.id === hitFrame.id ? newAnchoredFrame : f);
                         return [...prev, newAnchoredFrame];
                     });
-                    
+
                     setFrames(prev => prev.filter(f => f.id !== hitFrame.id));
                     setFixedLineIds(prev => new Set(Array.from(prev).concat(hitFrame.id)));
                 } else {
@@ -2330,7 +2491,7 @@ export default function Tour360SceneCanvas({
                 height: 120,
                 isAnchored: false
             };
-            
+
             if (isAnchored) {
                 const coords = getPitchYawFromScreenPoint(point);
                 if (coords) {
@@ -2403,9 +2564,9 @@ export default function Tour360SceneCanvas({
     }, [selectedLineIds, fixedLineIds, isAnchored, editingTextId, draftFreehandStroke]);
 
     return (
-        <div 
+        <div
             ref={containerRef}
-            className="absolute inset-0 z-20" 
+            className="absolute inset-0 z-20"
             style={{ pointerEvents: "none" }}
             onDragOver={(e) => {
                 e.preventDefault(); // Necesario para permitir el drop
@@ -2831,23 +2992,64 @@ export default function Tour360SceneCanvas({
                     const strokeWidth = stroke.strokeWidth ?? 4;
 
                     return (
-                        <polyline
-                            key={stroke.id}
-                            points={stroke.projectedPoints.map((point) => `${point.x},${point.y}`).join(" ")}
-                            fill="none"
-                            stroke={strokeColor}
-                            strokeWidth={strokeWidth}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            style={{ pointerEvents: activeTool === "select" ? "auto" : "none", cursor: activeTool === "select" ? "pointer" : "default" }}
-                            onMouseDown={(e) => {
-                                if (activeTool !== "select") return;
-                                e.stopPropagation();
-                                setSelectedLineIds(new Set([stroke.id]));
-                            }}
-                        />
+                        <g key={stroke.id}>
+                            {stroke.type === "polygon" ? (
+                                <polygon
+                                    points={stroke.projectedPoints.map((point) => `${point.x},${point.y}`).join(" ")}
+                                    fill={isSelected ? "rgba(236, 72, 153, 0.2)" : `${strokeColor}33`}
+                                    stroke={strokeColor}
+                                    strokeWidth={strokeWidth}
+                                    strokeLinejoin="round"
+                                    style={{ pointerEvents: activeTool === "select" ? "auto" : "none", cursor: activeTool === "select" ? "pointer" : "default" }}
+                                    onMouseDown={(e) => {
+                                        if (activeTool !== "select") return;
+                                        e.stopPropagation();
+                                        setSelectedLineIds(new Set([stroke.id]));
+                                    }}
+                                />
+                            ) : (
+                                <polyline
+                                    points={stroke.projectedPoints.map((point) => `${point.x},${point.y}`).join(" ")}
+                                    fill="none"
+                                    stroke={strokeColor}
+                                    strokeWidth={strokeWidth}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    style={{ pointerEvents: activeTool === "select" ? "auto" : "none", cursor: activeTool === "select" ? "pointer" : "default" }}
+                                    onMouseDown={(e) => {
+                                        if (activeTool !== "select") return;
+                                        e.stopPropagation();
+                                        setSelectedLineIds(new Set([stroke.id]));
+                                    }}
+                                />
+                            )}
+                        </g>
                     );
                 })}
+
+                {isDrawingPolygon && polygonPoints.length > 0 && (
+                    <g>
+                        <polyline
+                            points={[...polygonPoints, preview].filter(Boolean).map(p => `${p.x},${p.y}`).join(" ")}
+                            fill="none"
+                            stroke="#3b82f6"
+                            strokeWidth={2}
+                            strokeDasharray="4,4"
+                            pointerEvents="none"
+                        />
+                        {polygonPoints.map((p, i) => (
+                            <circle
+                                key={i}
+                                cx={p.x}
+                                cy={p.y}
+                                r={4}
+                                fill={i === 0 ? "#22c55e" : "#3b82f6"}
+                                stroke="white"
+                                strokeWidth={1}
+                            />
+                        ))}
+                    </g>
+                )}
 
                 {draftFreehandDisplayPoints.length > 1 && (
                     <polyline
@@ -3185,13 +3387,13 @@ export default function Tour360SceneCanvas({
                     if (txt.x === -9999) return null;
                     const isSelected = selectedLineIds.has(txt.id);
                     const isEditing = editingTextId === txt.id;
-                    
-                    // Si se está editando o seleccionando con Canva Logic, lo ocultamos del SVG 
+
+                    // Si se está editando o seleccionando con Canva Logic, lo ocultamos del SVG
                     // para mostrarlo en la capa HTML superior con mejor calidad y controles
                     if (isSelected || isEditing) return null;
 
                     const color = "#facc15"; // Amarillo base
-                    
+
                     return (
                         <g key={txt.id} transform={`translate(${txt.x}, ${txt.y})`} pointerEvents="none">
                             <text
@@ -3225,7 +3427,7 @@ export default function Tour360SceneCanvas({
                     const canvaPurple = "#8b5cf6";
 
                     return (
-                        <div 
+                        <div
                             key={`editor-${txt.id}`}
                             className="absolute"
                             style={{
@@ -3282,33 +3484,33 @@ export default function Tour360SceneCanvas({
                             >
                                 {(isSelected && !isEditing) && (
                                     <>
-                                        <div 
+                                        <div
                                             className="absolute inset-0 border-2 border-[#8b5cf6] rounded-md pointer-events-none"
                                             style={{ margin: -6 }}
                                         />
                                         {/* Tiradores de las esquinas estilo Canva */}
                                         {[
-                                          { left: -10, top: -10, corner: "nw" as const, cursor: "nw-resize" }, 
-                                          { right: -10, top: -10, corner: "ne" as const, cursor: "ne-resize" }, 
-                                          { left: -10, bottom: -10, corner: "sw" as const, cursor: "sw-resize" }, 
+                                          { left: -10, top: -10, corner: "nw" as const, cursor: "nw-resize" },
+                                          { right: -10, top: -10, corner: "ne" as const, cursor: "ne-resize" },
+                                          { left: -10, bottom: -10, corner: "sw" as const, cursor: "sw-resize" },
                                           { right: -10, bottom: -10, corner: "se" as const, cursor: "se-resize" }
                                         ].map((handle, i) => (
-                                          <div 
-                                            key={i} 
+                                          <div
+                                            key={i}
                                             onMouseDown={(e) => {
                                                 e.stopPropagation();
                                                 const pt = getPoint(e);
-                                                setDragTarget({ 
-                                                    type: "resize", 
-                                                    textId: txt.id, 
-                                                    startSize: txt.fontSize || 24, 
+                                                setDragTarget({
+                                                    type: "resize",
+                                                    textId: txt.id,
+                                                    startSize: txt.fontSize || 24,
                                                     startX: pt.x,
                                                     startY: pt.y,
                                                     corner: handle.corner
                                                 });
                                             }}
-                                            className="absolute w-4 h-4 bg-white border-2 border-[#8b5cf6] rounded-full shadow-md z-[60]" 
-                                            style={{ ...handle, cursor: handle.cursor }} 
+                                            className="absolute w-4 h-4 bg-white border-2 border-[#8b5cf6] rounded-full shadow-md z-[60]"
+                                            style={{ ...handle, cursor: handle.cursor }}
                                           />
                                         ))}
                                     </>
@@ -3326,7 +3528,7 @@ export default function Tour360SceneCanvas({
                                         e.target.setSelectionRange(len, len);
                                       }}
                                       className="bg-black/50 text-white font-bold px-4 py-2 rounded-lg border-2 border-[#8b5cf6] outline-none min-w-[150px] text-center resize-none overflow-hidden"
-                                      style={{ 
+                                      style={{
                                         fontSize: txt.fontSize || 24,
                                         fontFamily: "Inter, system-ui, sans-serif",
                                         color: txt.color || "#ffffff"
@@ -3352,9 +3554,9 @@ export default function Tour360SceneCanvas({
                                       }}
                                     />
                                 ) : (
-                                    <div 
+                                    <div
                                       className={`px-4 py-2 font-bold select-none whitespace-nowrap transition-transform ${activeTool === "select" ? "cursor-move active:scale-[0.98]" : "cursor-default"}`}
-                                      style={{ 
+                                      style={{
                                         fontSize: txt.fontSize || 24,
                                         color: txt.color || "#facc15",
                                         fontFamily: "Inter, system-ui, sans-serif",
@@ -3369,10 +3571,60 @@ export default function Tour360SceneCanvas({
                     );
                 })}
 
+                {/* Paleta de colores para Trazos / Polígonos Seleccionados */}
+                {(() => {
+                    const selectedStroke = freehandStrokes.find(s => selectedLineIds.has(s.id));
+                    if (!selectedStroke) return null;
+
+                    // Proyectar el primer punto para posicionar la paleta
+                    const p = selectedStroke.points[0];
+                    const pos = projectPitchYaw(p.pitch, p.yaw);
+                    if (!pos) return null;
+
+                    return (
+                        <div
+                            className="absolute pointer-events-auto z-[60]"
+                            style={{
+                                left: pos.x,
+                                top: pos.y,
+                                transform: "translate(-50%, -140%)",
+                            }}
+                        >
+                            <div className="flex items-center gap-2 bg-black/80 backdrop-blur-md px-3 py-2 rounded-full border border-white/20 shadow-2xl">
+                                {["#ffffff", "#facc15", "#ef4444", "#22c55e", "#3b82f6", "#ec4899", "#000000"].map(color => (
+                                    <button
+                                        key={color}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const update = (s: FreehandStroke) => s.id === selectedStroke.id ? { ...s, color } : s;
+                                            setFreehandStrokes(prev => prev.map(update));
+                                        }}
+                                        className="w-5 h-5 rounded-full border border-white/20 hover:scale-125 transition-transform"
+                                        style={{ backgroundColor: color }}
+                                    />
+                                ))}
+                                <div className="w-px h-4 bg-white/20 mx-1" />
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFreehandStrokes(prev => prev.filter(s => s.id !== selectedStroke.id));
+                                        setSelectedLineIds(new Set());
+                                    }}
+                                    className="p-1 rounded-full hover:bg-red-500/20 text-red-400 transition-colors"
+                                    title="Eliminar trazo"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {/* --- CAPA DE MARCADORES POI --- */}
                 {displayPoiBadges.map((badge) => {
                     const isSelected = selectedLineIds.has(badge.id);
                     const isLocked = fixedLineIds.has(badge.id);
+                    const isEditing = editingTextId === badge.id;
                     if (badge.x === -9999) return null;
                     const poiScale = anchoredPoiBadgeIds.has(badge.id) ? getAnchoredObjectScale(badge.anchorHfov) : 1;
 
@@ -3380,6 +3632,8 @@ export default function Tour360SceneCanvas({
                     const baseWidth = badge.variant === "circle" ? 20 : 26;
                     const wrapperWidth = Math.max(badge.width + 28, 120);
                     const wrapperHeight = badge.height + tailHeight + 18;
+
+                    const badgeColor = badge.color || "#facc15";
 
                     return (
                         <div
@@ -3394,9 +3648,9 @@ export default function Tour360SceneCanvas({
                             }}
                             onMouseDown={(e) => {
                                 e.stopPropagation();
-                                if (activeTool === "select" && isEditing) {
+                                if (activeTool === "select") {
                                     setSelectedLineIds(new Set([badge.id]));
-                                    if (!isLocked) {
+                                    if (!isLocked && !isEditing) {
                                         setDragTarget({ type: "poi-badge", poiBadgeId: badge.id });
                                     }
                                 }
@@ -3407,7 +3661,34 @@ export default function Tour360SceneCanvas({
                                     setSelectedLineIds(new Set([badge.id]));
                                 }
                             }}
+                            onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                if (badge.kind === "location") {
+                                    setEditingTextValue(badge.title || "");
+                                    setEditingTextId(badge.id);
+                                    setDragTarget(null);
+                                }
+                            }}
                         >
+                            {/* Paleta de colores para Ubicación */}
+                            {(isSelected && !isEditing && badge.kind === "location") && (
+                                <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/80 backdrop-blur-md px-3 py-2 rounded-full border border-white/20 shadow-2xl z-50">
+                                    {["#ffffff", "#facc15", "#ef4444", "#22c55e", "#3b82f6", "#000000"].map(color => (
+                                        <button
+                                            key={color}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const update = (b: PoiBadge) => b.id === badge.id ? { ...b, color } : b;
+                                                setPoiBadges(prev => prev.map(update));
+                                                setAnchoredPoiBadges(prev => prev.map(update));
+                                            }}
+                                            className="w-5 h-5 rounded-full border border-white/20 hover:scale-125 transition-transform"
+                                            style={{ backgroundColor: color }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
                             <div
                                 className="relative"
                                 style={{
@@ -3430,6 +3711,7 @@ export default function Tour360SceneCanvas({
                                         bottom: 8,
                                         width: 4,
                                         height: tailHeight,
+                                        backgroundColor: badge.kind === "location" ? badgeColor : undefined
                                     }}
                                 />
 
@@ -3441,7 +3723,7 @@ export default function Tour360SceneCanvas({
                                         height: 0,
                                         borderLeft: "6px solid transparent",
                                         borderRight: "6px solid transparent",
-                                        borderBottom: "10px solid rgba(255,255,255,0.85)",
+                                        borderBottom: `10px solid ${badge.kind === "location" ? badgeColor : "rgba(255,255,255,0.85)"}`,
                                         filter: isSelected ? "drop-shadow(0 0 10px rgba(139, 92, 246, 0.4))" : "none",
                                     }}
                                 />
@@ -3455,10 +3737,11 @@ export default function Tour360SceneCanvas({
                                         width: badge.width,
                                         height: badge.height,
                                         boxShadow: isSelected ? "0 0 28px rgba(139, 92, 246, 0.35)" : "0 8px 24px rgba(0,0,0,0.35)",
+                                        borderColor: badge.kind === "location" && !isSelected ? badgeColor : undefined
                                     }}
                                 >
                                     {badge.kind === "location" ? (
-                                        <div className="w-full h-full flex items-center justify-center text-white">
+                                        <div className="w-full h-full flex items-center justify-center text-white" style={{ color: badgeColor }}>
                                             <MapPin size={24} />
                                         </div>
                                     ) : badge.imageUrl ? (
@@ -3468,13 +3751,50 @@ export default function Tour360SceneCanvas({
                                             <MapIcon size={24} />
                                         </div>
                                     )}
-
-                                    {badge.title && (
-                                        <div className="absolute inset-x-0 bottom-0 bg-black/65 px-2 py-1 text-[10px] font-bold text-white truncate text-center">
-                                            {badge.title}
-                                        </div>
-                                    )}
                                 </div>
+
+                                {/* Label Superior para Ubicación */}
+                                {badge.kind === "location" && (
+                                    <div className="absolute inset-x-0 -top-6 flex justify-center">
+                                        {isEditing ? (
+                                            <textarea
+                                                autoFocus
+                                                value={editingTextValue}
+                                                onChange={(e) => setEditingTextValue(e.target.value)}
+                                                className="bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-[#8b5cf6] outline-none min-w-[60px] text-center resize-none overflow-hidden"
+                                                onBlur={() => {
+                                                    const val = editingTextValue.trim();
+                                                    if (val) {
+                                                        const update = (b: PoiBadge) => b.id === badge.id ? { ...b, title: val } : b;
+                                                        setPoiBadges(prev => prev.map(update));
+                                                        setAnchoredPoiBadges(prev => prev.map(update));
+                                                    }
+                                                    setEditingTextValue("");
+                                                    setEditingTextId(null);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter" && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        e.currentTarget.blur();
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            <div
+                                                className="bg-black/65 px-2 py-0.5 rounded border border-white/20 text-[10px] font-bold text-white truncate max-w-full shadow-lg"
+                                                style={{ color: badgeColor }}
+                                            >
+                                                {badge.title || "Ubicación"}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {badge.kind !== "location" && badge.title && (
+                                    <div className="absolute inset-x-0 bottom-0 bg-black/65 px-2 py-1 text-[10px] font-bold text-white truncate text-center">
+                                        {badge.title}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );
@@ -3538,7 +3858,7 @@ export default function Tour360SceneCanvas({
                                 }
                             }}
                         >
-                            <div 
+                            <div
                                 className={`relative group border-2 transition-all shadow-[0_0_50px_rgba(0,0,0,0.5)]
                                     ${isSelected ? "border-[#8b5cf6]" : "border-white/20 hover:border-white/40"}
                                     ${frame.type === "circle" ? "rounded-full" : "rounded-2xl"}
@@ -3553,10 +3873,10 @@ export default function Tour360SceneCanvas({
                                 {/* VISTA PREVIA DEL PORTAL (Si existe escena vinculada) */}
                                 {frame.previewUrl && frame.type !== "grid" && (
                                     <div className="absolute inset-0 z-0 pointer-events-none">
-                                        <img 
-                                            src={frame.previewUrl} 
+                                        <img
+                                            src={frame.previewUrl}
                                             className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none"
-                                            alt="Preview portal" 
+                                            alt="Preview portal"
                                             draggable={false}
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
@@ -3565,7 +3885,7 @@ export default function Tour360SceneCanvas({
 
                             {/* BOTÓN DE SALTO (Navegación entre escenas) - Reubicado a la esquina y ultra-clicable */}
                             {(frame.targetSceneKey || frame.targetSceneId) && frame.type !== "grid" && (
-                                <button 
+                                <button
                                     type="button"
                                     onClick={(e) => {
                                         console.log("Clic en botón de salto para:", frame.targetSceneKey ?? frame.targetSceneId);
@@ -3581,7 +3901,7 @@ export default function Tour360SceneCanvas({
                                     <Play size={12} fill="currentColor" />
                                 </button>
                             )}
-                                
+
                                 {/* UI DE AYUDA (Solo si NO hay imagen y NO está fijado) */}
                                 {(frame.type === "grid") && (
                                     <div className="absolute inset-0 pointer-events-none z-10">
@@ -3625,12 +3945,12 @@ export default function Tour360SceneCanvas({
 
                             {/* Tiradores de las 4 esquinas (Canva Style) - FUERA del overflow-hidden */}
                             {(isSelected && !isLocked) && [
-                                { left: -6, top: -6, cursor: "nw-resize" }, 
-                                { right: -6, top: -6, cursor: "ne-resize" }, 
-                                { left: -6, bottom: -6, cursor: "sw-resize" }, 
+                                { left: -6, top: -6, cursor: "nw-resize" },
+                                { right: -6, top: -6, cursor: "ne-resize" },
+                                { left: -6, bottom: -6, cursor: "sw-resize" },
                                 { right: -6, bottom: -6, cursor: "se-resize" }
                             ].map((style, i) => (
-                                <div 
+                                <div
                                     key={i}
                                     onMouseDown={(e) => {
                                         e.stopPropagation();
@@ -3691,7 +4011,7 @@ export default function Tour360SceneCanvas({
 
                 {/* Preview de nuevo texto (Canva style) */}
                 {draftTextItem && (
-                    <div 
+                    <div
                         className="absolute animate-pulse"
                         style={{ left: draftTextItem.x, top: draftTextItem.y, transform: "translate(-50%, -50%)" }}
                     >

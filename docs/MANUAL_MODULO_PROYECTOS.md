@@ -479,6 +479,30 @@ Después de guardar, al hacer F5 en Paso 5: el editor debe reconstruirse con ass
 ### 32.8 Anti-regresión
 Checklist Paso 5: abrir “Editar imagen” -> verificar botón habilitado -> abrir herramienta Imagen -> confirmar assets visibles -> crear marco e insertar imagen -> click normal selecciona -> Play cambia escena interna -> guardar -> F5 -> volver a editar -> confirmar persistencia -> confirmar Paso 4 intacto.
 
+### 32.9 Herramientas de Ubicación y Polígonos (Contrato de Herramientas)
+Contrato obligatorio para herramientas interactivas del editor:
+
+#### Herramienta Ubicación
+*   **Comportamiento**: Click en canvas sitúa un marcador de ubicación (MapPin) con indicador (cola).
+*   **Interactividad**:
+    *   **Selección**: Click selecciona, mostrando paleta de colores flotante y barra de borrado.
+    *   **Edición**: Doble click en la etiqueta para editar el texto.
+    *   **Personalización**: Permite cambiar el color del marcador y etiqueta desde la paleta.
+*   **Render**: Debe proyectarse en el espacio 360 si la escena está anclada.
+
+#### Herramienta Polígonos / Grilla
+*   **Comportamiento**: Construcción punto a punto mediante clicks sucesivos.
+*   **Cierre**: El polígono se cierra automáticamente al hacer click en el punto inicial o mediante el botón "Finalizar" (Check verde) en el sidebar.
+*   **Visualización**: Sombreado interior semitransparente con borde sólido.
+*   **Personalización**: Selección activa paleta de colores flotante para el trazo y relleno.
+*   **Geometría**: Se persiste como un conjunto de coordenadas world-space (pitch/yaw) proyectadas.
+
+#### Herramienta POI (Clipboard Paste)
+*   **Acelerador de flujo**: Soporta el pegado directo de imágenes (`Ctrl+V`) cuando hay un marcador seleccionado.
+*   **Captura**: Intercepta bitmaps directos del portapapeles o URLs de imagen.
+*   **Tratamiento**: Las imágenes se suben al servidor como activos del proyecto (carpeta `/uploads/360/`) y se vinculan automáticamente al `imageUrl` del POI.
+*   **Validación**: Incluye feedback visual mediante toasts de éxito/error y estado de carga.
+
 ---
 
 ## 33. Prompt Base Obligatorio para IA

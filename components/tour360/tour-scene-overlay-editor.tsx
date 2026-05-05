@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Loader2, X, Layout } from "lucide-react";
+import { Loader2, X, Layout, Check } from "lucide-react";
 import { toast } from "sonner";
 
 import type { MasterplanUnit } from "@/lib/masterplan-store";
@@ -105,6 +105,7 @@ type CanvasOverlayState = {
     poiBadges?: any[];
     anchoredPoiBadges?: any[];
     freehandStrokes?: any[];
+    isDrawingPolygon?: boolean;
 };
 
 function createEmptyCanvasState(): CanvasOverlayState {
@@ -290,6 +291,7 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
     const [editorTab, setEditorTab] = useState<"GUÍAS" | "OVERLAY" | "VISTA">("GUÍAS");
     const [selectAllTrigger, setSelectAllTrigger] = useState(0);
     const [deselectAllTrigger, setDeselectAllTrigger] = useState(0);
+    const [finishPolygonTrigger, setFinishPolygonTrigger] = useState(0);
 
     // 2. Estado del Canvas y Overlay (Fuente de verdad)
     const [canvasState, setCanvasState] = useState<CanvasOverlayState>(() =>
@@ -1116,11 +1118,22 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                             active={activeTool === "location"}
                             onClick={() => setActiveTool(activeTool === "location" ? "select" : "location")}
                         />
-                        <ToolButton
-                            label="Polígonos / Grilla"
-                            active={activeTool === "polygon"}
-                            onClick={() => setActiveTool(activeTool === "polygon" ? "select" : "polygon")}
-                        />
+                        <div className="relative w-full">
+                            <ToolButton
+                                label="Polígonos / Grilla"
+                                active={activeTool === "polygon"}
+                                onClick={() => setActiveTool(activeTool === "polygon" ? "select" : "polygon")}
+                            />
+                            {activeTool === "polygon" && canvasState.isDrawingPolygon && (
+                                <button
+                                    onClick={() => setFinishPolygonTrigger(prev => prev + 1)}
+                                    className="absolute -right-2 -top-2 bg-green-500 hover:bg-green-400 text-white p-1.5 rounded-full shadow-lg z-50 animate-bounce transition-colors"
+                                    title="Cerrar Polígono"
+                                >
+                                    <Check size={14} />
+                                </button>
+                            )}
+                        </div>
                         <ToolButton
                             label="Lápiz / Dibujo"
                             active={activeTool === "drawing"}
@@ -1542,6 +1555,8 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                         activeArrowPreset={activeArrowPreset}
                         addFrameTrigger={addFrameTrigger}
                         addPoiBadgeTrigger={addPoiBadgeTrigger}
+                        finishPolygonTrigger={finishPolygonTrigger}
+                        proyectoId={proyectoId}
                         onNavigate={async (target) => {
                             // 1. Auto-guardado SILENCIOSO (no cierra el editor)
                             await saveCalibrationSilent();
