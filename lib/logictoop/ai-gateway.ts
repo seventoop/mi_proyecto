@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireAuth, AuthError } from "@/lib/guards";
 import crypto from "crypto";
+import { recordAiEvent } from "./ai-events";
 
 interface AiTaskPayload {
     agentId: string;
@@ -99,6 +100,16 @@ export async function dispatchAiTask(orgId: string, payload: AiTaskPayload) {
                 costTokens: 0,
                 costEstimated: 0
             }
+        });
+        
+        await recordAiEvent({
+            orgId: targetOrgId,
+            taskId: task.id,
+            type: "TASK_CREATED",
+            actorUserId: user.id,
+            source: "GATEWAY",
+            message: "Tarea de IA registrada exitosamente",
+            metadata: { agentId: payload.agentId, status: "PENDING", hasExecutionId: !!payload.flowExecutionId }
         });
 
         return {

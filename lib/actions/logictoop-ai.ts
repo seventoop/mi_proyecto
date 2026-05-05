@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireAuth, AuthError } from "@/lib/guards";
 import { revalidatePath } from "next/cache";
 import { internalAiRunner } from "@/lib/logictoop/internal-ai-runner";
+import { recordAiEvent } from "@/lib/logictoop/ai-events";
 
 /**
  * Obtiene la lista de agentes de IA activos para la organización.
@@ -101,6 +102,17 @@ export async function rejectAiTask(taskId: string, comments: string): Promise<{ 
                 }
             });
 
+            await recordAiEvent({
+                orgId: existingTask.orgId,
+                taskId,
+                type: "TASK_REJECTED",
+                actorUserId: user.id,
+                source: "SERVER_ACTION",
+                message: "Tarea rechazada por el administrador",
+                metadata: { hasComments: !!comments, actionTaken: "REJECTED" },
+                tx
+            });
+
             return { success: true, taskId: task.id };
         });
 
@@ -160,6 +172,17 @@ export async function approveAiTask(taskId: string, comments?: string): Promise<
                 }
             });
 
+            await recordAiEvent({
+                orgId: existingTask.orgId,
+                taskId,
+                type: "TASK_APPROVED",
+                actorUserId: user.id,
+                source: "SERVER_ACTION",
+                message: "Tarea aprobada por el administrador",
+                metadata: { actionTaken: "APPROVED_NO_SIDE_EFFECTS" },
+                tx
+            });
+
             return { success: true, taskId: task.id };
         });
 
@@ -208,6 +231,25 @@ export async function processAiTaskLocally(taskId: string): Promise<{ success: b
 
         const task = await internalAiRunner.processTaskInternal(taskId);
 
+        await recordAiEvent({
+            orgId: existingTask.orgId,
+            taskId,
+            type: "TASK_PROCESSED_LOCALLY",
+            actorUserId: user.id,
+            source: "INTERNAL_RUNNER",
+            message: "Tarea procesada localmente mediante el runner interno",
+            metadata: { mode: "internal_mock_agent", nextStatus: "NEEDS_APPROVAL" }
+        });
+
+        await recordAiEvent({
+            orgId: existingTask.orgId,
+            taskId,
+            type: "TASK_NEEDS_APPROVAL",
+            actorUserId: user.id,
+            source: "SYSTEM",
+            message: "Tarea requiere revisión humana"
+        });
+
         revalidatePath("/dashboard/admin/logictoop/orchestrator/approvals");
         return { success: true, taskId: task.id, status: task.status };
     } catch (error) {
@@ -245,6 +287,14 @@ export async function getAiTaskDetail(taskId: string) {
                         }
                     },
                     orderBy: { createdAt: "asc" }
+                },
+                events: {
+                    include: {
+                        actor: {
+                            select: { nombre: true }
+                        }
+                    },
+                    orderBy: { createdAt: "desc" }
                 }
             }
         });

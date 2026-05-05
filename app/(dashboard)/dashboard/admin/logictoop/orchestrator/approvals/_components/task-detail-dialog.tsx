@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { getAiTaskDetail } from "@/lib/actions/logictoop-ai";
-import { Loader2, AlertCircle, Calendar, User, Cpu } from "lucide-react";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, AlertCircle, Calendar, User, Cpu, History, ListChecks, FileJson, Info } from "lucide-react";
 
 interface TaskDetailDialogProps {
     taskId: string | null;
@@ -109,59 +110,107 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                             </div>
                         </div>
 
-                        {/* Payloads */}
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="font-semibold text-sm mb-2 text-muted-foreground">Input Payload (Contexto)</h3>
-                                <pre className="bg-slate-950 text-slate-50 p-4 rounded-md text-xs overflow-x-auto whitespace-pre-wrap max-h-[300px]">
-                                    {JSON.stringify(task.inputPayload, null, 2)}
-                                </pre>
-                            </div>
-                            
-                            <div>
-                                <h3 className="font-semibold text-sm mb-2 text-muted-foreground">Output Result (Propuesta)</h3>
-                                <pre className="bg-slate-950 text-slate-50 p-4 rounded-md text-xs overflow-x-auto whitespace-pre-wrap max-h-[300px]">
-                                    {task.outputResult ? JSON.stringify(task.outputResult, null, 2) : "Aún no procesado"}
-                                </pre>
-                            </div>
-                        </div>
+                        <Tabs defaultValue="payloads" className="w-full">
+                            <TabsList className="grid w-full grid-cols-3">
+                                <TabsTrigger value="payloads" className="flex items-center gap-2">
+                                    <FileJson className="w-4 h-4" /> Payloads
+                                </TabsTrigger>
+                                <TabsTrigger value="approvals" className="flex items-center gap-2">
+                                    <ListChecks className="w-4 h-4" /> Aprobaciones
+                                </TabsTrigger>
+                                <TabsTrigger value="events" className="flex items-center gap-2">
+                                    <History className="w-4 h-4" /> Eventos
+                                </TabsTrigger>
+                            </TabsList>
 
-                        {/* Auditoría */}
-                        <div>
-                            <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Auditoría (Approvals)</h3>
-                            {task.approvals && task.approvals.length > 0 ? (
-                                <div className="border rounded-md overflow-hidden">
-                                    <Table>
-                                        <TableHeader className="bg-muted/50">
-                                            <TableRow>
-                                                <TableHead className="w-[140px]">Fecha</TableHead>
-                                                <TableHead>Acción</TableHead>
-                                                <TableHead>Usuario</TableHead>
-                                                <TableHead>Comentarios</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {task.approvals.map((approval: any) => (
-                                                <TableRow key={approval.id} className="text-xs">
-                                                    <TableCell>{format(new Date(approval.createdAt), "dd/MM/yyyy HH:mm")}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="text-[10px] uppercase">
-                                                            {approval.actionTaken}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>{approval.approvedBy?.nombre || "N/A"}</TableCell>
-                                                    <TableCell className="max-w-[200px] truncate" title={approval.comments}>
-                                                        {approval.comments || "-"}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                            <TabsContent value="payloads" className="space-y-4 mt-4">
+                                <div>
+                                    <h3 className="font-semibold text-sm mb-2 text-muted-foreground">Input Payload (Contexto)</h3>
+                                    <pre className="bg-slate-950 text-slate-50 p-4 rounded-md text-xs overflow-x-auto whitespace-pre-wrap max-h-[300px]">
+                                        {JSON.stringify(task.inputPayload, null, 2)}
+                                    </pre>
                                 </div>
-                            ) : (
-                                <p className="text-sm text-muted-foreground italic">No hay registros de auditoría para esta tarea.</p>
-                            )}
-                        </div>
+                                
+                                <div>
+                                    <h3 className="font-semibold text-sm mb-2 text-muted-foreground">Output Result (Propuesta)</h3>
+                                    <pre className="bg-slate-950 text-slate-50 p-4 rounded-md text-xs overflow-x-auto whitespace-pre-wrap max-h-[300px]">
+                                        {task.outputResult ? JSON.stringify(task.outputResult, null, 2) : "Aún no procesado"}
+                                    </pre>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="approvals" className="mt-4">
+                                {task.approvals && task.approvals.length > 0 ? (
+                                    <div className="border rounded-md overflow-hidden">
+                                        <Table>
+                                            <TableHeader className="bg-muted/50">
+                                                <TableRow>
+                                                    <TableHead className="w-[140px]">Fecha</TableHead>
+                                                    <TableHead>Acción</TableHead>
+                                                    <TableHead>Usuario</TableHead>
+                                                    <TableHead>Comentarios</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {task.approvals.map((approval: any) => (
+                                                    <TableRow key={approval.id} className="text-xs">
+                                                        <TableCell>{format(new Date(approval.createdAt), "dd/MM/yyyy HH:mm")}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className="text-[10px] uppercase">
+                                                                {approval.actionTaken}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>{approval.approvedBy?.nombre || "N/A"}</TableCell>
+                                                        <TableCell className="max-w-[200px] truncate" title={approval.comments}>
+                                                            {approval.comments || "-"}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground italic p-4 text-center border rounded-md">No hay registros de aprobación para esta tarea.</p>
+                                )}
+                            </TabsContent>
+
+                            <TabsContent value="events" className="mt-4">
+                                {task.events && task.events.length > 0 ? (
+                                    <div className="border rounded-md overflow-hidden">
+                                        <Table>
+                                            <TableHeader className="bg-muted/50">
+                                                <TableRow>
+                                                    <TableHead className="w-[140px]">Fecha</TableHead>
+                                                    <TableHead>Evento</TableHead>
+                                                    <TableHead>Source</TableHead>
+                                                    <TableHead>Actor</TableHead>
+                                                    <TableHead>Mensaje</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {task.events.map((event: any) => (
+                                                    <TableRow key={event.id} className="text-xs">
+                                                        <TableCell>{format(new Date(event.createdAt), "dd/MM/yyyy HH:mm:ss")}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="secondary" className="text-[10px] uppercase bg-blue-50 text-blue-700 hover:bg-blue-50 border-blue-100">
+                                                                {event.type}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-[10px] text-muted-foreground">{event.source}</TableCell>
+                                                        <TableCell>{event.actor?.nombre || "Sistema"}</TableCell>
+                                                        <TableCell className="max-w-[200px] truncate" title={event.message}>
+                                                            {event.message || "-"}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground italic p-4 text-center border rounded-md">No hay eventos registrados para esta tarea.</p>
+                                )}
+                            </TabsContent>
+                        </Tabs>
                     </div>
                 ) : null}
             </DialogContent>

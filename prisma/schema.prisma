@@ -93,6 +93,7 @@ model User {
   unidadesResponsable   Unidad[]              @relation("ResponsableUnidad")
   aiTasksRequested      LogicToopAiTask[]     @relation("AiTaskRequester")
   aiTasksApproved       LogicToopAiApproval[] @relation("AiTaskApprover")
+  aiEvents              LogicToopAiEvent[]    @relation("LogicToopAiEventActor")
   organization          Organization?         @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
@@ -1206,6 +1207,7 @@ model LogicToopAiTask {
   execution      LogicToopExecution?   @relation(fields: [executionId], references: [id])
   requestedBy    User                  @relation("AiTaskRequester", fields: [requestedById], references: [id])
   approvals      LogicToopAiApproval[]
+  events         LogicToopAiEvent[]
 
   @@index([orgId])
   @@index([executionId])
@@ -1230,4 +1232,25 @@ model LogicToopAiApproval {
   @@index([taskId])
   @@index([approvedById])
   @@map("logictoop_ai_approvals")
+}
+
+model LogicToopAiEvent {
+  id          String   @id @default(cuid())
+  orgId       String
+  taskId      String
+  type        String
+  actorUserId String?
+  source      String
+  message     String?
+  metadata    Json?    @default("{}")
+  createdAt   DateTime @default(now())
+
+  task  LogicToopAiTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor User?           @relation("LogicToopAiEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([taskId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("logictoop_ai_events")
 }
