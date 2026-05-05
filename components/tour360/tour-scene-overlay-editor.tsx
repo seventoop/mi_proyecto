@@ -1402,8 +1402,10 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-center py-10">
-                                    <p className="text-[10px] text-white/40 italic">No hay assets en la galería</p>
+                                <div className="text-center py-10 px-4">
+                                    <p className="text-[10px] text-white/40 italic">
+                                        No hay imágenes cargadas en el proyecto. Subí imágenes desde la Galería del Paso 5 para usarlas como assets.
+                                    </p>
                                 </div>
                             )}
                         </div>

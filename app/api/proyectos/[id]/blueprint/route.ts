@@ -20,11 +20,9 @@ export async function GET(
             select: {
                 masterplanSVG: true,
                 etapas: {
-                    take: 1,
                     orderBy: { orden: "asc" },
                     include: {
                         manzanas: {
-                            take: 1,
                             orderBy: { createdAt: "asc" },
                             include: {
                                 unidades: {
@@ -51,7 +49,7 @@ export async function GET(
             return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
         }
 
-        const unidades = project.etapas[0]?.manzanas[0]?.unidades ?? [];
+        const unidades = project.etapas.flatMap(e => e.manzanas.flatMap(m => m.unidades)) ?? [];
         const blueprintMeta = extractBlueprintMeta(project.masterplanSVG);
 
         return NextResponse.json({

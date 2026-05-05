@@ -3462,7 +3462,7 @@ export default function Tour360SceneCanvas({
                                             <MapPin size={24} />
                                         </div>
                                     ) : badge.imageUrl ? (
-                                        <img src={badge.imageUrl} alt={badge.title || "POI"} className="w-full h-full object-cover" />
+                                        <img src={badge.imageUrl} alt={badge.title || "POI"} className="w-full h-full object-cover pointer-events-none" draggable={false} />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-white/70">
                                             <MapIcon size={24} />
@@ -3525,6 +3525,7 @@ export default function Tour360SceneCanvas({
                             onDoubleClick={(e) => {
                                 e.stopPropagation();
 
+                                if (isEditing) return; // En modo edición, el doble click no debe navegar
                                 if (frameDidDragRef.current) return;
 
                                 if ((frame.targetSceneKey || frame.targetSceneId) && !dragTargetRef.current) {
@@ -3551,11 +3552,12 @@ export default function Tour360SceneCanvas({
                             >
                                 {/* VISTA PREVIA DEL PORTAL (Si existe escena vinculada) */}
                                 {frame.previewUrl && frame.type !== "grid" && (
-                                    <div className="absolute inset-0 z-0">
+                                    <div className="absolute inset-0 z-0 pointer-events-none">
                                         <img 
                                             src={frame.previewUrl} 
-                                            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" 
+                                            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none"
                                             alt="Preview portal" 
+                                            draggable={false}
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
                                     </div>
@@ -3678,10 +3680,10 @@ export default function Tour360SceneCanvas({
                                 }
                             }}
                         >
-                            <div className={`relative group w-full h-full border-2 rounded-xl overflow-hidden shadow-2xl transition-all
+                            <div className={`relative group w-full h-full border-2 rounded-xl overflow-hidden shadow-2xl transition-all pointer-events-none
                                 ${isSelected ? "border-[#8b5cf6]" : "border-white/20"}`}
                             >
-                                <img src={img.url} className="w-full h-full object-cover" alt="Asset" />
+                                <img src={img.url} className="w-full h-full object-cover pointer-events-none" alt="Asset" draggable={false} />
                             </div>
                         </div>
                     );

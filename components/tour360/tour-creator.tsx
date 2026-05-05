@@ -781,6 +781,23 @@ export default function TourCreator({
     // Does NOT depend on overlayUnits.length — the editor can align image against the plan without lots.
     const canAlignProjectPlan = Boolean(projectOverlayBounds && hasPersistentPlan);
 
+    // DEV diagnostic: understand why "Editar imagen" may be disabled
+    useEffect(() => {
+        if (activeScene?.masterplanOverlay) {
+            console.log("[TourCreator][EditImageGate]", {
+                canAlignProjectPlan,
+                projectOverlayBounds: projectOverlayBounds ? `[[${projectOverlayBounds[0]}],[${projectOverlayBounds[1]}]]` : null,
+                hasPersistentPlan,
+                activeSceneId,
+                hasMasterplanOverlay: !!activeScene.masterplanOverlay,
+                disabledReason:
+                    !hasPersistentPlan ? "Falta plano persistido (hasPersistentPlan=false)" :
+                    !projectOverlayBounds ? "Falta georreferenciación del Paso 4 (projectOverlayBounds=null)" :
+                    null,
+            });
+        }
+    }, [canAlignProjectPlan, projectOverlayBounds, hasPersistentPlan, activeSceneId, activeScene?.masterplanOverlay]);
+
     // Determine if active scene is 360 (should use Pannellum) or flat (should use <img>)
     const activeSceneIs360 = activeScene ? isTour360Category({
         category: activeScene.category,
@@ -1047,18 +1064,21 @@ export default function TourCreator({
     useEffect(() => {
         const fetchProjectData = async () => {
             try {
+                // Force fresh fetch for critical synchronization data
                 const [blueprintRes, overlayRes, galleryRes] = await Promise.all([
-                    fetch(`/api/proyectos/${proyectoId}/blueprint`),
-                    fetch(`/api/proyectos/${proyectoId}/overlay`),
-                    fetch(`/api/proyectos/${proyectoId}/plan-gallery`),
+                    fetch(`/api/proyectos/${proyectoId}/blueprint`, { cache: "no-store" }),
+                    fetch(`/api/proyectos/${proyectoId}/overlay`, { cache: "no-store" }),
+                    fetch(`/api/proyectos/${proyectoId}/plan-gallery`, { cache: "no-store" }),
                 ]);
 
                 const blueprintData = await readJsonResponse(blueprintRes);
                 // Persistent plan check — fires from masterplanSVG, independent of units or coordenadasMasterplan.
                 // This ensures "Editar imagen" is available whenever Paso 4 is saved and a real plan exists.
-                if (blueprintRes.ok && blueprintData?.masterplanSVG) {
-                    setHasPersistentPlan(true);
-                }
+                const galleryData = await readJsonResponse(galleryRes);
+
+                const hasSvg = !!(blueprintRes.ok && blueprintData?.masterplanSVG);
+                console.log("[TourCreator] Blueprint check:", { ok: blueprintRes.ok, hasSvg, svgLen: blueprintData?.masterplanSVG?.length ?? 0 });
+                setHasPersistentPlan(hasSvg);
                 if (blueprintRes.ok && Array.isArray(blueprintData?.unidades)) {
                     const units: MasterplanUnit[] = blueprintData.unidades.map((u: any) => {
                         let path: string | undefined;
@@ -1096,8 +1116,33 @@ export default function TourCreator({
 
                 const overlayData = await readJsonResponse(overlayRes);
                 if (overlayRes.ok && overlayData?.config?.bounds) {
-                    setProjectOverlayBounds(overlayData.config.bounds);
-                    setProjectOverlayRotation(overlayData.config.rotation ?? 0);
+                    let bounds = overlayData.config.bounds;
+
+                    // Resilient parsing: if bounds arrived as a double-stringified JSON string, parse it again
+                    if (typeof bounds === "string") {
+                        try {
+                            const parsed = JSON.parse(bounds);
+                            if (Array.isArray(parsed)) bounds = parsed;
+                        } catch (e) {
+                            console.warn("[TourCreator] Failed to parse overlay bounds string:", e);
+                        }
+                    }
+
+                    if (Array.isArray(bounds) && bounds.length === 2) {
+                        setProjectOverlayBounds(bounds as [[number, number], [number, number]]);
+                        setProjectOverlayRotation(overlayData.config.rotation ?? 0);
+                        // Resilient fallback: overlay bounds can only exist if Steps 2+3+4
+                        // were completed, which means a persistent plan MUST exist.
+                        // This covers edge cases where the blueprint API response fails
+                        // (e.g. large SVG payload timeout) but georeferencing is valid.
+                        if (!hasSvg) {
+                            console.warn("[TourCreator] Overlay bounds exist but blueprint API check failed — force-enabling hasPersistentPlan");
+                            setHasPersistentPlan(true);
+                        }
+                        console.log("[TourCreator] Project georeferencing loaded successfully:", bounds);
+                    } else {
+                        console.warn("[TourCreator] Invalid bounds format received:", bounds);
+                    }
                 }
                 if (overlayRes.ok && overlayData?.config?.mapCenter?.lat) {
                     setProjectMapCenter({
@@ -1105,8 +1150,6 @@ export default function TourCreator({
                         lng: overlayData.config.mapCenter.lng,
                     });
                 }
-
-                const galleryData = galleryRes.ok ? await galleryRes.json() : null;
                 if (galleryData?.items) setPlanGalleryItems(galleryData.items);
             } catch (error) {
                 console.error("Error fetching project overlay data:", error);
@@ -2464,6 +2507,7 @@ export default function TourCreator({
 
             {isOverlayEditorOpen && activeScene && projectOverlayBounds && projectSvgViewBox && (
                 <TourSceneOverlayEditor
+                    key={activeScene.id}
                     proyectoId={proyectoId}
                     scene={activeScene}
                     units={overlayUnits}
@@ -2471,6 +2515,7 @@ export default function TourCreator({
                     overlayRotation={projectOverlayRotation}
                     svgViewBox={projectSvgViewBox}
                     planGalleryItems={planGalleryItems}
+                    projectScenes={scenes}
                     onPlanGalleryItemsChange={setPlanGalleryItems}
                     onSelectPlan={(item) => {
                         setScenes((prev) =>
@@ -2517,8 +2562,9 @@ export default function TourCreator({
                             );
                             setActiveSceneId(res.data.id);
                         }
-
-                        setIsOverlayEditorOpen(false);
+                    }}
+                    onNavigate={(sceneId) => {
+                        setActiveSceneId(sceneId);
                     }}
                 />
             )}

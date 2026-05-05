@@ -649,7 +649,7 @@ export default function Tour360TabWrapper({
                             Carga imágenes, trabájalas en la galería y después decide qué material mandar al tour.
                         </p>
                     </div>
-                    {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && (
+                    {["VENDEDOR", "ADMIN", "DESARROLLADOR", "SUPERADMIN"].includes(userRole) && (
                         <button
                             onClick={handleCreateClick}
                             className="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-brand-500/20 transition-all"
@@ -678,7 +678,7 @@ export default function Tour360TabWrapper({
                                 </p>
                             </>
                         )}
-                        {["VENDEDOR", "ADMIN", "DESARROLLADOR"].includes(userRole) && (
+                        {["VENDEDOR", "ADMIN", "DESARROLLADOR", "SUPERADMIN"].includes(userRole) && (
                             <button onClick={handleCreateClick} className="text-brand-500 font-bold text-sm hover:underline">
                                 Cargar imágenes
                             </button>

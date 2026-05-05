@@ -335,7 +335,12 @@ export default function MasterplanViewer({
                 return;
             }
 
-            setLoading(true);
+            // Only show loading skeleton if we don't have units yet
+            // This prevents flicker during background syncs
+            if (units.length === 0) {
+                setLoading(true);
+            }
+
             const res = await getProjectBlueprintData(proyectoId);
             if (res.success && res.data) {
                 setUnits(res.data as any);
@@ -439,7 +444,7 @@ export default function MasterplanViewer({
         writeFile(wb, `Inventario-${proyectoId}.xlsx`);
     };
 
-    if (loading) {
+    if (loading && units.length === 0) {
         return (
             <div className="w-full h-full min-h-[400px] flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl animate-pulse">
                 <div className="flex flex-col items-center gap-4">

@@ -771,81 +771,139 @@ export default function OverlayEditor({
                     </button>
                 </div>
 
-                <div className="mb-3 space-y-1 rounded-xl bg-blue-50 p-2.5 text-[10px] leading-snug text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
-                    <p><span style={{ color: "#6366f1", fontWeight: 700 }}>Azul</span> - mover todo el plano.</p>
-                    <p><span style={{ color: "#f97316", fontWeight: 700 }}>Esquinas y lados</span> - escalar manteniendo la proporcion original.</p>
-                    <p><span style={{ color: "#0ea5e9", fontWeight: 700 }}>Celeste</span> - rotar como en una herramienta gráfica.</p>
+                <div className="mb-3 space-y-1 rounded-xl bg-blue-50 p-3 text-[10px] leading-snug text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
+                    <p><span className="font-bold" style={{ color: "#3b82f6" }}>Azul</span> - mover todo el plano.</p>
+                    <p><span className="font-bold" style={{ color: "#f97316" }}>Esquinas y lados</span> - escalar manteniendo la proporcion original.</p>
+                    <p><span className="font-bold" style={{ color: "#0ea5e9" }}>Celeste</span> - rotar como en una herramienta gráfica.</p>
                 </div>
 
-                <div className="mb-3 space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-slate-700">
+                <div className="mb-4 space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-slate-500">Opacidad</span>
-                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200">{Math.round(opacity * 100)}%</span>
+                        <span className="text-[11px] font-semibold text-slate-500">Opacidad</span>
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">{Math.round(opacity * 100)}%</span>
                     </div>
-                    <input
-                        type="range"
-                        min={15}
-                        max={100}
-                        step={1}
-                        value={Math.round(opacity * 100)}
-                        onChange={(e) => setOpacity(Number(e.target.value) / 100)}
-                        className="w-full accent-brand-500"
-                    />
+                    <div className="relative flex items-center">
+                        <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={Math.round(opacity * 100)}
+                            onChange={(e) => setOpacity(Number(e.target.value) / 100)}
+                            className="w-full h-2 rounded-full appearance-none bg-slate-200 dark:bg-slate-700 accent-brand-500 cursor-pointer"
+                            style={{
+                                background: `linear-gradient(to right, #f97316 ${Math.round(opacity * 100)}%, #475569 ${Math.round(opacity * 100)}%)`
+                            }}
+                        />
+                    </div>
                 </div>
 
-                <div className="mb-3 space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-slate-700">
-                    <div className="text-[10px] font-semibold text-slate-500">Ajuste fino</div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                        <div />
-                        <button onClick={() => nudgeOverlay(0, -6)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveUp className="h-3.5 w-3.5" />
-                        </button>
-                        <div />
-                        <button onClick={() => nudgeOverlay(-6, 0)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveLeft className="h-3.5 w-3.5" />
-                        </button>
-                        <div className="flex items-center justify-center rounded-lg bg-indigo-50 py-1.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-300">
-                            Fino
+                <div className="mb-4 space-y-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="space-y-2">
+                        <div className="text-[11px] font-semibold text-slate-500">Ajuste de posición</div>
+                        <div className="flex flex-col items-center">
+                            <button onClick={() => nudgeOverlay(0, -1)} className="w-20 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all">
+                                <span className="text-xl">↑</span>
+                            </button>
+                            <div className="flex items-center gap-2 -my-1">
+                                <button onClick={() => nudgeOverlay(-1, 0)} className="w-20 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all">
+                                    <span className="text-xl">←</span>
+                                </button>
+                                <div className="w-16 flex flex-col items-center justify-center text-[10px] font-black text-indigo-500 uppercase leading-tight">
+                                    <span>Fino</span>
+                                    <span>1px</span>
+                                </div>
+                                <button onClick={() => nudgeOverlay(1, 0)} className="w-20 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all">
+                                    <span className="text-xl">→</span>
+                                </button>
+                            </div>
+                            <button onClick={() => nudgeOverlay(0, 1)} className="w-20 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all">
+                                <span className="text-xl">↓</span>
+                            </button>
                         </div>
-                        <button onClick={() => nudgeOverlay(6, 0)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveRight className="h-3.5 w-3.5" />
-                        </button>
-                        <div />
-                        <button onClick={() => nudgeOverlay(0, 6)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveDown className="h-3.5 w-3.5" />
-                        </button>
-                        <div />
                     </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                        <button onClick={() => rotateOverlay(-0.5)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <RotateCcw className="h-3.5 w-3.5" /> -0.5°
-                        </button>
-                        <button onClick={() => rotateOverlay(0.5)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <RotateCw className="h-3.5 w-3.5" /> +0.5°
-                        </button>
-                        <button onClick={() => scaleOverlay(0.985)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <Minus className="h-3.5 w-3.5" /> Escala
-                        </button>
-                        <button onClick={() => scaleOverlay(1.015)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <Plus className="h-3.5 w-3.5" /> Escala
-                        </button>
+
+                    <div className="pt-2 space-y-4 rounded-2xl border border-slate-100 p-3 bg-slate-50/30">
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ROTACIÓN DEL PLANO</span>
+                                <div className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-indigo-600 shadow-sm">
+                                    {rotation.toFixed(2)}°
+                                </div>
+                            </div>
+                            <input
+                                type="range"
+                                min={-180}
+                                max={180}
+                                step={0.1}
+                                value={rotation}
+                                onChange={(e) => rotateOverlay(Number(e.target.value) - rotation)}
+                                className="w-full accent-indigo-500"
+                            />
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {[ -1, -0.1, 0.1, 1 ].map((val) => (
+                                    <button
+                                        key={`rot-${val}`}
+                                        onClick={() => rotateOverlay(val)}
+                                        className="py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                                    >
+                                        {val > 0 ? `+${val}` : val}°
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">ESCALA DEL PLANO</span>
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {[ -1, -0.1, 0.1, 1 ].map((val) => (
+                                    <button
+                                        key={`scale-${val}`}
+                                        onClick={() => scaleOverlay(1 + val / 100)}
+                                        className="py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                                    >
+                                        {val > 0 ? `+${val}` : val}%
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">ZOOM DEL MAPA (BASE)</span>
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {[ -1, -0.1, 0.1, 1 ].map((val) => (
+                                    <button
+                                        key={`mzoom-${val}`}
+                                        onClick={() => {
+                                            if (map) {
+                                                const cz = map.getZoom();
+                                                map.setZoom(cz + val);
+                                            }
+                                        }}
+                                        className="py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                                    >
+                                        {val > 0 ? `+${val}` : val}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-500 py-2 text-xs font-bold text-white transition-all hover:bg-brand-600 disabled:opacity-50"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 py-3 text-sm font-bold text-white transition-all hover:bg-brand-600 shadow-lg shadow-brand-500/30 active:scale-[0.98] disabled:opacity-50"
                     >
-                        {isSaving ? "Guardando..." : <><Save className="h-3 w-3" /> Fijar Posición</>}
+                        {isSaving ? "Guardando..." : <><Save className="h-4 w-4" /> Fijar Posición</>}
                     </button>
                     <button
                         onClick={onDelete}
-                        className="rounded-lg bg-red-50 px-3 py-2 text-red-500 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40"
-                        title="Resetear posición"
+                        className="flex items-center justify-center rounded-xl bg-rose-50 px-4 py-3 text-rose-500 transition-all hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 border border-rose-100 dark:border-rose-900/30"
+                        title="Eliminar posición"
                     >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-5 w-5" />
                     </button>
                 </div>
             </div>
