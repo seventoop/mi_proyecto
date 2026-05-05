@@ -1824,7 +1824,7 @@ export default function Tour360SceneCanvas({
 
     // EFECTO: Finalizar polígono vía trigger externo (botón sidebar)
     useEffect(() => {
-        if (finishPolygonTrigger > 0 && isDrawingPolygon && polygonPoints.length >= 3) {
+        if ((finishPolygonTrigger ?? 0) > 0 && isDrawingPolygon && polygonPoints.length >= 3) {
             const finalPoints = [...polygonPoints];
             const strokeId = `poly-${Date.now()}`;
 
@@ -3070,7 +3070,7 @@ export default function Tour360SceneCanvas({
                 {isDrawingPolygon && polygonPoints.length > 0 && (
                     <g>
                         <polyline
-                            points={[...polygonPoints, preview].filter(Boolean).map(p => `${p.x},${p.y}`).join(" ")}
+                            points={[...polygonPoints, preview].filter((p): p is Point => !!p).map(p => `${p.x},${p.y}`).join(" ")}
                             fill="none"
                             stroke="#3b82f6"
                             strokeWidth={2}
