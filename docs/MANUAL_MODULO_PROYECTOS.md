@@ -497,11 +497,25 @@ Contrato obligatorio para herramientas interactivas del editor:
 *   **Personalización**: Selección activa paleta de colores flotante para el trazo y relleno.
 *   **Geometría**: Se persiste como un conjunto de coordenadas world-space (pitch/yaw) proyectadas.
 
-#### Herramienta POI (Clipboard Paste)
-*   **Acelerador de flujo**: Soporta el pegado directo de imágenes (`Ctrl+V`) cuando hay un marcador seleccionado.
-*   **Captura**: Intercepta bitmaps directos del portapapeles o URLs de imagen.
-*   **Tratamiento**: Las imágenes se suben al servidor como activos del proyecto (carpeta `/uploads/360/`) y se vinculan automáticamente al `imageUrl` del POI.
-*   **Validación**: Incluye feedback visual mediante toasts de éxito/error y estado de carga.
+#### Herramienta POI (Clipboard Paste & Contextual Toolbar)
+*   **Comportamiento**: Click en canvas sitúa un marcador de punto de interés (POI).
+*   **POI con imagen pegada desde portapapeles**:
+    *   El usuario debe poder seleccionar un POI y pegar una imagen/logo desde el portapapeles.
+    *   El flujo esperado es: 1. copiar imagen desde navegador; 2. volver al editor; 3. seleccionar POI; 4. usar botón visible “Pegar imagen” o Ctrl+V; 5. aplicar imagen al POI; 6. guardar; 7. F5; 8. la imagen debe persistir.
+    *   El sistema debe soportar imágenes desde clipboard cuando sea posible usando `navigator.clipboard.read()` desde un botón visible.
+    *   Ctrl+V existe como atajo, pero no es la única forma.
+    *   Si el navegador bloquea el clipboard o no hay POI seleccionado, debe mostrar un mensaje claro (Toast).
+    *   La imagen pegada debe subirse a storage persistente (`/api/upload/360`), no quedar como blob temporal.
+    *   El POI debe actualizarse visualmente en tiempo real.
+*   **Toolbar contextual del POI**:
+    *   Al seleccionar un POI debe mostrarse una acción clara para **Pegar imagen**, selectores de color (si aplica) y el botón **Eliminar POI**.
+    *   El botón eliminar solo elimina el POI seleccionado de la escena actual.
+    *   Eliminar un POI **NO** debe borrar: assets del servidor, imágenes de la galería, marcos, líneas, flechas, polígonos, ubicación/georreferenciación ni otras escenas.
+*   **Anti-regresión**:
+    *   No eliminar botón “Pegar imagen” sin autorización explícita.
+    *   No volver a depender solo de Ctrl+V.
+    *   No guardar imágenes como blob URLs.
+    *   No romper marcos, Play, Ubicación, Polígonos/Grilla ni Galería de Assets.
 
 ---
 

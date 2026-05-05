@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Image as ImageIcon, Map as MapIcon, MapPin, Check, Maximize2, Play, Trash2, Loader2 } from "lucide-react";
+import { Clipboard, Image as ImageIcon, Map as MapIcon, MapPin, Check, Maximize2, Play, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export type Line = {
@@ -786,6 +786,7 @@ export default function Tour360SceneCanvas({
     onNavigate,
     onDropAsset,
     finishPolygonTrigger,
+    proyectoId,
 }: {
     activeTool?: string;
     isEditing?: boolean;
@@ -1955,27 +1956,94 @@ export default function Tour360SceneCanvas({
         };
     }, [dragTarget, pendingFrameDrag]);
 
-    // --- MANEJO DE PEGADO (CLIPBOARD PASTE) ---
+    // --- LÓGICA DE PROCESAMIENTO Y SUBIDA DE IMAGEN PARA POI ---
+    const uploadAndAssignToPoi = async (file: File, poiId: string) => {
+        const loadingToast = toast.loading("Subiendo imagen de marcador...");
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            if (proyectoId) {
+                formData.append("projectId", proyectoId);
+            }
+
+            const res = await fetch("/api/upload/360", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || "Error al subir imagen");
+            }
+
+            const data = await res.json();
+            if (data.success && data.url) {
+                const update = (p: PoiBadge) => p.id === poiId ? { ...p, imageUrl: data.url } : p;
+                setPoiBadges(prev => prev.map(update));
+                setAnchoredPoiBadges(prev => prev.map(update));
+                toast.success("Imagen del marcador actualizada correctamente.");
+            }
+        } catch (err: any) {
+            console.error("[TourEditor][POIPaste] Error en subida:", err);
+            toast.error(`Error al subir imagen: ${err.message}`);
+        } finally {
+            toast.dismiss(loadingToast);
+        }
+    };
+
+    const handleManualClipboardPaste = async (poiId: string) => {
+        try {
+            // Intentar usar la Clipboard API moderna (requiere permiso del usuario)
+            const items = await navigator.clipboard.read();
+            let found = false;
+
+            for (const item of items) {
+                for (const type of item.types) {
+                    if (type.startsWith("image/")) {
+                        const blob = await item.getType(type);
+                        const extension = type.split("/")[1] || "png";
+                        const file = new File([blob], `pasted-${Date.now()}.${extension}`, { type });
+                        await uploadAndAssignToPoi(file, poiId);
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+
+            if (!found) {
+                toast.error("El portapapeles no contiene una imagen válida.");
+            }
+        } catch (err) {
+            console.warn("[TourEditor][POIPaste] Clipboard API falló o fue denegada:", err);
+            toast.error("El navegador bloqueó el acceso al portapapeles. Probá usando Ctrl+V directamente sobre el POI.");
+        }
+    };
+
+    // --- MANEJO DE PEGADO (CLIPBOARD PASTE EVENT) ---
     useEffect(() => {
         const handlePaste = async (e: ClipboardEvent) => {
-            // Solo actuar si hay exactamente un elemento seleccionado
-            if (selectedLineIds.size !== 1) return;
+            // Logs de diagnóstico
+            console.log("[TourEditor][POIPasteDebug]", {
+                activeTool,
+                selectedLineIds: Array.from(selectedLineIds || []),
+                clipboardTypes: Array.from(e.clipboardData?.types || []),
+            });
 
+            if (selectedLineIds.size !== 1) return;
             const selectedId = Array.from(selectedLineIds)[0];
 
-            // Buscar si el seleccionado es un POI
-            const poi2D = poiBadges.find(p => p.id === selectedId);
-            const poi3D = anchoredPoiBadges.find(p => p.id === selectedId);
-            const targetPoi = poi2D || poi3D;
-
+            const targetPoi = poiBadges.find(p => p.id === selectedId) || anchoredPoiBadges.find(p => p.id === selectedId);
             if (!targetPoi || targetPoi.type !== "poi-badge") return;
 
-            const items = e.clipboardData?.items;
-            if (!items) return;
+            const clipboardData = e.clipboardData;
+            if (!clipboardData) return;
 
             let imageFile: File | null = null;
+            let imageUrl: string | null = null;
 
-            // 1. Intentar capturar archivo de imagen directo (Bitmap)
+            // Estrategia A: Archivo
+            const items = clipboardData.items;
             for (let i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf("image") !== -1) {
                     imageFile = items[i].getAsFile();
@@ -1983,77 +2051,49 @@ export default function Tour360SceneCanvas({
                 }
             }
 
-            // 2. Si no hay archivo, intentar capturar URL (Texto)
+            // Estrategia B: HTML src
             if (!imageFile) {
-                const text = e.clipboardData?.getData("text/plain");
-                if (text && (text.startsWith("http") || text.startsWith("data:image"))) {
-                    // Validar extensiones comunes
-                    const isImageUrl = /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(text) || text.startsWith("data:image");
-                    if (isImageUrl) {
-                        try {
-                            const loadingToast = toast.loading("Procesando imagen pegada...");
-                            const response = await fetch(text);
-                            const blob = await response.blob();
+                const html = clipboardData.getData("text/html");
+                const match = html?.match(/<img[^>]+src="([^">]+)"/i);
+                if (match?.[1]) imageUrl = match[1];
+            }
 
-                            if (blob.type.startsWith("image/")) {
-                                const filename = text.split("/").pop()?.split("?")[0] || "pasted-image.png";
-                                imageFile = new File([blob], filename, { type: blob.type });
-                            }
-                            toast.dismiss(loadingToast);
-                        } catch (err) {
-                            console.error("Error al descargar imagen desde URL:", err);
-                            toast.error("No se pudo procesar la URL de la imagen. Puede ser por restricciones de seguridad (CORS).");
-                            return;
-                        }
+            // Estrategia C: URL directa
+            if (!imageFile && !imageUrl) {
+                const text = clipboardData.getData("text/uri-list") || clipboardData.getData("text/plain");
+                if (text && (text.startsWith("http") || text.startsWith("data:image"))) {
+                    if (/\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(text) || text.startsWith("data:image")) {
+                        imageUrl = text;
                     }
                 }
             }
 
-            if (imageFile) {
-                e.preventDefault(); // Evitar comportamiento por defecto si encontramos una imagen
-
-                const loadingToast = toast.loading("Subiendo imagen de marcador...");
-
-                try {
-                    const formData = new FormData();
-                    formData.append("file", imageFile);
-                    if (proyectoId) {
-                        formData.append("projectId", proyectoId);
+            if (imageFile || imageUrl) {
+                e.preventDefault();
+                if (imageUrl && !imageFile) {
+                    try {
+                        const loadingToast = toast.loading("Procesando imagen...");
+                        const response = await fetch(imageUrl);
+                        const blob = await response.blob();
+                        if (blob.type.startsWith("image/")) {
+                            imageFile = new File([blob], `pasted-${Date.now()}.${blob.type.split("/")[1]}`, { type: blob.type });
+                        }
+                        toast.dismiss(loadingToast);
+                    } catch (err) {
+                        toast.error("Error al descargar imagen (CORS).");
+                        return;
                     }
+                }
 
-                    const res = await fetch("/api/upload/360", {
-                        method: "POST",
-                        body: formData,
-                    });
-
-                    if (!res.ok) {
-                        const errorData = await res.json();
-                        throw new Error(errorData.error || "Error al subir imagen");
-                    }
-
-                    const data = await res.json();
-
-                    if (data.success && data.url) {
-                        // Actualizar el POI con la nueva URL
-                        const update = (p: PoiBadge) => p.id === selectedId ? { ...p, imageUrl: data.url } : p;
-
-                        setPoiBadges(prev => prev.map(update));
-                        setAnchoredPoiBadges(prev => prev.map(update));
-
-                        toast.success("Imagen del marcador actualizada");
-                    }
-                } catch (err: any) {
-                    console.error("Error al subir imagen pegada:", err);
-                    toast.error(`Error: ${err.message}`);
-                } finally {
-                    toast.dismiss(loadingToast);
+                if (imageFile) {
+                    await uploadAndAssignToPoi(imageFile, selectedId);
                 }
             }
         };
 
         window.addEventListener("paste", handlePaste);
         return () => window.removeEventListener("paste", handlePaste);
-    }, [selectedLineIds, poiBadges, anchoredPoiBadges, proyectoId]);
+    }, [selectedLineIds, poiBadges, anchoredPoiBadges, proyectoId, activeTool]);
 
     const handleCanvasMouseDown = (e: React.MouseEvent) => {
         if (isFixed) return;
@@ -3670,22 +3710,58 @@ export default function Tour360SceneCanvas({
                                 }
                             }}
                         >
-                            {/* Paleta de colores para Ubicación */}
-                            {(isSelected && !isEditing && badge.kind === "location") && (
-                                <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/80 backdrop-blur-md px-3 py-2 rounded-full border border-white/20 shadow-2xl z-50">
-                                    {["#ffffff", "#facc15", "#ef4444", "#22c55e", "#3b82f6", "#000000"].map(color => (
-                                        <button
-                                            key={color}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                const update = (b: PoiBadge) => b.id === badge.id ? { ...b, color } : b;
-                                                setPoiBadges(prev => prev.map(update));
-                                                setAnchoredPoiBadges(prev => prev.map(update));
-                                            }}
-                                            className="w-5 h-5 rounded-full border border-white/20 hover:scale-125 transition-transform"
-                                            style={{ backgroundColor: color }}
-                                        />
-                                    ))}
+                            {/* Toolbar Contextual para POI (Pegar Imagen / Colores) */}
+                            {isSelected && !isEditing && (
+                                <div
+                                    className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/85 backdrop-blur-md px-3 py-2 rounded-full border border-white/20 shadow-2xl z-50 animate-in fade-in zoom-in duration-200"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleManualClipboardPaste(badge.id);
+                                        }}
+                                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase transition-all shadow-lg active:scale-95"
+                                    >
+                                        <Clipboard size={12} />
+                                        Pegar imagen
+                                    </button>
+
+                                    {badge.kind === "location" && (
+                                        <>
+                                            <div className="w-px h-4 bg-white/10 mx-1" />
+                                            <div className="flex items-center gap-1.5">
+                                                {["#ffffff", "#facc15", "#ef4444", "#22c55e", "#3b82f6", "#000000"].map(color => (
+                                                    <button
+                                                        key={color}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const update = (b: PoiBadge) => b.id === badge.id ? { ...b, color } : b;
+                                                            setPoiBadges(prev => prev.map(update));
+                                                            setAnchoredPoiBadges(prev => prev.map(update));
+                                                        }}
+                                                        className="w-4 h-4 rounded-full border border-white/20 hover:scale-125 transition-transform"
+                                                        style={{ backgroundColor: color }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+
+                                    <div className="w-px h-4 bg-white/10 mx-1" />
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPoiBadges(prev => prev.filter(p => p.id !== badge.id));
+                                            setAnchoredPoiBadges(prev => prev.filter(p => p.id !== badge.id));
+                                            setSelectedLineIds(new Set());
+                                        }}
+                                        className="p-1.5 rounded-full hover:bg-red-500/20 text-red-400 transition-colors"
+                                        title="Eliminar POI"
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
                                 </div>
                             )}
 
@@ -3731,15 +3807,20 @@ export default function Tour360SceneCanvas({
                                 <div
                                     className={`absolute left-1/2 -translate-x-1/2 overflow-hidden border-2 bg-black/55 backdrop-blur-md shadow-2xl ${
                                         badge.variant === "circle" ? "rounded-full" : "rounded-2xl"
-                                    } ${isSelected ? "border-[#8b5cf6]" : "border-white/25"}`}
+                                    } ${isSelected ? "border-[#8b5cf6] ring-4 ring-[#8b5cf6]/30" : "border-white/25"}`}
                                     style={{
                                         bottom: 8 + tailHeight,
                                         width: badge.width,
                                         height: badge.height,
-                                        boxShadow: isSelected ? "0 0 28px rgba(139, 92, 246, 0.35)" : "0 8px 24px rgba(0,0,0,0.35)",
+                                        boxShadow: isSelected ? "0 0 40px rgba(139, 92, 246, 0.6)" : "0 8px 24px rgba(0,0,0,0.35)",
                                         borderColor: badge.kind === "location" && !isSelected ? badgeColor : undefined
                                     }}
                                 >
+                                    {isSelected && (
+                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-[#8b5cf6] text-white text-[8px] font-bold px-1.5 py-0.5 rounded-t-md whitespace-nowrap z-50">
+                                            POI SELECCIONADO
+                                        </div>
+                                    )}
                                     {badge.kind === "location" ? (
                                         <div className="w-full h-full flex items-center justify-center text-white" style={{ color: badgeColor }}>
                                             <MapPin size={24} />

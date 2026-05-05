@@ -1577,6 +1577,11 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                     <div className="pointer-events-none absolute bottom-4 left-4 z-30 space-y-2">
                         <div className="rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-white/80 backdrop-blur-xl">
                             Herramienta activa: <span className="font-semibold text-white">{activeTool}</span>
+                            {activeTool === "location" && (
+                                <span className="ml-2 text-[10px] text-white/40 italic">
+                                    — Seleccioná un POI y pegá una imagen con Ctrl+V
+                                </span>
+                            )}
                         </div>
 
                         <div className="rounded-xl border border-emerald-900/40 bg-black/80 px-3 py-2 text-xs text-white/80 backdrop-blur-xl flex flex-col gap-1">
