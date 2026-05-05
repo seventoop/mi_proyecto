@@ -57,7 +57,7 @@ export type TourSceneOverlayEditorHandle = {
     saveCurrentSceneSilently: () => Promise<SceneOverlayCalibration | null>;
 };
 
-type CanvasTool = "select" | "line" | "arrow" | "text" | "frame" | "image" | "poi" | "overlay" | "location" | "polygon" | "drawing";
+type CanvasTool = "select" | "line" | "arrow" | "text" | "frame" | "image" | "poi" | "overlay" | "location" | "polygon" | "route" | "drawing";
 type ArrowPresetId =
     | "classic"
     | "thin"
