@@ -28,6 +28,8 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
     const isSuperAdmin = session?.user?.role === "SUPERADMIN";
 
+    const hasCompletedDryRun = task?.events?.some((e: any) => e.type === "WORKER_DRY_RUN_COMPLETED");
+
     useEffect(() => {
         if (open && taskId) {
             loadTaskDetail(taskId);
@@ -156,15 +158,17 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                                 <Button 
                                     size="sm" 
                                     onClick={handleExecuteDryRun} 
-                                    disabled={executingDryRun}
-                                    className="bg-yellow-600 hover:bg-yellow-700 text-white border-none"
+                                    disabled={executingDryRun || hasCompletedDryRun}
+                                    className="bg-yellow-600 hover:bg-yellow-700 text-white border-none disabled:bg-yellow-100 disabled:text-yellow-600"
                                 >
                                     {executingDryRun ? (
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    ) : hasCompletedDryRun ? (
+                                        <ListChecks className="w-4 h-4 mr-2" />
                                     ) : (
                                         <Play className="w-4 h-4 mr-2 fill-current" />
                                     )}
-                                    Ejecutar dry-run
+                                    {hasCompletedDryRun ? "Dry-run ejecutado" : "Ejecutar dry-run"}
                                 </Button>
                             </div>
                         )}
