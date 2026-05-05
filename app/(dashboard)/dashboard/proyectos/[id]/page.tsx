@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-function forensicLog(msg: string) { try { const logPath = path.join(process.cwd(), "forensic_logs.txt"); const timestamp = new Date().toISOString(); fs.appendFileSync(logPath, `[${timestamp}] ${msg}\n`); } catch (e) {} }
 import prisma from "@/lib/db";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
@@ -93,7 +90,6 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
         userRole === "DESARROLLADOR" ? "/dashboard/developer/proyectos" :
         "/dashboard/proyectos";
 
-    forensicLog(`PAGE-FETCH: Cargando proyecto ${params.id}`);
     const proyecto = await prisma.proyecto.findUnique({
         where: { id: params.id },
         include: {

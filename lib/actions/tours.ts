@@ -6,19 +6,6 @@ import { requireAuth, requireRole, requireProjectOwnership, handleGuardError } f
 import { z } from "zod";
 import { toStoredTourSceneCategory } from "@/lib/tour-media";
 import { buildFallbackTour360Scenes } from "@/lib/tour360-fallback";
-import fs from "fs";
-import path from "path";
-
-function forensicLog(msg: string) {
-    try {
-        const logPath = path.join(process.cwd(), "forensic_logs.txt");
-        const timestamp = new Date().toISOString();
-        fs.appendFileSync(logPath, `[${timestamp}] ${msg}\n`);
-    } catch (e) {
-        // Ignorar errores de log
-    }
-}
-
 // ─── Schemas ───
 
 const hotspotSchema = z.object({
@@ -189,7 +176,6 @@ export async function updateTour(id: string, input: any) {
 
 export async function bootstrapTour360FromProjectAssets(proyectoId: string) {
     console.log("[Tour360][bootstrap][action][start]", { proyectoId });
-    forensicLog(`BOOTSTRAP: Iniciando para proyecto ${proyectoId}`);
     try {
         await requireProjectOwnership(proyectoId);
 
@@ -236,7 +222,6 @@ export async function bootstrapTour360FromProjectAssets(proyectoId: string) {
 
             if (existingScene && isBootstrapScene) {
                 console.log("[Tour360][bootstrap][action][result]", { created: false, updated: true, tourId: existingTourWith360.id });
-                forensicLog(`BOOTSTRAP: Ya existe un tour de bootstrap para ${proyectoId} (${existingTourWith360.id}). Actualizando imágenes.`);
                 await prisma.tourScene.update({
                     where: { id: existingScene.id },
                     data: {
@@ -261,11 +246,10 @@ export async function bootstrapTour360FromProjectAssets(proyectoId: string) {
             }
 
             console.log("[Tour360][bootstrap][action][result]", { created: false, updated: false, tourId: existingTourWith360.id });
-            forensicLog(`BOOTSTRAP: El proyecto ${proyectoId} ya tiene un tour con escenas 360 (${existingTourWith360.id}). No se crea nada nuevo.`);
             return { success: true, data: existingTourWith360, created: false };
         }
 
-        forensicLog(`BOOTSTRAP: No hay tours con escenas 360 para ${proyectoId}. Procediendo a crear un nuevo tour de bootstrap.`);
+
 
         const created = await prisma.$transaction(async (tx: any) => {
             const tour = await tx.tour360.create({
@@ -303,7 +287,6 @@ export async function bootstrapTour360FromProjectAssets(proyectoId: string) {
         revalidatePath(`/proyectos/${project.slug || project.id}/tour360`);
 
         console.log("[Tour360][bootstrap][action][result]", { created: true, tourId: created.id });
-        forensicLog(`BOOTSTRAP: Nuevo tour de bootstrap creado exitosamente para ${proyectoId}: ${created.id}`);
         return { success: true, data: created, created: true };
     } catch (error) {
         console.error("Tour bootstrap error:", error);
@@ -415,11 +398,9 @@ export async function deleteTour(id: string) {
         await requireProjectOwnership(existing.proyectoId);
 
         console.log("[Tour360][deleteTour] deleting", { tourId: id, proyectoId: existing.proyectoId });
-        forensicLog(`DELETE: Borrando tour ${id} del proyecto ${existing.proyectoId}`);
         await prisma.tour360.delete({ where: { id } });
 
         console.log("[Tour360][deleteTour] deleted", { tourId: id });
-        forensicLog(`DELETE: Tour ${id} borrado exitosamente en DB`);
         await revalidateTourProjectPaths(existing.proyectoId);
         return { success: true };
     } catch (error) {
@@ -521,7 +502,7 @@ export async function rejectTour(id: string, reason: string) {
 
 export async function logForensicEvent(event: string) {
     try {
-        forensicLog("CLIENT: " + event);
+        void event;
         return { success: true };
     } catch (e) {
         return { success: false };
