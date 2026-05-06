@@ -1,0 +1,148 @@
+Perfecto. Vamos a ver el merge con vos.
+
+Tarea: Auditoría y merge controlado de dos ramas de desarrollo con alto contexto de negocio
+
+## REGLA DE ORO
+main NO SE TOCA. No se modifica, no se hace checkout para trabajar, no se mergea nada en ella. main queda exactamente como está ahora.
+
+## RAMAS INVOLUCRADAS Y QUÉ PASA CON CADA UNA
+
+| Rama | ¿Se modifica? | Resultado final |
+|------|:---:|---|
+| main | ❌ NO | Intacta |
+| juani-dev2 | ✅ SÍ | Se PISA con main para actualizarla. No recibe el merge |
+| dani-dev5 | ❌ NO | Intacta |
+| RAMA NUEVA | ✅ SÍ | Se crea desde juani-dev2 actualizada y recibe el merge de dani-dev5 |
+
+Flujo: main → se copia en juani-dev2 → desde juani-dev2 se crea RAMA NUEVA → RAMA NUEVA recibe merge de dani-dev5
+
+## NOMBRE DE LA RAMA NUEVA
+[EL USUARIO LO INDICARÁ. Si no se indica, usar: merge-juani-dani]
+
+---
+
+## CONTEXTO DE NEGOCIO: QUÉ SE TRABAJÓ EN CADA RAMA
+
+### Importante sobre este contexto
+Lo que describo a continuación es una GUÍA de lo que sé que se trabajó en cada rama. No es un checklist cerrado. Vos tenés acceso al repositorio, a los commits, a los diffs. Usá esta información para orientarte, pero AUDITÁ los archivos y commits reales. Tomá TODOS los cambios de cada rama según corresponda, no solo los que yo menciono acá. La idea es que entiendas qué zona del sistema trabajó cada persona y actúes en consecuencia.
+
+### rama juani-dev2 (cambios que DEBEN PRESERVARSE en la rama nueva)
+Esta rama es mía. Trabajé sobre estas áreas:
+1. **Base de datos**: migraciones, esquemas y modelos nuevos o modificados
+2. **Autenticación con Google**: ingreso y registro de usuarios usando OAuth de Google
+3. **Landing page**: cambios en la página de inicio/landing del sistema
+4. **Módulo de gestión de usuarios** (DENTRO del dashboard): un panel donde se administran los usuarios del sistema, se les pueden cambiar roles. Este es un cambio MUY IMPORTANTE que no debe perderse
+5. **NOTA**: también hice algunos cambios accidentales en la sección "proyectos" del dashboard. Estos NO deben conservarse. Los cambios en proyectos deben venir de dani-dev5
+
+### rama dani-dev5 (cambios que DEBEN PRESERVARSE en la rama nueva)
+Esta rama es de Dani. Él trabajó dentro del dashboard, y especialmente en el apartado de PROYECTOS. Lo que yo sé que él hizo incluye:
+- Carga de planos
+- Ubicación con Google Maps
+- Imágenes normales, panorámicas y 360°
+- Anclaje de imágenes (navegar de una imagen a otra dentro del proyecto)
+- Visualización de planos
+
+Pero **no conozco todo lo que él trabajó**. Él pudo haber hecho más cambios en el dashboard y en proyectos que yo no te estoy listando. **Todo lo que hizo Dani en el dashboard y en proyectos debe quedar.** Revisá sus commits, sus archivos modificados, y asegurate de que absolutamente todo su trabajo en el dashboard y especialmente en proyectos se preserve en el merge.
+
+---
+
+## REGLAS DE PRIORIDAD PARA EL MERGE
+
+| Área del sistema | ¿Qué rama prevalece? | Motivo |
+|---|---|---|
+| Landing page | juani-dev2 | Solo Juani trabajó acá |
+| Base de datos (migraciones, schemas, modelos) | juani-dev2 | Cambios estructurales hechos por Juani |
+| Autenticación (login, registro, Google OAuth) | juani-dev2 | Solo Juani trabajó acá |
+| **Módulo de gestión de usuarios** (dentro de dashboard) | **juani-dev2** | **Cambio crítico, no debe perderse** |
+| Dashboard (estructura general, layout, rutas) | **Auditar con cuidado**. Dani trabajó el dashboard en general, pero Juani metió el gestor de usuarios ahí. Hay que conservar AMBOS: lo de Dani en el dashboard + lo de Juani en el módulo de usuarios |
+| **Proyectos y todo lo relacionado** (planos, mapas, imágenes, anclaje, visualización, etc.) | **dani-dev5** | **Todo el trabajo de Dani en proyectos debe quedar. Cualquier cambio de Juani en proyectos es accidental y debe ser pisado por dani-dev5** |
+
+---
+
+## PLAN DE TRABAJO ESTRICTO
+
+### FASE 0: AUDITORÍA PREVIA (SIN MODIFICAR NADA)
+Antes de tocar una sola rama, quiero que hagas una auditoría completa para entender qué hay en cada lugar.
+
+Paso 0.1. Ejecutar `git branch` para ver la rama actual
+Paso 0.2. Ejecutar `git log --oneline -10 main`
+Paso 0.3. Ejecutar `git log --oneline -10 juani-dev2`
+Paso 0.4. Ejecutar `git log --oneline -10 dani-dev5`
+Paso 0.5. **AUDITORÍA DE COMMITS EN CADA RAMA:**
+   - Leer los mensajes de commit de juani-dev2 para entender todo lo que trabajé
+   - Leer los mensajes de commit de dani-dev5 para entender todo lo que trabajó Dani
+   - Mostrar un resumen de qué áreas tocó cada persona según los commits
+Paso 0.6. **AUDITORÍA DE ARCHIVOS MODIFICADOS EN CADA RAMA:**
+   - `git diff --name-only main...juani-dev2` → listar TODOS los archivos que cambian entre main y juani-dev2
+   - `git diff --name-only main...dani-dev5` → listar TODOS los archivos que cambian entre main y dani-dev5
+Paso 0.7. **IDENTIFICAR Y CLASIFICAR ARCHIVOS:**
+   - Cruzar ambas listas y mostrar qué archivos aparecen en AMBAS ramas (esos tendrán conflicto potencial)
+   - Para cada archivo en conflicto potencial, clasificarlo según el área del sistema a la que pertenece:
+     - 🟢 Landing → prevalecerá juani-dev2
+     - 🟢 Base de datos → prevalecerá juani-dev2
+     - 🟢 Autenticación / Google OAuth → prevalecerá juani-dev2
+     - 🔴 Gestión de usuarios (dashboard) → prevalecerá juani-dev2
+     - 🔵 Dashboard general → analizar caso por caso, conservando ambos si es posible
+     - 🔵 Proyectos (dashboard) → prevalecerá dani-dev5
+     - ⚪ Sin clasificar → indicar archivo por archivo y preguntar
+Paso 0.8. **MOSTRAR INFORME COMPLETO** con:
+   - Total de archivos modificados en juani-dev2: [N]
+   - Total de archivos modificados en dani-dev5: [N]
+   - Archivos en conflicto potencial: [N]
+   - Tabla con cada archivo en conflicto, su área, y qué rama prevalecerá
+   - Resumen de qué cambios de cada rama entrarán en la rama nueva
+Paso 0.9. **PEDIR CONFIRMACIÓN EXPLÍCITA** antes de proceder a modificar nada
+
+### FASE 1: DIAGNÓSTICO Y ACTUALIZACIÓN DE juani-dev2
+Paso 1.1. Mostrar rama actual con `git branch`
+Paso 1.2. Hacer checkout a juani-dev2: `git checkout juani-dev2`
+Paso 1.3. PISAR juani-dev2 con main: `git reset --hard main`
+   - main NO se modifica, solo se lee
+Paso 1.4. Verificar con `git log --oneline -3 juani-dev2` que es idéntico a main
+
+### FASE 2: CREAR RAMA DE INTEGRACIÓN
+Paso 2.1. Desde juani-dev2: `git checkout -b [NOMBRE RAMA NUEVA]`
+Paso 2.2. Verificar que la rama nueva tiene el mismo contenido que main
+
+### FASE 3: MERGE DE dani-dev5 EN LA RAMA NUEVA
+Paso 3.1. Ejecutar `git merge dani-dev5`
+Paso 3.2. Si NO hay conflictos → mostrar mensaje y pasar a Fase 4
+Paso 3.3. Si HAY CONFLICTOS: resolverlos uno por uno aplicando **ESTRICTAMENTE** la tabla de prioridad:
+   - Archivos de PROYECTOS → `git checkout --theirs [archivo]` (usar versión de dani-dev5)
+   - Archivos de DASHBOARD general que no sean el gestor de usuarios → analizar individualmente, priorizando conservar AMBOS cambios si es posible. Si hay que elegir, preguntar
+   - Archivos de LANDING → `git checkout --ours [archivo]` (mantener versión de juani-dev2/main)
+   - Archivos de BASE DE DATOS → `git checkout --ours [archivo]`
+   - Archivos de AUTENTICACIÓN → `git checkout --ours [archivo]`
+   - Archivos de GESTIÓN DE USUARIOS → `git checkout --ours [archivo]` (MUY IMPORTANTE: no perder este módulo)
+   - Para archivos NO CLASIFICADOS → detenerse y preguntar al usuario
+Paso 3.4. Una vez resueltos todos los conflictos:
+   - `git add .`
+   - `git commit -m "merge: integra dani-dev5 (dashboard + proyectos) con juani-dev2 (landing, BD, auth, gestión usuarios)"`
+
+### FASE 4: VERIFICACIÓN POST-MERGE
+Paso 4.1. `git branch -v` para mostrar que:
+   - main → intacta
+   - juani-dev2 → actualizada = main (sin merge)
+   - dani-dev5 → intacta
+   - RAMA NUEVA → merge completo
+Paso 4.2. `git diff juani-dev2 -- proyectos/` → confirmar que los archivos de proyectos tienen los cambios de dani-dev5
+Paso 4.3. `git diff dani-dev5 -- proyectos/` → confirmar que la carpeta proyectos en la rama nueva es igual a dani-dev5 (todo lo de Dani se preservó)
+Paso 4.4. Revisar específicamente que el módulo de gestión de usuarios esté presente y funcional (buscar archivos relacionados con user management, roles, etc.)
+Paso 4.5. Mostrar resumen final de verificación:
+   - ✅ Landing: preservado de juani-dev2
+   - ✅ Base de datos: preservado de juani-dev2
+   - ✅ Auth Google: preservado de juani-dev2
+   - ✅ Gestión de usuarios (dashboard): preservado de juani-dev2
+   - ✅ Proyectos (dashboard): TODO lo de dani-dev5 preservado
+   - ✅ Dashboard general: cambios de Dani preservados + módulo de usuarios de Juani integrado
+   - ✅ main, juani-dev2, dani-dev5: intactas
+
+---
+
+## NOTAS CRÍTICAS
+- main no se toca bajo ningún concepto
+- El módulo de GESTIÓN DE USUARIOS dentro del dashboard es PRIORITARIO de juani-dev2. No debe ser pisado por dani-dev5
+- Los cambios de Juani en PROYECTOS son accidentales y DEBEN ser pisados por dani-dev5
+- Todo lo que Dani trabajó en el dashboard y proyectos debe quedar, incluso lo que yo no listé
+- Si hay archivos que no se pueden clasificar en la auditoría previa, detenerse y consultar
+- No usar `git pull` en main

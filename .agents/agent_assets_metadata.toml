@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "sxbYqgHKgd6lNzdrjgfrP"
+uri = "file://.local/merge-prompt.md"
+type = "text"
+title = "Prompt merge juani-dani"
