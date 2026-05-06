@@ -7,7 +7,6 @@ import { z } from "zod";
 import { idSchema, currencySchema } from "@/lib/validations";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 import { audit } from "@/lib/actions/audit";
-import { normalizeUnitEstado } from "@/lib/public-projects";
 
 // ─── Schemas ───
 
@@ -202,13 +201,7 @@ export async function getProjectBlueprintData(proyectoId: string) {
             orderBy: { createdAt: "asc" }
         });
 
-        return {
-            success: true,
-            data: unidades.map((unidad) => ({
-                ...unidad,
-                estado: normalizeUnitEstado(unidad.estado),
-            })),
-        };
+        return { success: true, data: unidades };
     } catch (error) {
         console.error("Error fetching project blueprint data:", error);
         return { success: false, error: "Error al obtener datos del masterplan" };

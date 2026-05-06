@@ -22,7 +22,7 @@ interface OverlayEditorProps {
     proyectoId: string;
     map: any;
     existingConfig: OverlayConfig | null;
-    onBoundsChange?: (bounds: [[number, number], [number, number]], rotation: number) => void;
+    onBoundsChange?: (bounds: [[number, number], [number, number]], rotation: number, corners: QuadCorners) => void;
     onSave: (config: OverlayConfig) => void;
     onCancel: () => void;
     onDelete: () => void;
@@ -31,7 +31,8 @@ interface OverlayEditorProps {
 type DragState =
     | { mode: "move"; startMouse: ScreenPoint; startCorners: ScreenCorners }
     | { mode: "rotate"; startMouse: ScreenPoint; startCorners: ScreenCorners }
-    | { mode: "corner"; cornerIndex: 0 | 1 | 2 | 3; startMouse: ScreenPoint; startCorners: ScreenCorners };
+    | { mode: "corner"; cornerIndex: 0 | 1 | 2 | 3; startMouse: ScreenPoint; startCorners: ScreenCorners }
+    | { mode: "edge"; edgeIndex: 0 | 1 | 2 | 3; startMouse: ScreenPoint; startCorners: ScreenCorners };
 
 function computeRotatedCorners(bounds: [LatLngTuple, LatLngTuple], rot: number): QuadCorners {
     const [[swLat, swLng], [neLat, neLng]] = bounds;
@@ -87,6 +88,185 @@ function rotatePoint(point: ScreenPoint, center: ScreenPoint, angleRad: number):
 
 function screenToString(points: ScreenCorners): string {
     return [points[3], points[2], points[1], points[0]].map((point) => `${point.x},${point.y}`).join(" ");
+}
+
+function edgeMidpoints(points: ScreenCorners): [ScreenPoint, ScreenPoint, ScreenPoint, ScreenPoint] {
+    return [
+        { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 }, // bottom
+        { x: (points[1].x + points[2].x) / 2, y: (points[1].y + points[2].y) / 2 }, // right
+        { x: (points[2].x + points[3].x) / 2, y: (points[2].y + points[3].y) / 2 }, // top
+        { x: (points[3].x + points[0].x) / 2, y: (points[3].y + points[0].y) / 2 }, // left
+    ];
+}
+
+function add(point: ScreenPoint, vec: ScreenPoint): ScreenPoint {
+    return { x: point.x + vec.x, y: point.y + vec.y };
+}
+
+function scaleVec(vec: ScreenPoint, factor: number): ScreenPoint {
+    return { x: vec.x * factor, y: vec.y * factor };
+}
+
+function sub(a: ScreenPoint, b: ScreenPoint): ScreenPoint {
+    return { x: a.x - b.x, y: a.y - b.y };
+}
+
+function dot(a: ScreenPoint, b: ScreenPoint): number {
+    return a.x * b.x + a.y * b.y;
+}
+
+function normalize(vec: ScreenPoint): ScreenPoint {
+    const len = Math.hypot(vec.x, vec.y) || 1;
+    return { x: vec.x / len, y: vec.y / len };
+}
+
+function buildRectFromAnchor(anchorIndex: 0 | 1 | 2 | 3, anchor: ScreenPoint, axisX: ScreenPoint, axisY: ScreenPoint, width: number, height: number): ScreenCorners {
+    if (anchorIndex === 0) {
+        const sw = anchor;
+        const se = add(anchor, scaleVec(axisX, width));
+        const nw = add(anchor, scaleVec(axisY, height));
+        const ne = add(se, scaleVec(axisY, height));
+        return [sw, se, ne, nw];
+    }
+    if (anchorIndex === 1) {
+        const se = anchor;
+        const sw = add(anchor, scaleVec(axisX, -width));
+        const ne = add(anchor, scaleVec(axisY, height));
+        const nw = add(sw, scaleVec(axisY, height));
+        return [sw, se, ne, nw];
+    }
+    if (anchorIndex === 2) {
+        const ne = anchor;
+        const nw = add(anchor, scaleVec(axisX, -width));
+        const se = add(anchor, scaleVec(axisY, -height));
+        const sw = add(nw, scaleVec(axisY, -height));
+        return [sw, se, ne, nw];
+    }
+    const nw = anchor;
+    const ne = add(anchor, scaleVec(axisX, width));
+    const sw = add(anchor, scaleVec(axisY, -height));
+    const se = add(sw, scaleVec(axisX, width));
+    return [sw, se, ne, nw];
+}
+
+function buildRectFromCenter(center: ScreenPoint, axisX: ScreenPoint, axisY: ScreenPoint, width: number, height: number): ScreenCorners {
+    const halfX = scaleVec(axisX, width / 2);
+    const halfY = scaleVec(axisY, height / 2);
+    const sw = sub(sub(center, halfX), halfY);
+    const se = add(sub(center, halfY), halfX);
+    const ne = add(add(center, halfX), halfY);
+    const nw = add(sub(center, halfX), halfY);
+    return [sw, se, ne, nw];
+}
+
+function rectMetrics(points: ScreenCorners) {
+    const sw = points[0];
+    const se = points[1];
+    const nw = points[3];
+    const axisX = normalize(sub(se, sw));
+    const axisY = normalize(sub(nw, sw));
+    const width = Math.hypot(se.x - sw.x, se.y - sw.y) || 1;
+    const height = Math.hypot(nw.x - sw.x, nw.y - sw.y) || 1;
+    return { axisX, axisY, width, height, aspect: width / height };
+}
+
+function resizeRectProportionally(
+    startCorners: ScreenCorners,
+    currentMouse: ScreenPoint,
+    handle: { type: "corner"; index: 0 | 1 | 2 | 3 } | { type: "edge"; index: 0 | 1 | 2 | 3 },
+): ScreenCorners {
+    const { axisX, axisY, width, height, aspect } = rectMetrics(startCorners);
+    const minScale = 0.1;
+
+    if (handle.type === "corner") {
+        const oppositeIndex = ([2, 3, 0, 1] as const)[handle.index];
+        const signs = [
+            { x: -1, y: -1 },
+            { x: 1, y: -1 },
+            { x: 1, y: 1 },
+            { x: -1, y: 1 },
+        ] as const;
+        const anchor = startCorners[oppositeIndex];
+        const rel = sub(currentMouse, anchor);
+        const projX = dot(rel, axisX) * signs[handle.index].x;
+        const projY = dot(rel, axisY) * signs[handle.index].y;
+        const scale = Math.max(minScale, Math.max(projX / width, projY / height));
+        return buildRectFromAnchor(oppositeIndex, anchor, axisX, axisY, width * scale, height * scale);
+    }
+
+    const mids = edgeMidpoints(startCorners);
+    const oppositeMid = mids[(handle.index + 2) % 4];
+
+    if (handle.index === 1) {
+        const projectedWidth = Math.max(minScale * width, dot(sub(currentMouse, oppositeMid), axisX));
+        const scale = projectedWidth / width;
+        const nextWidth = width * scale;
+        const nextHeight = height * scale;
+        const center = add(oppositeMid, scaleVec(axisX, nextWidth / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    if (handle.index === 3) {
+        const projectedWidth = Math.max(minScale * width, dot(sub(oppositeMid, currentMouse), axisX));
+        const scale = projectedWidth / width;
+        const nextWidth = width * scale;
+        const nextHeight = height * scale;
+        const center = sub(oppositeMid, scaleVec(axisX, nextWidth / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    if (handle.index === 2) {
+        const projectedHeight = Math.max(minScale * height, dot(sub(currentMouse, oppositeMid), axisY));
+        const scale = projectedHeight / height;
+        const nextHeight = height * scale;
+        const nextWidth = width * scale;
+        const center = add(oppositeMid, scaleVec(axisY, nextHeight / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    const projectedHeight = Math.max(minScale * height, dot(sub(oppositeMid, currentMouse), axisY));
+    const scale = projectedHeight / height;
+    const nextHeight = height * scale;
+    const nextWidth = width * scale;
+    const center = sub(oppositeMid, scaleVec(axisY, nextHeight / 2));
+    return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+}
+
+function resizeRectFromEdge(
+    startCorners: ScreenCorners,
+    currentMouse: ScreenPoint,
+    edgeIndex: 0 | 1 | 2 | 3,
+): ScreenCorners {
+    const { axisX, axisY, width, height } = rectMetrics(startCorners);
+    const mids = edgeMidpoints(startCorners);
+    const oppositeMid = mids[(edgeIndex + 2) % 4];
+    const minScale = 0.1;
+
+    if (edgeIndex === 1) {
+        const nextWidth = Math.max(width * minScale, dot(sub(currentMouse, oppositeMid), axisX));
+        const nextHeight = height;
+        const center = add(oppositeMid, scaleVec(axisX, nextWidth / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    if (edgeIndex === 3) {
+        const nextWidth = Math.max(width * minScale, dot(sub(oppositeMid, currentMouse), axisX));
+        const nextHeight = height;
+        const center = sub(oppositeMid, scaleVec(axisX, nextWidth / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    if (edgeIndex === 2) {
+        const nextHeight = Math.max(height * minScale, dot(sub(currentMouse, oppositeMid), axisY));
+        const nextWidth = width;
+        const center = add(oppositeMid, scaleVec(axisY, nextHeight / 2));
+        return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
+    }
+
+    const nextHeight = Math.max(height * minScale, dot(sub(oppositeMid, currentMouse), axisY));
+    const nextWidth = width;
+    const center = sub(oppositeMid, scaleVec(axisY, nextHeight / 2));
+    return buildRectFromCenter(center, axisX, axisY, nextWidth, nextHeight);
 }
 
 function solveLinearSystem(matrix: number[][], vector: number[]): number[] | null {
@@ -256,10 +436,11 @@ export default function OverlayEditor({
     const rotation = useMemo(() => deriveRotationFromCorners(corners), [corners]);
 
     useEffect(() => {
-        onBoundsChange?.(bounds, rotation);
-    }, [bounds, onBoundsChange, rotation]);
+        onBoundsChange?.(bounds, rotation, corners);
+    }, [bounds, corners, onBoundsChange, rotation]);
 
     const centerPoint = useMemo(() => centroid(screenCorners), [screenCorners]);
+    const sideMidPoints = useMemo(() => edgeMidpoints(screenCorners), [screenCorners]);
     const topMidPoint = useMemo<ScreenPoint>(() => ({
         x: (screenCorners[3].x + screenCorners[2].x) / 2,
         y: (screenCorners[3].y + screenCorners[2].y) / 2,
@@ -325,9 +506,16 @@ export default function OverlayEditor({
                 return;
             }
 
-            const next = [...state.startCorners] as ScreenCorners;
-            next[state.cornerIndex] = currentMouse;
-            applyScreenCorners(next);
+            if (state.mode === "corner") {
+                applyScreenCorners(
+                    resizeRectProportionally(state.startCorners, currentMouse, { type: "corner", index: state.cornerIndex })
+                );
+                return;
+            }
+
+            if (state.mode === "edge") {
+                applyScreenCorners(resizeRectFromEdge(state.startCorners, currentMouse, state.edgeIndex));
+            }
         };
 
         const handleUp = () => {
@@ -497,6 +685,36 @@ export default function OverlayEditor({
                             />
                         ))}
 
+                        {sideMidPoints.map((point, index) => (
+                            <button
+                                key={`edge-${index}`}
+                                type="button"
+                                onPointerDown={(event) => {
+                                    event.preventDefault();
+                                    beginDrag({
+                                        mode: "edge",
+                                        edgeIndex: index as 0 | 1 | 2 | 3,
+                                        startMouse: {
+                                            x: event.clientX - containerRect.screenLeft,
+                                            y: event.clientY - containerRect.screenTop,
+                                        },
+                                        startCorners: screenCorners,
+                                    });
+                                }}
+                                className="absolute rounded-full border-2 border-white bg-slate-100 shadow-lg"
+                                style={{
+                                    left: point.x - 11,
+                                    top: point.y - 4,
+                                    width: 22,
+                                    height: 8,
+                                    cursor: "grab",
+                                    pointerEvents: "auto",
+                                    transform: `rotate(${rotation}deg)`,
+                                    transformOrigin: "50% 50%",
+                                }}
+                            />
+                        ))}
+
                         <button
                             type="button"
                             onPointerDown={(event) => {
@@ -553,81 +771,139 @@ export default function OverlayEditor({
                     </button>
                 </div>
 
-                <div className="mb-3 space-y-1 rounded-xl bg-blue-50 p-2.5 text-[10px] leading-snug text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
-                    <p><span style={{ color: "#6366f1", fontWeight: 700 }}>Azul</span> - mover todo el plano.</p>
-                    <p><span style={{ color: "#f97316", fontWeight: 700 }}>4 esquinas</span> - deformar y escuadrar.</p>
-                    <p><span style={{ color: "#0ea5e9", fontWeight: 700 }}>Celeste</span> - rotar como en una herramienta gráfica.</p>
+                <div className="mb-3 space-y-1 rounded-xl bg-blue-50 p-3 text-[10px] leading-snug text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
+                    <p><span className="font-bold" style={{ color: "#3b82f6" }}>Azul</span> - mover todo el plano.</p>
+                    <p><span className="font-bold" style={{ color: "#f97316" }}>Esquinas y lados</span> - escalar manteniendo la proporcion original.</p>
+                    <p><span className="font-bold" style={{ color: "#0ea5e9" }}>Celeste</span> - rotar como en una herramienta gráfica.</p>
                 </div>
 
-                <div className="mb-3 space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-slate-700">
+                <div className="mb-4 space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-slate-500">Opacidad</span>
-                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200">{Math.round(opacity * 100)}%</span>
+                        <span className="text-[11px] font-semibold text-slate-500">Opacidad</span>
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">{Math.round(opacity * 100)}%</span>
                     </div>
-                    <input
-                        type="range"
-                        min={15}
-                        max={100}
-                        step={1}
-                        value={Math.round(opacity * 100)}
-                        onChange={(e) => setOpacity(Number(e.target.value) / 100)}
-                        className="w-full accent-brand-500"
-                    />
+                    <div className="relative flex items-center">
+                        <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={Math.round(opacity * 100)}
+                            onChange={(e) => setOpacity(Number(e.target.value) / 100)}
+                            className="w-full h-2 rounded-full appearance-none bg-slate-200 dark:bg-slate-700 accent-brand-500 cursor-pointer"
+                            style={{
+                                background: `linear-gradient(to right, #f97316 ${Math.round(opacity * 100)}%, #475569 ${Math.round(opacity * 100)}%)`
+                            }}
+                        />
+                    </div>
                 </div>
 
-                <div className="mb-3 space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-slate-700">
-                    <div className="text-[10px] font-semibold text-slate-500">Ajuste fino</div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                        <div />
-                        <button onClick={() => nudgeOverlay(0, -6)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveUp className="h-3.5 w-3.5" />
-                        </button>
-                        <div />
-                        <button onClick={() => nudgeOverlay(-6, 0)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveLeft className="h-3.5 w-3.5" />
-                        </button>
-                        <div className="flex items-center justify-center rounded-lg bg-indigo-50 py-1.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-300">
-                            Fino
+                <div className="mb-4 space-y-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="space-y-2">
+                        <div className="text-[11px] font-semibold text-slate-500">Ajuste de posición</div>
+                        <div className="flex flex-col items-center">
+                            <button onClick={() => nudgeOverlay(0, -1)} className="w-20 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all">
+                                <span className="text-xl">↑</span>
+                            </button>
+                            <div className="flex items-center gap-2 -my-1">
+                                <button onClick={() => nudgeOverlay(-1, 0)} className="w-20 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all">
+                                    <span className="text-xl">←</span>
+                                </button>
+                                <div className="w-16 flex flex-col items-center justify-center text-[10px] font-black text-indigo-500 uppercase leading-tight">
+                                    <span>Fino</span>
+                                    <span>1px</span>
+                                </div>
+                                <button onClick={() => nudgeOverlay(1, 0)} className="w-20 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all">
+                                    <span className="text-xl">→</span>
+                                </button>
+                            </div>
+                            <button onClick={() => nudgeOverlay(0, 1)} className="w-20 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all">
+                                <span className="text-xl">↓</span>
+                            </button>
                         </div>
-                        <button onClick={() => nudgeOverlay(6, 0)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveRight className="h-3.5 w-3.5" />
-                        </button>
-                        <div />
-                        <button onClick={() => nudgeOverlay(0, 6)} className="flex items-center justify-center rounded-lg bg-slate-100 py-1.5 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <MoveDown className="h-3.5 w-3.5" />
-                        </button>
-                        <div />
                     </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                        <button onClick={() => rotateOverlay(-0.5)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <RotateCcw className="h-3.5 w-3.5" /> -0.5°
-                        </button>
-                        <button onClick={() => rotateOverlay(0.5)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <RotateCw className="h-3.5 w-3.5" /> +0.5°
-                        </button>
-                        <button onClick={() => scaleOverlay(0.985)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <Minus className="h-3.5 w-3.5" /> Escala
-                        </button>
-                        <button onClick={() => scaleOverlay(1.015)} className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                            <Plus className="h-3.5 w-3.5" /> Escala
-                        </button>
+
+                    <div className="pt-2 space-y-4 rounded-2xl border border-slate-100 p-3 bg-slate-50/30">
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ROTACIÓN DEL PLANO</span>
+                                <div className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-indigo-600 shadow-sm">
+                                    {rotation.toFixed(2)}°
+                                </div>
+                            </div>
+                            <input
+                                type="range"
+                                min={-180}
+                                max={180}
+                                step={0.1}
+                                value={rotation}
+                                onChange={(e) => rotateOverlay(Number(e.target.value) - rotation)}
+                                className="w-full accent-indigo-500"
+                            />
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {[ -1, -0.1, 0.1, 1 ].map((val) => (
+                                    <button
+                                        key={`rot-${val}`}
+                                        onClick={() => rotateOverlay(val)}
+                                        className="py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                                    >
+                                        {val > 0 ? `+${val}` : val}°
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">ESCALA DEL PLANO</span>
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {[ -1, -0.1, 0.1, 1 ].map((val) => (
+                                    <button
+                                        key={`scale-${val}`}
+                                        onClick={() => scaleOverlay(1 + val / 100)}
+                                        className="py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                                    >
+                                        {val > 0 ? `+${val}` : val}%
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">ZOOM DEL MAPA (BASE)</span>
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {[ -1, -0.1, 0.1, 1 ].map((val) => (
+                                    <button
+                                        key={`mzoom-${val}`}
+                                        onClick={() => {
+                                            if (map) {
+                                                const cz = map.getZoom();
+                                                map.setZoom(cz + val);
+                                            }
+                                        }}
+                                        className="py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                                    >
+                                        {val > 0 ? `+${val}` : val}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-500 py-2 text-xs font-bold text-white transition-all hover:bg-brand-600 disabled:opacity-50"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 py-3 text-sm font-bold text-white transition-all hover:bg-brand-600 shadow-lg shadow-brand-500/30 active:scale-[0.98] disabled:opacity-50"
                     >
-                        {isSaving ? "Guardando..." : <><Save className="h-3 w-3" /> Fijar Posición</>}
+                        {isSaving ? "Guardando..." : <><Save className="h-4 w-4" /> Fijar Posición</>}
                     </button>
                     <button
                         onClick={onDelete}
-                        className="rounded-lg bg-red-50 px-3 py-2 text-red-500 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40"
-                        title="Resetear posición"
+                        className="flex items-center justify-center rounded-xl bg-rose-50 px-4 py-3 text-rose-500 transition-all hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 border border-rose-100 dark:border-rose-900/30"
+                        title="Eliminar posición"
                     >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-5 w-5" />
                     </button>
                 </div>
             </div>

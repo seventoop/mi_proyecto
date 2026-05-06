@@ -9,7 +9,6 @@ import {
     Search, X, Check, LayoutList, HelpCircle, ChevronDown, ChevronUp, Grid3x3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { useMasterplanStore } from "@/lib/masterplan-store";
 import PlanGalleryPicker, { type PlanGalleryItem } from "@/components/plan-gallery/plan-gallery-picker";
 import {
@@ -113,7 +112,6 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const lotManagementRef = useRef<HTMLDivElement>(null);
     const activeRowRef = useRef<HTMLTableRowElement>(null);
     const units = useMasterplanStore((s) => s.units);
 
@@ -435,7 +433,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
             setViewMode("blueprint");
             setShowPlanGallery(false);
         } catch {
-            toast.error("No se pudo abrir este plano de la galería.");
+            alert("No se pudo abrir este plano de la galeria.");
         }
     }, []);
 
@@ -721,7 +719,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
             throw new Error("Formato no soportado para este flujo");
         } catch (error: any) {
-            toast.error(`No se pudo procesar el plano: ${error.message || "Error inesperado"}`);
+            alert(`No se pudo procesar el plano: ${error.message || "Error inesperado"}`);
             resetBlueprintState();
             return;
         } finally {
@@ -783,21 +781,56 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
             if (res.ok) {
                 const data = await readJsonResponse(res);
-                toast.success("Sincronización completada", {
-                    description: `Se procesó correctamente el plano.\n${data.lotesCreated ?? data.created ?? 0} lotes creados\n${data.unidadesCreated ?? data.created ?? 0} unidades creadas\n${data.updated ?? 0} registros actualizados`,
-                    duration: 6000,
-                });
+                alert(`${data.message || "Plano guardado con exito."}\n${data.created ?? 0} unidades creadas, ${data.updated ?? 0} actualizadas.`);
                 return;
             }
 
             const err = await readJsonResponse(res).catch(() => ({}));
             throw new Error(err.error || "Error del servidor");
         } catch (e: any) {
-            toast.error("Error al sincronizar", {
-                description: e.message,
-                duration: 6000,
-            });
+            alert(`Error al sincronizar: ${e.message}`);
             return;
+        } finally {
+            setProcessing(false);
+        }
+
+        if (!svgContent || extractedPaths.length === 0) return;
+        setProcessing(true);
+        try {
+            // Build quick lookup: pathId → lot management data
+            const lotDataMap: Record<string, LotRecord> = {};
+            lotRecords.forEach(r => { lotDataMap[r.pathId] = r; });
+
+            const res = await fetch(`/api/proyectos/${proyectoId}/blueprint/sync`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    svgContent,
+                    paths: extractedPaths.map(p => {
+                        const ld = lotDataMap[p.id];
+                        return {
+                            internalId: p.internalId,
+                            lotNumber: p.lotNumber,
+                            pathData: p.pathData,
+                            center: p.center,
+                            areaSqm: p.areaSqm,
+                            estado: ld?.estado ?? "DISPONIBLE",
+                            precio: ld?.precio ? parseFloat(ld.precio) : null,
+                            frente: ld?.frente ? parseFloat(ld.frente) : null,
+                            fondo: ld?.fondo ? parseFloat(ld.fondo) : null,
+                        };
+                    }),
+                }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                alert(`Plano sincronizado con éxito.\n${data.created ?? 0} unidades creadas, ${data.updated ?? 0} actualizadas.`);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || "Error del servidor");
+            }
+        } catch (e: any) {
+            alert(`Error al sincronizar: ${e.message}`);
         } finally {
             setProcessing(false);
         }
@@ -823,21 +856,12 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
         if (tooltip.visible) setTooltip(t => ({ ...t, x: e.clientX, y: e.clientY }));
     };
     const handleMouseLeave = () => setTooltip(t => ({ ...t, visible: false }));
-    const scrollToLotManagement = useCallback(() => {
-        setShowTable(true);
-        requestAnimationFrame(() => {
-            lotManagementRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-    }, []);
     const handleSvgClick = (e: React.MouseEvent) => {
         const t = e.target as Element;
         const lot = t.getAttribute?.("data-lot");
         if (lot) {
             setActiveLotNumber(lot);
             if (!showTable) setShowTable(true);
-            requestAnimationFrame(() => {
-                lotManagementRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-            });
         }
     };
 
@@ -875,8 +899,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
     }, {} as Record<LotEstado, number>);
 
     return (
-        <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/50">
-            <div ref={containerRef} className="flex min-h-[76vh] flex-col overflow-hidden">
+        <div ref={containerRef} className="flex flex-col h-full bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
 
             {/* ── Toolbar ─────────────────────────────────────────────────── */}
             <div className="bg-white dark:bg-slate-900 px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
@@ -947,11 +970,14 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
 
                     {/* Lot management toggle */}
                     {lotRecords.length > 0 && (
-                        <button onClick={scrollToLotManagement}
-                            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 transition-all hover:border-brand-500/40 hover:text-brand-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        <button onClick={() => setShowTable(v => !v)}
+                            className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all",
+                                showTable
+                                    ? "bg-brand-500/10 border-brand-500/30 text-brand-600 dark:text-brand-400"
+                                    : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-500/40")}>
                             <LayoutList className="w-3 h-3" />
                             Gestión
-                            <ChevronDown className="w-3 h-3" />
+                            {showTable ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                         </button>
                     )}
 
@@ -1204,61 +1230,17 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     </div>
                 </div>}
             </div>
-            </div>
 
             {/* ── Lot Management Table (collapsible, full-width) ──────────── */}
-            {lotRecords.length > 0 && (
-                <div
-                    ref={lotManagementRef}
-                    className="border-t border-slate-200 bg-white/95 px-4 py-6 dark:border-slate-800 dark:bg-slate-950/95"
-                >
-                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">
-                                Gestion de Lotes
-                            </p>
-                            <h4 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
-                                Edicion detallada del inventario
-                            </h4>
-                            <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-                                Esta seccion queda separada del visor para mantener el plano como foco principal del paso.
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => containerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-500/40 hover:text-brand-500 dark:border-slate-700 dark:text-slate-300"
-                            >
-                                Volver al plano
-                            </button>
-                            <button
-                                onClick={() => setShowTable(v => !v)}
-                                className={cn(
-                                    "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all",
-                                    showTable
-                                        ? "border-brand-500/30 bg-brand-500/10 text-brand-600 dark:text-brand-400"
-                                        : "border-slate-200 bg-white text-slate-600 hover:border-brand-500/40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                                )}
-                            >
-                                <LayoutList className="h-3 w-3" />
-                                {showTable ? "Ocultar gestion" : "Mostrar gestion"}
-                                {showTable ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {showTable ? (
-                <div
-                    className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                    style={{ minHeight: "22rem", maxHeight: "36rem" }}
-                >
+            {lotRecords.length > 0 && showTable && (
+                <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 flex flex-col" style={{ height: "260px" }}>
                     {/* Table toolbar */}
-                    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2 dark:border-slate-800">
+                    <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
                         <LayoutList className="w-3.5 h-3.5 text-brand-500" />
                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Gestión de Lotes</span>
                         <span className="text-[10px] text-slate-400 ml-1">{filteredLots.length} de {lotRecords.length}</span>
 
-                        <div className="ml-auto flex flex-wrap items-center gap-2">
+                        <div className="ml-auto flex items-center gap-2">
                             {/* Search */}
                             <div className="relative">
                                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
@@ -1296,7 +1278,7 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                     </div>
 
                     {/* Table */}
-                    <div className="min-h-0 flex-1 overflow-auto">
+                    <div className="flex-1 overflow-auto">
                         <table className="w-full text-xs min-w-[760px]">
                             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 z-10">
                                 <tr>
@@ -1397,17 +1379,6 @@ export default function BlueprintEngine({ proyectoId }: BlueprintEngineProps) {
                             </tbody>
                         </table>
                     </div>
-                </div>
-                    ) : (
-                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60">
-                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                La gestion de lotes esta oculta para liberar espacio visual al plano.
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                Usa el boton de esta seccion cuando necesites editar el inventario.
-                            </p>
-                        </div>
-                    )}
                 </div>
             )}
 

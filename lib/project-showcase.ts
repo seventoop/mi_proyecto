@@ -524,7 +524,7 @@ export async function getProjectShowcasePayload(options: {
                     category: normalizeTourMediaCategory(scene),
                     masterplanOverlay:
                         scene.masterplanOverlay && typeof scene.masterplanOverlay === "object"
-                            ? scene.masterplanOverlay
+                            ? (scene.masterplanOverlay as any)
                             : null,
                     hotspots: scene.hotspots.map((hotspot) => ({
                         id: hotspot.id,
@@ -548,7 +548,7 @@ export async function getProjectShowcasePayload(options: {
                 try {
                     const parsed = JSON.parse((infra as any).coordenadas || "[]");
                     if (Array.isArray(parsed)) coords = parsed;
-                } catch {}
+                } catch { }
                 return {
                     id: infra.id,
                     nombre: infra.nombre,

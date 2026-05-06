@@ -44,7 +44,7 @@ export default function ProjectPaymentsTab({ proyectoId, pagos, userRole = "DESA
             alert("Pago registrado correctamente. Esperando verificación.");
             router.refresh();
         } else {
-            alert("Error al registrar pago: " + (res.error || "Desconocido"));
+            alert("Error al registrar pago: " + ((res as any).error || "Desconocido"));
         }
         setLoading(false);
     };

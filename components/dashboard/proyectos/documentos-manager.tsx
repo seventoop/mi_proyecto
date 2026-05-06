@@ -71,7 +71,7 @@ export default function DocumentosManager({ proyectoId, documentos, userRole }: 
                 router.refresh();
                 return `Estado actualizado a ${estado}`;
             }
-            throw new Error(res.error || "Error al actualizar estado");
+            throw new Error((res as any).error || "Error al actualizar estado");
         });
 
         toast.promise(statusPromise, {
@@ -87,7 +87,7 @@ export default function DocumentosManager({ proyectoId, documentos, userRole }: 
                 router.refresh();
                 return "Documento eliminado";
             }
-            throw new Error(res.error || "Error al eliminar documento");
+            throw new Error((res as any).error || "Error al eliminar documento");
         });
 
         toast.promise(deletePromise, {

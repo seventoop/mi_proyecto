@@ -98,7 +98,7 @@ export default function UnidadesManager({ manzanaId, unidades, compact = false }
                 router.refresh();
                 return "Unidad eliminada";
             }
-            throw new Error(res.error || "Error al eliminar unidad");
+            throw new Error((res as any).error || "Error al eliminar unidad");
         });
 
         toast.promise(deletePromise, {

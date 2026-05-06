@@ -1,4 +1,3 @@
-import { NORMALIZED_UNIT_ESTADO } from "@/lib/public-projects";
 import { create } from "zustand";
 
 // ─── Types ───
@@ -13,12 +12,7 @@ export interface MasterplanUnit {
     orientacion: string | null;
     precio: number | null;
     moneda: string;
-    estado:
-        | typeof NORMALIZED_UNIT_ESTADO.DISPONIBLE
-        | typeof NORMALIZED_UNIT_ESTADO.BLOQUEADA
-        | typeof NORMALIZED_UNIT_ESTADO.RESERVADA
-        | typeof NORMALIZED_UNIT_ESTADO.VENDIDA
-        | typeof NORMALIZED_UNIT_ESTADO.SUSPENDIDO;
+    estado: "DISPONIBLE" | "BLOQUEADO" | "RESERVADA" | "VENDIDA" | "SUSPENDIDO";
     etapaId?: string;
     etapaNombre?: string;
     manzanaId?: string;
@@ -70,8 +64,6 @@ interface MasterplanState {
     // Selection & UI State
     selectedUnitId: string | null;
     setSelectedUnitId: (id: string | null) => void;
-    activePanel: "lot" | "imagenes" | "infraestructura" | null;
-    setActivePanel: (panel: "lot" | "imagenes" | "infraestructura" | null) => void;
     hoveredUnitId: string | null;
     setHoveredUnitId: (id: string | null) => void;
 
@@ -109,17 +101,7 @@ export const useMasterplanStore = create<MasterplanState>((set) => ({
 
     // Selection
     selectedUnitId: null,
-    activePanel: null,
-    setSelectedUnitId: (id) =>
-        set((state) => ({
-            selectedUnitId: id,
-            activePanel: id ? "lot" : state.activePanel === "lot" ? null : state.activePanel,
-        })),
-    setActivePanel: (panel) =>
-        set((state) => ({
-            activePanel: panel,
-            selectedUnitId: panel === "lot" ? state.selectedUnitId : null,
-        })),
+    setSelectedUnitId: (id) => set({ selectedUnitId: id }),
 
     // Hover
     hoveredUnitId: null,

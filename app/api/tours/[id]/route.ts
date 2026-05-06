@@ -10,6 +10,27 @@ const updateTourSchema = z.object({
     escenas: z.array(z.any()).optional(),
 });
 
+function registerSceneReference(
+    sceneRefToDbId: Map<string, string>,
+    scene: { id?: string; clientSceneId?: string },
+    dbSceneId: string
+) {
+    if (scene.clientSceneId) {
+        sceneRefToDbId.set(scene.clientSceneId, dbSceneId);
+    }
+    if (scene.id) {
+        sceneRefToDbId.set(scene.id, dbSceneId);
+    }
+}
+
+function resolveHotspotTargetSceneId(
+    rawTargetSceneId: string | null | undefined,
+    sceneRefToDbId: Map<string, string>
+) {
+    if (!rawTargetSceneId) return null;
+    return sceneRefToDbId.get(rawTargetSceneId) ?? rawTargetSceneId;
+}
+
 export async function GET(request: Request, { params }: { params: { id: string } }) {
     try {
         const user = await requireAuth();
@@ -65,31 +86,55 @@ export async function PUT(request: Request, { params }: { params: { id: string }
                 await tx.tourScene.deleteMany({ where: { tourId: params.id } });
             }
 
-            return await tx.tour360.update({
+            const updatedTour = await tx.tour360.update({
                 where: { id: params.id },
                 data: {
                     nombre,
-                    estado: "PENDIENTE",
-                    scenes: scenes ? {
-                        create: scenes.map((s: any) => ({
-                            title: s.title,
-                            imageUrl: s.imageUrl,
-                            category: toStoredTourSceneCategory(s.category),
-                            isDefault: s.isDefault || false,
-                            order: s.order || 0,
-                            hotspots: {
-                                create: (s.hotspots || []).map((h: any) => ({
-                                    unidadId: h.unidadId,
-                                    type: (h.type || 'info').toUpperCase(),
-                                    pitch: h.pitch,
-                                    yaw: h.yaw,
-                                    text: h.text || "",
-                                    targetSceneId: h.targetSceneId || null,
-                                }))
-                            }
-                        }))
-                    } : undefined
-                },
+                    estado: "PENDIENTE"
+                }
+            });
+
+            if (scenes) {
+                const sceneRefToDbId = new Map<string, string>();
+                const createdScenes: Array<{ sourceScene: any; createdSceneId: string }> = [];
+
+                for (const scene of scenes) {
+                    const createdScene = await tx.tourScene.create({
+                        data: {
+                            tourId: params.id,
+                            title: scene.title,
+                            imageUrl: scene.imageUrl,
+                            thumbnailUrl: scene.thumbnailUrl ?? undefined,
+                            category: toStoredTourSceneCategory(scene.category),
+                            masterplanOverlay: scene.masterplanOverlay ?? undefined,
+                            isDefault: scene.isDefault || false,
+                            order: scene.order || 0,
+                        },
+                    });
+
+                    registerSceneReference(sceneRefToDbId, scene, createdScene.id);
+                    createdScenes.push({ sourceScene: scene, createdSceneId: createdScene.id });
+                }
+
+                for (const { sourceScene, createdSceneId } of createdScenes) {
+                    if ((sourceScene.hotspots || []).length === 0) continue;
+
+                    await tx.hotspot.createMany({
+                        data: (sourceScene.hotspots || []).map((hotspot: any) => ({
+                            sceneId: createdSceneId,
+                            unidadId: hotspot.unidadId,
+                            type: (hotspot.type || "info").toUpperCase(),
+                            pitch: hotspot.pitch,
+                            yaw: hotspot.yaw,
+                            text: hotspot.text || "",
+                            targetSceneId: resolveHotspotTargetSceneId(hotspot.targetSceneId || null, sceneRefToDbId),
+                        })),
+                    });
+                }
+            }
+
+            return tx.tour360.findUnique({
+                where: { id: updatedTour.id },
                 include: {
                     scenes: {
                         include: {

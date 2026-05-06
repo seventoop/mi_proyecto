@@ -7,7 +7,6 @@ import Viewer360LotesOverlay from "@/components/masterplan/viewer360-lotes-overl
 import type { MasterplanUnit } from "@/lib/masterplan-store";
 import type { SvgViewBox } from "@/lib/geo-projection";
 import { getGeoOverlayViewerState } from "@/lib/tour-overlay";
-import { NORMALIZED_UNIT_ESTADO, normalizeUnitEstado } from "@/lib/public-projects";
 import {
     Loader2, Play, Pause, Maximize2, Share2, Copy, Check,
     ChevronLeft, ChevronRight, MapPin, X, Volume2, VolumeX,
@@ -21,6 +20,9 @@ declare global {
     }
 }
 
+const SCRIPT_LOAD_TIMEOUT_MS = 12000;
+const VIEWER_INIT_TIMEOUT_MS = 15000;
+
 export type HotspotType = "info" | "scene" | "link" | "lot" | "check" | "sold" | "gallery" | "video" | "UNIT";
 
 export interface Hotspot {
@@ -29,6 +31,7 @@ export interface Hotspot {
     pitch: number;
     yaw: number;
     text: string;
+    unidadId?: string; // Unified with creator
     targetSceneId?: string;
     targetUrl?: string;
     targetThumbnail?: string;
@@ -67,9 +70,11 @@ export interface FloatingLabel {
 }
 
 export interface MasterplanOverlay {
-    mode?: "geo-calibrated";
+    mode?: "geo-calibrated" | "manual";
     imageUrl?: string;
+    imageKind?: "360" | "foto" | "panoramica";
     points?: { pitch: number; yaw: number }[];
+    planCornersAbsolute: { pitch: number; yaw: number }[]; // Non-optional for consistency
     opacity?: number;
     isVisible: boolean;
     altitudM?: number;
@@ -91,7 +96,17 @@ export interface MasterplanOverlay {
     flipX?: boolean;
     flipY?: boolean;
     selectedPlanId?: string;
+    planCornerAdjustments?: any[];
+    marks?: any[];
+    // Added fields unified with creator
+    direction?: SceneDirection;
+    assetVersion?: "original" | "edited";
+    originalSceneId?: string;
+    hasOverlayEdits?: boolean;
+    sceneKey?: string;
 }
+
+export type SceneDirection = "centro" | "norte" | "noreste" | "este" | "sureste" | "sur" | "suroeste" | "oeste" | "noroeste";
 
 export interface Scene {
     id: string;
@@ -103,8 +118,10 @@ export interface Scene {
     floatingLabels?: FloatingLabel[];
     isDefault?: boolean;
     order?: number;
-    category?: string;
+    category?: "tour360" | "render" | "real" | "avance" | "raw" | "rendered";
+    direction?: SceneDirection; // Added field
     masterplanOverlay?: MasterplanOverlay;
+    galleryImageId?: string;
 }
 
 interface TourViewerProps {
@@ -143,7 +160,6 @@ function normalizeViewerScene(scene: Scene, index: number): Scene {
         floatingLabels: Array.isArray(scene.floatingLabels) ? scene.floatingLabels : [],
     };
 }
-
 
 function PanoramicOverlay({
     viewer,
@@ -186,18 +202,21 @@ function PanoramicOverlay({
     const projectCoords = (pitch: number, yaw: number) => {
         if (!viewer || !viewerRef.current) return null;
 
-        const hfov = viewState.hfov;
-        const viewPitch = viewState.pitch;
-        const viewYaw = viewState.yaw;
-        const container = viewerRef.current;
-        const width = container.clientWidth;
-        const height = container.clientHeight;
+        if (typeof viewer.viewToContainerPoints === "function") {
+            const pts = viewer.viewToContainerPoints(pitch, yaw);
+            if (pts && Array.isArray(pts) && pts.length === 2 && !isNaN(pts[0]) && !isNaN(pts[1])) {
+                return { x: pts[0], y: pts[1] };
+            }
+        }
+
+        const width = viewerRef.current.clientWidth;
+        const height = viewerRef.current.clientHeight;
 
         const degToRad = Math.PI / 180;
         const p = pitch * degToRad;
         const y = yaw * degToRad;
-        const vp = viewPitch * degToRad;
-        const vy = viewYaw * degToRad;
+        const vp = viewState.pitch * degToRad;
+        const vy = viewState.yaw * degToRad;
 
         const vx = Math.cos(p) * Math.sin(y);
         const vy_vec = Math.sin(p);
@@ -215,7 +234,7 @@ function PanoramicOverlay({
 
         if (rz <= 0) return null;
 
-        const canvas_hfov = hfov * degToRad;
+        const canvas_hfov = viewState.hfov * degToRad;
         const focalLength = (width / 2) / Math.tan(canvas_hfov / 2);
 
         const px = (rx / rz) * focalLength + (width / 2);
@@ -228,135 +247,60 @@ function PanoramicOverlay({
         const coords = points.map(p => projectCoords(p.pitch, p.yaw));
         return coords.map((c, i) => {
             if (!c) return "";
-            return `${i === 0 ? 'M' : 'L'} ${c.x},${c.y}`;
+            return `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)},${c.y.toFixed(1)}`;
         }).join(" ") + " Z";
-    };
-
-    const getPerspectiveMatrix = (src: { x: number, y: number }[], dst: { x: number, y: number }[]) => {
-        const solve = (A: number[][], b: number[]) => {
-            let n = A.length;
-            for (let i = 0; i < n; i++) {
-                let max = i;
-                for (let j = i + 1; j < n; j++) if (Math.abs(A[j][i]) > Math.abs(A[max][i])) max = j;
-                [A[i], A[max]] = [A[max], A[i]];
-                [b[i], b[max]] = [b[max], b[i]];
-                for (let j = i + 1; j < n; j++) {
-                    let f = A[j][i] / A[i][i];
-                    b[j] -= f * b[i];
-                    for (let k = i; k < n; k++) A[j][k] -= f * A[i][k];
-                }
-            }
-            let x = new Array(n);
-            for (let i = n - 1; i >= 0; i--) {
-                let s = 0;
-                for (let j = i + 1; j < n; j++) s += A[i][j] * x[j];
-                x[i] = (b[i] - s) / A[i][i];
-            }
-            return x;
-        };
-
-        let A = [], b = [];
-        for (let i = 0; i < 4; i++) {
-            A.push([src[i].x, src[i].y, 1, 0, 0, 0, -src[i].x * dst[i].x, -src[i].y * dst[i].x]);
-            b.push(dst[i].x);
-            A.push([0, 0, 0, src[i].x, src[i].y, 1, -src[i].x * dst[i].y, -src[i].y * dst[i].y]);
-            b.push(dst[i].y);
-        }
-
-        let h = solve(A, b);
-        return [
-            h[0], h[3], 0, h[6],
-            h[1], h[4], 0, h[7],
-            0, 0, 1, 0,
-            h[2], h[5], 0, 1
-        ];
     };
 
     if (!viewerReady || !currentScene) return null;
 
     return (
         <>
-            {/* Shared geo-calibrated overlay */}
-            {currentScene.masterplanOverlay?.mode === "geo-calibrated" &&
-                currentScene.masterplanOverlay?.imageUrl &&
-                overlayBounds &&
-                overlaySvgViewBox &&
-                Array.isArray(overlayUnits) &&
-                overlayUnits.length > 0 && (() => {
-                const overlay = getGeoOverlayViewerState(currentScene.masterplanOverlay);
-                if (!overlay.isVisible) return null;
-                const baseLat = (overlayBounds[0][0] + overlayBounds[1][0]) / 2;
-                const baseLng = (overlayBounds[0][1] + overlayBounds[1][1]) / 2;
-                const cosLat = Math.cos((baseLat * Math.PI) / 180) || 1;
-                const camLat = baseLat + overlay.latOffset / 111320;
-                const camLng = baseLng + overlay.lngOffset / (111320 * cosLat);
-
-                return (
-                    <Viewer360LotesOverlay
-                        viewer={viewer}
-                        units={overlayUnits}
-                        overlayBounds={overlayBounds}
-                        overlayRotation={overlayRotation ?? 0}
-                        svgViewBox={overlaySvgViewBox}
-                        camLat={camLat}
-                        camLng={camLng}
-                        camAlt={overlay.altitudM}
-                        imageHeading={overlay.imageHeading}
-                        latOffset={overlay.latOffset}
-                        lngOffset={overlay.lngOffset}
-                        planRotation={overlay.planRotation}
-                        planScale={overlay.planScale}
-                        planScaleX={overlay.planScaleX}
-                        planScaleY={overlay.planScaleY}
-                        pitchBias={overlay.pitchBias}
-                        cameraRoll={overlay.cameraRoll}
-                        opacity={overlay.opacity}
-                        showLabels={overlay.showLabels}
-                        showPerimeter={overlay.showPerimeter}
-                        cleanMode={overlay.cleanMode}
-                        transformLocked={overlay.transformLocked}
-                        alignmentGuides={overlay.alignmentGuides}
-                        flipX={overlay.flipX}
-                        flipY={overlay.flipY}
-                        isEditing={false}
-                    />
-                );
-            })()}
-
-            {/* Legacy perspective overlay */}
+            {/* Virtual Tour Overlay (Lotes/Planos) */}
             {currentScene.masterplanOverlay?.isVisible &&
                 currentScene.masterplanOverlay?.imageUrl &&
-                Array.isArray(currentScene.masterplanOverlay?.points) &&
-                currentScene.masterplanOverlay.points.length === 4 && (() => {
-                const overlay = currentScene.masterplanOverlay as MasterplanOverlay & {
-                    imageUrl: string;
-                    points: { pitch: number; yaw: number }[];
-                };
-                const coords = overlay.points.map((p) => projectCoords(p.pitch, p.yaw));
+                overlayBounds && (() => {
+                    const overlay = getGeoOverlayViewerState(currentScene.masterplanOverlay);
+                    const baseLat = (overlayBounds[0][0] + overlayBounds[1][0]) / 2;
+                    const baseLng = (overlayBounds[0][1] + overlayBounds[1][1]) / 2;
+                    const cosLat = Math.cos((baseLat * Math.PI) / 180) || 1;
+                    const camLat = baseLat + (overlay.latOffset || 0) / 111320;
+                    const camLng = baseLng + (overlay.lngOffset || 0) / (111320 * cosLat);
 
-                if (coords.some((c) => !c)) return null;
-
-                const src = [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }];
-                const dst = coords as { x: number, y: number }[];
-                const matrix = getPerspectiveMatrix(src, dst);
-
-                return (
-                    <div
-                        className="absolute inset-0 pointer-events-none overflow-hidden z-0"
-                        style={{ perspective: '1000px' }}
-                    >
-                        <div
-                            className="absolute top-0 left-0 w-[1000px] h-[1000px] origin-top-left"
-                            style={{
-                                transform: `matrix3d(${matrix.join(',')})`,
-                                opacity: overlay.opacity ?? 0.55,
-                                backgroundImage: `url(${overlay.imageUrl})`,
-                                backgroundSize: '100% 100%'
-                            }}
+                    return (
+                        <Viewer360LotesOverlay
+                            viewer={viewer}
+                            units={overlayUnits || []}
+                            overlayImageUrl={currentScene.masterplanOverlay?.imageUrl}
+                            overlayBounds={overlayBounds}
+                            overlayRotation={overlayRotation ?? 0}
+                            svgViewBox={overlaySvgViewBox || { x: 0, y: 0, w: 1000, h: 1000 }}
+                            camLat={camLat}
+                            camLng={camLng}
+                            camAlt={overlay.altitudM}
+                            imageHeading={overlay.imageHeading}
+                            latOffset={overlay.latOffset}
+                            lngOffset={overlay.lngOffset}
+                            planRotation={overlay.planRotation}
+                            planScale={overlay.planScale}
+                            planScaleX={overlay.planScaleX}
+                            planScaleY={overlay.planScaleY}
+                            planCornerAdjustments={overlay.planCornerAdjustments}
+                            planCornersAbsolute={overlay.planCornersAbsolute}
+                            mode={overlay.mode}
+                            pitchBias={overlay.pitchBias}
+                            cameraRoll={overlay.cameraRoll}
+                            opacity={overlay.opacity}
+                            showLabels={overlay.showLabels}
+                            showPerimeter={overlay.showPerimeter}
+                            cleanMode={overlay.cleanMode}
+                            transformLocked={overlay.transformLocked}
+                            alignmentGuides={overlay.alignmentGuides}
+                            flipX={overlay.flipX}
+                            flipY={overlay.flipY}
+                            isEditing={false}
                         />
-                    </div>
-                );
-            })()}
+                    );
+                })()}
 
             {/* SVG Layer for Polygons */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
@@ -433,6 +377,7 @@ export default function TourViewer({
     overlayRotation = 0,
     overlaySvgViewBox = null,
 }: TourViewerProps) {
+    const containerRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<HTMLDivElement>(null);
     const viewerInstance = useRef<any>(null);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -442,12 +387,14 @@ export default function TourViewer({
     const [showSharePanel, setShowSharePanel] = useState(false);
     const [copied, setCopied] = useState(false);
     const [viewerReady, setViewerReady] = useState(false);
+    const [scriptAttempt, setScriptAttempt] = useState(0);
+    const [viewerInitAttempt, setViewerInitAttempt] = useState(0);
     const [isAutoTouring, setIsAutoTouring] = useState(false);
     const [showInfoPanel, setShowInfoPanel] = useState(false);
     const [showRadar, setShowRadar] = useState(true);
     const [showOverlays, setShowOverlays] = useState(true);
     const autoTourTimer = useRef<NodeJS.Timeout | null>(null);
-    const [viewState, setViewState] = useState({ hfov: 100, pitch: 0, yaw: 0 });
+
     const normalizedScenes = useMemo(
         () =>
             (Array.isArray(scenes) ? scenes : [])
@@ -456,79 +403,83 @@ export default function TourViewer({
         [scenes]
     );
 
-    useEffect(() => {
-        if (!viewerInstance.current || !viewerReady) return;
-        let rafId: number;
-        const update = () => {
-            if (viewerInstance.current) {
-                setViewState({
-                    hfov: viewerInstance.current.getHfov(),
-                    pitch: viewerInstance.current.getPitch(),
-                    yaw: viewerInstance.current.getYaw()
-                });
-            }
-            rafId = requestAnimationFrame(update);
-        };
-        rafId = requestAnimationFrame(update);
-        return () => cancelAnimationFrame(rafId);
-    }, [viewerReady]);
-
-    const startScene = initialSceneId
-        ? normalizedScenes.find((s) => s.id === initialSceneId)
-        : normalizedScenes.find((s) => s.isDefault) || normalizedScenes[0];
-
-    const currentScene = normalizedScenes.find((s) => s.id === currentSceneId) || startScene;
-    const currentIndex = normalizedScenes.findIndex((s) => s.id === currentSceneId);
-
-    // Initialize Pannellum
-    useEffect(() => {
-        if (!window.pannellum || !viewerRef.current || !startScene || viewerInstance.current) return;
-        initViewer(startScene.id);
-    }, [isLoaded, startScene]);
-
-    // SVG Overlay Loop moved to PanoramicOverlay sub-component
-
-
-
-
-    // Dynamic scenes state to handle real-time updates
     const [dynamicScenes, setDynamicScenes] = useState<Scene[]>(normalizedScenes);
 
     useEffect(() => {
         setDynamicScenes(normalizedScenes);
     }, [normalizedScenes]);
 
+    const startScene = initialSceneId
+        ? dynamicScenes.find((s) => s.id === initialSceneId)
+        : dynamicScenes.find((s) => s.isDefault) || dynamicScenes[0];
+
+    const currentScene = dynamicScenes.find((s) => s.id === currentSceneId) || startScene || null;
+
+    useEffect(() => {
+        if (error || !isLoaded) return;
+        if (!startScene) {
+            setError("No hay escenas válidas para mostrar en el tour.");
+            return;
+        }
+        if (!window.pannellum || !viewerRef.current || viewerInstance.current) return;
+        initViewer(startScene.id);
+    }, [error, isLoaded, startScene, scriptAttempt]);
+
+    useEffect(() => {
+        if (isLoaded || error) return;
+
+        const timeoutId = window.setTimeout(() => {
+            setError("No se pudo cargar el motor 360°. Revisá tu conexión e intentá nuevamente.");
+        }, SCRIPT_LOAD_TIMEOUT_MS);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [isLoaded, error, scriptAttempt]);
+
+    useEffect(() => {
+        if (viewerInitAttempt === 0 || viewerReady || error) return;
+
+        const timeoutId = window.setTimeout(() => {
+            if (viewerInstance.current) {
+                try {
+                    viewerInstance.current.destroy();
+                } catch (_) { }
+                viewerInstance.current = null;
+            }
+            setViewerReady(false);
+            setError("No se pudo iniciar el tour 360°.");
+        }, VIEWER_INIT_TIMEOUT_MS);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [viewerInitAttempt, viewerReady, error]);
+
     useEffect(() => {
         if (!proyectoId) return;
-
-        const { pusherClient } = require("@/lib/pusher");
-        const { CHANNELS, EVENTS } = require("@/lib/pusher");
-
-        if (!pusherClient) return; // Pusher not configured — skip realtime
-
-        const channel = pusherClient.subscribe(CHANNELS.UNIDADES);
-
-        channel.bind(EVENTS.UNIDAD_ESTADO_CAMBIADO, (data: { unidadId: string, nuevoEstado: string }) => {
-            setDynamicScenes(prev => prev.map(scene => ({
-                ...scene,
-                hotspots: scene.hotspots.map(hs => {
-                    if (hs.unidad?.id === data.unidadId) {
-                        return { ...hs, unidad: { ...hs.unidad, estado: normalizeUnitEstado(data.nuevoEstado) } };
-                    }
-                    return hs;
-                })
-            })));
-        });
-
-        return () => {
-            pusherClient.unsubscribe(CHANNELS.UNIDADES);
-        };
+        try {
+            const { pusherClient, CHANNELS, EVENTS } = require("@/lib/pusher");
+            if (!pusherClient) return;
+            const channel = pusherClient.subscribe(CHANNELS.UNIDADES);
+            channel.bind(EVENTS.UNIDAD_ESTADO_CAMBIADO, (data: { unidadId: string, nuevoEstado: string }) => {
+                setDynamicScenes(prev => prev.map(scene => ({
+                    ...scene,
+                    hotspots: scene.hotspots.map(hs => {
+                        if (hs.unidad?.id === data.unidadId) {
+                            return { ...hs, unidad: { ...hs.unidad, estado: data.nuevoEstado } };
+                        }
+                        return hs;
+                    })
+                })));
+            });
+            return () => { pusherClient.unsubscribe(CHANNELS.UNIDADES); };
+        } catch (e) { }
     }, [proyectoId]);
 
     const initViewer = (firstSceneId: string) => {
         if (!viewerRef.current) return;
 
         try {
+            setError(null);
+            setViewerReady(false);
+            setViewerInitAttempt((prev) => prev + 1);
             const scenesConfig: any = {};
             dynamicScenes.forEach((scene) => {
                 scenesConfig[scene.id] = {
@@ -555,7 +506,9 @@ export default function TourViewer({
                     autoLoad: true,
                     autoRotate: isPlaying ? 2 : 0,
                     showControls: false,
-                    mouseZoom: false, // Smooth zoom handler bypass
+                    compass: false,
+                    mouseZoom: false,
+                    crossOrigin: "anonymous", // Crucial para imágenes en S3/CDN
                 },
                 scenes: scenesConfig,
             });
@@ -567,42 +520,55 @@ export default function TourViewer({
 
             viewerInstance.current.on("error", () => {
                 setError("Error al cargar la imagen 360°.");
+                setViewerReady(false);
             });
 
             viewerInstance.current.on("load", () => {
                 setViewerReady(true);
+                setError(null);
             });
 
             setCurrentSceneId(firstSceneId);
         } catch (err) {
-            console.error("Init error:", err, {
-                firstSceneId,
-                scenes: dynamicScenes.map((scene) => ({
-                    id: scene.id,
-                    title: scene.title,
-                    imageUrl: scene.imageUrl,
-                    hotspotCount: scene.hotspots.length,
-                })),
-            });
             setError("Error al inicializar el visor.");
+            setViewerReady(false);
         }
+    };
+
+    const retryViewerLoad = () => {
+        if (viewerInstance.current) {
+            try {
+                viewerInstance.current.destroy();
+            } catch (_) { }
+            viewerInstance.current = null;
+        }
+
+        setError(null);
+        setViewerReady(false);
+        setCurrentSceneId(null);
+
+        if (window.pannellum) {
+            setIsLoaded(true);
+            setScriptAttempt((prev) => prev + 1);
+            return;
+        }
+
+        setIsLoaded(false);
+        setScriptAttempt((prev) => prev + 1);
     };
 
     const hotspotTooltip = (hotSpotDiv: HTMLElement, args: Hotspot) => {
         hotSpotDiv.classList.add("custom-hotspot-container");
-
-        // Use real-time state from the component if available, otherwise use initial unit data
         const currentEstado = (args.unidad as any)?.estado || "DISPONIBLE";
 
         switch (args.type) {
             case "lot":
                 hotSpotDiv.innerHTML = `<div class="hotspot-lot-marker">${args.text}</div>`;
                 break;
-            case "check": // Dynamic status
+            case "check":
             case "sold":
-            case "UNIT": // New professional type
-                const normalizedEstado = normalizeUnitEstado(currentEstado);
-                const isSold = normalizedEstado !== NORMALIZED_UNIT_ESTADO.DISPONIBLE;
+            case "UNIT":
+                const isSold = ["VENDIDA", "RESERVADA", "SUSPENDIDA"].includes(currentEstado);
                 hotSpotDiv.innerHTML = `
                     <div class="hotspot-status-marker ${isSold ? 'sold' : 'available'}">
                         ${isSold
@@ -627,7 +593,6 @@ export default function TourViewer({
         }
     };
 
-    // ─── Navigation ───
     const goToScene = (sceneId: string) => {
         if (viewerInstance.current) {
             viewerInstance.current.loadScene(sceneId);
@@ -636,48 +601,28 @@ export default function TourViewer({
 
     const goNext = () => {
         const idx = dynamicScenes.findIndex((s) => s.id === currentSceneId);
-        if (idx < dynamicScenes.length - 1) {
-            goToScene(dynamicScenes[idx + 1].id);
-        } else {
-            goToScene(dynamicScenes[0].id); // Loop
-        }
+        if (idx < dynamicScenes.length - 1) goToScene(dynamicScenes[idx + 1].id);
+        else goToScene(dynamicScenes[0].id);
     };
 
     const goPrev = () => {
         const idx = dynamicScenes.findIndex((s) => s.id === currentSceneId);
-        if (idx > 0) {
-            goToScene(dynamicScenes[idx - 1].id);
-        } else {
-            goToScene(dynamicScenes[dynamicScenes.length - 1].id);
-        }
+        if (idx > 0) goToScene(dynamicScenes[idx - 1].id);
+        else goToScene(dynamicScenes[dynamicScenes.length - 1].id);
     };
 
-    // ─── Auto-tour ───
     const startAutoTour = () => {
         setIsAutoTouring(true);
         viewerInstance.current?.startAutoRotate(2);
-
-        autoTourTimer.current = setInterval(() => {
-            goNext();
-        }, 8000);
+        autoTourTimer.current = setInterval(() => { goNext(); }, 8000);
     };
 
     const stopAutoTour = () => {
         setIsAutoTouring(false);
         viewerInstance.current?.stopAutoRotate();
-        if (autoTourTimer.current) {
-            clearInterval(autoTourTimer.current);
-            autoTourTimer.current = null;
-        }
+        if (autoTourTimer.current) { clearInterval(autoTourTimer.current); autoTourTimer.current = null; }
     };
 
-    useEffect(() => {
-        return () => {
-            if (autoTourTimer.current) clearInterval(autoTourTimer.current);
-        };
-    }, []);
-
-    // ─── Smooth Zoom Interceptor ───
     useEffect(() => {
         const el = viewerRef.current;
         if (!el) return;
@@ -687,24 +632,19 @@ export default function TourViewer({
             e.stopPropagation();
             const currentFov = viewerInstance.current.getHfov();
             const delta = e.deltaY > 0 ? 5 : -5;
-            viewerInstance.current.setHfov(currentFov + delta); // Instant target update for smoother scrolling
+            viewerInstance.current.setHfov(currentFov + delta);
         };
         el.addEventListener("wheel", handleWheel as any, { capture: true, passive: false });
         return () => el.removeEventListener("wheel", handleWheel as any, { capture: true } as any);
     }, []);
 
-    // ─── Rotation toggle ───
     const togglePlay = () => {
         if (!viewerInstance.current) return;
-        if (isPlaying) {
-            viewerInstance.current.stopAutoRotate();
-        } else {
-            viewerInstance.current.startAutoRotate(2);
-        }
+        if (isPlaying) viewerInstance.current.stopAutoRotate();
+        else viewerInstance.current.startAutoRotate(2);
         setIsPlaying(!isPlaying);
     };
 
-    // ─── Share ───
     const shareUrl = typeof window !== "undefined"
         ? `${window.location.origin}/proyectos/${proyectoId}/tour360${currentSceneId ? `?scene=${currentSceneId}` : ""}`
         : "";
@@ -715,440 +655,199 @@ export default function TourViewer({
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleShareWhatsApp = () => {
-        const text = `🏡 Mirá el tour 360° de ${proyectoNombre || "este proyecto"}: ${shareUrl}`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-    };
-
     return (
-        <div className={cn("relative w-full h-[500px] bg-black overflow-hidden rounded-2xl group", className)}>
+        <div ref={containerRef} className={cn("relative bg-slate-900 overflow-hidden group", className)}>
             <Script
                 src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"
-                strategy="afterInteractive"
                 onLoad={() => setIsLoaded(true)}
+                onError={() => setError("Error al cargar Pannellum.")}
             />
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
+            <link
+                rel="stylesheet"
+                href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"
+            />
 
-            {/* Loading */}
-            {!isLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-950 text-white z-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-                    <span className="ml-3 font-medium">Cargando motor 360°...</span>
+            {(!isLoaded || !viewerReady) && !error && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
+                    <div className="flex flex-col items-center">
+                        <Loader2 className="h-10 w-10 animate-spin text-brand-500 mb-4" />
+                        <p className="text-white font-medium animate-pulse">Cargando experiencia 360°...</p>
+                    </div>
                 </div>
             )}
 
-            {/* Error */}
             {error && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-950 text-rose-400 z-20">
-                    <p>{error}</p>
-                </div>
-            )}
-
-            <div ref={viewerRef} className="w-full h-full" />
-
-            {/* ─── Perspective Masterplan Overlay ─── */}
-            <PanoramicOverlay
-                viewer={viewerInstance.current}
-                viewerRef={viewerRef}
-                currentScene={currentScene || null}
-                viewerReady={viewerReady}
-                onPolygonClick={onPolygonClick}
-                overlayUnits={overlayUnits}
-                overlayBounds={overlayBounds}
-                overlayRotation={overlayRotation}
-                overlaySvgViewBox={overlaySvgViewBox}
-            />
-
-            {/* ─── Radar / Compass ─── */}
-            {showRadar && viewerReady && (
-                <div className="absolute top-20 left-4 z-20 flex flex-col items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="relative w-20 h-20 rounded-full bg-slate-900/40 backdrop-blur-md border border-white/20 shadow-2xl overflow-hidden">
-                        <div className="absolute inset-0 flex items-center justify-center opacity-20">
-                            <div className="w-[80%] h-[80%] border border-dashed border-white rounded-full" />
-                            <div className="absolute top-1 text-[7px] text-white">N</div>
-                            <div className="absolute bottom-1 text-[7px] text-white">S</div>
-                        </div>
-                        <motion.div
-                            className="absolute inset-0 origin-center"
-                            animate={{ rotate: viewState.yaw }}
-                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                <div className="absolute inset-0 z-[60] flex items-center justify-center bg-slate-900 px-6">
+                    <div className="flex max-w-md flex-col items-center text-center">
+                        <X className="mb-4 h-8 w-8 text-rose-400" />
+                        <p className="text-lg font-semibold">{error}</p>
+                        <button
+                            onClick={retryViewerLoad}
+                            className="mt-5 rounded-full bg-brand-500 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-600"
                         >
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-b-[35px] border-b-brand-500/40 blur-[2px]" />
-                            <Navigation className="absolute top-2 left-1/2 -translate-x-1/2 w-4 h-4 text-brand-500 fill-brand-500" />
-                        </motion.div>
+                            Reintentar
+                        </button>
                     </div>
                 </div>
             )}
 
-            {/* ─── Top bar ─── */}
-            {showControls && isLoaded && (
-                <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    {/* Scene title */}
-                    <div className="bg-slate-900/80 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10">
-                        <span className="text-sm font-semibold text-white">
-                            {currentScene?.title || "Tour 360°"}
-                        </span>
-                        {dynamicScenes.length > 1 && (
-                            <span className="text-xs text-slate-400 ml-2">
-                                {currentIndex + 1}/{dynamicScenes.length}
-                            </span>
-                        )}
-                    </div>
+            <div ref={viewerRef} id="panoramaControl" className="w-full h-full" />
 
-                    {/* Top actions */}
-                    <div className="flex items-center gap-1">
-                        {/* Unit info toggle */}
-                        {unitInfo && (
-                            <button
-                                onClick={() => setShowInfoPanel(!showInfoPanel)}
-                                className="p-2 bg-slate-900/80 backdrop-blur-md rounded-xl border border-white/10 text-white/80 hover:text-white transition-colors"
-                            >
-                                <Info className="w-4 h-4" />
-                            </button>
-                        )}
-
-                        {/* Share button */}
-                        {showShare && (
-                            <button
-                                onClick={() => setShowSharePanel(!showSharePanel)}
-                                className="p-2 bg-slate-900/80 backdrop-blur-md rounded-xl border border-white/10 text-white/80 hover:text-white transition-colors"
-                            >
-                                <Share2 className="w-4 h-4" />
-                            </button>
-                        )}
-                    </div>
-                </div>
+            {viewerReady && (
+                <PanoramicOverlay
+                    viewer={viewerInstance.current}
+                    viewerRef={viewerRef}
+                    currentScene={currentScene}
+                    viewerReady={viewerReady}
+                    onPolygonClick={onPolygonClick}
+                    overlayUnits={overlayUnits}
+                    overlayBounds={overlayBounds}
+                    overlayRotation={overlayRotation}
+                    overlaySvgViewBox={overlaySvgViewBox}
+                />
             )}
 
-            {/* ─── Share panel ─── */}
-            <AnimatePresence>
-                {showSharePanel && (
-                    <motion.div
-                        initial={{ x: 300, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: 300, opacity: 0 }}
-                        className="absolute top-4 right-4 z-20 w-[260px]"
+            {showControls && viewerReady && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 p-2 bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl transition-all hover:bg-slate-900">
+                    <button
+                        onClick={goPrev}
+                        className="p-3 text-white hover:bg-white/10 rounded-xl transition-colors"
+                        title="Anterior"
                     >
-                        <div className="bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-700/50 shadow-2xl p-4 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-bold text-white">Compartir Tour</span>
-                                <button onClick={() => setShowSharePanel(false)} className="p-1 hover:bg-slate-700/50 rounded">
-                                    <X className="w-3.5 h-3.5 text-slate-400" />
-                                </button>
-                            </div>
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
 
-                            <button
-                                onClick={handleShareWhatsApp}
-                                className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-                            >
-                                📱 Compartir por WhatsApp
-                            </button>
+                    <div className="h-6 w-px bg-white/10 mx-1" />
 
-                            <div className="flex gap-2">
-                                <input
-                                    value={shareUrl}
-                                    readOnly
-                                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 truncate"
-                                />
-                                <button
-                                    onClick={handleCopyLink}
-                                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
-                                >
-                                    {copied ? (
-                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                    ) : (
-                                        <Copy className="w-3.5 h-3.5 text-slate-400" />
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* ─── Unit info panel ─── */}
-            <AnimatePresence>
-                {showInfoPanel && unitInfo && (
-                    <motion.div
-                        initial={{ x: -300, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: -300, opacity: 0 }}
-                        className="absolute top-16 left-4 z-20 w-[220px]"
+                    <button
+                        onClick={togglePlay}
+                        className="p-3 text-white hover:bg-white/10 rounded-xl transition-colors"
+                        title={isPlaying ? "Pausar" : "Giro Automático"}
                     >
-                        <div className="bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-700/50 shadow-2xl p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-bold text-white">Lote {unitInfo.numero}</span>
-                                <button onClick={() => setShowInfoPanel(false)} className="p-1 hover:bg-slate-700/50 rounded">
-                                    <X className="w-3.5 h-3.5 text-slate-400" />
-                                </button>
-                            </div>
-                            {unitInfo.superficie && (
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-slate-400">Superficie</span>
-                                    <span className="text-white font-medium">{unitInfo.superficie} m²</span>
-                                </div>
-                            )}
-                            {unitInfo.precio && (
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-slate-400">Precio</span>
-                                    <span className="text-emerald-400 font-bold">USD ${unitInfo.precio.toLocaleString()}</span>
-                                </div>
-                            )}
-                            {unitInfo.estado && (
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-slate-400">Estado</span>
-                                    <span className="text-white font-medium">{unitInfo.estado}</span>
-                                </div>
-                            )}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                    </button>
 
-            {/* ─── Bottom controls ─── */}
-            {showControls && isLoaded && (
-                <div className="absolute bottom-0 inset-x-0 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    {/* Scene strip */}
-                    {showSceneStrip && dynamicScenes.length > 1 && (
-                        <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto">
-                            {dynamicScenes.map((scene, i) => (
-                                <button
-                                    key={scene.id}
-                                    onClick={() => goToScene(scene.id)}
-                                    className={cn(
-                                        "shrink-0 rounded-lg overflow-hidden border-2 transition-all",
-                                        currentSceneId === scene.id
-                                            ? "border-brand-500 scale-105"
-                                            : "border-transparent opacity-50 hover:opacity-100"
-                                    )}
-                                >
-                                    <div className="relative w-16 h-10">
-                                        <img src={scene.imageUrl} alt={scene.title} className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                                            <span className="text-[9px] font-bold text-white">{i + 1}</span>
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
+                    {showAutoTour && (
+                        <button
+                            onClick={() => (isAutoTouring ? stopAutoTour() : startAutoTour())}
+                            className={cn(
+                                "p-3 rounded-xl transition-all flex items-center gap-2",
+                                isAutoTouring ? "bg-brand-500 text-white" : "text-white hover:bg-white/10"
+                            )}
+                            title="Modo Tour"
+                        >
+                            {isAutoTouring ? (
+                                <SkipForward className="w-5 h-5 animate-pulse" />
+                            ) : (
+                                <Rotate3D className="w-5 h-5" />
+                            )}
+                        </button>
                     )}
 
-                    {/* Main controls bar */}
-                    <div className="flex items-center justify-center gap-2 bg-gradient-to-t from-black/60 to-transparent px-4 py-3">
-                        <div className="flex items-center gap-1 bg-slate-900/80 backdrop-blur-xl p-1.5 rounded-xl border border-white/10">
-                            {/* Prev */}
-                            {dynamicScenes.length > 1 && (
-                                <button onClick={goPrev} className="p-1.5 hover:bg-white/10 rounded-lg text-white transition-colors">
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                            )}
+                    <div className="h-6 w-px bg-white/10 mx-1" />
 
-                            {/* Play/Pause rotation */}
-                            <button onClick={togglePlay} className="p-1.5 hover:bg-white/10 rounded-lg text-white transition-colors" title="Auto-rotar">
-                                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                            </button>
+                    <button
+                        onClick={goNext}
+                        className="p-3 text-white hover:bg-white/10 rounded-xl transition-colors"
+                        title="Siguiente"
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
 
-                            {/* Auto tour */}
-                            {showAutoTour && dynamicScenes.length > 1 && (
-                                <button
-                                    onClick={isAutoTouring ? stopAutoTour : startAutoTour}
-                                    className={cn(
-                                        "p-1.5 rounded-lg transition-colors",
-                                        isAutoTouring
-                                            ? "bg-brand-500 text-white"
-                                            : "hover:bg-white/10 text-white/80"
-                                    )}
-                                    title={isAutoTouring ? "Detener paseo guiado" : "Paseo guiado automático"}
-                                >
-                                    <SkipForward className="w-4 h-4" />
-                                </button>
-                            )}
+                    <div className="h-6 w-px bg-white/10 mx-1" />
 
-                            {/* Next */}
-                            {dynamicScenes.length > 1 && (
-                                <button onClick={goNext} className="p-1.5 hover:bg-white/10 rounded-lg text-white transition-colors">
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            )}
+                    <button
+                        onClick={() => setShowRadar(!showRadar)}
+                        className={cn(
+                            "p-3 rounded-xl transition-all",
+                            showRadar ? "text-brand-400 bg-brand-500/10" : "text-white hover:bg-white/10"
+                        )}
+                        title="Radar"
+                    >
+                        <Radar className="w-5 h-5" />
+                    </button>
 
-                            <div className="w-px h-5 bg-white/10 mx-0.5" />
-
-                            <div className="w-px h-5 bg-white/10 mx-0.5" />
-
-                            {/* Radar Toggle */}
-                            <button
-                                onClick={() => setShowRadar(!showRadar)}
-                                className={cn(
-                                    "p-1.5 rounded-lg transition-colors",
-                                    showRadar ? "text-brand-400 bg-white/10" : "text-white/60 hover:text-white hover:bg-white/5"
-                                )}
-                                title="Radar de visión"
-                            >
-                                <Navigation className="w-4 h-4" />
-                            </button>
-
-                            {/* Overlay Toggle */}
-                            {currentScene?.masterplanOverlay && (
-                                <button
-                                    onClick={() => setShowOverlays(!showOverlays)}
-                                    className={cn(
-                                        "p-1.5 rounded-lg transition-colors",
-                                        showOverlays ? "text-indigo-400 bg-white/10" : "text-white/60 hover:text-white hover:bg-white/5"
-                                    )}
-                                    title="Plano superpuesto"
-                                >
-                                    <ImageIcon className="w-4 h-4" />
-                                </button>
-                            )}
-
-                            <div className="w-px h-5 bg-white/10 mx-0.5" />
-
-                            {/* Fullscreen */}
-                            <button
-                                onClick={() => viewerInstance.current?.toggleFullscreen()}
-                                className="p-1.5 hover:bg-white/10 rounded-lg text-white transition-colors"
-                                title="Pantalla completa"
-                            >
-                                <Maximize2 className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
+                    <button
+                        onClick={() => setShowOverlays(!showOverlays)}
+                        className={cn(
+                            "p-3 rounded-xl transition-all",
+                            showOverlays ? "text-brand-400 bg-brand-500/10" : "text-white hover:bg-white/10"
+                        )}
+                        title="Capas"
+                    >
+                        <Layers className="w-5 h-5" />
+                    </button>
                 </div>
             )}
-
-            {/* Auto-tour indicator */}
-            <AnimatePresence>
-                {isAutoTouring && (
-                    <motion.div
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: 20, opacity: 0 }}
-                        className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-brand-500 text-white px-4 py-2 rounded-xl shadow-xl flex items-center gap-2 text-sm font-semibold"
-                    >
-                        <SkipForward className="w-4 h-4 animate-pulse" />
-                        Paseo guiado
-                        <button onClick={stopAutoTour} className="ml-1 p-1 hover:bg-white/20 rounded">
-                            <X className="w-3.5 h-3.5" />
-                        </button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <style jsx global>{`
-                .pnlm-hotspot-base {
-                    /* Default style reset - we use custom HTML mostly now */
-                }
-                /* Custom Hotspot Container */
-                .custom-hotspot-container {
-                    width: 0 !important;
-                    height: 0 !important;
-                    overflow: visible !important;
-                }
-                
-                /* LOT NUMBER MARKER */
-                .hotspot-lot-marker {
-                    background: white;
-                    color: #0f172a;
-                    font-weight: 800;
-                    font-family: 'Inter', sans-serif;
-                    border-radius: 50%;
-                    width: 32px;
-                    height: 32px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 14px;
-                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-                    border: 2px solid #0f172a;
-                    transform: translate(-50%, -50%);
-                    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                    cursor: pointer;
-                }
-                .hotspot-lot-marker:hover {
-                    transform: translate(-50%, -50%) scale(1.2);
-                    z-index: 10;
-                }
-
-                /* STATUS MARKERS */
-                .hotspot-status-marker {
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                    border: 2px solid white;
-                    transform: translate(-50%, -50%);
-                    cursor: pointer;
-                }
-                .hotspot-status-marker.available { /* Available - Green/Ecological */
-                    background: #10b981;
-                }
-                .hotspot-status-marker.sold { /* Sold - Red */
-                    background: #ef4444;
-                }
-                .hotspot-status-marker.scene {
-                    background: #3b82f6;
-                }
-
-                /* BUBBLE PREVIEW MARKER */
-                .hotspot-bubble-marker {
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 50%;
-                    border: 3px solid white;
-                    overflow: hidden;
-                    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-                    transform: translate(-50%, -50%);
-                    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                    cursor: pointer;
-                    background: #1e293b;
-                }
-                .hotspot-bubble-marker img {
-                    width: 100%;
-                    height: 100%;
-                    object-cover: cover;
-                }
-                .hotspot-bubble-marker:hover {
-                    transform: translate(-50%, -50%) scale(1.4);
-                    z-index: 50;
-                    border-color: #3b82f6;
-                }
-
-                /* INFO & DEFAULT TOOLTIP */
-                .custom-tooltip span {
-                    visibility: hidden;
-                    position: absolute;
-                    border-radius: 8px;
-                    background-color: rgba(15, 23, 42, 0.95);
-                    color: #fff;
-                    text-align: center;
-                    padding: 6px 12px;
-                    z-index: 1;
-                    bottom: 140%;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    white-space: nowrap;
-                    font-size: 13px;
-                    font-weight: 500;
-                    font-family: Inter, sans-serif;
-                    border: 1px solid rgba(148, 163, 184, 0.2);
-                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-                }
-                .custom-tooltip:hover span {
-                    visibility: visible;
-                }
-                
-                /* PANNELLUM OVERRIDES */
-                .pnlm-controls-container {
-                    display: none !important;
-                }
-                .pnlm-panorama-info {
-                    display: none !important;
-                }
-            `}</style>
         </div>
+    );
+}
+
+function Rotate3D(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M3.6 9h16.8" />
+            <path d="M3.6 15h16.8" />
+            <path d="M11.5 3L11.5 21" />
+            <path d="M11.5 3C7 3 3.5 7 3.5 12C3.5 17 7 21 11.5 21" />
+            <path d="M11.5 3C16 3 19.5 7 19.5 12C19.5 17 16 21 11.5 21" />
+        </svg>
+    );
+}
+
+function Radar(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M19.07 4.93a10 10 0 0 0-14.14 0" />
+            <path d="M16.24 7.76a6 6 0 0 0-8.48 0" />
+            <path d="M12 12v.01" />
+            <path d="M12 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2Z" />
+            <path d="M12 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2Z" />
+            <path d="M12 12c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Z" />
+            <path d="M12 12c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2Z" />
+        </svg>
+    );
+}
+
+function Layers(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+            <path d="m2.6 12.08 8.58 3.9a2 2 0 0 0 1.66 0l8.58-3.9" />
+            <path d="m2.6 17.08 8.58 3.9a2 2 0 0 0 1.66 0l8.58-3.9" />
+        </svg>
     );
 }

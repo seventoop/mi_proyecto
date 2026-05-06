@@ -16,6 +16,11 @@ export default function Header() {
     const { data: session } = useSession();
     const pathname = usePathname();
     const [projectNames, setProjectNames] = useState<Record<string, string>>({});
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const toggleTheme = () => {
         setTheme(theme === "dark" ? "light" : "dark");
@@ -121,21 +126,25 @@ export default function Header() {
                 {/* Right Side: Search & Actions */}
                 <div className="flex items-center gap-2 sm:gap-4">
                     {/* Search - compact version */}
-                    <div className="hidden lg:flex relative group mr-2">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-white/40 group-focus-within:text-brand-500 transition-colors" />
-                        <input
-                            type="text"
-                            placeholder="Buscar..."
-                            className="w-48 xl:w-64 pl-9 pr-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.04] border border-transparent dark:border-white/[0.06] hover:dark:border-white/[0.1] text-[13px] text-slate-900 dark:text-zinc-200 placeholder-slate-500 dark:placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all font-medium"
-                        />
-                    </div>
+                    {mounted && (
+                        <div className="hidden lg:flex relative group mr-2">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-white/40 group-focus-within:text-brand-500 transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                className="w-48 xl:w-64 pl-9 pr-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.04] border border-transparent dark:border-white/[0.06] hover:dark:border-white/[0.1] text-[13px] text-slate-900 dark:text-zinc-200 placeholder-slate-500 dark:placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all font-medium"
+                            />
+                        </div>
+                    )}
 
                     <button
                         onClick={toggleTheme}
                         className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
                         aria-label="Cambiar tema"
                     >
-                        {theme === "dark" ? (
+                        {!mounted ? (
+                            <div className="w-4 h-4" />
+                        ) : theme === "dark" ? (
                             <Sun className="w-4 h-4" />
                         ) : (
                             <Moon className="w-4 h-4" />

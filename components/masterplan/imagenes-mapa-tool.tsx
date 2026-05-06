@@ -9,7 +9,6 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useMasterplanStore } from "@/lib/masterplan-store";
-import SharedSidePanel from "./shared-side-panel";
 import {
   ImagenMapaItem, ImagenMapaTipo, ImagenMapaCategoria,
   IMAGEN_TIPO_CONFIG, IMAGEN_CATEGORIA_CONFIG,
@@ -403,18 +402,29 @@ export default function ImagenesMapaTool({
       {/* Side panel */}
       <AnimatePresence>
         {isOpen && (
-          <SharedSidePanel
-            title="Imagenes"
-            subtitle={items.length > 0 ? `${items.length} elementos` : "Galeria del mapa"}
-            onClose={() => { onOpenChange(false); cancelPositioning(); }}
-            tone="dark"
-            className="z-[1100]"
-            icon={(
-              <div className="rounded-xl bg-indigo-500/15 p-2">
-                <Camera className="w-4 h-4 text-indigo-400" />
-              </div>
-            )}
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 300 }}
+            className="absolute top-0 right-0 bottom-0 z-40 w-72 bg-slate-900/95 backdrop-blur-xl border-l border-slate-700/50 flex flex-col shadow-2xl"
           >
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { onOpenChange(false); cancelPositioning(); }}
+                  className="p-1 rounded-lg hover:bg-slate-700/60 text-slate-400 hover:text-white -ml-1 mr-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <Camera className="w-4 h-4 text-indigo-400" />
+                <span className="text-sm font-semibold text-white">Imágenes</span>
+                {items.length > 0 && (
+                  <span className="text-xs text-slate-400">({items.length})</span>
+                )}
+              </div>
+            </div>
 
             {/* Category back header */}
             {selectedCategory !== null && uploadState === "idle" && (
@@ -778,7 +788,7 @@ export default function ImagenesMapaTool({
                 </motion.div>
               )}
             </AnimatePresence>
-          </SharedSidePanel>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -801,7 +811,3 @@ export default function ImagenesMapaTool({
     </>
   );
 }
-
-
-
-

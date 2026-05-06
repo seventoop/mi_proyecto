@@ -7,29 +7,22 @@ import { z } from "zod";
 import { idSchema, slugSchema } from "@/lib/validations";
 import { audit } from "@/lib/actions/audit";
 import { flagsFromEstado } from "@/lib/project-access";
-import { buildPublicProjectWhere } from "@/lib/public-projects";
 
 // ─── Scemas ───
 
-// Regla de negocio: SOLO `nombre` y `ubicacion` son obligatorios.
-// Todo lo demás es opcional y, si viene vacío, debe entrar como undefined
-// para que Prisma use los defaults del schema (no romper por NaN/string vacío).
 const proyectoCreateSchema = z.object({
-    nombre: z.string().trim().min(1, "El nombre es obligatorio").max(100, "Máximo 100 caracteres"),
+    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres").max(100),
     slug: slugSchema.optional(),
-    descripcion: z.string().max(2000, "Máximo 2000 caracteres").optional(),
-    ubicacion: z.string().trim().min(1, "La ubicación es obligatoria").max(200, "Máximo 200 caracteres"),
+    descripcion: z.string().max(2000).optional(),
+    ubicacion: z.string().max(200).optional(),
     estado: z.string().optional(),
     tipo: z.string().optional(),
-    imagenPortada: z.preprocess(
-        (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-        z.string().url("URL de imagen inválida").optional()
-    ),
+    imagenPortada: z.string().optional().or(z.literal("")),
     invertible: z.boolean().optional(),
     precioM2Inversor: z.number().positive().optional(),
     precioM2Mercado: z.number().positive().optional(),
     metaM2Objetivo: z.number().positive().optional(),
-    fechaLimiteFondeo: z.union([z.date(), z.string().transform((v) => new Date(v))]).optional(),
+    fechaLimiteFondeo: z.date().optional().or(z.string().transform(v => new Date(v))).optional(),
     mapCenterLat: z.number().optional(),
     mapCenterLng: z.number().optional(),
     mapZoom: z.number().int().optional(),
@@ -281,14 +274,14 @@ export async function createProyecto(input: unknown) {
             if (user.orgId) {
                 await tx.proyectoUsuario.create({
                     data: {
-                        proyectoId:                created.id,
-                        userId:                    user.id,
-                        orgId:                     user.orgId,
-                        tipoRelacion:              "OWNER",
-                        estadoRelacion:            "ACTIVA",
-                        permisoEditarProyecto:      true,
-                        permisoSubirDocumentacion:  true,
-                        permisoVerLeadsGlobales:    true,
+                        proyectoId: created.id,
+                        userId: user.id,
+                        orgId: user.orgId,
+                        tipoRelacion: "OWNER",
+                        estadoRelacion: "ACTIVA",
+                        permisoEditarProyecto: true,
+                        permisoSubirDocumentacion: true,
+                        permisoVerLeadsGlobales: true,
                         permisoVerMetricasGlobales: true,
                     }
                 });
@@ -518,13 +511,14 @@ export async function addProyectoImagen(data: {
     categoria: string;
     esPrincipal?: boolean;
     orden?: number;
+    masterplanOverlay?: any;
 }) {
     try {
         await requireProjectOwnership(data.proyectoId);
 
         const esPrincipal = data.esPrincipal || false;
 
-        await prisma.$transaction(async (tx) => {
+        const createdImage = await prisma.$transaction(async (tx) => {
             if (esPrincipal) {
                 await tx.proyectoImagen.updateMany({
                     where: { proyectoId: data.proyectoId },
@@ -536,19 +530,51 @@ export async function addProyectoImagen(data: {
                 });
             }
 
-            await tx.proyectoImagen.create({
+            const safeOverlay = data.masterplanOverlay ? JSON.parse(JSON.stringify(data.masterplanOverlay)) : null;
+
+            return await tx.proyectoImagen.create({
                 data: {
                     proyectoId: data.proyectoId,
                     url: data.url,
                     categoria: data.categoria,
                     esPrincipal,
-                    orden: data.orden || 0
+                    orden: data.orden || 0,
+                    masterplanOverlay: safeOverlay
                 }
             });
         });
 
         revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
-        return { success: true };
+        return { success: true, data: createdImage };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function updateProyectoImagen(id: string, data: {
+    url?: string;
+    categoria?: string;
+    masterplanOverlay?: any;
+    proyectoId: string;
+}) {
+    try {
+        await requireProjectOwnership(data.proyectoId);
+
+        const safeOverlay = data.masterplanOverlay === undefined
+            ? undefined
+            : (data.masterplanOverlay === null ? null : JSON.parse(JSON.stringify(data.masterplanOverlay)));
+
+        const updated = await prisma.proyectoImagen.update({
+            where: { id },
+            data: {
+                url: data.url,
+                categoria: data.categoria,
+                ...(safeOverlay !== undefined && { masterplanOverlay: safeOverlay })
+            }
+        });
+
+        revalidatePath(`/dashboard/proyectos/${data.proyectoId}`);
+        return { success: true, data: updated };
     } catch (error) {
         return handleGuardError(error);
     }
@@ -619,7 +645,11 @@ export async function setMainProyectoImagen(id: string, proyectoId: string) {
 export async function getProyectosDestacados() {
     try {
         const proyectos = await prisma.proyecto.findMany({
-            where: buildPublicProjectWhere(),
+            where: {
+                visibilityStatus: "PUBLICADO",
+                deletedAt: null,
+                estado: { not: "SUSPENDIDO" },
+            },
             select: {
                 id: true,
                 nombre: true,
@@ -643,8 +673,7 @@ export async function getProyectosDestacados() {
             ubicacion: p.ubicacion,
             precioDesde: p.precioM2Mercado ? Number(p.precioM2Mercado) : null,
         }));
-    } catch (error) {
-        console.error("[getProyectosDestacados] failed:", error);
+    } catch {
         return [];
     }
 }

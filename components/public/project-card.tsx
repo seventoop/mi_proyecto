@@ -2,34 +2,33 @@
 
 import Link from "next/link";
 import { ArrowRight, MapPin, TrendingUp } from "lucide-react";
+import { Proyecto } from "@prisma/client";
 import { useLanguage } from "@/components/providers/language-provider";
-import type { PublicProjectCard } from "@/lib/project-showcase";
 
 interface ProjectCardProps {
-    project: PublicProjectCard;
+    project: Proyecto & {
+        unidades?: { precio: number; moneda: string }[];
+    };
 }
 
 export default function ProjectCard({ project }: ProjectCardProps) {
     const { dictionary: t } = useLanguage();
-    const pricedUnits = (project.inventoryPreview ?? []).filter(
-        (unit) => typeof unit.precio === "number"
-    );
-    const minPrice = pricedUnits.length
-        ? Math.min(...pricedUnits.map((u) => u.precio as number))
+    const minPrice = project.unidades?.length
+        ? Math.min(...project.unidades.map((u) => u.precio))
         : 0;
-    const currency = pricedUnits[0]?.moneda || project.inventoryPreview?.[0]?.moneda || "USD";
-    const unitCount = project.availableUnits || 0;
+    const currency = project.unidades?.[0]?.moneda || "USD";
+    const unitCount = project.unidades?.length || 0;
 
     return (
         <Link
-            href={project.publicPath}
+            href={`/proyectos/${project.slug || project.id}`}
             className="group block relative rounded-[2rem] overflow-hidden bg-white dark:bg-black border border-slate-200 dark:border-white/5 hover:border-brand-orange/50 transition-all duration-500 hover:shadow-2xl hover:shadow-brand-orange/10 h-full flex flex-col"
         >
             {/* Image */}
             <div className="aspect-[4/3] overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
                 <img
-                    src={project.imageUrl || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop"}
+                    src={project.imagenPortada || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop"}
                     alt={project.nombre}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                 />
