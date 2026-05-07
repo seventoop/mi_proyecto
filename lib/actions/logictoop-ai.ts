@@ -49,7 +49,7 @@ export async function getAiTasks(orgId: string) {
             include: {
                 agent: true,
                 requestedBy: {
-                    select: { nombre: true, email: true }
+                    select: { nombre: true, rol: true }
                 }
             },
             orderBy: { createdAt: "desc" }

@@ -171,7 +171,7 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                                         <TableCell>{getStatusBadge(task.status)}</TableCell>
                                         <TableCell>
                                             <div className="text-sm">{task.requestedBy?.nombre}</div>
-                                            <div className="text-xs text-muted-foreground">{task.requestedBy?.role || "Solicitante"}</div>
+                                            <div className="text-xs text-muted-foreground">{task.requestedBy?.rol || "Solicitante"}</div>
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
