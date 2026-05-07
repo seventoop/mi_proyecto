@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireAuth, AuthError } from "@/lib/guards";
 import { revalidatePath } from "next/cache";
 import { recordAiEvent } from "@/lib/logictoop/ai-events";
+import { classifyNodeSafety, getRecommendationForClassification, ResumePreviewResult } from "@/lib/logictoop/ai-resume-preview";
 
 /**
  * Obtiene las ejecuciones de flujos que están pausadas por tareas de IA.
@@ -174,3 +175,118 @@ export async function markAiFlowResumeDryRun(executionId: string) {
         return { success: false, error: "Error interno al registrar dry-run" };
     }
 }
+
+/**
+ * Genera una previsualización técnica del próximo nodo a ejecutar en un flujo pausado.
+ * No ejecuta el flow ni altera estados.
+ */
+export async function getAiFlowResumePreview(executionId: string): Promise<{ success: boolean; data?: ResumePreviewResult; error?: string }> {
+    const user = await requireAuth();
+    if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") throw new AuthError("No tienes permisos", 403);
+
+    try {
+        const execution = await db.logicToopExecution.findUnique({
+            where: { id: executionId },
+            include: {
+                flow: true,
+                aiTasks: {
+                    where: { status: "APPROVED" },
+                    orderBy: { createdAt: "desc" },
+                    take: 1
+                }
+            }
+        });
+
+        if (!execution) {
+            return { success: false, error: "Ejecución no encontrada" };
+        }
+
+        // Tenant Isolation
+        if (user.role !== "SUPERADMIN" && user.orgId !== execution.flow.orgId) {
+            return { success: false, error: "No tienes acceso a este flujo" };
+        }
+
+        if (execution.status !== "AI_APPROVED_WAITING_RESUME") {
+            return { success: false, error: "El flujo no está en estado de espera para reanudación" };
+        }
+
+        const task = execution.aiTasks[0];
+        if (!task) {
+            return { success: false, error: "No se encontró tarea IA aprobada vinculada" };
+        }
+
+        // Registrar inicio de preview
+        await recordAiEvent({
+            orgId: task.orgId,
+            taskId: task.id,
+            type: "FLOW_RESUME_PREVIEW_REQUESTED",
+            actorUserId: user.id,
+            source: "SERVER_ACTION",
+            message: "Usuario solicitó previsualización de reanudación"
+        });
+
+        const actions = Array.isArray(execution.flow.actions) ? (execution.flow.actions as any[]) : [];
+        const currentIndex = execution.currentStepIndex || 0;
+        
+        let nextNode = null;
+        let classification: any = "NO_NEXT_NODE";
+        let recommendation: any = "NO_NEXT_NODE";
+        let message = "El flujo ha llegado al final de su definición.";
+
+        if (currentIndex < actions.length) {
+            const node = actions[currentIndex] as any;
+            nextNode = {
+                uid: node.uid,
+                type: node.type,
+                label: node.label || node.config?.label || node.type
+            };
+            classification = classifyNodeSafety(node.type);
+            recommendation = getRecommendationForClassification(classification);
+            
+            if (classification === "SAFE_REVIEW_ONLY") {
+                message = `El próximo nodo (${node.type}) es seguro para revisión técnica.`;
+            } else if (classification === "UNSAFE_SIDE_EFFECT") {
+                message = `ATENCIÓN: El próximo nodo (${node.type}) podría generar efectos secundarios comerciales. Reanudación bloqueada en esta fase.`;
+            } else {
+                message = `El próximo nodo (${node.type}) es desconocido. Se requiere revisión técnica manual del esquema.`;
+            }
+        }
+
+        const result: ResumePreviewResult = {
+            executionId,
+            flowId: execution.flowId,
+            status: execution.status,
+            currentStepIndex: currentIndex,
+            nextNode,
+            classification,
+            recommendation,
+            message
+        };
+
+        // Registrar fin de preview con metadata técnica
+        await recordAiEvent({
+            orgId: task.orgId,
+            taskId: task.id,
+            type: classification === "UNSAFE_SIDE_EFFECT" ? "FLOW_RESUME_PREVIEW_BLOCKED" : "FLOW_RESUME_PREVIEW_COMPLETED",
+            actorUserId: user.id,
+            source: "SERVER_ACTION",
+            message: classification === "UNSAFE_SIDE_EFFECT" ? "Preview bloqueado por nodo inseguro" : "Preview de reanudación completado",
+            metadata: {
+                mode: "resume_preview",
+                executionId,
+                taskId: task.id,
+                sideEffects: false,
+                classification,
+                recommendation,
+                nextNodeType: nextNode?.type || null
+            }
+        });
+
+        return { success: true, data: result };
+
+    } catch (error) {
+        console.error("[LogicToop AI Flow] Error in resume preview:", error);
+        return { success: false, error: "Error interno al generar preview" };
+    }
+}
+
