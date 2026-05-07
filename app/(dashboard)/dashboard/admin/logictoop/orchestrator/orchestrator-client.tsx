@@ -176,6 +176,23 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
               <ChevronRight className="w-6 h-6 text-slate-500 group-hover:text-brand-500 group-hover:translate-x-1 transition-all" />
             </div>
 
+            {/* Acceso a Flows Pausados por IA */}
+            <div 
+              onClick={() => router.push(`/dashboard/admin/logictoop/orchestrator/paused-flows${activeOrgId ? `?orgId=${activeOrgId}` : ''}`)}
+              className="glass-card p-6 border-l-4 border-brand-600 cursor-pointer hover:bg-white/5 transition-all group flex items-center justify-between"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-brand-600/10 text-brand-600">
+                  <Layers className="w-8 h-8" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black italic uppercase tracking-tighter">Flows pausados por&nbsp;IA</h2>
+                  <p className="text-sm font-bold text-slate-400 uppercase">Revisá ejecuciones pausadas por tareas IA y prepará reanudación manual futura.</p>
+                </div>
+              </div>
+              <ChevronRight className="w-6 h-6 text-slate-500 group-hover:text-brand-600 group-hover:translate-x-1 transition-all" />
+            </div>
+
             <div className="glass-card p-6">
               <h2 className="text-xl font-black italic uppercase tracking-tighter mb-4 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-brand-500" />

@@ -178,9 +178,14 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                                             : "Esta tarea está vinculada a un flujo de LogicToop. La aprobación no reanuda automáticamente el flujo en esta fase."}
                                     </p>
                                     {task.status === "APPROVED" && (
-                                        <p className="text-[10px] mt-1 font-semibold italic">
-                                            * La aprobación no reanuda automáticamente el flujo en esta fase.
-                                        </p>
+                                        <div className="mt-1 space-y-1">
+                                            <p className="text-[10px] font-semibold italic">
+                                                * La aprobación no reanuda automáticamente el flujo en esta fase.
+                                            </p>
+                                            <p className="text-[10px] text-blue-700 font-bold">
+                                                Disponible en "Flows pausados por IA" para resume dry-run.
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             </div>
