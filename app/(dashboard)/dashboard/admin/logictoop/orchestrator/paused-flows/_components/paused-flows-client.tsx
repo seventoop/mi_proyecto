@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import { 
   markAiFlowResumeDryRun, 
-  getAiFlowResumePreview 
+  getAiFlowResumePreview,
+  controlledManualResumeFlow
 } from "@/lib/actions/logictoop-ai-flow";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
@@ -58,6 +59,31 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
         setIsPreviewOpen(true);
       } else {
         toast.error(res.error || "Error al obtener previsualización");
+      }
+    } catch (error) {
+      toast.error("Error de conexión");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleControlledResume = async (executionId: string) => {
+    if (!window.confirm("CONFIRMACIÓN DE SEGURIDAD:\n\nEsta acción marcará el flujo como reanudado de forma segura, pero NO ejecutará el dispatcher ni los nodos reales en esta fase. Es puramente una marca de estado auditada.\n\n¿Estás seguro de continuar?")) {
+      return;
+    }
+
+    setLoading("controlled-resume");
+    try {
+      const res = await controlledManualResumeFlow(executionId);
+      if (res.success) {
+        if (res.alreadyExecuted) {
+          toast.info(res.message);
+        } else {
+          toast.success(res.message);
+        }
+        setIsPreviewOpen(false);
+      } else {
+        toast.error(res.error || "Error al ejecutar reanudación controlada");
       }
     } catch (error) {
       toast.error("Error de conexión");
@@ -314,10 +340,30 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
             </ScrollArea>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex sm:justify-between items-center w-full gap-2">
             <Button variant="secondary" onClick={() => setIsPreviewOpen(false)}>
               Cerrar
             </Button>
+            {previewData && (
+              <Button 
+                variant="default"
+                className="gap-2"
+                disabled={
+                  !isSuperAdmin || 
+                  loading === "controlled-resume" || 
+                  previewData.classification === "UNSAFE_SIDE_EFFECT" || 
+                  previewData.classification === "UNKNOWN"
+                }
+                onClick={() => handleControlledResume(previewData.executionId)}
+              >
+                {loading === "controlled-resume" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 fill-current" />
+                )}
+                Resume Controlado
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

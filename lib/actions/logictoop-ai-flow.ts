@@ -290,3 +290,137 @@ export async function getAiFlowResumePreview(executionId: string): Promise<{ suc
     }
 }
 
+/**
+ * Reanudación manual controlada (Phase 7B).
+ * Solo avanza si el próximo nodo es seguro (SAFE_REVIEW_ONLY o NO_NEXT_NODE).
+ * Bloquea cualquier intento si el próximo nodo tiene efectos secundarios (UNSAFE_SIDE_EFFECT) o es desconocido (UNKNOWN).
+ * NO ejecuta `executeFlow` ni `dispatcher`.
+ */
+export async function controlledManualResumeFlow(executionId: string) {
+    const user = await requireAuth();
+    if (user.role !== "SUPERADMIN") {
+        return { success: false, error: "Solo SUPERADMIN puede ejecutar una reanudación controlada" };
+    }
+
+    const isCoreEnabled = process.env.FEATURE_FLAG_LOGICTOOP_AI_CORE === "true";
+    const isRealConnection = process.env.FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION === "true";
+
+    if (!isCoreEnabled) {
+        return { success: false, error: "El núcleo de IA está desactivado" };
+    }
+    if (isRealConnection) {
+        return { success: false, error: "Conexión real activa. Bloqueando acción manual por seguridad." };
+    }
+
+    try {
+        const execution = await db.logicToopExecution.findUnique({
+            where: { id: executionId },
+            include: {
+                aiTasks: {
+                    where: { status: "APPROVED" },
+                    orderBy: { createdAt: "desc" },
+                    take: 1
+                }
+            }
+        });
+
+        if (!execution) {
+            return { success: false, error: "Ejecución no encontrada" };
+        }
+
+        if (execution.status !== "AI_APPROVED_WAITING_RESUME") {
+            return { success: false, error: "El flujo no está en estado de espera para reanudación" };
+        }
+
+        const task = execution.aiTasks[0];
+        if (!task) {
+            return { success: false, error: "No se encontró tarea IA aprobada vinculada" };
+        }
+
+        // Idempotencia: Verificar si ya se completó una reanudación manual para esta tarea
+        const existingEvent = await db.logicToopAiEvent.findFirst({
+            where: {
+                taskId: task.id,
+                type: "FLOW_MANUAL_RESUME_COMPLETED"
+            }
+        });
+
+        if (existingEvent) {
+            return { success: true, alreadyExecuted: true, message: "La reanudación controlada ya fue ejecutada." };
+        }
+
+        // Reutilizar el cálculo de preview existente
+        const previewRes = await getAiFlowResumePreview(executionId);
+        if (!previewRes.success || !previewRes.data) {
+            return { success: false, error: previewRes.error || "No se pudo obtener el preview" };
+        }
+
+        const { classification } = previewRes.data;
+
+        await recordAiEvent({
+            orgId: task.orgId,
+            taskId: task.id,
+            type: "FLOW_MANUAL_RESUME_STARTED",
+            actorUserId: user.id,
+            source: "SERVER_ACTION",
+            message: "Iniciando reanudación manual controlada",
+            metadata: { classification }
+        });
+
+        // Validar seguridad
+        if (classification === "UNSAFE_SIDE_EFFECT" || classification === "UNKNOWN") {
+            await recordAiEvent({
+                orgId: task.orgId,
+                taskId: task.id,
+                type: "FLOW_MANUAL_RESUME_BLOCKED",
+                actorUserId: user.id,
+                source: "SERVER_ACTION",
+                message: `Reanudación bloqueada: El próximo nodo está clasificado como ${classification}.`,
+                metadata: {
+                    mode: "controlled_resume",
+                    classification,
+                    blocked: true
+                }
+            });
+            return { success: false, error: `Reanudación bloqueada por nodo inseguro (${classification})` };
+        }
+
+        // Si es seguro, actualizar el estado
+        let newStatus = "MANUALLY_RESUMED_SAFE_REVIEW";
+        if (classification === "NO_NEXT_NODE") {
+            newStatus = "COMPLETED_SAFE";
+        }
+
+        await db.logicToopExecution.update({
+            where: { id: execution.id },
+            data: { status: newStatus }
+        });
+
+        await recordAiEvent({
+            orgId: task.orgId,
+            taskId: task.id,
+            type: "FLOW_MANUAL_RESUME_COMPLETED",
+            actorUserId: user.id,
+            source: "SERVER_ACTION",
+            message: "Reanudación manual controlada completada exitosamente",
+            metadata: {
+                mode: "controlled_resume",
+                executionId,
+                taskId: task.id,
+                sideEffects: false,
+                classification,
+                newStatus,
+                dispatcherExecuted: false
+            }
+        });
+
+        revalidatePath("/dashboard/admin/logictoop/orchestrator/paused-flows");
+        return { success: true, message: "Reanudación controlada completada exitosamente." };
+
+    } catch (error) {
+        console.error("[LogicToop AI Flow] Error in controlled manual resume:", error);
+        return { success: false, error: "Error interno al procesar reanudación controlada" };
+    }
+}
+
+
