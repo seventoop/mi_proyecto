@@ -23,7 +23,8 @@ import {
 import { 
   markAiFlowResumeDryRun, 
   getAiFlowResumePreview,
-  controlledManualResumeFlow
+  controlledManualResumeFlow,
+  executeSafeOneStepResume
 } from "@/lib/actions/logictoop-ai-flow";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
@@ -84,6 +85,27 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
         setIsPreviewOpen(false);
       } else {
         toast.error(res.error || "Error al ejecutar reanudación controlada");
+      }
+    } catch (error) {
+      toast.error("Error de conexión");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleExecuteSafeStep = async (executionId: string) => {
+    if (!window.confirm("CONFIRMACIÓN DE SEGURIDAD:\n\nEsto ejecutará como máximo un paso clasificado como seguro. No ejecutará dispatcher completo ni nodos comerciales.\n\n¿Estás seguro de continuar?")) {
+      return;
+    }
+
+    setLoading("safe-step");
+    try {
+      const res = await executeSafeOneStepResume(executionId);
+      if (res.success) {
+        toast.success(res.message);
+        setIsPreviewOpen(false);
+      } else {
+        toast.error(res.error || "Error al ejecutar paso seguro");
       }
     } catch (error) {
       toast.error("Error de conexión");
@@ -297,9 +319,14 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold">Evaluación de Seguridad</h4>
                   <div className="flex items-center gap-2">
-                    {previewData.classification === "SAFE_REVIEW_ONLY" && (
+                    {previewData.classification === "SAFE_EXECUTABLE_NO_SIDE_EFFECT" && (
                       <Badge className="bg-green-100 text-green-700 hover:bg-green-100 flex gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> SEGURO
+                        <CheckCircle2 className="h-3 w-3" /> SEGURO PARA EJECUTAR
+                      </Badge>
+                    )}
+                    {previewData.classification === "SAFE_REVIEW_ONLY" && (
+                      <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 flex gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> SOLO REVISIÓN
                       </Badge>
                     )}
                     {previewData.classification === "UNSAFE_SIDE_EFFECT" && (
@@ -317,7 +344,8 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
                     )}
                     
                     <span className="text-xs font-medium">
-                      {previewData.recommendation === "SAFE_TO_REVIEW" ? "Listo para revisión técnica" :
+                      {previewData.recommendation === "SAFE_TO_EXECUTE" ? "Seguro para ejecutar un paso" :
+                       previewData.recommendation === "SAFE_TO_REVIEW" ? "Listo para revisión técnica" :
                        previewData.recommendation === "BLOCKED_UNSAFE_NODE" ? "Reanudación bloqueada por seguridad" :
                        previewData.recommendation === "NO_NEXT_NODE" ? "Flujo completado" :
                        "Requiere inspección manual del esquema"}
@@ -345,24 +373,46 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
               Cerrar
             </Button>
             {previewData && (
-              <Button 
-                variant="default"
-                className="gap-2"
-                disabled={
-                  !isSuperAdmin || 
-                  loading === "controlled-resume" || 
-                  previewData.classification === "UNSAFE_SIDE_EFFECT" || 
-                  previewData.classification === "UNKNOWN"
-                }
-                onClick={() => handleControlledResume(previewData.executionId)}
-              >
-                {loading === "controlled-resume" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4 fill-current" />
-                )}
-                Resume Controlado
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline"
+                  className="gap-2"
+                  disabled={
+                    !isSuperAdmin || 
+                    loading === "controlled-resume" || 
+                    previewData.classification === "UNSAFE_SIDE_EFFECT" || 
+                    previewData.classification === "UNKNOWN"
+                  }
+                  onClick={() => handleControlledResume(previewData.executionId)}
+                >
+                  {loading === "controlled-resume" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Info className="h-4 w-4" />
+                  )}
+                  Marcar Controlado
+                </Button>
+
+                <Button 
+                  variant="default"
+                  className="gap-2"
+                  disabled={
+                    !isSuperAdmin || 
+                    loading === "safe-step" || 
+                    previewData.classification === "UNSAFE_SIDE_EFFECT" || 
+                    previewData.classification === "UNKNOWN" ||
+                    previewData.classification === "SAFE_REVIEW_ONLY"
+                  }
+                  onClick={() => handleExecuteSafeStep(previewData.executionId)}
+                >
+                  {loading === "safe-step" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 fill-current" />
+                  )}
+                  {previewData.classification === "NO_NEXT_NODE" ? "Cerrar Seguro" : "Ejecutar Paso Seguro"}
+                </Button>
+              </div>
             )}
           </DialogFooter>
         </DialogContent>

@@ -5,6 +5,7 @@ import { requireAuth, AuthError } from "@/lib/guards";
 import { revalidatePath } from "next/cache";
 import { recordAiEvent } from "@/lib/logictoop/ai-events";
 import { classifyNodeSafety, getRecommendationForClassification, ResumePreviewResult } from "@/lib/logictoop/ai-resume-preview";
+import { evaluateConditionSet } from "@/lib/logictoop/conditions";
 
 /**
  * Obtiene las ejecuciones de flujos que están pausadas por tareas de IA.
@@ -420,6 +421,221 @@ export async function controlledManualResumeFlow(executionId: string) {
     } catch (error) {
         console.error("[LogicToop AI Flow] Error in controlled manual resume:", error);
         return { success: false, error: "Error interno al procesar reanudación controlada" };
+    }
+}
+
+/**
+ * Ejecuta un único paso seguro de forma controlada (Fase 7C).
+ * Solo permite nodos clasificados como SAFE_EXECUTABLE_NO_SIDE_EFFECT.
+ * NO llama al dispatcher. NO ejecuta una cadena de nodos.
+ */
+export async function executeSafeOneStepResume(executionId: string) {
+    const user = await requireAuth();
+    if (user.role !== "SUPERADMIN") {
+        return { success: false, error: "Solo SUPERADMIN puede ejecutar un paso seguro manual" };
+    }
+
+    const isCoreEnabled = process.env.FEATURE_FLAG_LOGICTOOP_AI_CORE === "true";
+    const isRealConnection = process.env.FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION === "true";
+
+    if (!isCoreEnabled) {
+        return { success: false, error: "El núcleo de IA está desactivado" };
+    }
+    if (isRealConnection) {
+        return { success: false, error: "Conexión real activa. Bloqueando acción manual por seguridad." };
+    }
+
+    try {
+        const execution = await db.logicToopExecution.findUnique({
+            where: { id: executionId },
+            include: {
+                flow: true,
+                aiTasks: {
+                    where: { status: "APPROVED" },
+                    orderBy: { createdAt: "desc" },
+                    take: 1
+                }
+            }
+        });
+
+        if (!execution) return { success: false, error: "Ejecución no encontrada" };
+
+        if (execution.status !== "MANUALLY_RESUMED_SAFE_REVIEW" && execution.status !== "AI_APPROVED_WAITING_RESUME") {
+            return { success: false, error: "Estado no elegible para ejecución de paso seguro" };
+        }
+
+        const task = execution.aiTasks[0];
+        if (!task) return { success: false, error: "No se encontró tarea IA aprobada" };
+
+        const previewRes = await getAiFlowResumePreview(executionId);
+        if (!previewRes.success || !previewRes.data) {
+            return { success: false, error: previewRes.error || "Error al obtener preview" };
+        }
+
+        const { classification, nextNode } = previewRes.data;
+
+        await recordAiEvent({
+            orgId: task.orgId,
+            taskId: task.id,
+            type: "FLOW_SAFE_STEP_STARTED",
+            actorUserId: user.id,
+            source: "SERVER_ACTION",
+            message: "Iniciando ejecución de un paso seguro",
+            metadata: { classification, nodeType: nextNode?.type }
+        });
+
+        if (classification === "UNSAFE_SIDE_EFFECT" || classification === "UNKNOWN") {
+            await recordAiEvent({
+                orgId: task.orgId,
+                taskId: task.id,
+                type: "FLOW_SAFE_STEP_BLOCKED",
+                actorUserId: user.id,
+                source: "SERVER_ACTION",
+                message: `Paso bloqueado: El nodo es ${classification}.`,
+                metadata: { blocked: true }
+            });
+            return { success: false, error: `Bloqueado por nodo inseguro (${classification})` };
+        }
+
+        if (classification === "SAFE_REVIEW_ONLY") {
+            await recordAiEvent({
+                orgId: task.orgId,
+                taskId: task.id,
+                type: "FLOW_SAFE_STEP_BLOCKED",
+                actorUserId: user.id,
+                source: "SERVER_ACTION",
+                message: "Paso bloqueado: El nodo es solo de revisión y no debe re-ejecutarse activamente aquí.",
+                metadata: { blocked: true }
+            });
+            return { success: false, error: "El nodo actual es solo de revisión técnica" };
+        }
+
+        if (classification === "NO_NEXT_NODE") {
+            await db.logicToopExecution.update({
+                where: { id: execution.id },
+                data: { status: "COMPLETED_SAFE" }
+            });
+            await recordAiEvent({
+                orgId: task.orgId,
+                taskId: task.id,
+                type: "FLOW_SAFE_STEP_COMPLETED",
+                actorUserId: user.id,
+                source: "SERVER_ACTION",
+                message: "Flujo cerrado de forma segura (sin más nodos)",
+                metadata: { newStatus: "COMPLETED_SAFE", nodeHandlerExecuted: false }
+            });
+            revalidatePath("/dashboard/admin/logictoop/orchestrator/paused-flows");
+            return { success: true, message: "Flujo completado sin más nodos." };
+        }
+
+        // --- SAFE_EXECUTABLE_NO_SIDE_EFFECT ---
+        const actions = Array.isArray(execution.flow.actions) ? (execution.flow.actions as any[]) : [];
+        const currentIndex = execution.currentStepIndex || 0;
+        const node = actions[currentIndex];
+        const payload = typeof execution.triggerPayload === 'object' ? execution.triggerPayload : {};
+        
+        let nextIndex = currentIndex + 1;
+        let stepStatus = "SUCCESS";
+        let newExecutionStatus = "PAUSED_AFTER_SAFE_STEP";
+        let resumeAt = execution.resumeAt;
+        let handlerExecuted = false;
+
+        const stepLog: any = {
+            action: node.type,
+            uid: node.uid,
+            startedAt: new Date().toISOString(),
+            status: "RUNNING",
+            details: {}
+        };
+
+        // Procesamiento específico sin llamar a handler completos de DB
+        if (node.type === "WAIT" || node.type === "DELAY") {
+            const waitMinutes = Number(node.config?.minutes) || 30;
+            resumeAt = new Date();
+            resumeAt.setMinutes(resumeAt.getMinutes() + waitMinutes);
+            stepLog.status = "WAITING";
+            stepLog.details = { resumeAt, minutes: waitMinutes };
+            newExecutionStatus = "WAITING"; // Compatibilidad con dispatcher
+            handlerExecuted = false; // Emulamos sin llamar al node handler real
+            const candidateNext = node.next || null;
+            nextIndex = candidateNext ? actions.findIndex((a: any) => a.uid === candidateNext) : currentIndex + 1;
+        } 
+        else if (node.type === "CONDITION") {
+            const isTrue = evaluateConditionSet(node.conditions || [], payload);
+            stepLog.status = isTrue ? "TRUE" : "FALSE";
+            handlerExecuted = true; // El evaluador es determinista y no muta DB
+            const branchTarget = isTrue ? node.nextTrue : node.nextFalse;
+            if (branchTarget) {
+                const targetIndex = actions.findIndex((a: any) => a.uid === branchTarget);
+                nextIndex = targetIndex !== -1 ? targetIndex : actions.length;
+            } else {
+                nextIndex = currentIndex + 1;
+            }
+        }
+        else if (node.type === "INTERNAL_NOTE") {
+            stepLog.status = "SUCCESS";
+            stepLog.details = { note: node.config?.note || "Nota interna registrada" };
+            const candidateNext = node.next || null;
+            nextIndex = candidateNext ? actions.findIndex((a: any) => a.uid === candidateNext) : currentIndex + 1;
+        }
+        else {
+            // Default safe advance (sin ejecutar nada)
+            stepLog.status = "SKIPPED_SAFE";
+            stepLog.details = { message: "Avanzado de forma segura sin ejecutar handler" };
+            const candidateNext = node.next || null;
+            nextIndex = candidateNext ? actions.findIndex((a: any) => a.uid === candidateNext) : currentIndex + 1;
+        }
+
+        stepLog.finishedAt = new Date().toISOString();
+
+        if (nextIndex >= actions.length || nextIndex === -1) {
+            newExecutionStatus = "COMPLETED_SAFE";
+            nextIndex = actions.length; // Final
+        }
+
+        const currentLogs = Array.isArray(execution.logs) ? execution.logs : [];
+        const newLogs = [...currentLogs, stepLog];
+
+        await db.logicToopExecution.update({
+            where: { id: execution.id },
+            data: { 
+                currentStepIndex: nextIndex,
+                logs: newLogs,
+                status: newExecutionStatus,
+                resumeAt: resumeAt
+            }
+        });
+
+        await recordAiEvent({
+            orgId: task.orgId,
+            taskId: task.id,
+            type: "FLOW_SAFE_STEP_COMPLETED",
+            actorUserId: user.id,
+            source: "SERVER_ACTION",
+            message: `Paso seguro ejecutado: ${node.type}`,
+            metadata: {
+                mode: "safe_one_step_resume",
+                executionId,
+                taskId: task.id,
+                sideEffects: false,
+                dispatcherExecuted: false,
+                nodeHandlerExecuted: handlerExecuted,
+                nodeType: node.type,
+                nodeUid: node.uid,
+                previousStepIndex: currentIndex,
+                nextStepIndex: nextIndex,
+                previousStatus: execution.status,
+                nextStatus: newExecutionStatus,
+                paperclip: false
+            }
+        });
+
+        revalidatePath("/dashboard/admin/logictoop/orchestrator/paused-flows");
+        return { success: true, message: `Paso ${node.type} ejecutado exitosamente.` };
+
+    } catch (error) {
+        console.error("[LogicToop AI Flow] Error in safe step:", error);
+        return { success: false, error: "Error interno al procesar paso seguro" };
     }
 }
 

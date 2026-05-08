@@ -3,6 +3,7 @@
  * Clasificación de seguridad para nodos de LogicToop Flow.
  */
 export type NodeSafetyClassification = 
+  | "SAFE_EXECUTABLE_NO_SIDE_EFFECT"
   | "SAFE_REVIEW_ONLY" 
   | "UNSAFE_SIDE_EFFECT" 
   | "UNKNOWN" 
@@ -12,6 +13,7 @@ export type NodeSafetyClassification =
  * Recomendación operativa para el administrador.
  */
 export type ResumeRecommendation = 
+  | "SAFE_TO_EXECUTE"
   | "SAFE_TO_REVIEW" 
   | "BLOCKED_UNSAFE_NODE" 
   | "UNKNOWN_NEXT_NODE" 
@@ -21,20 +23,22 @@ export type ResumeRecommendation =
  * Mapa de clasificación de nodos basado en el registro oficial.
  */
 const NODE_SAFETY_MAP: Record<string, NodeSafetyClassification> = {
+    // Nodos seguros (Ejecutables sin side-effects)
+    "CONDITION": "SAFE_EXECUTABLE_NO_SIDE_EFFECT",
+    "WAIT": "SAFE_EXECUTABLE_NO_SIDE_EFFECT",
+    "DELAY": "SAFE_EXECUTABLE_NO_SIDE_EFFECT",
+    "INTERNAL_NOTE": "SAFE_EXECUTABLE_NO_SIDE_EFFECT",
+
     // Nodos seguros (Inertes o de lectura)
     "AI_APPROVAL_TASK": "SAFE_REVIEW_ONLY",
     "AI_CLASSIFY_LEAD": "SAFE_REVIEW_ONLY",
     "AI_SCORE_LEAD": "SAFE_REVIEW_ONLY",
     "AI_SUMMARIZE_LEAD_CONTEXT": "SAFE_REVIEW_ONLY",
     "AI_ROUTE_LEAD": "SAFE_REVIEW_ONLY",
-    "CONDITION": "SAFE_REVIEW_ONLY",
-    "WAIT": "SAFE_REVIEW_ONLY",
-    "DELAY": "SAFE_REVIEW_ONLY",
     "NOTIFY_INTERNAL": "SAFE_REVIEW_ONLY",
     "ADD_AUDIT_LOG": "SAFE_REVIEW_ONLY",
     "GOOGLE_CALENDAR_LIST_AVAILABILITY": "SAFE_REVIEW_ONLY",
     "GOOGLE_CALENDAR_GET_EVENT": "SAFE_REVIEW_ONLY",
-    "INTERNAL_NOTE": "SAFE_REVIEW_ONLY",
 
     // Nodos riesgosos (Side-effects comerciales o externos)
     "ASSIGN_LEAD": "UNSAFE_SIDE_EFFECT",
@@ -66,6 +70,7 @@ export function classifyNodeSafety(type: string): NodeSafetyClassification {
  */
 export function getRecommendationForClassification(classification: NodeSafetyClassification): ResumeRecommendation {
     switch (classification) {
+        case "SAFE_EXECUTABLE_NO_SIDE_EFFECT": return "SAFE_TO_EXECUTE";
         case "SAFE_REVIEW_ONLY": return "SAFE_TO_REVIEW";
         case "UNSAFE_SIDE_EFFECT": return "BLOCKED_UNSAFE_NODE";
         case "NO_NEXT_NODE": return "NO_NEXT_NODE";
