@@ -194,8 +194,21 @@ export default function Tour360TabWrapper({
         try {
             const categoria = sceneCategoryToGalleryCategory(scene.category, "EXTERIOR");
 
-            if (scene.galleryImageId) {
-                const res = await updateProyectoImagen(scene.galleryImageId, {
+            let targetGalleryId = scene.galleryImageId;
+
+            if (!targetGalleryId) {
+                // Fallback: fetch project images and find by URL
+                const galleryRes = await getProyectoImagenes(proyectoId);
+                if (galleryRes.success && galleryRes.data) {
+                    const matched = galleryRes.data.find((img: any) => img.url === scene.imageUrl);
+                    if (matched) {
+                        targetGalleryId = matched.id;
+                    }
+                }
+            }
+
+            if (targetGalleryId) {
+                const res = await updateProyectoImagen(targetGalleryId, {
                     proyectoId,
                     url: scene.imageUrl,
                     categoria,
@@ -208,6 +221,7 @@ export default function Tour360TabWrapper({
 
                 const nextScene = {
                     ...scene,
+                    galleryImageId: targetGalleryId,
                     category: galleryCategoryToSceneCategory(res.data.categoria),
                 } as Scene;
 
@@ -216,34 +230,12 @@ export default function Tour360TabWrapper({
                     if (idx !== -1) return prev.map((item) => (item.id === scene.id ? nextScene : item));
                     return [...prev, nextScene];
                 });
+                router.refresh();
                 return { success: true, data: nextScene };
             }
 
-            const res = await addProyectoImagen({
-                proyectoId,
-                url: scene.imageUrl,
-                categoria,
-                masterplanOverlay: scene.masterplanOverlay,
-            });
-
-            if (!res.success || !res.data) {
-                return { success: false, error: (res as any).error || "Add failed" };
-            }
-
-            const nextScene = {
-                ...scene,
-                id: res.data.id,
-                galleryImageId: res.data.id,
-                category: galleryCategoryToSceneCategory(res.data.categoria),
-            } as Scene;
-
-            setEditorScenes((prev) => {
-                const idx = prev.findIndex((item) => item.id === scene.id);
-                if (idx !== -1) return prev.map((item) => (item.id === scene.id ? nextScene : item));
-                return [...prev, nextScene];
-            });
-
-            return { success: true, data: nextScene };
+            console.warn(`[Tour360] Fallback falló: no se encontró la imagen en galería con URL ${scene.imageUrl}`);
+            return { success: false, error: "No se encontró la imagen en la galería" };
         } catch (error) {
             console.error("Gallery save error:", error);
             return { success: false };
@@ -309,14 +301,27 @@ export default function Tour360TabWrapper({
     };
 
     const handleDeleteGalleryImage = async (scene: Scene) => {
-        if (!scene.galleryImageId) {
-            setEditorScenes((prev) => prev.filter((item) => item.id !== scene.id));
-            return true;
+        let targetGalleryId = scene.galleryImageId;
+
+        if (!targetGalleryId) {
+            const galleryRes = await getProyectoImagenes(proyectoId);
+            if (galleryRes.success && galleryRes.data) {
+                const matched = galleryRes.data.find((img: any) => img.url === scene.imageUrl);
+                if (matched) {
+                    targetGalleryId = matched.id;
+                }
+            }
+        }
+
+        if (!targetGalleryId) {
+            console.warn(`[Tour360] Borrar falló: No se encontró la imagen en galería con URL ${scene.imageUrl}`);
+            toast.error("No se encontró la imagen en la galería para eliminarla");
+            return false;
         }
 
         if (!confirm("¿Eliminar esta imagen de la Galería de Imágenes?")) return false;
 
-        const res = await deleteProyectoImagen(scene.galleryImageId, proyectoId);
+        const res = await deleteProyectoImagen(targetGalleryId, proyectoId);
         if (!res.success) {
             toast.error((res as any).error || "Error al eliminar imagen de la Galería");
             return false;
@@ -865,6 +870,7 @@ export default function Tour360TabWrapper({
                         tourId={activeTour?.id}
                         initialScenes={editorScenes as any}
                         onSave={handleSaveTour}
+                        onSaveGalleryImage={handleSaveGalleryImage}
                     />
                 </div>
             </div>

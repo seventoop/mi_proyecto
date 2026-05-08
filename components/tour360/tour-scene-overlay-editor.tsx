@@ -268,9 +268,11 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
     }));
 
     // 1. Declaración de Estados base
+    const draftRef = useRef<NormalizedSceneOverlayCalibration>(draft);
     const [isLoading, setIsLoading] = useState(true);
     const [viewerReady, setViewerReady] = useState(false);
     const [isSavingCalib, setIsSavingCalib] = useState(false);
+    const [justSaved, setJustSaved] = useState(false); // Para mostrar "Guardado" 2 segundos
     const [anchorTrigger, setAnchorTrigger] = useState(0);
     const [fixTrigger, setFixTrigger] = useState(0);
     const [showPlanosGallery, setShowPlanosGallery] = useState(false);
@@ -319,7 +321,6 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
     }, [canvasState.activeOverlay?.imageUrl, planImageUrl]);
 
     const canvasStateRef = useRef<CanvasOverlayState>(canvasState);
-    const draftRef = useRef(draft);
 
     const getProjectSceneKey = useCallback((item: any) => {
         return item?.masterplanOverlay?.sceneKey ?? item?.sceneKey ?? undefined;
@@ -832,6 +833,11 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
                 toast.info("Cambios listos. Guardá los cambios del tour para persistir esta escena nueva.");
             }
             await onSaved(persistedOverlay);
+
+            // Feedback visual garantizado por 2 segundos
+            setJustSaved(true);
+            setTimeout(() => setJustSaved(false), 2000);
+
             if (shouldPersistInternally) {
                 toast.success("Alineación guardada");
             }
@@ -1051,10 +1057,10 @@ const TourSceneOverlayEditor = forwardRef<TourSceneOverlayEditorHandle, TourScen
 
                     <button
                         onClick={saveCalibration}
-                        disabled={isSavingCalib}
-                        className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
+                        disabled={isSavingCalib || justSaved}
+                        className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50 min-w-[100px]"
                     >
-                        {isSavingCalib ? "Guardando..." : calibSaved ? (isTemporaryScene ? "Listo para guardar cambios" : "Guardado") : "Guardar"}
+                        {isSavingCalib ? "Guardando..." : justSaved ? "✓ Guardado" : calibSaved ? (isTemporaryScene ? "Listo" : "Guardado") : "Guardar"}
                     </button>
 
                     <button

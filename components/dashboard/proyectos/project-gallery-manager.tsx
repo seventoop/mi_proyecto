@@ -59,6 +59,16 @@ interface ProyectoImagen {
     masterplanOverlay?: any;
 }
 
+const isImagenEditada = (img: ProyectoImagen) => {
+    if (!img.masterplanOverlay) return false;
+    const overlay = img.masterplanOverlay as any;
+    return overlay.hasOverlayEdits === true ||
+           (overlay.polygons && overlay.polygons.length > 0) ||
+           (overlay.floatingLabels && overlay.floatingLabels.length > 0) ||
+           (overlay.frames && overlay.frames.length > 0) ||
+           (overlay.canvasState && Object.keys(overlay.canvasState).length > 0);
+};
+
 interface TourSaveOptions {
     keepEditing?: boolean;
     successMessage?: string;
@@ -91,6 +101,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
     const [imagenes, setImagenes] = useState<ProyectoImagen[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState("MASTERPLAN");
+    const [filterMode, setFilterMode] = useState<"TODAS" | "EDITADAS">("TODAS");
     const [editingImage, setEditingImage] = useState<ProyectoImagen | null>(null);
     const [showSceneEditor, setShowSceneEditor] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
@@ -366,8 +377,9 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
 
             toast.success("Edición guardada en Galería");
             await loadImagenes();
-            setShowSceneEditor(false);
-            setEditingImage(null);
+            // Mantener el editor abierto por mejor UX, el usuario puede cerrarlo manualmente con la X
+            // setShowSceneEditor(false);
+            // setEditingImage(null);
         } catch (error: any) {
             toast.error(error.message || "Error al guardar edición en galería");
         } finally {
@@ -397,6 +409,21 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex bg-slate-100 dark:bg-slate-900 rounded-xl p-1 border border-slate-200 dark:border-slate-800">
+                            <button
+                                onClick={() => setFilterMode("TODAS")}
+                                className={cn("px-4 py-1.5 text-sm font-bold rounded-lg transition-all", filterMode === "TODAS" ? "bg-white dark:bg-slate-800 text-brand-500 shadow-sm" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300")}
+                            >
+                                Todas
+                            </button>
+                            <button
+                                onClick={() => setFilterMode("EDITADAS")}
+                                className={cn("px-4 py-1.5 text-sm font-bold rounded-lg transition-all", filterMode === "EDITADAS" ? "bg-white dark:bg-slate-800 text-brand-500 shadow-sm" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300")}
+                            >
+                                Editadas
+                            </button>
+                        </div>
+
                         <select
                             value={selectedCategory}
                             onChange={(e) => setSelectedCategory(normalizeGalleryCategory(e.target.value))}
@@ -432,9 +459,9 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                 </div>
 
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={imagenes.map((i) => i.id)} strategy={rectSortingStrategy}>
+                    <SortableContext items={(filterMode === "EDITADAS" ? imagenes.filter(isImagenEditada) : imagenes).map((i) => i.id)} strategy={rectSortingStrategy}>
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                            {imagenes.map((img) => (
+                            {(filterMode === "EDITADAS" ? imagenes.filter(isImagenEditada) : imagenes).map((img) => (
                                 <SortableImage
                                     key={img.id}
                                     img={img}
@@ -540,6 +567,12 @@ function SortableImage({
             )}
         >
             <img src={img.url} alt={img.categoria} className="w-full h-full object-cover" />
+
+            {isImagenEditada(img) && (
+                <div className="absolute top-2 right-2 bg-brand-500/90 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border border-white/20 shadow-lg z-10">
+                    Editada
+                </div>
+            )}
 
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col p-2">
                 <div className="flex justify-between items-start">

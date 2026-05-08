@@ -1071,86 +1071,98 @@ export default function TourCreator({
                     fetch(`/api/proyectos/${proyectoId}/plan-gallery`, { cache: "no-store" }),
                 ]);
 
-                const blueprintData = await readJsonResponse(blueprintRes);
-                // Persistent plan check — fires from masterplanSVG, independent of units or coordenadasMasterplan.
-                // This ensures "Editar imagen" is available whenever Paso 4 is saved and a real plan exists.
-                const galleryData = await readJsonResponse(galleryRes);
+                // 1. Process Blueprint Data (Heavy SVG + Units)
+                let hasSvg = false;
+                try {
+                    const blueprintData = await readJsonResponse(blueprintRes);
+                    hasSvg = !!(blueprintRes.ok && blueprintData?.masterplanSVG);
+                    console.log("[TourCreator] Blueprint check:", { ok: blueprintRes.ok, hasSvg, svgLen: blueprintData?.masterplanSVG?.length ?? 0 });
+                    setHasPersistentPlan(hasSvg);
 
-                const hasSvg = !!(blueprintRes.ok && blueprintData?.masterplanSVG);
-                console.log("[TourCreator] Blueprint check:", { ok: blueprintRes.ok, hasSvg, svgLen: blueprintData?.masterplanSVG?.length ?? 0 });
-                setHasPersistentPlan(hasSvg);
-                if (blueprintRes.ok && Array.isArray(blueprintData?.unidades)) {
-                    const units: MasterplanUnit[] = blueprintData.unidades.map((u: any) => {
-                        let path: string | undefined;
-                        let cx: number | undefined;
-                        let cy: number | undefined;
-                        if (u.coordenadasMasterplan) {
+                    if (blueprintRes.ok && Array.isArray(blueprintData?.unidades)) {
+                        const units: MasterplanUnit[] = blueprintData.unidades.map((u: any) => {
+                            let path: string | undefined;
+                            let cx: number | undefined;
+                            let cy: number | undefined;
+                            if (u.coordenadasMasterplan) {
+                                try {
+                                    const parsed = JSON.parse(u.coordenadasMasterplan);
+                                    path = parsed.path;
+                                    cx = parsed.cx;
+                                    cy = parsed.cy;
+                                } catch { }
+                            }
+                            return {
+                                id: u.id,
+                                numero: u.numero,
+                                tipo: "LOTE",
+                                superficie: u.superficie ?? null,
+                                frente: u.frente ?? null,
+                                fondo: u.fondo ?? null,
+                                esEsquina: false,
+                                orientacion: null,
+                                precio: u.precio ?? null,
+                                moneda: "USD",
+                                estado: u.estado,
+                                path,
+                                cx,
+                                cy,
+                            } as MasterplanUnit;
+                        });
+                        setOverlayUnits(units);
+                        setProjectUnits(units.map((u: MasterplanUnit) => ({ id: u.id, numero: u.numero })));
+                        setProjectSvgViewBox(computeSvgViewBox(units));
+                    }
+                } catch (e) {
+                    console.warn("[TourCreator] Blueprint processing failed (likely large SVG or timeout):", e);
+                }
+
+                // 2. Process Overlay Data (Georeference - Priority)
+                try {
+                    const overlayData = await readJsonResponse(overlayRes);
+                    if (overlayRes.ok && overlayData?.config?.bounds) {
+                        let bounds = overlayData.config.bounds;
+
+                        // Resilient parsing for potential double-stringification
+                        if (typeof bounds === "string") {
                             try {
-                                const parsed = JSON.parse(u.coordenadasMasterplan);
-                                path = parsed.path;
-                                cx = parsed.cx;
-                                cy = parsed.cy;
-                            } catch { }
+                                const parsed = JSON.parse(bounds);
+                                if (Array.isArray(parsed)) bounds = parsed;
+                            } catch (e) {
+                                console.warn("[TourCreator] Failed to parse overlay bounds string:", e);
+                            }
                         }
-                        return {
-                            id: u.id,
-                            numero: u.numero,
-                            tipo: "LOTE",
-                            superficie: u.superficie ?? null,
-                            frente: u.frente ?? null,
-                            fondo: u.fondo ?? null,
-                            esEsquina: false,
-                            orientacion: null,
-                            precio: u.precio ?? null,
-                            moneda: "USD",
-                            estado: u.estado,
-                            path,
-                            cx,
-                            cy,
-                        } as MasterplanUnit;
-                    });
-                    setOverlayUnits(units);
-                    setProjectUnits(units.map((u: MasterplanUnit) => ({ id: u.id, numero: u.numero })));
-                    setProjectSvgViewBox(computeSvgViewBox(units));
-                }
 
-                const overlayData = await readJsonResponse(overlayRes);
-                if (overlayRes.ok && overlayData?.config?.bounds) {
-                    let bounds = overlayData.config.bounds;
+                        if (Array.isArray(bounds) && bounds.length === 2) {
+                            setProjectOverlayBounds(bounds as [[number, number], [number, number]]);
+                            setProjectOverlayRotation(overlayData.config.rotation ?? 0);
 
-                    // Resilient parsing: if bounds arrived as a double-stringified JSON string, parse it again
-                    if (typeof bounds === "string") {
-                        try {
-                            const parsed = JSON.parse(bounds);
-                            if (Array.isArray(parsed)) bounds = parsed;
-                        } catch (e) {
-                            console.warn("[TourCreator] Failed to parse overlay bounds string:", e);
+                            // Resilient fallback: overlay bounds imply a plan must exist in Paso 4.
+                            // If hasSvg is still false, force-enable it to allow editing.
+                            if (!hasSvg) {
+                                console.log("[TourCreator] Georeference found but blueprint failed - enabling resilient plan flag");
+                                setHasPersistentPlan(true);
+                            }
+                            console.log("[TourCreator] Project georeferencing loaded successfully:", bounds);
                         }
                     }
-
-                    if (Array.isArray(bounds) && bounds.length === 2) {
-                        setProjectOverlayBounds(bounds as [[number, number], [number, number]]);
-                        setProjectOverlayRotation(overlayData.config.rotation ?? 0);
-                        // Resilient fallback: overlay bounds can only exist if Steps 2+3+4
-                        // were completed, which means a persistent plan MUST exist.
-                        // This covers edge cases where the blueprint API response fails
-                        // (e.g. large SVG payload timeout) but georeferencing is valid.
-                        if (!hasSvg) {
-                            console.warn("[TourCreator] Overlay bounds exist but blueprint API check failed — force-enabling hasPersistentPlan");
-                            setHasPersistentPlan(true);
-                        }
-                        console.log("[TourCreator] Project georeferencing loaded successfully:", bounds);
-                    } else {
-                        console.warn("[TourCreator] Invalid bounds format received:", bounds);
+                    if (overlayRes.ok && overlayData?.config?.mapCenter?.lat) {
+                        setProjectMapCenter({
+                            lat: overlayData.config.mapCenter.lat,
+                            lng: overlayData.config.mapCenter.lng,
+                        });
                     }
+                } catch (e) {
+                    console.error("[TourCreator] Critical error processing project overlay:", e);
                 }
-                if (overlayRes.ok && overlayData?.config?.mapCenter?.lat) {
-                    setProjectMapCenter({
-                        lat: overlayData.config.mapCenter.lat,
-                        lng: overlayData.config.mapCenter.lng,
-                    });
+
+                // 3. Process Plan Gallery Data
+                try {
+                    const galleryData = await readJsonResponse(galleryRes);
+                    if (galleryData?.items) setPlanGalleryItems(galleryData.items);
+                } catch (e) {
+                    console.warn("[TourCreator] Failed to load plan gallery items:", e);
                 }
-                if (galleryData?.items) setPlanGalleryItems(galleryData.items);
             } catch (error) {
                 console.error("Error fetching project overlay data:", error);
             }
@@ -2551,10 +2563,10 @@ export default function TourCreator({
                             prev.map((scene) => (scene.id === activeScene.id ? nextScene : scene))
                         );
 
-                        if (onSaveGalleryImage && nextScene.galleryImageId) {
+                        if (onSaveGalleryImage) {
                             const res = await onSaveGalleryImage(nextScene);
                             if (!res.success || !res.data) {
-                                return;
+                                throw new Error(res.error || "Fallo en sincronización con Galería");
                             }
 
                             setScenes((prev) =>
