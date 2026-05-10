@@ -12,6 +12,7 @@ import {
     Plus,
     Eye,
     EyeOff,
+    Sparkles,
 } from "lucide-react";
 import {
     DndContext,
@@ -687,6 +688,29 @@ function SortableImage({
     isInTour?: boolean;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: img.id });
+    const [isBaking, setIsBaking] = useState(false);
+
+    const handleBake = async () => {
+        if (isBaking) return;
+        setIsBaking(true);
+        const toastId = toast.loading("Generando imagen procesada...");
+        try {
+            const res = await fetch("/api/imagenes/bake", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ proyectoId: img.proyectoId, imagenId: img.id }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || "Error al generar imagen procesada");
+            }
+            toast.success("Imagen procesada generada correctamente", { id: toastId });
+        } catch (error: any) {
+            toast.error(error.message || "Error al generar imagen procesada", { id: toastId });
+        } finally {
+            setIsBaking(false);
+        }
+    };
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -767,6 +791,22 @@ function SortableImage({
                 </div>
 
                 <div className="mt-auto flex flex-col gap-1.5">
+                    {isImagenEditada(img) && (
+                        <button
+                            onClick={handleBake}
+                            disabled={isBaking}
+                            className={cn(
+                                "w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5",
+                                isBaking
+                                    ? "bg-amber-500/50 text-white/70 cursor-wait"
+                                    : "bg-amber-500 hover:bg-amber-600 text-white"
+                            )}
+                        >
+                            {isBaking ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                            {isBaking ? "Procesando..." : "Regenerar procesada"}
+                        </button>
+                    )}
+
                     <button
                         onClick={() => !isInTour && onSendToTour(img)}
                         disabled={isInTour}
