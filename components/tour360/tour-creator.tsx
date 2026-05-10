@@ -7,7 +7,8 @@ import {
     Upload, Trash2, Save, MapPin, ImageIcon,
     Plus, X, Loader2, GripVertical, Pencil, Check,
     Link2, Navigation, Eye, Share2, Play, Pause, Globe,
-    Maximize2, RotateCcw, Camera, Grid3x3, Sparkles
+    Maximize2, RotateCcw, Camera, Grid3x3, Sparkles,
+    CheckCircle, XCircle, Edit3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -139,6 +140,7 @@ export interface Scene {
     direction?: SceneDirection;
     masterplanOverlay?: MasterplanOverlay;
     galleryImageId?: string;
+    isPublished?: boolean;
 }
 
 interface UploadProgress {
@@ -180,6 +182,9 @@ interface TourCreatorProps {
     onSaveGalleryImage?: (scene: Scene) => Promise<{ success: boolean; data?: Scene }>;
     onDeleteGalleryImage?: (scene: Scene) => boolean | void | Promise<boolean | void>;
     onSendToTourImage?: (scene: Scene) => boolean | void | Promise<boolean | void>;
+    onBulkSendToTour?: (scenes: Scene[]) => void | Promise<void>;
+    tourImageIds?: Set<string>;
+    onBulkUpdateVisibility?: (scenes: Scene[], isPublished: boolean) => void | Promise<void>;
     onDelete?: () => void;
     onClose?: () => void;
 }
@@ -196,6 +201,16 @@ function createDefaultGeoOverlay(): MasterplanOverlay {
 const DIRECTION_YAW: Record<SceneDirection, number> = {
     centro: 0, norte: 0, noreste: 45, este: 90, sureste: 135,
     sur: 180, suroeste: -135, oeste: -90, noroeste: -45,
+};
+
+const isImagenEditada = (scene: Scene) => {
+    if (!scene.masterplanOverlay) return false;
+    const overlay = scene.masterplanOverlay as any;
+    return overlay.hasOverlayEdits === true ||
+           (overlay.polygons && overlay.polygons.length > 0) ||
+           (overlay.floatingLabels && overlay.floatingLabels.length > 0) ||
+           (overlay.frames && overlay.frames.length > 0) ||
+           (overlay.canvasState && Object.keys(overlay.canvasState).length > 0);
 };
 
 const SCENE_DIRECTIONS: SceneDirection[] = ["centro", "norte", "noreste", "este", "sureste", "sur", "suroeste", "oeste", "noroeste"];
@@ -701,6 +716,9 @@ export default function TourCreator({
     onSaveGalleryImage,
     onDeleteGalleryImage,
     onSendToTourImage,
+    onBulkSendToTour,
+    tourImageIds,
+    onBulkUpdateVisibility,
     onDelete,
     onClose,
 }: TourCreatorProps) {
@@ -721,6 +739,8 @@ export default function TourCreator({
     const [editingTitle, setEditingTitle] = useState<string | null>(null);
     const [editTitleValue, setEditTitleValue] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [selectedSceneIds, setSelectedSceneIds] = useState<Set<string>>(new Set());
+    const [galleryFilter, setGalleryFilter] = useState<"TODAS" | "EDITADAS" | "SIN_EDITAR" | "PUBLICADAS" | "OCULTAS" | "EN_RECORRIDO">("TODAS");
     const [tourSaved, setTourSaved] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [pannellumLoaded, setPannellumLoaded] = useState(false);
@@ -805,7 +825,25 @@ export default function TourCreator({
     }) : true; // Default to 360 for backward compatibility
 
     // Filter scenes by category with backward compatibility for legacy values.
-    const filteredScenes = scenes.filter((scene) => normalizeTourMediaCategory(scene) === activeTab);
+    const filteredScenes = scenes.filter((scene) => {
+        const matchesCategory = normalizeTourMediaCategory(scene) === activeTab;
+        if (!matchesCategory) return false;
+
+        // If not in bulk mode (normal editor sidebar), don't apply gallery filters
+        if (!onBulkSendToTour) return true;
+
+        const isEdited = isImagenEditada(scene);
+        const isInTour = tourImageIds?.has(scene.galleryImageId || "") || tourImageIds?.has(scene.imageUrl || "");
+
+        if (galleryFilter === "EDITADAS") return isEdited;
+        if (galleryFilter === "SIN_EDITAR") return !isEdited;
+        if (galleryFilter === "PUBLICADAS") return scene.isPublished === true;
+        if (galleryFilter === "OCULTAS") return scene.isPublished === false;
+        if (galleryFilter === "EN_RECORRIDO") return isInTour;
+        return true; // TODAS
+    });
+
+    // Gallery auto-open removed: it should only open on explicit user action
 
     useEffect(() => {
         setSceneForm(buildSceneImageForm(pendingConfirmScene ?? activeScene));
@@ -1011,7 +1049,7 @@ export default function TourCreator({
 
     // ─── Initialize/reinitialize Pannellum viewer ───
     useEffect(() => {
-        if (!pannellumLoaded || !viewerRef.current || scenes.length === 0) return;
+        if (scenes.length === 0) return;
 
         const sceneId = activeSceneId || scenes[0].id;
         const scene = scenes.find((s) => s.id === sceneId);
@@ -1026,13 +1064,15 @@ export default function TourCreator({
         // If scene is flat (NOT 360), destroy Pannellum instance if exists
         if (!is360) {
             if (viewerInstance.current) {
-                viewerInstance.current.destroy();
+                try { viewerInstance.current.destroy(); } catch (_) { }
                 viewerInstance.current = null;
                 setViewerReady(false);
                 pannellumSceneCountRef.current = 0;
             }
             return;
         }
+
+        if (!pannellumLoaded || !viewerRef.current) return;
 
         // Scene is 360, proceed with Pannellum
         // If scene count changed or no instance → full rebuild (picks up new uploads)
@@ -1550,7 +1590,10 @@ export default function TourCreator({
 
         setIsSavingPendingImage(true);
         try {
-            if (onSaveGalleryImage) {
+            // For NEW images (no galleryImageId), always use onSave which calls addProyectoImagen.
+            // onSaveGalleryImage only UPDATES existing records and will fail for new uploads.
+            const isNewImage = !confirmedScene?.galleryImageId;
+            if (onSaveGalleryImage && !isNewImage) {
                 const res = await onSaveGalleryImage(confirmedScene!);
                 if (res.success && res.data) {
                     const updatedScene = res.data as Scene;
@@ -2070,6 +2113,90 @@ export default function TourCreator({
                                             </button>
                                         </div>
 
+                                        {onBulkSendToTour && (
+                                            <div className="flex p-2 gap-2 border-b border-slate-800 bg-slate-900/30 overflow-x-auto no-scrollbar">
+                                                {(["TODAS", "EDITADAS", "SIN_EDITAR", "PUBLICADAS", "OCULTAS", "EN_RECORRIDO"] as const).map((filter) => (
+                                                    <button
+                                                        key={filter}
+                                                        onClick={() => setGalleryFilter(filter)}
+                                                        className={cn(
+                                                            "px-3 py-1 text-[10px] font-bold rounded-md border transition-all whitespace-nowrap",
+                                                            galleryFilter === filter
+                                                                ? "bg-brand-500/10 border-brand-500 text-brand-400"
+                                                                : "bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700"
+                                                        )}
+                                                    >
+                                                        {filter === "TODAS" && "TODAS"}
+                                                        {filter === "EDITADAS" && "EDITADAS"}
+                                                        {filter === "SIN_EDITAR" && "SIN EDITAR"}
+                                                        {filter === "PUBLICADAS" && "PUBLICADAS"}
+                                                        {filter === "OCULTAS" && "OCULTAS"}
+                                                        {filter === "EN_RECORRIDO" && "EN RECORRIDO 360"}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {onBulkSendToTour && (
+                                            <div className="px-4 py-2 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                                    {selectedSceneIds.size} seleccionadas
+                                                    </span>
+                                                    {selectedSceneIds.size > 0 && (
+                                                        <button
+                                                            onClick={() => setSelectedSceneIds(new Set())}
+                                                            className="text-[10px] font-bold text-brand-400 hover:text-brand-300 uppercase tracking-tighter"
+                                                        >
+                                                            Limpiar selección
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    {onBulkUpdateVisibility && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const selected = scenes.filter(s => selectedSceneIds.has(s.id));
+                                                                    onBulkUpdateVisibility(selected, true);
+                                                                    setSelectedSceneIds(new Set());
+                                                                }}
+                                                                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
+                                                            >
+                                                                <CheckCircle className="w-3.5 h-3.5" />
+                                                                Publicar
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const selected = scenes.filter(s => selectedSceneIds.has(s.id));
+                                                                    onBulkUpdateVisibility(selected, false);
+                                                                    setSelectedSceneIds(new Set());
+                                                                }}
+                                                                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all flex items-center gap-1.5 shadow-lg shadow-slate-500/10"
+                                                            >
+                                                                <XCircle className="w-3.5 h-3.5" />
+                                                                Ocultar
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {onBulkSendToTour && (
+                                                        <button
+                                                            onClick={() => {
+                                                                const selected = scenes.filter(s => selectedSceneIds.has(s.id));
+                                                                onBulkSendToTour(selected);
+                                                                setSelectedSceneIds(new Set());
+                                                            }}
+                                                            className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all flex items-center gap-1.5 shadow-lg shadow-brand-500/20"
+                                                        >
+                                                            <Globe className="w-3.5 h-3.5" />
+                                                            Agregar al Recorrido 360
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="flex-1 overflow-y-auto p-4 bg-slate-950/50">
                                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                                 {/* Upload Card */}
@@ -2089,18 +2216,84 @@ export default function TourCreator({
                                                     const kindLabel = TOUR_MEDIA_CATEGORY_SHORT_LABELS[mediaCategory];
                                                     const kindColor = TOUR_MEDIA_CATEGORY_BADGE_STYLES[mediaCategory];
                                                     const isEditingThis = editingTitle === scene.id;
+                                                    const isInTour = tourImageIds?.has(scene.galleryImageId || "") || tourImageIds?.has(scene.imageUrl || "");
+                                                    const isSelected = selectedSceneIds.has(scene.id);
+                                                    const isEdited = isImagenEditada(scene);
+
+                                                    const handleSelect = (e: React.MouseEvent) => {
+                                                        e.stopPropagation();
+                                                        if (isInTour) return;
+                                                        setSelectedSceneIds((prev) => {
+                                                            const next = new Set(prev);
+                                                            if (next.has(scene.id)) next.delete(scene.id);
+                                                            else next.add(scene.id);
+                                                            return next;
+                                                        });
+                                                    };
+
                                                     return (
                                                         <div
                                                             key={scene.id}
-                                                            className={`group relative rounded-xl bg-slate-900 overflow-hidden border-2 transition-all cursor-pointer ${isActive ? 'border-brand-500 shadow-lg shadow-brand-500/30' : 'border-slate-700 hover:border-slate-500'}`}
+                                                            className={`group relative rounded-xl bg-slate-900 overflow-hidden border-2 transition-all cursor-pointer ${
+                                                                isActive ? 'border-brand-500 shadow-lg shadow-brand-500/30' :
+                                                                isSelected ? 'border-brand-500 bg-brand-500/5' :
+                                                                'border-slate-700 hover:border-slate-500'
+                                                            }`}
+                                                            onClick={(e) => onBulkSendToTour ? handleSelect(e) : null}
                                                         >
                                                             {/* Thumbnail */}
-                                                            <div className="aspect-video relative overflow-hidden" onClick={() => { setActiveSceneId(scene.id); setIsGalleryOpen(false); }}>
-                                                                <img src={scene.imageUrl} className="w-full h-full object-cover" alt={scene.title} />
-                                                                {/* Type badge — always visible */}
-                                                                <span className={`absolute top-2 left-2 text-[10px] font-black text-white px-1.5 py-0.5 rounded ${kindColor}`}>{kindLabel}</span>
-                                                                {/* Active indicator */}
-                                                                {isActive && (
+                                                            <div className="aspect-video relative overflow-hidden" onClick={(e) => {
+                                                                if (onBulkSendToTour) {
+                                                                    handleSelect(e);
+                                                                } else {
+                                                                    setActiveSceneId(scene.id);
+                                                                    setIsGalleryOpen(false);
+                                                                }
+                                                            }}>
+                                                                <img src={scene.imageUrl} className={cn("w-full h-full object-cover transition-opacity", isInTour && "opacity-40")} alt={scene.title} />
+                                                                {/* Status Badges */}
+                                                                <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                                                                    {scene.isPublished ? (
+                                                                        <span className="px-1.5 py-0.5 bg-emerald-500/90 backdrop-blur-md text-white text-[8px] font-black rounded-md border border-emerald-400/30 flex items-center gap-1 shadow-lg shadow-black/20 uppercase tracking-tighter">
+                                                                            <CheckCircle className="w-2.5 h-2.5" />
+                                                                            Publicada
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="px-1.5 py-0.5 bg-slate-900/90 backdrop-blur-md text-slate-400 text-[8px] font-black rounded-md border border-slate-700/50 flex items-center gap-1 shadow-lg shadow-black/20 uppercase tracking-tighter">
+                                                                            <XCircle className="w-2.5 h-2.5" />
+                                                                            Oculta
+                                                                        </span>
+                                                                    )}
+                                                                    {isEdited && (
+                                                                        <span className="px-1.5 py-0.5 bg-amber-500/90 backdrop-blur-md text-white text-[8px] font-black rounded-md border border-amber-400/30 flex items-center gap-1 shadow-lg shadow-black/20 uppercase tracking-tighter">
+                                                                            <Edit3 className="w-2.5 h-2.5" />
+                                                                            Editada
+                                                                        </span>
+                                                                    )}
+                                                                    {isInTour && (
+                                                                        <span className="px-1.5 py-0.5 bg-brand-500/90 backdrop-blur-md text-white text-[8px] font-black rounded-md border border-brand-400/30 flex items-center gap-1 shadow-lg shadow-black/20 uppercase tracking-tighter">
+                                                                            <Globe className="w-2.5 h-2.5" />
+                                                                            En Recorrido
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Selection Checkbox */}
+                                                                {onBulkSendToTour && !isInTour && (
+                                                                    <div
+                                                                        className={cn(
+                                                                            "absolute top-2 right-2 w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center",
+                                                                            isSelected
+                                                                                ? "bg-brand-500 border-brand-500 scale-110"
+                                                                                : "bg-black/40 border-white/20 group-hover:border-white/50"
+                                                                        )}
+                                                                    >
+                                                                        {isSelected && <Check className="w-3 h-3 text-white stroke-[4]" />}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Active indicator (when NOT in bulk mode) */}
+                                                                {!onBulkSendToTour && isActive && (
                                                                     <span className="absolute top-2 right-2 text-[10px] font-black text-white bg-brand-500 px-1.5 py-0.5 rounded flex items-center gap-1">
                                                                         <Eye className="w-2.5 h-2.5" /> Activa
                                                                     </span>
@@ -2566,7 +2759,7 @@ export default function TourCreator({
                         if (onSaveGalleryImage) {
                             const res = await onSaveGalleryImage(nextScene);
                             if (!res.success || !res.data) {
-                                throw new Error(res.error || "Fallo en sincronización con Galería");
+                                throw new Error((res as any).error || "Fallo en sincronización con Galería");
                             }
 
                             setScenes((prev) =>

@@ -267,6 +267,7 @@ model ProyectoImagen {
   url               String
   categoria         String
   esPrincipal       Boolean  @default(false)
+  isPublished       Boolean  @default(true)
   masterplanOverlay Json?
   orden             Int      @default(0)
   createdAt         DateTime @default(now())

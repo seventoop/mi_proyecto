@@ -10,6 +10,8 @@ import {
     Loader2,
     Download,
     Plus,
+    Eye,
+    EyeOff,
 } from "lucide-react";
 import {
     DndContext,
@@ -35,6 +37,7 @@ import {
     updateProyectoImagenesOrder,
     setMainProyectoImagen,
     updateProyectoImagen,
+    toggleProyectoImagenPublish,
 } from "@/lib/actions/proyectos";
 import { createTour, getProjectTours, updateTour } from "@/lib/actions/tours";
 import { toast } from "sonner";
@@ -57,6 +60,7 @@ interface ProyectoImagen {
     orden: number;
     createdAt: Date | string;
     masterplanOverlay?: any;
+    isPublished?: boolean;
 }
 
 const isImagenEditada = (img: ProyectoImagen) => {
@@ -106,6 +110,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
     const [showSceneEditor, setShowSceneEditor] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [isSavingImageEditor, setIsSavingImageEditor] = useState(false);
+    const [tourImageIds, setTourImageIds] = useState<Set<string>>(new Set());
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -120,11 +125,31 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
 
     async function loadImagenes() {
         setLoading(true);
-        const res = await getProyectoImagenes(proyectoId);
-        if (res.success) {
-            setImagenes((res.data ?? []).map((img: any) => ({ ...img, categoria: normalizeGalleryCategory(img.categoria) })));
+        try {
+            const [res, toursRes] = await Promise.all([
+                getProyectoImagenes(proyectoId),
+                getProjectTours(proyectoId)
+            ]);
+
+            if (res.success) {
+                setImagenes((res.data ?? []).map((img: any) => ({ ...img, categoria: normalizeGalleryCategory(img.categoria) })));
+            }
+
+            if (toursRes.success && toursRes.data) {
+                const ids = new Set<string>();
+                toursRes.data.forEach((tour: any) => {
+                    tour.scenes?.forEach((scene: any) => {
+                        if (scene.galleryImageId) ids.add(scene.galleryImageId);
+                        else if (scene.imageUrl) ids.add(scene.imageUrl);
+                    });
+                });
+                setTourImageIds(ids);
+            }
+        } catch (error) {
+            console.error("Error loading images:", error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     const handleExportZip = async () => {
@@ -302,6 +327,18 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
         }
     };
 
+    const handleTogglePublish = async (id: string, isPublished: boolean) => {
+        const res = await toggleProyectoImagenPublish(id, isPublished, proyectoId);
+        if (res.success) {
+            setImagenes((prev) =>
+                prev.map((img) => (img.id === id ? { ...img, isPublished } : img))
+            );
+            toast.success(isPublished ? "Imagen publicada" : "Imagen oculta");
+        } else {
+            toast.error("Error al actualizar estado");
+        }
+    };
+
     const handleSendToTour = async (img: ProyectoImagen) => {
         const toastId = toast.loading("Enviando a Tour 360...");
         try {
@@ -311,7 +348,10 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
 
             if (toursRes.success && toursRes.data && toursRes.data.length > 0) {
                 const biblio =
-                    toursRes.data.find((t: any) => String(t.nombre || "").toLowerCase().includes("biblioteca")) ||
+                    toursRes.data.find((t: any) => {
+                        const name = String(t.nombre || "").toLowerCase();
+                        return name.includes("biblioteca") || name.includes("recorrido 360 principal");
+                    }) ||
                     toursRes.data[0];
                 targetTourId = biblio.id;
                 currentScenes = biblio.scenes || [];
@@ -325,7 +365,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
             );
 
             if (duplicateScene) {
-                toast.info("Esta imagen ya fue enviada a Tour 360 y Biblioteca", { id: toastId });
+                toast.info("Esta imagen ya fue agregada al Visor 360", { id: toastId });
                 return;
             }
 
@@ -344,18 +384,108 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
 
             if (targetTourId) {
                 await updateTour(targetTourId, {
-                    nombre: "Tour 360 y Biblioteca",
+                    nombre: "Recorrido 360 Principal",
                     scenes: [...currentScenes.map((s: any) => ({ ...s, hotspots: s.hotspots || [] })), newScene],
                 });
             } else {
                 await createTour({
                     proyectoId,
-                    nombre: "Tour 360 y Biblioteca",
+                    nombre: "Recorrido 360 Principal",
                     scenes: [newScene],
                 });
             }
 
-            toast.success("Imagen enviada a Tour 360 y Biblioteca", { id: toastId });
+            toast.success("Imagen agregada al Visor 360", { id: toastId });
+            setTourImageIds((prev) => {
+                const next = new Set(prev);
+                next.add(img.id);
+                return next;
+            });
+        } catch (error: any) {
+            toast.error(error.message || "Error al enviar a tour", { id: toastId });
+        }
+    };
+
+    const handleBulkSendToTour = async (selectedScenes: Scene[]) => {
+        if (selectedScenes.length === 0) return;
+        const toastId = toast.loading(`Agregando ${selectedScenes.length} imágenes al Visor 360...`);
+        try {
+            const toursRes = await getProjectTours(proyectoId);
+            let targetTourId: string | null = null;
+            let currentScenes: any[] = [];
+
+            if (toursRes.success && toursRes.data && toursRes.data.length > 0) {
+                const biblio =
+                    toursRes.data.find((t: any) => {
+                        const name = String(t.nombre || "").toLowerCase();
+                        return name.includes("biblioteca") || name.includes("recorrido 360 principal");
+                    }) ||
+                    toursRes.data[0];
+                targetTourId = biblio.id;
+                currentScenes = biblio.scenes || [];
+            }
+
+            const newScenesToAdd: any[] = [];
+            const newImageIds = new Set<string>();
+
+            for (const scene of selectedScenes) {
+                const galleryImageId = scene.galleryImageId;
+                if (!galleryImageId) continue;
+
+                const isDuplicate = currentScenes.some(
+                    (s: any) =>
+                        s.galleryImageId === galleryImageId ||
+                        s.masterplanOverlay?.galleryImageId === galleryImageId
+                );
+
+                if (!isDuplicate) {
+                    const img = imagenes.find(i => i.id === galleryImageId);
+                    if (img) {
+                        const sceneCategory = galleryCategoryToSceneCategory(img.categoria);
+                        newScenesToAdd.push({
+                            title: img.categoria?.replaceAll("_", " ") || "Imagen de galería",
+                            imageUrl: img.url,
+                            thumbnailUrl: img.url,
+                            category: sceneCategory,
+                            galleryImageId: img.id,
+                            masterplanOverlay: {
+                                ...(img.masterplanOverlay ?? {}),
+                                galleryImageId: img.id,
+                            },
+                            hotspots: [],
+                        });
+                        newImageIds.add(img.id);
+                    }
+                }
+            }
+
+            if (newScenesToAdd.length === 0) {
+                toast.info("Todas las imágenes seleccionadas ya estaban en el Visor 360", { id: toastId });
+                return;
+            }
+
+            if (targetTourId) {
+                await updateTour(targetTourId, {
+                    nombre: "Recorrido 360 Principal",
+                    scenes: [
+                        ...currentScenes.map((s: any) => ({ ...s, hotspots: s.hotspots || [] })),
+                        ...newScenesToAdd
+                    ],
+                });
+            } else {
+                await createTour({
+                    proyectoId,
+                    nombre: "Recorrido 360 Principal",
+                    scenes: newScenesToAdd,
+                });
+            }
+
+            toast.success(`${newScenesToAdd.length} imágenes agregadas al Visor 360`, { id: toastId });
+            setTourImageIds((prev) => {
+                const next = new Set(prev);
+                newImageIds.forEach(id => next.add(id));
+                return next;
+            });
         } catch (error: any) {
             toast.error(error.message || "Error al enviar a tour", { id: toastId });
         }
@@ -472,6 +602,8 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                                         setShowSceneEditor(true);
                                     }}
                                     onSendToTour={handleSendToTour}
+                                    onTogglePublish={handleTogglePublish}
+                                    isInTour={tourImageIds.has(img.id) || tourImageIds.has(img.url)}
                                 />
                             ))}
 
@@ -528,6 +660,8 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                     initialScenes={imagenes.map(galleryImageToScene)}
                     onSaveGalleryImage={handleSaveGalleryImage}
                     onSave={handleImportSave}
+                    onBulkSendToTour={handleBulkSendToTour}
+                    tourImageIds={tourImageIds}
                     onClose={() => setShowImportModal(false)}
                 />
             )}
@@ -541,12 +675,16 @@ function SortableImage({
     onSetMain,
     onEdit,
     onSendToTour,
+    onTogglePublish,
+    isInTour,
 }: {
     img: ProyectoImagen;
     onDelete: (id: string) => void;
     onSetMain: (id: string) => void;
     onEdit: (img: ProyectoImagen) => void;
     onSendToTour: (img: ProyectoImagen) => void;
+    onTogglePublish: (id: string, isPublished: boolean) => void;
+    isInTour?: boolean;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: img.id });
 
@@ -574,6 +712,23 @@ function SortableImage({
                 </div>
             )}
 
+            <div className="absolute top-2 left-2 z-10 flex gap-1">
+                {img.isPublished ? (
+                    <div className="bg-emerald-500/90 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border border-white/20 shadow-lg">
+                        Publicada
+                    </div>
+                ) : (
+                    <div className="bg-slate-500/90 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border border-white/20 shadow-lg">
+                        Oculta
+                    </div>
+                )}
+                {isInTour && (
+                    <div className="bg-indigo-500/90 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border border-white/20 shadow-lg">
+                        En Visor 360
+                    </div>
+                )}
+            </div>
+
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col p-2">
                 <div className="flex justify-between items-start">
                     <div
@@ -584,6 +739,16 @@ function SortableImage({
                         <GripVertical className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex gap-1">
+                        <button
+                            onClick={() => onTogglePublish(img.id, !(img.isPublished ?? true))}
+                            className={cn(
+                                "p-1.5 rounded-lg text-white transition-colors",
+                                img.isPublished ? "bg-amber-500/20 hover:bg-amber-500/80" : "bg-emerald-500/20 hover:bg-emerald-500/80"
+                            )}
+                            title={img.isPublished ? "Ocultar imagen" : "Publicar imagen"}
+                        >
+                            {img.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                         <button
                             onClick={() => onEdit(img)}
                             className="p-1.5 bg-indigo-500/20 hover:bg-indigo-500/80 rounded-lg text-white transition-colors"
@@ -603,10 +768,16 @@ function SortableImage({
 
                 <div className="mt-auto flex flex-col gap-1.5">
                     <button
-                        onClick={() => onSendToTour(img)}
-                        className="w-full py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
+                        onClick={() => !isInTour && onSendToTour(img)}
+                        disabled={isInTour}
+                        className={cn(
+                            "w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                            isInTour
+                                ? "bg-slate-500/50 text-white/70 cursor-not-allowed"
+                                : "bg-brand-500 hover:bg-brand-600 text-white"
+                        )}
                     >
-                        Mandar a Tour
+                        {isInTour ? "Ya en Visor 360" : "Agregar al Visor 360"}
                     </button>
 
                     <div className="flex gap-1">

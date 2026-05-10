@@ -556,6 +556,8 @@ export async function updateProyectoImagen(id: string, data: {
     categoria?: string;
     masterplanOverlay?: any;
     proyectoId: string;
+    galleryImageId?: string;
+    isPublished?: boolean;
 }) {
     try {
         await requireProjectOwnership(data.proyectoId);
@@ -569,6 +571,7 @@ export async function updateProyectoImagen(id: string, data: {
             data: {
                 url: data.url,
                 categoria: data.categoria,
+                isPublished: data.isPublished,
                 ...(safeOverlay !== undefined && { masterplanOverlay: safeOverlay })
             }
         });
@@ -584,12 +587,33 @@ export async function updateProyectoImagenesOrder(updates: { id: string, orden: 
     try {
         await requireProjectOwnership(proyectoId);
 
-        await prisma.$transaction(
-            updates.map(u => prisma.proyectoImagen.update({
-                where: { id: u.id },
-                data: { orden: u.orden }
-            }))
+        await Promise.all(
+            updates.map((update) =>
+                prisma.proyectoImagen.update({
+                    where: { id: update.id },
+                    data: { orden: update.orden },
+                })
+            )
         );
+
+        revalidatePath(`/dashboard/proyectos/${proyectoId}`);
+        return { success: true };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function bulkUpdateProyectoImagenesVisibility(ids: string[], isPublished: boolean, proyectoId: string) {
+    try {
+        await requireProjectOwnership(proyectoId);
+
+        await prisma.proyectoImagen.updateMany({
+            where: {
+                id: { in: ids },
+                proyectoId: proyectoId
+            },
+            data: { isPublished }
+        });
 
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };
@@ -635,6 +659,22 @@ export async function setMainProyectoImagen(id: string, proyectoId: string) {
 
         revalidatePath(`/dashboard/proyectos/${proyectoId}`);
         return { success: true };
+    } catch (error) {
+        return handleGuardError(error);
+    }
+}
+
+export async function toggleProyectoImagenPublish(id: string, isPublished: boolean, proyectoId: string) {
+    try {
+        await requireProjectOwnership(proyectoId);
+
+        const updated = await prisma.proyectoImagen.update({
+            where: { id },
+            data: { isPublished }
+        });
+
+        revalidatePath(`/dashboard/proyectos/${proyectoId}`);
+        return { success: true, data: updated };
     } catch (error) {
         return handleGuardError(error);
     }

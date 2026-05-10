@@ -175,25 +175,38 @@ function mapProjectUnits(project: any): MasterplanUnit[] {
 function dbTourToScenes(tour: any): Scene[] {
     if (!tour?.scenes?.length) return [];
 
-    return tour.scenes.map((dbScene: any) => ({
-        id: dbScene.id,
-        title: dbScene.title,
-        imageUrl: dbScene.imageUrl,
-        isDefault: dbScene.isDefault,
-        category: normalizeTourMediaCategory(dbScene),
-        masterplanOverlay: dbScene.masterplanOverlay ?? undefined,
-        hotspots: (dbScene.hotspots || []).map((hs: any): Hotspot => ({
-            id: hs.id,
-            type: hs.type?.toLowerCase() || "info",
-            pitch: hs.pitch,
-            yaw: hs.yaw,
-            text: hs.text || "",
-            unidad: hs.unidad || undefined,
-            targetSceneId: hs.targetSceneId || undefined,
-        })),
-        polygons: [],
-        floatingLabels: [],
-    }));
+    return tour.scenes.map((dbScene: any) => {
+        const overlay = dbScene.masterplanOverlay as any || {};
+        const canvasState = overlay.canvasState || {};
+
+        // Legacy fallbacks for old editor format
+        const mappedPolygons = overlay.polygons || [];
+        const mappedLabels = overlay.floatingLabels || [];
+
+        return {
+            id: dbScene.id,
+            title: dbScene.title,
+            imageUrl: dbScene.imageUrl,
+            isDefault: dbScene.isDefault,
+            category: normalizeTourMediaCategory(dbScene),
+            masterplanOverlay: overlay,
+            hotspots: (dbScene.hotspots || []).map((hs: any): Hotspot => ({
+                id: hs.id,
+                type: hs.type?.toLowerCase() || "info",
+                pitch: hs.pitch,
+                yaw: hs.yaw,
+                text: hs.text || "",
+                unidad: hs.unidad || undefined,
+                targetSceneId: hs.targetSceneId || undefined,
+            })),
+            polygons: mappedPolygons,
+            floatingLabels: mappedLabels,
+            frames: overlay.frames || [],
+            images: overlay.images || [],
+            galleryImageId: overlay.galleryImageId,
+            sceneKey: overlay.sceneKey,
+        };
+    });
 }
 
 // ─── Metadata ───

@@ -1,4 +1,4 @@
-﻿import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Metadata } from "next";
 import {
@@ -19,7 +19,10 @@ async function getProject(slug: string) {
             take: 1,
             include: { scenes: { orderBy: { order: "asc" as const } } }
         },
-        imagenes: { orderBy: { orden: "asc" as const } },
+        imagenes: {
+            where: { isPublished: true },
+            orderBy: { orden: "asc" as const }
+        },
         etapas: {
             include: {
                 manzanas: {

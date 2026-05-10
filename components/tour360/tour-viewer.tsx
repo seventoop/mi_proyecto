@@ -98,6 +98,7 @@ export interface MasterplanOverlay {
     selectedPlanId?: string;
     planCornerAdjustments?: any[];
     marks?: any[];
+    canvasState?: any;
     // Added fields unified with creator
     direction?: SceneDirection;
     assetVersion?: "original" | "edited";
@@ -122,6 +123,7 @@ export interface Scene {
     direction?: SceneDirection; // Added field
     masterplanOverlay?: MasterplanOverlay;
     galleryImageId?: string;
+    sceneKey?: string;
 }
 
 interface TourViewerProps {
@@ -171,6 +173,8 @@ function PanoramicOverlay({
     overlayBounds,
     overlayRotation,
     overlaySvgViewBox,
+    onNavigate,
+    allScenes,
 }: {
     viewer: any;
     viewerRef: React.RefObject<HTMLDivElement>;
@@ -181,6 +185,8 @@ function PanoramicOverlay({
     overlayBounds?: [[number, number], [number, number]] | null;
     overlayRotation?: number;
     overlaySvgViewBox?: SvgViewBox | null;
+    onNavigate?: (sceneId: string) => void;
+    allScenes?: Scene[];
 }) {
     const [viewState, setViewState] = useState({ hfov: 100, pitch: 0, yaw: 0 });
 
@@ -188,27 +194,33 @@ function PanoramicOverlay({
         if (!viewer) return;
         let rafId: number;
         const update = () => {
-            setViewState({
-                hfov: viewer.getHfov(),
-                pitch: viewer.getPitch(),
-                yaw: viewer.getYaw()
-            });
+            try {
+                setViewState({
+                    hfov: viewer.getHfov(),
+                    pitch: viewer.getPitch(),
+                    yaw: viewer.getYaw()
+                });
+            } catch (e) { }
             rafId = requestAnimationFrame(update);
         };
         rafId = requestAnimationFrame(update);
         return () => cancelAnimationFrame(rafId);
     }, [viewer]);
 
-    const projectCoords = (pitch: number, yaw: number) => {
+    const projectCoords = useCallback((pitch: number, yaw: number) => {
         if (!viewer || !viewerRef.current) return null;
 
+        // 1. Try native Pannellum projection (pixel-perfect)
         if (typeof viewer.viewToContainerPoints === "function") {
-            const pts = viewer.viewToContainerPoints(pitch, yaw);
-            if (pts && Array.isArray(pts) && pts.length === 2 && !isNaN(pts[0]) && !isNaN(pts[1])) {
-                return { x: pts[0], y: pts[1] };
-            }
+            try {
+                const pts = viewer.viewToContainerPoints(pitch, yaw);
+                if (pts && Array.isArray(pts) && pts.length === 2 && !isNaN(pts[0]) && !isNaN(pts[1])) {
+                    return { x: pts[0], y: pts[1] };
+                }
+            } catch (e) { }
         }
 
+        // 2. Fallback to robust world-to-screen projection math (matches Tour360SceneCanvas)
         const width = viewerRef.current.clientWidth;
         const height = viewerRef.current.clientHeight;
 
@@ -219,29 +231,28 @@ function PanoramicOverlay({
         const vy = viewState.yaw * degToRad;
 
         const vx = Math.cos(p) * Math.sin(y);
-        const vy_vec = Math.sin(p);
+        const vyVec = Math.sin(p);
         const vz = Math.cos(p) * Math.cos(y);
 
-        const s_y = Math.sin(-vy);
-        const c_y = Math.cos(-vy);
+        const s_y = Math.sin(vy);
+        const c_y = Math.cos(vy);
         const rx = vx * c_y - vz * s_y;
-        const rz_temp = vx * s_y + vz * c_y;
+        const rzTemp = vx * s_y + vz * c_y;
 
-        const s_p = Math.sin(-vp);
-        const c_p = Math.cos(-vp);
-        const ry = vy_vec * c_p - rz_temp * s_p;
-        const rz = vy_vec * s_p + rz_temp * c_p;
+        const s_p = Math.sin(vp);
+        const c_p = Math.cos(vp);
+        const ry = vyVec * c_p - rzTemp * s_p;
+        const rz = vyVec * s_p + rzTemp * c_p;
 
         if (rz <= 0) return null;
 
-        const canvas_hfov = viewState.hfov * degToRad;
-        const focalLength = (width / 2) / Math.tan(canvas_hfov / 2);
+        const focalLength = (width / 2) / Math.tan((viewState.hfov * degToRad) / 2);
 
-        const px = (rx / rz) * focalLength + (width / 2);
-        const py = (-ry / rz) * focalLength + (height / 2);
-
-        return { x: px, y: py };
-    };
+        return {
+            x: (rx / rz) * focalLength + width / 2,
+            y: (-ry / rz) * focalLength + height / 2,
+        };
+    }, [viewer, viewState, viewerRef]);
 
     const getPolygonPath = (points: { pitch: number; yaw: number }[]) => {
         const coords = points.map(p => projectCoords(p.pitch, p.yaw));
@@ -251,7 +262,75 @@ function PanoramicOverlay({
         }).join(" ") + " Z";
     };
 
+    const getHfovScale = (anchorHfov?: number) => {
+        if (!viewState.hfov || !anchorHfov) return 1;
+        const toRad = (deg: number) => (deg * Math.PI) / 180;
+        const current = Math.tan(toRad(viewState.hfov) / 2);
+        const reference = Math.tan(toRad(anchorHfov) / 2);
+        if (current <= 0 || reference <= 0) return 1;
+        return reference / current;
+    };
+
+    const handleObjectClick = (obj: any) => {
+        console.log(`[TourViewer] handleObjectClick:`, obj.id, {
+            targetId: obj.targetSceneId,
+            targetKey: obj.targetSceneKey
+        });
+
+        if (!onNavigate || !allScenes) {
+            console.warn(`[TourViewer] onNavigate or allScenes missing`);
+            return;
+        }
+
+        const targetKey = obj.targetSceneKey;
+        const targetId = obj.targetSceneId;
+        let matchedScene: Scene | undefined = undefined;
+
+        // 1. Prioridad: Scene Key (como en el Editor)
+        if (targetKey) {
+            matchedScene = allScenes.find(s =>
+                s.sceneKey === targetKey ||
+                (s.masterplanOverlay as any)?.sceneKey === targetKey
+            );
+            if (matchedScene) console.log(`[TourViewer] Matched by Key: ${matchedScene.id}`);
+        }
+
+        // 2. Resolver por ID (TourScene ID o Gallery ID)
+        if (!matchedScene && targetId) {
+            matchedScene = allScenes.find(s =>
+                s.id === targetId ||
+                s.galleryImageId === targetId ||
+                (s.masterplanOverlay as any)?.galleryImageId === targetId
+            );
+            if (matchedScene) console.log(`[TourViewer] Matched by ID: ${matchedScene.id}`);
+        }
+
+        // 3. Fallback: Resolución por Imagen (URL)
+        if (!matchedScene) {
+            const targetUrl = obj.previewUrl || obj.imageUrl;
+            if (targetUrl) {
+                const norm = (u: string) => u.startsWith('/') ? u : '/' + u;
+                const normalizedTarget = norm(targetUrl);
+                matchedScene = allScenes.find(s =>
+                    norm(s.imageUrl) === normalizedTarget ||
+                    (s.thumbnailUrl && norm(s.thumbnailUrl) === normalizedTarget)
+                );
+                if (matchedScene) console.log(`[TourViewer] Matched by URL: ${matchedScene.id}`);
+            }
+        }
+
+        // Navegar
+        if (matchedScene) {
+            console.log(`[TourViewer] Navigating to: ${matchedScene.id}`);
+            onNavigate(matchedScene.id);
+        } else {
+            console.warn(`[TourViewer] No se pudo resolver destino para el portal:`, obj.id, { targetId, targetKey });
+        }
+    };
+
     if (!viewerReady || !currentScene) return null;
+
+    const canvasState = (currentScene.masterplanOverlay as any)?.canvasState || {};
 
     return (
         <>
@@ -302,8 +381,15 @@ function PanoramicOverlay({
                     );
                 })()}
 
-            {/* SVG Layer for Polygons */}
+            {/* SVG Layer for Polygons, Lines, Arrows and Freehand */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="white" />
+                    </marker>
+                </defs>
+
+                {/* Legacy Polygons */}
                 {currentScene.polygons?.map((poly) => (
                     <path
                         key={poly.id}
@@ -321,7 +407,48 @@ function PanoramicOverlay({
                     </path>
                 ))}
 
-                {/* Leader Lines for Landmarks */}
+                {/* Freehand Strokes from canvasState */}
+                {canvasState.freehandStrokes?.map((stroke: any) => {
+                    const d = stroke.points?.map((p: any, i: number) => {
+                        const c = projectCoords(p.pitch, p.yaw);
+                        if (!c) return "";
+                        return `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)},${c.y.toFixed(1)}`;
+                    }).join(" ");
+                    if (!d) return null;
+
+                    return (
+                        <path
+                            key={stroke.id}
+                            d={stroke.type === 'polygon' ? d + " Z" : d}
+                            fill={stroke.type === 'polygon' ? (stroke.color ? `${stroke.color}66` : "rgba(34, 197, 94, 0.4)") : "none"}
+                            stroke={stroke.color || "white"}
+                            strokeWidth={stroke.strokeWidth || 3}
+                            className="opacity-70"
+                        />
+                    );
+                })}
+
+                {/* Anchored Lines and Arrows from canvasState */}
+                {canvasState.anchoredLines?.map((line: any) => {
+                    const p1 = projectCoords(line.pitch1, line.yaw1);
+                    const p2 = projectCoords(line.pitch2, line.yaw2);
+                    if (!p1 || !p2) return null;
+
+                    return (
+                        <line
+                            key={line.id}
+                            x1={p1.x} y1={p1.y}
+                            x2={p2.x} y2={p2.y}
+                            stroke={line.color || "white"}
+                            strokeWidth={line.strokeWidth || 2}
+                            strokeDasharray={line.type === 'dashed' ? "4 2" : undefined}
+                            markerEnd={line.type === 'arrow' ? "url(#arrowhead)" : undefined}
+                            opacity={0.8}
+                        />
+                    );
+                })}
+
+                {/* Leader Lines for Legacy Landmarks */}
                 {currentScene.floatingLabels?.filter(l => l.style === 'landmark' && l.anchorPitch !== undefined).map(label => {
                     const labelCoords = projectCoords(label.pitch, label.yaw);
                     const anchorCoords = projectCoords(label.anchorPitch!, label.anchorYaw!);
@@ -337,7 +464,106 @@ function PanoramicOverlay({
                 })}
             </svg>
 
-            {/* Floating Labels Layer */}
+            {canvasState.anchoredFrames?.map((frame: any) => {
+                const c = projectCoords(frame.pitch, frame.yaw);
+                if (!c) return null;
+                const scale = getHfovScale(frame.anchorHfov);
+                const w = (frame.width || 100) * scale;
+                const h = (frame.height || 100) * scale;
+
+                const hasDestination = !!(frame.targetSceneId || frame.targetSceneKey || frame.previewUrl);
+
+                return (
+                    <button
+                        key={frame.id}
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (hasDestination) handleObjectClick(frame);
+                        }}
+                        className={cn(
+                            "absolute group transition-transform z-20 outline-none border-none p-0 bg-transparent",
+                            hasDestination ? "pointer-events-auto cursor-pointer hover:scale-105" : "pointer-events-none"
+                        )}
+                        style={{
+                            left: c.x,
+                            top: c.y,
+                            width: w,
+                            height: h,
+                            transform: "translate(-50%, -50%)",
+                        }}
+                    >
+                        <div className={cn(
+                            "w-full h-full border-2 border-white/50 bg-black/20 backdrop-blur-[2px] shadow-xl overflow-hidden",
+                            frame.type === 'circle' ? "rounded-full" : "rounded-xl"
+                        )}>
+                            {frame.previewUrl && (
+                                <img src={frame.previewUrl} className="w-full h-full object-cover opacity-80" alt="Preview" />
+                            )}
+
+                            {/* Visual cue for navigation - matches editor style */}
+                            {hasDestination && (
+                                <div className="absolute top-2 right-2 p-1.5 rounded-full bg-brand-500 text-white shadow-lg border border-white/20">
+                                    <Play size={10} fill="currentColor" />
+                                </div>
+                            )}
+                        </div>
+                    </button>
+                );
+            })}
+
+            {/* Anchored POI Badges from canvasState */}
+            {canvasState.anchoredPoiBadges?.map((badge: any) => {
+                const c = projectCoords(badge.pitch, badge.yaw);
+                if (!c) return null;
+                const scale = getHfovScale(badge.anchorHfov);
+
+                return (
+                    <div
+                        key={badge.id}
+                        className="absolute flex flex-col items-center pointer-events-none transform -translate-x-1/2 -translate-y-1/2 z-30"
+                        style={{ left: c.x, top: c.y, scale: String(scale) }}
+                    >
+                        <div className={cn(
+                            "p-2 rounded-full shadow-lg border-2 border-white pointer-events-auto",
+                            badge.color ? `bg-[${badge.color}]` : "bg-brand-500"
+                        )}
+                        style={{ backgroundColor: badge.color }}
+                        >
+                            {badge.imageUrl ? (
+                                <img src={badge.imageUrl} className="w-6 h-6 object-contain invert" alt="" />
+                            ) : (
+                                <MapPin className="w-5 h-5 text-white" />
+                            )}
+                        </div>
+                        {badge.title && (
+                            <div className="mt-1 bg-black/60 backdrop-blur-md text-white px-2 py-0.5 rounded text-[10px] font-bold border border-white/20 whitespace-nowrap">
+                                {badge.title}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+
+            {/* Anchored Texts from canvasState */}
+            {canvasState.anchoredTexts?.map((t: any) => {
+                const c = projectCoords(t.pitch, t.yaw);
+                if (!c) return null;
+                const scale = getHfovScale(t.anchorHfov);
+
+                return (
+                    <div
+                        key={t.id}
+                        className="absolute px-3 py-1 rounded-full text-[12px] font-bold text-white shadow-lg pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 z-20 bg-slate-900/80 border border-white/20 backdrop-blur-md"
+                        style={{ left: c.x, top: c.y, scale: String(scale) }}
+                    >
+                        {t.text}
+                    </div>
+                );
+            })}
+
+            {/* Legacy Floating Labels */}
             {currentScene.floatingLabels?.map(label => {
                 const coords = projectCoords(label.pitch, label.yaw);
                 if (!coords) return null;
@@ -514,6 +740,7 @@ export default function TourViewer({
             });
 
             viewerInstance.current.on("scenechange", (sceneId: string) => {
+                console.log(`[TourViewer] Pannellum scenechange event: ${sceneId}`);
                 setCurrentSceneId(sceneId);
                 onSceneChange?.(sceneId);
             });
@@ -594,8 +821,16 @@ export default function TourViewer({
     };
 
     const goToScene = (sceneId: string) => {
+        console.log(`[TourViewer] Main goToScene called with: ${sceneId}`);
         if (viewerInstance.current) {
             viewerInstance.current.loadScene(sceneId);
+
+            // Forzar actualización de estado inmediata para sincronizar UI de React
+            // Esto ayuda si el evento scenechange de Pannellum tarda o no se dispara
+            setCurrentSceneId(sceneId);
+            if (onSceneChange) onSceneChange(sceneId);
+        } else {
+            console.warn(`[TourViewer] Cannot goToScene: viewerInstance.current is null`);
         }
     };
 
@@ -704,6 +939,8 @@ export default function TourViewer({
                     overlayBounds={overlayBounds}
                     overlayRotation={overlayRotation}
                     overlaySvgViewBox={overlaySvgViewBox}
+                    onNavigate={goToScene}
+                    allScenes={dynamicScenes}
                 />
             )}
 
