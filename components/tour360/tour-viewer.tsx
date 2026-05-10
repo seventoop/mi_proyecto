@@ -358,6 +358,7 @@ function PanoramicOverlay({
     if (!viewerReady || !currentScene) return null;
 
     const canvasState = (currentScene.masterplanOverlay as any)?.canvasState || {};
+    const hasBakedImage = !!currentScene.processedImageUrl;
 
     return (
         <>
@@ -435,7 +436,7 @@ function PanoramicOverlay({
                 ))}
 
                 {/* Freehand Strokes from canvasState */}
-                {canvasState.freehandStrokes?.map((stroke: any) => {
+                {!hasBakedImage && canvasState.freehandStrokes?.map((stroke: any) => {
                     const d = stroke.points?.map((p: any, i: number) => {
                         const c = projectCoords(p.pitch, p.yaw);
                         if (!c) return "";
@@ -456,7 +457,7 @@ function PanoramicOverlay({
                 })}
 
                 {/* Anchored Lines and Arrows from canvasState */}
-                {canvasState.anchoredLines?.map((line: any) => {
+                {!hasBakedImage && canvasState.anchoredLines?.map((line: any) => {
                     const p1 = projectCoords(line.pitch1, line.yaw1);
                     const p2 = projectCoords(line.pitch2, line.yaw2);
                     if (!p1 || !p2) return null;
@@ -574,7 +575,7 @@ function PanoramicOverlay({
             })}
 
             {/* Anchored Texts from canvasState */}
-            {canvasState.anchoredTexts?.map((t: any) => {
+            {!hasBakedImage && canvasState.anchoredTexts?.map((t: any) => {
                 const c = projectCoords(t.pitch, t.yaw);
                 if (!c) return null;
                 const scale = getHfovScale(t.anchorHfov);

@@ -64,6 +64,14 @@ export async function POST(req: NextRequest) {
             },
         });
 
+        // 6. DB Update: Auto-sync TourScene records
+        // Using imageUrl as fallback because galleryImageId is stored inside masterplanOverlay JSON
+        // and imageUrl is a direct schema column that perfectly matches ProyectoImagen.url
+        await prisma.tourScene.updateMany({
+            where: { imageUrl: imagen.url },
+            data: { processedImageUrl: uploadResult.url },
+        });
+
         console.log(`[Baking] Success for image ${imagenId}. URL: ${updatedImagen.processedImageUrl}`);
 
         return NextResponse.json({
