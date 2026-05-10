@@ -24,7 +24,14 @@ export async function getAiPausedFlowExecutions(orgId: string) {
         const executions = await db.logicToopExecution.findMany({
             where: {
                 status: {
-                    in: ["WAITING_FOR_APPROVAL", "AI_APPROVED_WAITING_RESUME", "AI_REJECTED"]
+                    in: [
+                        "WAITING_FOR_APPROVAL",
+                        "AI_APPROVED_WAITING_RESUME",
+                        "AI_REJECTED",
+                        "MANUALLY_RESUMED_SAFE_REVIEW",
+                        "PAUSED_AFTER_SAFE_STEP",
+                        "COMPLETED_SAFE"
+                    ]
                 },
                 // Si pasamos orgId, filtramos por la org del flujo
                 flow: orgId ? { orgId } : undefined

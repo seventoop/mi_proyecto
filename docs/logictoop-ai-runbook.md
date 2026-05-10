@@ -166,3 +166,29 @@ Los eventos se registran en `logictoop_ai_events`.
 | `FEATURE_FLAG_LOGICTOOP_AI_CORE` | `true` | Bloquea procesar/aprobar/rechazar (modo lectura) |
 | `FEATURE_FLAG_PAPERCLIP` | `false` | Control general de Paperclip |
 | `FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION` | `false` | Bloquea cualquier HTTP externo hacia Paperclip |
+
+---
+
+## 11. Smoke test operativo
+
+Para validar el estado de salud del sistema LogicToop AI sin modificar datos:
+
+```bash
+npx tsx scripts/logictoop-ai-smoke.ts
+```
+
+El script verifica:
+- Feature flags esperados (`AI_UI`, `AI_CORE`, `PAPERCLIP`, `REAL_CONNECTION`).
+- Conectividad Prisma.
+- Existencia de tablas/modelos principales.
+- Conteos por estado de ejecución IA.
+- Que Paperclip real esté desconectado.
+- Consistencia básica de datos (orgId, paperclipRunId, statuses).
+
+Resultados posibles:
+- `✅` Check OK
+- `⚠️` Warning (no bloqueante)
+- `❌` Blocker (requiere acción)
+
+> **Nota**: El script es read-only. No modifica, crea ni borra registros.
+

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 import { 
   Table, 
   TableBody, 
@@ -65,7 +66,19 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
     waiting: executions.filter(e => e.status === "WAITING_FOR_APPROVAL").length,
     ready: executions.filter(e => e.status === "AI_APPROVED_WAITING_RESUME").length,
     blocked: executions.filter(e => e.status === "AI_REJECTED").length,
+    resumed: executions.filter(e => e.status === "MANUALLY_RESUMED_SAFE_REVIEW").length,
+    pausedSafe: executions.filter(e => e.status === "PAUSED_AFTER_SAFE_STEP").length,
     completed: executions.filter(e => e.status === "COMPLETED_SAFE").length,
+  };
+
+  const FILTER_LABELS: Record<string, string> = {
+    "TODOS": "Todos",
+    "WAITING_FOR_APPROVAL": "Esperando aprobación",
+    "AI_APPROVED_WAITING_RESUME": "Listo para resume",
+    "AI_REJECTED": "Rechazado",
+    "MANUALLY_RESUMED_SAFE_REVIEW": "Resume controlado",
+    "PAUSED_AFTER_SAFE_STEP": "Pausado tras paso",
+    "COMPLETED_SAFE": "Completado seguro",
   };
 
   const handlePreview = async (executionId: string) => {
@@ -178,12 +191,21 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
     return (
       <div className="border rounded-md p-12 text-center bg-muted/20">
         <div className="flex justify-center mb-4 text-muted-foreground">
-          <Info className="h-10 w-10" />
+          <CheckCircle2 className="h-10 w-10" />
         </div>
-        <h3 className="text-lg font-medium">No hay flujos pausados</h3>
-        <p className="text-muted-foreground">
-          No se encontraron ejecuciones esperando intervención de IA en este momento.
+        <h3 className="text-lg font-medium">No hay flujos pausados por IA</h3>
+        <p className="text-muted-foreground max-w-md mx-auto mt-2">
+          No se encontraron ejecuciones esperando intervención humana en este momento.
+          Los flujos con nodos <code className="text-xs bg-muted px-1 py-0.5 rounded">AI_APPROVAL_TASK</code> aparecerán aquí cuando estén pausados.
         </p>
+        <div className="mt-4">
+          <Link
+            href="/dashboard/admin/logictoop/orchestrator/approvals"
+            className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
+          >
+            Ir a Bandeja de Aprobaciones <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
       </div>
     );
   }
@@ -191,38 +213,52 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="border rounded-lg p-4 bg-card text-card-foreground shadow-sm">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-            <Info className="h-4 w-4" />
-            <span>Total Controlados</span>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="border rounded-lg p-3 bg-card text-card-foreground shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+            <Info className="h-3.5 w-3.5" />
+            <span>Total</span>
           </div>
           <div className="text-2xl font-bold">{counts.total}</div>
         </div>
-        <div className="border rounded-lg p-4 bg-blue-50 text-blue-900 shadow-sm border-blue-100">
-          <div className="flex items-center gap-2 text-sm text-blue-600 mb-2">
-            <Clock className="h-4 w-4" />
-            <span>Esperando IA</span>
+        <div className="border rounded-lg p-3 bg-blue-50 text-blue-900 shadow-sm border-blue-100">
+          <div className="flex items-center gap-1.5 text-xs text-blue-600 mb-1">
+            <Clock className="h-3.5 w-3.5" />
+            <span>Esperando</span>
           </div>
           <div className="text-2xl font-bold">{counts.waiting}</div>
         </div>
-        <div className="border rounded-lg p-4 bg-green-50 text-green-900 shadow-sm border-green-100">
-          <div className="flex items-center gap-2 text-sm text-green-600 mb-2">
-            <CheckCircle className="h-4 w-4" />
-            <span>Listos Resume</span>
+        <div className="border rounded-lg p-3 bg-green-50 text-green-900 shadow-sm border-green-100">
+          <div className="flex items-center gap-1.5 text-xs text-green-600 mb-1">
+            <CheckCircle className="h-3.5 w-3.5" />
+            <span>Listos</span>
           </div>
           <div className="text-2xl font-bold">{counts.ready}</div>
         </div>
-        <div className="border rounded-lg p-4 bg-red-50 text-red-900 shadow-sm border-red-100">
-          <div className="flex items-center gap-2 text-sm text-red-600 mb-2">
-            <Ban className="h-4 w-4" />
+        <div className="border rounded-lg p-3 bg-red-50 text-red-900 shadow-sm border-red-100">
+          <div className="flex items-center gap-1.5 text-xs text-red-600 mb-1">
+            <Ban className="h-3.5 w-3.5" />
             <span>Rechazados</span>
           </div>
           <div className="text-2xl font-bold">{counts.blocked}</div>
         </div>
-        <div className="border rounded-lg p-4 bg-slate-50 text-slate-900 shadow-sm border-slate-100">
-          <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
-            <CheckCircle2 className="h-4 w-4" />
+        <div className="border rounded-lg p-3 bg-purple-50 text-purple-900 shadow-sm border-purple-100">
+          <div className="flex items-center gap-1.5 text-xs text-purple-600 mb-1">
+            <Play className="h-3.5 w-3.5" />
+            <span>Reanudados</span>
+          </div>
+          <div className="text-2xl font-bold">{counts.resumed}</div>
+        </div>
+        <div className="border rounded-lg p-3 bg-amber-50 text-amber-900 shadow-sm border-amber-100">
+          <div className="flex items-center gap-1.5 text-xs text-amber-600 mb-1">
+            <Clock className="h-3.5 w-3.5" />
+            <span>Pausados</span>
+          </div>
+          <div className="text-2xl font-bold">{counts.pausedSafe}</div>
+        </div>
+        <div className="border rounded-lg p-3 bg-slate-50 text-slate-900 shadow-sm border-slate-100">
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-1">
+            <CheckCircle2 className="h-3.5 w-3.5" />
             <span>Completados</span>
           </div>
           <div className="text-2xl font-bold">{counts.completed}</div>
@@ -241,7 +277,7 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
             onClick={() => setStatusFilter(status)}
             className="text-xs h-7"
           >
-            {status === "TODOS" ? "Todos" : status.replace(/_/g, ' ')}
+            {FILTER_LABELS[status] || status}
           </Button>
         ))}
       </div>
