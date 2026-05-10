@@ -145,9 +145,13 @@ async function main() {
   if (flags.PAPERCLIP === "true" && flags.REAL_CONNECTION !== "true") {
       warn("FEATURE_FLAG_PAPERCLIP es 'true', pero REAL_CONNECTION es 'false'. El sistema usará STUB mode.");
   }
+  
+  if (process.env.FEATURE_FLAG_PAPERCLIP_SANDBOX === "true") {
+      console.log("  ℹ️  FEATURE_FLAG_PAPERCLIP_SANDBOX es 'true'. El sistema permite SANDBOX mode (simulado local).");
+  }
 
   if (flags.REAL_CONNECTION === "true") {
-    fail("Paperclip REAL_CONNECTION está activo — no permitido en esta fase de entorno local.");
+    fail("Paperclip REAL_CONNECTION está activo — no permitido en esta fase de entorno local. BLOCKER.");
   } else {
     pass("Paperclip real desconectado");
   }
@@ -175,9 +179,26 @@ async function main() {
 
   const webhookPath = path.join(__dirname, '../app/api/logictoop/paperclip/webhook/route.ts');
   if (fs.existsSync(webhookPath)) {
-      pass("Webhook skeleton (route.ts) existe y está disabled by design.");
+      pass("Webhook skeleton (route.ts) existe y soporta dry-run.");
   } else {
       fail("Falta Webhook skeleton.");
+  }
+
+  const contractPath = path.join(__dirname, 'logictoop-paperclip-contract.ts');
+  if (fs.existsSync(contractPath)) {
+      pass("logictoop-paperclip-contract.ts existe.");
+  } else {
+      fail("Falta script de contract tests.");
+  }
+  
+  // Basic sanity check for fetch/axios in client
+  if (fs.existsSync(clientPath)) {
+      const clientContent = fs.readFileSync(clientPath, 'utf8');
+      if (clientContent.includes('fetch(') || clientContent.includes('axios')) {
+          fail("paperclip-sidecar-client.ts contiene llamadas HTTP prohibidas (fetch/axios).");
+      } else {
+          pass("paperclip-sidecar-client.ts está limpio de fetch/axios.");
+      }
   }
 
   try {

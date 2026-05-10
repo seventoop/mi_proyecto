@@ -170,6 +170,15 @@ En preparación para la integración futura con Paperclip, se han implementado l
 - Para activar Paperclip real hace falta una fase futura con aprobación explícita.
 - **NO habilitar** `FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION` en producción sin HMAC + webhook verification + staging.
 
+### Paperclip Sandbox y Contract Checks
+
+Se ha habilitado la posibilidad de simular el contrato técnico de Paperclip sin red:
+- **SANDBOX mode:** Simula respuestas ricas sin hacer red real. Requiere `FEATURE_FLAG_PAPERCLIP_SANDBOX=true`.
+- **Contract Tests:** Validan la integración localmente. Ejecutar con: `npx tsx scripts/logictoop-paperclip-contract.ts`
+- **Smoke Script:** Ejecutar con: `npx tsx scripts/logictoop-ai-smoke.ts`
+- **Webhook Dry-Run:** Solo valida headers/firma y retorna status simulado. No muta DB ni eventos. Requiere header `x-paperclip-dry-run: true`.
+- La conexión `REAL` sigue estrictamente bloqueada.
+
 ---
 
 ## 11. Feature Flags de control

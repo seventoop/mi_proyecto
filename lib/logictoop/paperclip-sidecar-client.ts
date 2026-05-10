@@ -23,12 +23,17 @@ export interface PaperclipSidecarResponse {
 export function getPaperclipMode(): PaperclipSidecarMode {
     const isFeatureEnabled = process.env.FEATURE_FLAG_PAPERCLIP === "true";
     const isRealConnectionEnabled = process.env.FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION === "true";
+    const isSandboxEnabled = process.env.FEATURE_FLAG_PAPERCLIP_SANDBOX === "true";
 
     if (!isFeatureEnabled) {
         return "DISABLED";
     }
 
-    if (isFeatureEnabled && !isRealConnectionEnabled) {
+    if (isSandboxEnabled && !isRealConnectionEnabled) {
+        return "SANDBOX";
+    }
+
+    if (!isRealConnectionEnabled) {
         return "STUB";
     }
 
@@ -58,7 +63,40 @@ export async function dispatchToPaperclipSidecar(request: PaperclipSidecarReques
         };
     }
 
-    // mode === "REAL" (or SANDBOX, but not implemented here)
+    if (mode === "SANDBOX") {
+        if (!request.taskId || !request.orgId || !request.idempotencyKey) {
+            return {
+                success: false,
+                status: "SANDBOX_VALIDATION_ERROR",
+                message: "Missing required fields for Sandbox mode (taskId, orgId, idempotencyKey)",
+            };
+        }
+        
+        if (request.mode !== "dry_run" && request.mode !== "sandbox") {
+             return {
+                success: false,
+                status: "SANDBOX_VALIDATION_ERROR",
+                message: "Invalid mode for Sandbox. Must be dry_run or sandbox.",
+            };
+        }
+
+        const shortHash = request.idempotencyKey.substring(0, 8);
+        return {
+            success: true,
+            status: "SANDBOX_COMPLETED_NO_SIDE_EFFECTS",
+            paperclipRunId: `sandbox_${request.taskId}_${shortHash}`,
+            message: "Paperclip sandbox simulated successfully. No external call executed.",
+            metadata: {
+                mode: "sandbox",
+                externalCall: false,
+                sideEffects: false,
+                simulated: true,
+                contractVersion: "v0"
+            }
+        };
+    }
+
+    // mode === "REAL"
     // REAL is blocked for this phase.
     return {
         success: false,

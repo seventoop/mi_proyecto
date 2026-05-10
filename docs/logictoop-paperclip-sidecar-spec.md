@@ -173,17 +173,28 @@ Si se detecta un problema con Paperclip en cualquier fase:
 - **Archivos creados**: `app/api/logictoop/paperclip/webhook/route.ts`
 - **Estado**: Implementado (esqueleto), pero `Disabled by design`. Rechaza todas las peticiones con 403 o 501.
 
-#### Fase 10E — Paperclip Sandbox Mode (⏳ Pendiente)
-- **Objetivo**: Primer contacto real con un entorno Paperclip de prueba.
-- **Riesgo**: Medio-Alto (primera conexión HTTP externa).
-- **Requiere**: Autorización explícita, entorno aislado.
-- **Criterios de aceptación**: Roundtrip completo (enviar task → recibir callback) en entorno de prueba usando el Sandbox. No se deben tocar datos de producción.
+#### Fase 10E — Paperclip Sandbox Mode (✅ Completada)
+- **Objetivo**: Primer contacto con entorno simulado.
+- **Implementado**: Simulación local en `lib/logictoop/paperclip-sidecar-client.ts`. No hace red real.
+
+#### Fase 10F — Contract Tests (✅ Completada)
+- **Objetivo**: Tests del contrato de Paperclip sin frameworks externos.
+- **Implementado**: `scripts/logictoop-paperclip-contract.ts` valida modo, idempotency, HMAC y mock de envío.
+
+#### Fase 10G — Webhook Verification Dry-Run (✅ Completada)
+- **Objetivo**: Validar el proceso del Webhook localmente sin afectar DB.
+- **Implementado**: El Webhook acepta header `x-paperclip-dry-run` para verificar firmas pero no guarda nada ni desencadena eventos.
 
 #### Fase 11A — Controlled Real Connection (⏳ Pendiente)
 - **Objetivo**: Paperclip productivo en staging.
-- **Riesgo**: Alto.
-- **Requiere**: Autorización explícita, validación completa de HMAC, Idempotency, Tenant Isolation.
-- **Criterios de aceptación**: Smoke test pasa. Circuit breaker funciona. Rollback testeado satisfactoriamente. Todos los webhooks verificados.
+- **Riesgo**: Alto. REAL runtime sigue NO implementado.
+- **Requisitos antes de real**:
+  - staging environment.
+  - real Paperclip endpoint.
+  - HMAC secret management.
+  - callback retry policy.
+  - audit event integration.
+  - kill switch tested.
 
 ---
 
