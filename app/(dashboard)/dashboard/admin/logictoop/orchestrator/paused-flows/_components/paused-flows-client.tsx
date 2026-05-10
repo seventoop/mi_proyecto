@@ -18,7 +18,11 @@ import {
   Loader2, 
   Info, 
   CheckCircle2, 
-  AlertTriangle 
+  AlertTriangle,
+  Filter,
+  CheckCircle,
+  Clock,
+  Ban
 } from "lucide-react";
 import { 
   markAiFlowResumeDryRun, 
@@ -48,8 +52,21 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<ResumePreviewResult | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("TODOS");
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === "SUPERADMIN";
+
+  const filteredExecutions = executions.filter(ex => 
+    statusFilter === "TODOS" ? true : ex.status === statusFilter
+  );
+
+  const counts = {
+    total: executions.length,
+    waiting: executions.filter(e => e.status === "WAITING_FOR_APPROVAL").length,
+    ready: executions.filter(e => e.status === "AI_APPROVED_WAITING_RESUME").length,
+    blocked: executions.filter(e => e.status === "AI_REJECTED").length,
+    completed: executions.filter(e => e.status === "COMPLETED_SAFE").length,
+  };
 
   const handlePreview = async (executionId: string) => {
     setLoading(`preview-${executionId}`);
@@ -141,11 +158,17 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "WAITING_FOR_APPROVAL":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">WAITING FOR APPROVAL</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Esperando aprobación</Badge>;
       case "AI_APPROVED_WAITING_RESUME":
-        return <Badge variant="default" className="bg-green-100 text-green-700 hover:bg-green-100">READY FOR RESUME</Badge>;
+        return <Badge variant="default" className="bg-green-100 text-green-700 hover:bg-green-100">Listo para revisión</Badge>;
       case "AI_REJECTED":
-        return <Badge variant="destructive">AI REJECTED</Badge>;
+        return <Badge variant="destructive">Rechazado</Badge>;
+      case "MANUALLY_RESUMED_SAFE_REVIEW":
+        return <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">Resume controlado</Badge>;
+      case "PAUSED_AFTER_SAFE_STEP":
+        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Pausado tras paso seguro</Badge>;
+      case "COMPLETED_SAFE":
+        return <Badge variant="default" className="bg-slate-100 text-slate-700 hover:bg-slate-200">Completado seguro</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -166,7 +189,64 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="border rounded-lg p-4 bg-card text-card-foreground shadow-sm">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <Info className="h-4 w-4" />
+            <span>Total Controlados</span>
+          </div>
+          <div className="text-2xl font-bold">{counts.total}</div>
+        </div>
+        <div className="border rounded-lg p-4 bg-blue-50 text-blue-900 shadow-sm border-blue-100">
+          <div className="flex items-center gap-2 text-sm text-blue-600 mb-2">
+            <Clock className="h-4 w-4" />
+            <span>Esperando IA</span>
+          </div>
+          <div className="text-2xl font-bold">{counts.waiting}</div>
+        </div>
+        <div className="border rounded-lg p-4 bg-green-50 text-green-900 shadow-sm border-green-100">
+          <div className="flex items-center gap-2 text-sm text-green-600 mb-2">
+            <CheckCircle className="h-4 w-4" />
+            <span>Listos Resume</span>
+          </div>
+          <div className="text-2xl font-bold">{counts.ready}</div>
+        </div>
+        <div className="border rounded-lg p-4 bg-red-50 text-red-900 shadow-sm border-red-100">
+          <div className="flex items-center gap-2 text-sm text-red-600 mb-2">
+            <Ban className="h-4 w-4" />
+            <span>Rechazados</span>
+          </div>
+          <div className="text-2xl font-bold">{counts.blocked}</div>
+        </div>
+        <div className="border rounded-lg p-4 bg-slate-50 text-slate-900 shadow-sm border-slate-100">
+          <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
+            <CheckCircle2 className="h-4 w-4" />
+            <span>Completados</span>
+          </div>
+          <div className="text-2xl font-bold">{counts.completed}</div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2 items-center bg-muted/30 p-2 rounded-md border">
+        <Filter className="h-4 w-4 text-muted-foreground ml-2" />
+        <span className="text-sm text-muted-foreground mr-2">Filtro:</span>
+        {["TODOS", "WAITING_FOR_APPROVAL", "AI_APPROVED_WAITING_RESUME", "AI_REJECTED", "MANUALLY_RESUMED_SAFE_REVIEW", "PAUSED_AFTER_SAFE_STEP", "COMPLETED_SAFE"].map(status => (
+          <Button
+            key={status}
+            variant={statusFilter === status ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setStatusFilter(status)}
+            className="text-xs h-7"
+          >
+            {status === "TODOS" ? "Todos" : status.replace(/_/g, ' ')}
+          </Button>
+        ))}
+      </div>
+
+      <div className="rounded-md border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
@@ -179,8 +259,15 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {executions.map((execution) => {
-            const task = execution.aiTasks?.[0];
+          {filteredExecutions.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                No hay ejecuciones que coincidan con el filtro.
+              </TableCell>
+            </TableRow>
+          ) : (
+            filteredExecutions.map((execution) => {
+              const task = execution.aiTasks?.[0];
             const isReady = execution.status === "AI_APPROVED_WAITING_RESUME";
             
             return (
@@ -264,9 +351,10 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
                 </TableCell>
               </TableRow>
             );
-          })}
+          }))}
         </TableBody>
       </Table>
+    </div>
 
       {/* Modal de Previsualización Técnica */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
@@ -381,7 +469,8 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
                     !isSuperAdmin || 
                     loading === "controlled-resume" || 
                     previewData.classification === "UNSAFE_SIDE_EFFECT" || 
-                    previewData.classification === "UNKNOWN"
+                    previewData.classification === "UNKNOWN" ||
+                    previewData.classification === "NO_NEXT_NODE"
                   }
                   onClick={() => handleControlledResume(previewData.executionId)}
                 >
@@ -390,7 +479,7 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
                   ) : (
                     <Info className="h-4 w-4" />
                   )}
-                  Marcar Controlado
+                  Marcar Solo Revisión
                 </Button>
 
                 <Button 
@@ -410,7 +499,11 @@ export function PausedFlowsClient({ executions }: PausedFlowsClientProps) {
                   ) : (
                     <Play className="h-4 w-4 fill-current" />
                   )}
-                  {previewData.classification === "NO_NEXT_NODE" ? "Cerrar Seguro" : "Ejecutar Paso Seguro"}
+                  {previewData.classification === "NO_NEXT_NODE" ? "Cerrar Seguro" : 
+                   previewData.classification === "SAFE_REVIEW_ONLY" ? "Solo revisión" :
+                   previewData.classification === "UNSAFE_SIDE_EFFECT" ? "Bloqueado por side-effect" :
+                   previewData.classification === "UNKNOWN" ? "Bloqueado: nodo desconocido" :
+                   "Listo para paso seguro"}
                 </Button>
               </div>
             )}
