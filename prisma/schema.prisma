@@ -269,6 +269,7 @@ model ProyectoImagen {
   esPrincipal       Boolean  @default(false)
   isPublished       Boolean  @default(true)
   masterplanOverlay Json?
+  processedImageUrl String?
   orden             Int      @default(0)
   createdAt         DateTime @default(now())
   proyecto          Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
@@ -604,6 +605,7 @@ model TourScene {
   pannellumHotspots Json?
   thumbnailUrl      String?
   masterplanOverlay Json?
+  processedImageUrl String?
   hotspots          Hotspot[]
   tour              Tour360   @relation(fields: [tourId], references: [id], onDelete: Cascade)
 
