@@ -16,6 +16,8 @@ import {
     verifyPaperclipSignature,
     sanitizePaperclipMetadata
 } from '../lib/logictoop/paperclip-security';
+import { getPaperclipStagingReadiness } from '../lib/logictoop/paperclip-readiness';
+import { previewPaperclipWebhookEvent } from '../lib/logictoop/paperclip-event-bridge';
 
 let passCount = 0;
 let warnCount = 0;
@@ -186,6 +188,62 @@ async function runTests() {
         res = await dispatchToPaperclipSidecar(baseRequest);
         if (res.status === "NOT_IMPLEMENTED") pass("Real mode safely blocked");
         else fail(`Expected NOT_IMPLEMENTED, got ${res.status}`);
+
+        // ─── 6. getPaperclipStagingReadiness ───
+        section("6. getPaperclipStagingReadiness");
+        process.env.FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION = "true";
+        process.env.PAPERCLIP_WEBHOOK_SECRET = "";
+        let readiness = getPaperclipStagingReadiness();
+        if (readiness.status === "BLOCKED") pass("Real connection blocks staging readiness");
+        else fail(`Expected BLOCKED readiness, got ${readiness.status}`);
+
+        process.env.FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION = "false";
+        process.env.PAPERCLIP_WEBHOOK_SECRET = "";
+        readiness = getPaperclipStagingReadiness();
+        if (readiness.status === "WARNING_ONLY") pass("Missing secret warns staging readiness (no block)");
+        else fail(`Expected WARNING_ONLY readiness, got ${readiness.status}`);
+
+        process.env.PAPERCLIP_WEBHOOK_SECRET = "some_secret";
+        readiness = getPaperclipStagingReadiness();
+        if (readiness.status === "READY_FOR_STAGING_DESIGN") pass("All safe flags pass staging readiness");
+        else fail(`Expected READY_FOR_STAGING_DESIGN, got ${readiness.status}`);
+
+        // ─── 7. previewPaperclipWebhookEvent ───
+        section("7. previewPaperclipWebhookEvent (Bridge)");
+        
+        const previewAccepted = previewPaperclipWebhookEvent({
+             eventType: "PAPERCLIP_RUN_ACCEPTED",
+             taskId: "t_1", orgId: "o_1"
+        });
+        if (previewAccepted.wouldRecordAiEventType === "PAPERCLIP_RUN_ACCEPTED" && previewAccepted.wouldSetPaperclipRunId) {
+             pass("ACCEPTED event mapped correctly");
+        } else fail("ACCEPTED event mapping failed");
+
+        const previewCompleted = previewPaperclipWebhookEvent({
+             eventType: "PAPERCLIP_RUN_COMPLETED",
+             taskId: "t_1", orgId: "o_1", metadata: { password: "123" }
+        });
+        if (previewCompleted.wouldRequireHumanApproval && previewCompleted.sanitizedMetadata?.password === "[REDACTED]") {
+             pass("COMPLETED event mapped correctly and metadata sanitized");
+        } else fail("COMPLETED event mapping failed");
+
+        const previewFailed = previewPaperclipWebhookEvent({
+             eventType: "PAPERCLIP_RUN_FAILED",
+             taskId: "t_1", orgId: "o_1"
+        });
+        if (previewFailed.wouldRecordAiEventType === "PAPERCLIP_RUN_FAILED") pass("FAILED event mapped correctly");
+        else fail("FAILED event mapping failed");
+
+        const previewNeedsApproval = previewPaperclipWebhookEvent({
+             eventType: "PAPERCLIP_RUN_NEEDS_APPROVAL",
+             taskId: "t_1", orgId: "o_1"
+        });
+        if (previewNeedsApproval.wouldRequireHumanApproval) pass("NEEDS_APPROVAL mapped correctly");
+        else fail("NEEDS_APPROVAL mapping failed");
+        
+        // Assert no DB mutation flags
+        if (!previewAccepted.dbMutation && !previewCompleted.dbMutation) pass("Bridge guarantees no DB mutation");
+        else fail("Bridge returned dbMutation = true");
 
     } catch (e: any) {
         fail(`Unhandled exception during tests: ${e.message}`);

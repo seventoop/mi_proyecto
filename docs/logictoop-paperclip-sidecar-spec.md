@@ -185,7 +185,19 @@ Si se detecta un problema con Paperclip en cualquier fase:
 - **Objetivo**: Validar el proceso del Webhook localmente sin afectar DB.
 - **Implementado**: El Webhook acepta header `x-paperclip-dry-run` para verificar firmas pero no guarda nada ni desencadena eventos.
 
-#### Fase 11A — Controlled Real Connection (⏳ Pendiente)
+#### Fase 11A — Paperclip Staging Readiness Gate (✅ Completada)
+- **Objetivo**: Función central que determina si es seguro pasar a staging.
+- **Implementado**: `lib/logictoop/paperclip-readiness.ts`. Revisa flags y variables de entorno críticas.
+
+#### Fase 11B — Webhook Verification Hardening (✅ Completada)
+- **Objetivo**: Fortalecer el webhook dry-run validando tamaño, método, headers estrictos y event types.
+- **Implementado**: `app/api/logictoop/paperclip/webhook/route.ts` incluye validaciones de 50KB, `POST` unicamente, y todos los headers mandatorios.
+
+#### Fase 11C — Paperclip Event Bridge Dry-Run (✅ Completada)
+- **Objetivo**: Mapear eventos webhook a acciones de LogicToop sin mutar estado.
+- **Implementado**: `lib/logictoop/paperclip-event-bridge.ts`.
+
+#### Fase 11D — Controlled Real Connection (⏳ Pendiente)
 - **Objetivo**: Paperclip productivo en staging.
 - **Riesgo**: Alto. REAL runtime sigue NO implementado.
 - **Requisitos antes de real**:

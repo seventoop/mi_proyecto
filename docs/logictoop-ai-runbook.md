@@ -179,6 +179,17 @@ Se ha habilitado la posibilidad de simular el contrato técnico de Paperclip sin
 - **Webhook Dry-Run:** Solo valida headers/firma y retorna status simulado. No muta DB ni eventos. Requiere header `x-paperclip-dry-run: true`.
 - La conexión `REAL` sigue estrictamente bloqueada.
 
+### Paperclip Staging Readiness
+
+En preparación para un posible pase a staging real:
+- **Readiness gate:** Se validan todos los flags de seguridad antes de permitir modo real.
+- **Dry-run webhook hardened:** Validación robusta de firmas, body size y headers, sin afectar DB.
+- **Event bridge preview:** Mapeo de eventos (ej: `PAPERCLIP_RUN_ACCEPTED`) sin generar Side-Effects reales.
+- No hay mutaciones en base de datos.
+- No hay mutaciones en eventos.
+- La conexión `REAL` sigue estrictamente bloqueada.
+- **Obligatorio:** Ejecutar el contract script antes de cualquier despliegue a staging.
+
 ---
 
 ## 11. Feature Flags de control

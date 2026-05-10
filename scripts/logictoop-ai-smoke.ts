@@ -11,6 +11,7 @@
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import { getPaperclipStagingReadiness } from '../lib/logictoop/paperclip-readiness';
 
 const prisma = new PrismaClient();
 
@@ -179,7 +180,12 @@ async function main() {
 
   const webhookPath = path.join(__dirname, '../app/api/logictoop/paperclip/webhook/route.ts');
   if (fs.existsSync(webhookPath)) {
-      pass("Webhook skeleton (route.ts) existe y soporta dry-run.");
+      const webhookContent = fs.readFileSync(webhookPath, 'utf8');
+      if (webhookContent.includes('db.') || webhookContent.includes('recordAiEvent')) {
+          fail("Webhook skeleton contiene mutaciones de DB o eventos.");
+      } else {
+          pass("Webhook skeleton (route.ts) existe, soporta dry-run y no muta DB.");
+      }
   } else {
       fail("Falta Webhook skeleton.");
   }
@@ -189,6 +195,32 @@ async function main() {
       pass("logictoop-paperclip-contract.ts existe.");
   } else {
       fail("Falta script de contract tests.");
+  }
+  
+  const readinessPath = path.join(__dirname, '../lib/logictoop/paperclip-readiness.ts');
+  if (fs.existsSync(readinessPath)) {
+      pass("paperclip-readiness.ts existe.");
+  } else {
+      fail("Falta paperclip-readiness.ts.");
+  }
+
+  const bridgePath = path.join(__dirname, '../lib/logictoop/paperclip-event-bridge.ts');
+  if (fs.existsSync(bridgePath)) {
+      pass("paperclip-event-bridge.ts existe.");
+  } else {
+      fail("Falta paperclip-event-bridge.ts.");
+  }
+
+  // Evaluate readiness directly
+  try {
+      const readiness = getPaperclipStagingReadiness();
+      if (readiness.status === "BLOCKED") {
+          fail(`Staging Readiness está BLOCKED: ${readiness.checks.find(c => c.status === 'blocker')?.message}`);
+      } else {
+          pass(`Staging Readiness status: ${readiness.status} (Seguro para el entorno actual)`);
+      }
+  } catch (e: any) {
+      warn(`No se pudo evaluar readiness en smoke script: ${e.message}`);
   }
   
   // Basic sanity check for fetch/axios in client
