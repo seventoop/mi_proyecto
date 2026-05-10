@@ -1,6 +1,6 @@
 # LogicToop AI ↔ Paperclip Sidecar — Security Design Spec
 
-> **Estado**: Design only. No runtime implementation.  
+> **Estado**: Stub implemented, real runtime disabled. (Fases 10A-10D completadas)  
 > **Rama**: `dani-dev3`  
 > **Fecha**: 2026-05-10  
 > **Autor**: Daniel (Arquitectura), Antigravity (Documentación)  
@@ -158,38 +158,32 @@ Si se detecta un problema con Paperclip en cualquier fase:
 
 ### Detalle por fase:
 
-#### Fase 10B — Stub Client
+#### Fase 10B — Stub Client (✅ Completada)
 - **Objetivo**: Crear una clase `PaperclipClient` que simule las llamadas HTTP sin salir de la red.
-- **Archivos probables**: `lib/logictoop/paperclip-client.ts`
-- **Riesgo**: Bajo.
-- **Requiere DB/migración**: No.
-- **Criterios de aceptación**: La clase genera mocks idénticos en estructura a lo que Paperclip real devolvería.
+- **Archivos creados**: `lib/logictoop/paperclip-sidecar-client.ts`
+- **Estado**: Implementado.
 
-#### Fase 10C — HMAC Signing Library
+#### Fase 10C — HMAC Signing Library (✅ Completada)
 - **Objetivo**: Utilidad compartida para firmar requests salientes y verificar callbacks entrantes.
-- **Archivos probables**: `lib/logictoop/security/hmac.ts`
-- **Riesgo**: Bajo.
-- **Requiere DB/migración**: No.
-- **Criterios de aceptación**: Tests unitarios para sign/verify con vectors conocidos.
+- **Archivos creados**: `lib/logictoop/paperclip-security.ts`
+- **Estado**: Implementado.
 
-#### Fase 10D — Webhook Verification Endpoint
-- **Objetivo**: Crear ruta API que reciba callbacks de Paperclip, verificando firma HMAC.
-- **Archivos probables**: `app/api/paperclip/callback/route.ts`
-- **Riesgo**: Medio (exposición de endpoint).
-- **Requiere DB/migración**: No (usa modelos existentes).
-- **Criterios de aceptación**: Endpoint rechaza callbacks sin firma válida. Deshabilitado por default vía feature flag.
+#### Fase 10D — Webhook Verification Endpoint (✅ Completada)
+- **Objetivo**: Crear ruta API que reciba callbacks de Paperclip.
+- **Archivos creados**: `app/api/logictoop/paperclip/webhook/route.ts`
+- **Estado**: Implementado (esqueleto), pero `Disabled by design`. Rechaza todas las peticiones con 403 o 501.
 
-#### Fase 10E — Paperclip Sandbox Mode
+#### Fase 10E — Paperclip Sandbox Mode (⏳ Pendiente)
 - **Objetivo**: Primer contacto real con un entorno Paperclip de prueba.
 - **Riesgo**: Medio-Alto (primera conexión HTTP externa).
-- **Requiere DB/migración**: No.
-- **Criterios de aceptación**: Roundtrip completo (enviar task → recibir callback) en entorno aislado.
+- **Requiere**: Autorización explícita, entorno aislado.
+- **Criterios de aceptación**: Roundtrip completo (enviar task → recibir callback) en entorno de prueba usando el Sandbox. No se deben tocar datos de producción.
 
-#### Fase 11A — Controlled Real Connection
+#### Fase 11A — Controlled Real Connection (⏳ Pendiente)
 - **Objetivo**: Paperclip productivo en staging.
 - **Riesgo**: Alto.
-- **Requiere DB/migración**: Posiblemente (nuevos estados).
-- **Criterios de aceptación**: Smoke test pasa. Circuit breaker funciona. Rollback probado.
+- **Requiere**: Autorización explícita, validación completa de HMAC, Idempotency, Tenant Isolation.
+- **Criterios de aceptación**: Smoke test pasa. Circuit breaker funciona. Rollback testeado satisfactoriamente. Todos los webhooks verificados.
 
 ---
 

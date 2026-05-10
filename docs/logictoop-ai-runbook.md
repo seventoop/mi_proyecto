@@ -156,9 +156,23 @@ Los eventos se registran en `logictoop_ai_events`.
 - **Fase 10A**: Paperclip sidecar design only (solo arquitectura de seguridad, firmas HMAC, spec HTTP, sin implementación real en código base).
 - **Fase 10B**: Controlled commercial side-effects (apertura milimétrica de nodos comerciales específicos, solo con roles dedicados y *guards* de rollback).
 
+## 10. Paperclip Sidecar Stub
+
+En preparación para la integración futura con Paperclip, se han implementado las bases técnicas en un estado 100% desconectado y seguro:
+
+- **Stub client existe:** `lib/logictoop/paperclip-sidecar-client.ts`
+- **Security utility HMAC/idempotency existe:** `lib/logictoop/paperclip-security.ts`
+- **Webhook skeleton disabled:** `app/api/logictoop/paperclip/webhook/route.ts`
+
+**Reglas actuales:**
+- Paperclip real sigue desconectado.
+- No se hacen llamadas externas de ningún tipo (`fetch` o `axios`).
+- Para activar Paperclip real hace falta una fase futura con aprobación explícita.
+- **NO habilitar** `FEATURE_FLAG_PAPERCLIP_REAL_CONNECTION` en producción sin HMAC + webhook verification + staging.
+
 ---
 
-## 10. Feature Flags de control
+## 11. Feature Flags de control
 
 | Variable | Valor actual | Efecto si se desactiva |
 |---|---|---|

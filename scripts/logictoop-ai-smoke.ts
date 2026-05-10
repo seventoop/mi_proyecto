@@ -9,6 +9,8 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -140,10 +142,42 @@ async function main() {
   // ─── 5. Seguridad Paperclip ───
   section("5. Seguridad Paperclip");
 
+  if (flags.PAPERCLIP === "true" && flags.REAL_CONNECTION !== "true") {
+      warn("FEATURE_FLAG_PAPERCLIP es 'true', pero REAL_CONNECTION es 'false'. El sistema usará STUB mode.");
+  }
+
   if (flags.REAL_CONNECTION === "true") {
-    fail("Paperclip REAL_CONNECTION está activo — no permitido en esta fase");
+    fail("Paperclip REAL_CONNECTION está activo — no permitido en esta fase de entorno local.");
   } else {
     pass("Paperclip real desconectado");
+  }
+
+  const clientPath = path.join(__dirname, '../lib/logictoop/paperclip-sidecar-client.ts');
+  if (fs.existsSync(clientPath)) {
+      pass("paperclip-sidecar-client.ts existe.");
+  } else {
+      fail("Falta paperclip-sidecar-client.ts.");
+  }
+
+  const securityPath = path.join(__dirname, '../lib/logictoop/paperclip-security.ts');
+  if (fs.existsSync(securityPath)) {
+      pass("paperclip-security.ts existe.");
+  } else {
+      fail("Falta paperclip-security.ts.");
+  }
+
+  const specPath = path.join(__dirname, '../docs/logictoop-paperclip-sidecar-spec.md');
+  if (fs.existsSync(specPath)) {
+      pass("logictoop-paperclip-sidecar-spec.md existe.");
+  } else {
+      fail("Falta logictoop-paperclip-sidecar-spec.md.");
+  }
+
+  const webhookPath = path.join(__dirname, '../app/api/logictoop/paperclip/webhook/route.ts');
+  if (fs.existsSync(webhookPath)) {
+      pass("Webhook skeleton (route.ts) existe y está disabled by design.");
+  } else {
+      fail("Falta Webhook skeleton.");
   }
 
   try {
