@@ -188,23 +188,45 @@ function PanoramicOverlay({
     onNavigate?: (sceneId: string) => void;
     allScenes?: Scene[];
 }) {
-    const [viewState, setViewState] = useState({ hfov: 100, pitch: 0, yaw: 0 });
+    const [viewState, setViewState] = useState({ hfov: 100, pitch: 0, yaw: 0, width: 0, height: 0 });
 
     useEffect(() => {
-        if (!viewer) return;
+        if (!viewer || !viewerRef.current) return;
         let rafId: number;
+        let isMounted = true;
+
         const update = () => {
+            if (!isMounted || !viewer || !viewerRef.current) return;
+            
             try {
-                setViewState({
-                    hfov: viewer.getHfov(),
-                    pitch: viewer.getPitch(),
-                    yaw: viewer.getYaw()
-                });
-            } catch (e) { }
-            rafId = requestAnimationFrame(update);
+                // Verificar que el visor esté inicializado y tenga los métodos necesarios
+                if (typeof viewer.getHfov === 'function') {
+                    const hfov = viewer.getHfov();
+                    const pitch = viewer.getPitch();
+                    const yaw = viewer.getYaw();
+                    const width = viewerRef.current.clientWidth || 0;
+                    const height = viewerRef.current.clientHeight || 0;
+
+                    // Evitar actualizaciones con valores inválidos que rompan el renderizado
+                    if (!isNaN(hfov) && !isNaN(pitch) && !isNaN(yaw) && width > 0 && height > 0) {
+                        setViewState({ hfov, pitch, yaw, width, height });
+                    }
+                }
+            } catch (e) {
+                console.warn("[TourViewer] Error updating view state:", e);
+            }
+            
+            if (isMounted) {
+                rafId = requestAnimationFrame(update);
+            }
         };
+
         rafId = requestAnimationFrame(update);
-        return () => cancelAnimationFrame(rafId);
+        
+        return () => {
+            isMounted = false;
+            if (rafId) cancelAnimationFrame(rafId);
+        };
     }, [viewer]);
 
     const projectCoords = useCallback((pitch: number, yaw: number) => {
@@ -221,8 +243,10 @@ function PanoramicOverlay({
         }
 
         // 2. Fallback to robust world-to-screen projection math (matches Tour360SceneCanvas)
-        const width = viewerRef.current.clientWidth;
-        const height = viewerRef.current.clientHeight;
+        // Usar dimensiones del estado si están listas, si no leer del DOM (primer render)
+        const width = viewState.width || viewerRef.current.clientWidth;
+        const height = viewState.height || viewerRef.current.clientHeight;
+        if (width <= 0 || height <= 0) return null;
 
         const degToRad = Math.PI / 180;
         const p = pitch * degToRad;
@@ -248,11 +272,13 @@ function PanoramicOverlay({
 
         const focalLength = (width / 2) / Math.tan((viewState.hfov * degToRad) / 2);
 
-        return {
-            x: (rx / rz) * focalLength + width / 2,
-            y: (-ry / rz) * focalLength + height / 2,
-        };
-    }, [viewer, viewState, viewerRef]);
+        const px = (rx / rz) * focalLength + width / 2;
+        const py = (-ry / rz) * focalLength + height / 2;
+
+        if (!isFinite(px) || !isFinite(py)) return null;
+
+        return { x: px, y: py };
+    }, [viewer, viewState]);
 
     const getPolygonPath = (points: { pitch: number; yaw: number }[]) => {
         const coords = points.map(p => projectCoords(p.pitch, p.yaw));
@@ -262,14 +288,14 @@ function PanoramicOverlay({
         }).join(" ") + " Z";
     };
 
-    const getHfovScale = (anchorHfov?: number) => {
+    const getHfovScale = useCallback((anchorHfov?: number) => {
         if (!viewState.hfov || !anchorHfov) return 1;
         const toRad = (deg: number) => (deg * Math.PI) / 180;
         const current = Math.tan(toRad(viewState.hfov) / 2);
         const reference = Math.tan(toRad(anchorHfov) / 2);
         if (current <= 0 || reference <= 0) return 1;
         return reference / current;
-    };
+    }, [viewState.hfov]);
 
     const handleObjectClick = (obj: any) => {
         console.log(`[TourViewer] handleObjectClick:`, obj.id, {
@@ -483,8 +509,8 @@ function PanoramicOverlay({
                             if (hasDestination) handleObjectClick(frame);
                         }}
                         className={cn(
-                            "absolute group transition-transform z-20 outline-none border-none p-0 bg-transparent",
-                            hasDestination ? "pointer-events-auto cursor-pointer hover:scale-105" : "pointer-events-none"
+                            "absolute group z-20 outline-none border-none p-0 bg-transparent will-change-transform",
+                            hasDestination ? "pointer-events-auto cursor-pointer" : "pointer-events-none"
                         )}
                         style={{
                             left: c.x,
@@ -522,7 +548,7 @@ function PanoramicOverlay({
                 return (
                     <div
                         key={badge.id}
-                        className="absolute flex flex-col items-center pointer-events-none transform -translate-x-1/2 -translate-y-1/2 z-30"
+                        className="absolute flex flex-col items-center pointer-events-none transform -translate-x-1/2 -translate-y-1/2 z-30 will-change-transform"
                         style={{ left: c.x, top: c.y, scale: String(scale) }}
                     >
                         <div className={cn(
@@ -555,7 +581,7 @@ function PanoramicOverlay({
                 return (
                     <div
                         key={t.id}
-                        className="absolute px-3 py-1 rounded-full text-[12px] font-bold text-white shadow-lg pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 z-20 bg-slate-900/80 border border-white/20 backdrop-blur-md"
+                        className="absolute px-3 py-1 rounded-full text-[12px] font-bold text-white shadow-lg pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 z-20 bg-slate-900/80 border border-white/20 backdrop-blur-md will-change-transform"
                         style={{ left: c.x, top: c.y, scale: String(scale) }}
                     >
                         {t.text}
@@ -571,7 +597,7 @@ function PanoramicOverlay({
                     <div
                         key={label.id}
                         className={cn(
-                            "absolute px-3 py-1 rounded-full text-[10px] font-bold text-white shadow-lg pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 z-20",
+                            "absolute px-3 py-1 rounded-full text-[10px] font-bold text-white shadow-lg pointer-events-auto z-20 will-change-transform",
                             label.style === 'street' ? "bg-slate-900/80 border border-white/20 backdrop-blur-md" : "bg-brand-500"
                         )}
                         style={{ left: coords.x, top: coords.y }}
