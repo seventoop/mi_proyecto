@@ -361,6 +361,7 @@ export async function upsertTour(input: unknown) {
                         tourId: tour.id,
                         title: scene.title,
                         imageUrl: scene.imageUrl,
+                        processedImageUrl: scene.processedImageUrl ?? undefined,
                         thumbnailUrl: scene.thumbnailUrl ?? undefined,
                         masterplanOverlay: scene.masterplanOverlay ?? undefined,
                         isDefault: scene.isDefault,

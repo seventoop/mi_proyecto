@@ -113,6 +113,7 @@ export interface Scene {
     id: string;
     title: string;
     imageUrl: string;
+    processedImageUrl?: string;
     thumbnailUrl?: string;
     hotspots: Hotspot[];
     polygons?: TourPolygon[];
@@ -737,7 +738,7 @@ export default function TourViewer({
                 scenesConfig[scene.id] = {
                     title: scene.title,
                     type: "equirectangular",
-                    panorama: scene.imageUrl,
+                    panorama: scene.processedImageUrl || scene.imageUrl,
                     hotSpots: scene.hotspots.map((h) => ({
                         pitch: h.pitch,
                         yaw: h.yaw,

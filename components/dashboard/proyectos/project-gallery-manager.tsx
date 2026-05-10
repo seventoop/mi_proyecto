@@ -62,6 +62,7 @@ interface ProyectoImagen {
     createdAt: Date | string;
     masterplanOverlay?: any;
     isPublished?: boolean;
+    processedImageUrl?: string;
 }
 
 const isImagenEditada = (img: ProyectoImagen) => {
@@ -373,6 +374,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
             const newScene = {
                 title: img.categoria?.replaceAll("_", " ") || "Imagen de galería",
                 imageUrl: img.url,
+                processedImageUrl: img.processedImageUrl || undefined,
                 thumbnailUrl: img.url,
                 category: sceneCategory,
                 galleryImageId: img.id,
@@ -446,6 +448,7 @@ export default function ProjectGalleryManager({ proyectoId }: ProjectGalleryMana
                         newScenesToAdd.push({
                             title: img.categoria?.replaceAll("_", " ") || "Imagen de galería",
                             imageUrl: img.url,
+                            processedImageUrl: img.processedImageUrl || undefined,
                             thumbnailUrl: img.url,
                             category: sceneCategory,
                             galleryImageId: img.id,

@@ -187,6 +187,7 @@ function dbTourToScenes(tour: any): Scene[] {
             id: dbScene.id,
             title: dbScene.title,
             imageUrl: dbScene.imageUrl,
+            processedImageUrl: dbScene.processedImageUrl || undefined,
             isDefault: dbScene.isDefault,
             category: normalizeTourMediaCategory(dbScene),
             masterplanOverlay: overlay,
