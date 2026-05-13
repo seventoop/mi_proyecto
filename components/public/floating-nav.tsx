@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/providers/language-provider";
 
 const SECTIONS = [
     "inicio",
@@ -45,6 +45,7 @@ function NavButton({
 }
 
 export default function FloatingNav() {
+    const { dictionary: t } = useLanguage();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [visible, setVisible] = useState(false);
 
@@ -87,12 +88,12 @@ export default function FloatingNav() {
         <div
             className="fixed bottom-6 right-6 z-50 flex flex-col items-center gap-2"
             role="navigation"
-            aria-label="Navegación entre secciones"
+            aria-label={t.floatingNav.navigation}
         >
             {isAtBottom && (
                 <NavButton
                     icon={ChevronsUp}
-                    label="Ir al inicio"
+                    label={t.floatingNav.goTop}
                     onClick={() => scrollTo("inicio")}
                 />
             )}
@@ -100,7 +101,7 @@ export default function FloatingNav() {
             {hasPrev && (
                 <NavButton
                     icon={ChevronUp}
-                    label="Sección anterior"
+                    label={t.floatingNav.previousSection}
                     onClick={() => scrollTo(SECTIONS[currentIndex - 1])}
                 />
             )}
@@ -108,7 +109,7 @@ export default function FloatingNav() {
             {hasNext && (
                 <NavButton
                     icon={ChevronDown}
-                    label="Siguiente sección"
+                    label={t.floatingNav.nextSection}
                     onClick={() => scrollTo(SECTIONS[currentIndex + 1])}
                 />
             )}
@@ -116,7 +117,7 @@ export default function FloatingNav() {
             {hasNext && (
                 <NavButton
                     icon={ChevronsDown}
-                    label="Ir a contacto"
+                    label={t.floatingNav.goContact}
                     onClick={() => scrollTo("contacto")}
                 />
             )}

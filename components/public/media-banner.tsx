@@ -201,7 +201,7 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                                 href={currentBanner.ctaUrl || currentBanner.linkDestino || "#"}
                                 className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-orange hover:bg-brand-orangeDark text-white font-bold text-sm transition-colors shadow-lg"
                             >
-                                {currentBanner.ctaText || "Ver más"} →
+                                {currentBanner.ctaText || t.mediaBanner.viewMore} →
                             </a>
                         )}
                     </div>
@@ -213,14 +213,14 @@ export default function MediaBanner({ banners }: MediaBannerProps) {
                     <button
                         onClick={prevSlide}
                         className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-3 rounded-full bg-black/30 hover:bg-black/50 text-white transition-colors"
-                        aria-label="Anterior"
+                        aria-label={t.mediaBanner.previous}
                     >
                         <ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7" />
                     </button>
                     <button
                         onClick={nextSlide}
                         className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-3 rounded-full bg-black/30 hover:bg-black/50 text-white transition-colors"
-                        aria-label="Siguiente"
+                        aria-label={t.mediaBanner.next}
                     >
                         <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7" />
                     </button>

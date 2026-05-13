@@ -21,6 +21,10 @@
     "closeMenu": "Close menu",
     "goHome": "Go to home"
   },
+  "homeMetadata": {
+    "title": "SevenToop - Real Estate Commercialization Infrastructure",
+    "description": "An integrated real estate management platform for developments, urbanizations, and premium projects. Invest with security and technology."
+  },
   "hero": {
     "badge": "Real Estate Infrastructure",
     "title1": "The ecosystem to access the best ",
@@ -114,7 +118,25 @@
       "budgetMin": "Minimum",
       "budgetMax": "Maximum",
       "submitButton": "Request Advice",
-      "privacy": "Your data is safe with us. We do not spam."
+      "privacy": "Your data is safe with us. We do not spam.",
+      "validation": {
+        "name": "Enter your full name",
+        "whatsapp": "Enter a valid mobile number",
+        "province": "Enter your province or state",
+        "city": "Enter your city",
+        "zone": "Enter your preferred zone (for example, North)",
+        "intention": "Select your intention",
+        "category": "Select a category",
+        "subtype": "Select a subtype",
+        "number": "Enter a valid number",
+        "min": "Minimum budget is required",
+        "max": "Maximum budget is required",
+        "range": "Maximum budget must be greater than or equal to minimum budget"
+      },
+      "errors": {
+        "submit": "We could not send your request. Please try again in a few minutes.",
+        "connection": "Connection error. Please try again."
+      }
     }
   },
   "featuredProjects": {
@@ -365,7 +387,10 @@
   },
   "mediaBanner": {
     "engineLabel": "SevenToop Media Engine",
-    "systemStatus": "DYNAMIC CONTENT SYSTEM V1.0"
+    "systemStatus": "DYNAMIC CONTENT SYSTEM V1.0",
+    "viewMore": "View more",
+    "previous": "Previous banner",
+    "next": "Next banner"
   },
   "news": {
     "badge": "Updates",
@@ -373,6 +398,13 @@
     "titleHighlight": "& updates",
     "description": "Latest updates on developments, technology and real estate market opportunities.",
     "readMore": "Read more"
+  },
+  "floatingNav": {
+    "navigation": "Section navigation",
+    "goTop": "Go to top",
+    "previousSection": "Previous section",
+    "nextSection": "Next section",
+    "goContact": "Go to contact"
   },
   "footer": {
     "platform": "Platform",

@@ -21,6 +21,10 @@
     "closeMenu": "Cerrar menú",
     "goHome": "Ir al inicio"
   },
+  "homeMetadata": {
+    "title": "SevenToop - Infraestructura para Comercialización Inmobiliaria",
+    "description": "Plataforma integral de gestión inmobiliaria para desarrollos, urbanizaciones y proyectos premium. Invertí con seguridad y tecnología."
+  },
   "hero": {
     "badge": "Infraestructura Inmobiliaria",
     "title1": "El ecosistema para acceder a las mejores ",
@@ -114,7 +118,25 @@
       "budgetMin": "Mínimo",
       "budgetMax": "Máximo",
       "submitButton": "Solicitar Asesoramiento",
-      "privacy": "Tus datos están seguros con nosotros. No enviamos spam."
+      "privacy": "Tus datos están seguros con nosotros. No enviamos spam.",
+      "validation": {
+        "name": "Ingresá tu nombre completo",
+        "whatsapp": "Ingresá un celular válido",
+        "province": "Ingresá tu provincia",
+        "city": "Ingresá tu ciudad",
+        "zone": "Ingresá tu zona (ej: Norte)",
+        "intention": "Seleccioná tu intención",
+        "category": "Seleccioná una categoría",
+        "subtype": "Seleccioná un subtipo",
+        "number": "Debe ser un número",
+        "min": "Mínimo requerido",
+        "max": "Máximo requerido",
+        "range": "El máximo debe ser mayor o igual al mínimo"
+      },
+      "errors": {
+        "submit": "No pudimos enviar tu solicitud. Intentá nuevamente en unos minutos.",
+        "connection": "Error de conexión. Intentá nuevamente."
+      }
     }
   },
   "featuredProjects": {
@@ -365,7 +387,10 @@
   },
   "mediaBanner": {
     "engineLabel": "SevenToop Media Engine",
-    "systemStatus": "SISTEMA DE CONTENIDOS DINÁMICOS V1.0"
+    "systemStatus": "SISTEMA DE CONTENIDOS DINÁMICOS V1.0",
+    "viewMore": "Ver más",
+    "previous": "Banner anterior",
+    "next": "Siguiente banner"
   },
   "news": {
     "badge": "Novedades",
@@ -373,6 +398,13 @@
     "titleHighlight": "del sector",
     "description": "Últimas novedades sobre desarrollos, tecnología y oportunidades del mercado inmobiliario.",
     "readMore": "Leer más"
+  },
+  "floatingNav": {
+    "navigation": "Navegación entre secciones",
+    "goTop": "Ir al inicio",
+    "previousSection": "Sección anterior",
+    "nextSection": "Siguiente sección",
+    "goContact": "Ir a contacto"
   },
   "footer": {
     "platform": "Plataforma",

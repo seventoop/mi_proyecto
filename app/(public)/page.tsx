@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Hero from "@/components/public/hero";
 import MediaBanner from "@/components/public/media-banner";
 import Exploracion from "@/components/public/exploracion";
@@ -14,6 +15,8 @@ import FloatingNav from "@/components/public/floating-nav";
 import { getBannersLanding } from "@/lib/actions/banners";
 import { getProyectosDestacados } from "@/lib/actions/proyectos";
 import { getSystemConfig } from "@/lib/actions/configuration";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { resolveLocale } from "@/lib/i18n/format";
 
 const HOME_DATA_TIMEOUT_MS = 1800;
 
@@ -38,10 +41,15 @@ async function withHomeTimeout<T>(promise: Promise<T>, fallback: T, label: strin
     }
 }
 
-export const metadata: Metadata = {
-    title: "SevenToop — Infraestructura para Comercialización Inmobiliaria",
-    description: "Plataforma integral de gestión inmobiliaria para desarrollos, urbanizaciones y proyectos premium. Invertí con seguridad y tecnología.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const locale = resolveLocale(cookies().get("NEXT_LOCALE")?.value);
+    const dictionary = await getDictionary(locale);
+
+    return {
+        title: dictionary.homeMetadata.title,
+        description: dictionary.homeMetadata.description,
+    };
+}
 
 export default async function HomePage() {
     const [bannersRes, proyectos, heroTitle, heroSubtitle, ctaText] = await Promise.all([

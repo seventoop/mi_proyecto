@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -8,30 +8,42 @@ import { Loader2, Send, CheckCircle, MapPin, Building2, TrendingUp, ShieldCheck 
 import { crearLeadLanding } from "@/lib/actions/leads";
 import { useLanguage } from "@/components/providers/language-provider";
 
-const formSchema = z.object({
-    nombre: z.string().min(2, "Ingresá tu nombre completo"),
-    whatsapp: z.string().min(8, "Ingresá un celular válido"),
-    provincia: z.string().min(2, "Ingresá tu provincia"),
-    ciudad: z.string().min(2, "Ingresá tu ciudad"),
-    zona: z.string().min(2, "Ingresá tu zona (ej: Norte)"),
-    intencion: z.enum(["VIVIR", "INVERTIR"], {
-        message: "Seleccioná tu intención"
-    }),
-    categoriaProyecto: z.string().min(1, "Seleccioná una categoría"),
-    subtipoProyecto: z.string().min(1, "Seleccioná un subtipo"),
-    presupuestoMinUsd: z.coerce.number({ message: "Debe ser un número" }).min(1, "Mínimo requerido").int(),
-    presupuestoMaxUsd: z.coerce.number({ message: "Debe ser un número" }).min(1, "Máximo requerido").int(),
-}).refine(data => data.presupuestoMaxUsd >= data.presupuestoMinUsd, {
-    message: "El máximo debe ser mayor o igual al mínimo",
-    path: ["presupuestoMaxUsd"]
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = {
+    nombre: string;
+    whatsapp: string;
+    provincia: string;
+    ciudad: string;
+    zona: string;
+    intencion: "VIVIR" | "INVERTIR";
+    categoriaProyecto: string;
+    subtipoProyecto: string;
+    presupuestoMinUsd: number;
+    presupuestoMaxUsd: number;
+};
 
 export default function FormularioCaptura() {
     const { dictionary: t } = useLanguage();
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const validation = t.profile.form.validation;
+
+    const formSchema = useMemo(() => z.object({
+        nombre: z.string().min(2, validation.name),
+        whatsapp: z.string().min(8, validation.whatsapp),
+        provincia: z.string().min(2, validation.province),
+        ciudad: z.string().min(2, validation.city),
+        zona: z.string().min(2, validation.zone),
+        intencion: z.enum(["VIVIR", "INVERTIR"], {
+            message: validation.intention
+        }),
+        categoriaProyecto: z.string().min(1, validation.category),
+        subtipoProyecto: z.string().min(1, validation.subtype),
+        presupuestoMinUsd: z.coerce.number({ message: validation.number }).min(1, validation.min).int(validation.number),
+        presupuestoMaxUsd: z.coerce.number({ message: validation.number }).min(1, validation.max).int(validation.number),
+    }).refine(data => data.presupuestoMaxUsd >= data.presupuestoMinUsd, {
+        message: validation.range,
+        path: ["presupuestoMaxUsd"]
+    }), [validation]);
 
     const {
         register,
@@ -70,10 +82,10 @@ export default function FormularioCaptura() {
             if (res.success) {
                 setIsSuccess(true);
             } else {
-                setError(res.error || "Ocurrió un error al enviar tu solicitud.");
+                setError(t.profile.form.errors.submit);
             }
         } catch {
-            setError("Error de conexión. Intenta nuevamente.");
+            setError(t.profile.form.errors.connection);
         }
     };
 
