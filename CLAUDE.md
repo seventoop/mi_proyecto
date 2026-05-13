@@ -38,6 +38,10 @@ npm run db:studio             # Open Prisma Studio
 
 Production and Preview must use Vercel environment variables only. Never reuse localhost values in Vercel.
 
+## Repository Maintenance Docs
+
+Before changing complex, user-facing, security-sensitive, integration-heavy, or frequently audited files, read [`AGENTS.md`](./AGENTS.md). Its `Documentation Sidecars` section defines when to create or update a sibling `.md` file with purpose, user intent, data flow, maintenance rules, risks, and validation.
+
 ## Architecture
 
 ### Route Groups

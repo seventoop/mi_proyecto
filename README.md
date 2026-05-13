@@ -17,6 +17,10 @@ La unica fuente de verdad para desarrollo local es `.env.local`.
 
 `docker-compose.yml`, Prisma, scripts y documentacion deben respetar esta misma convencion.
 
+## Documentacion de mantenimiento
+
+Antes de modificar archivos complejos, visibles para usuarios, sensibles, con integraciones o auditados con frecuencia, leer [`AGENTS.md`](./AGENTS.md). La seccion `Documentation Sidecars` define cuando crear o actualizar un `.md` hermano del archivo fuente para dejar contexto, riesgos y validacion.
+
 ## Inicio rapido local
 
 1. Levantar Postgres:
