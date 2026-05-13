@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import en from "@/lib/i18n/dictionaries/en.json";
 import es from "@/lib/i18n/dictionaries/es.json";
-import { formatMessage } from "@/lib/i18n/format";
+import {
+  formatCurrency,
+  formatMessage,
+  formatNumber,
+  isLocale,
+  resolveLocale,
+} from "@/lib/i18n/format";
 
 function keys(obj: unknown, prefix = ""): string[] {
   if (Array.isArray(obj)) {
@@ -41,5 +47,24 @@ describe("i18n dictionaries", () => {
     expect(formatMessage("Captured {{time}} by {{user}}", { time: "today", user: "Ana" })).toBe(
       "Captured today by Ana",
     );
+  });
+
+  it("validates and resolves supported locales", () => {
+    expect(isLocale("es")).toBe(true);
+    expect(isLocale("en")).toBe(true);
+    expect(isLocale("fr")).toBe(false);
+    expect(isLocale(null)).toBe(false);
+
+    expect(resolveLocale("en")).toBe("en");
+    expect(resolveLocale("fr")).toBe("es");
+  });
+
+  it("formats numbers and currency with locale-aware helpers", () => {
+    expect(formatCurrency(1234, "en", "USD")).toBe("$1,234");
+    expect(formatCurrency(null, "en", "USD")).toBe("Ask");
+    expect(formatCurrency(undefined, "es", "USD")).toBe("Consultar");
+
+    expect(formatNumber(1234.56, "en")).toBe("1,234.56");
+    expect(formatNumber(1234.56, "es")).toBe("1.234,56");
   });
 });

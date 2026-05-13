@@ -90,7 +90,7 @@ function scanHardcodedSpanish() {
   const dirs = ["app", "components", "lib"];
   const extensions = new Set([".ts", ".tsx"]);
   const findings = [];
-  const spanishChars = /[ÁÉÍÓÚáéíóúÑñ¿¡]/;
+  const spanishChars = /[\u00c1\u00c9\u00cd\u00d3\u00da\u00e1\u00e9\u00ed\u00f3\u00fa\u00d1\u00f1\u00bf\u00a1]/;
   const ignoredPathParts = [
     `${path.sep}i18n${path.sep}dictionaries${path.sep}`,
     `${path.sep}__tests__${path.sep}`,
