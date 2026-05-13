@@ -396,5 +396,198 @@
       "privacy": "Política de Privacidad"
     },
     "rights": "Todos los derechos reservados."
+  },
+  "a11y": {
+    "mainNavigation": "Navegación principal",
+    "switchToEnglish": "Cambiar a inglés",
+    "switchToSpanish": "Cambiar a español",
+    "anonymousUser": "Usuario"
+  },
+  "contactForm": {
+    "validation": {
+      "name": "Ingresa tu nombre completo",
+      "email": "Ingresa un email válido",
+      "phone": "Ingresa un teléfono válido"
+    },
+    "selectedLot": "Lote seleccionado",
+    "selectedLotMessage": "Hola, me interesa el lote {{lot}}. ¿Pueden enviarme disponibilidad y condiciones comerciales actualizadas?",
+    "lotPrefix": "[Consulta sobre lote {{lot}}{{price}}]",
+    "removeLot": "Quitar lote",
+    "successTitle": "¡Mensaje enviado!",
+    "successDescription": "Un asesor se pondrá en contacto contigo a la brevedad.",
+    "sendAnother": "Enviar otro mensaje",
+    "submit": "Enviar consulta",
+    "labels": {
+      "name": "Nombre completo",
+      "phone": "Teléfono",
+      "email": "Email",
+      "message": "Mensaje (opcional)"
+    },
+    "placeholders": {
+      "name": "Ej: Juan Pérez",
+      "phone": "+54 9 11...",
+      "email": "juan@ejemplo.com",
+      "message": "Estoy interesado en este proyecto..."
+    },
+    "errors": {
+      "submit": "Ocurrió un error al enviar",
+      "connection": "Error de conexión. Intenta nuevamente."
+    }
+  },
+  "units": {
+    "filters": "Filtros",
+    "unitsCount": "{{filtered}} de {{total}} unidades",
+    "searchLabel": "Buscar lote por código",
+    "searchPlaceholder": "Buscar por código de lote...",
+    "sortLabel": "Ordenar",
+    "recommended": "Recomendado",
+    "lotNumber": "Número de lote",
+    "priceAsc": "Precio: menor a mayor",
+    "priceDesc": "Precio: mayor a menor",
+    "surfaceAsc": "Superficie: menor a mayor",
+    "surfaceDesc": "Superficie: mayor a menor",
+    "statuses": {
+      "all": "Todos",
+      "available": "Disponibles",
+      "reserved": "Reservados",
+      "sold": "Vendidos",
+      "blocked": "Bloqueados",
+      "suspended": "Suspendidos",
+      "availableOne": "Disponible",
+      "reservedOne": "Reservado",
+      "soldOne": "Vendido",
+      "blockedOne": "Bloqueado",
+      "suspendedOne": "Suspendido"
+    },
+    "lot": "Lote",
+    "block": "Manzana {{block}}",
+    "surface": "Superficie",
+    "price": "Precio",
+    "corner": "Esquina",
+    "viewDetail": "Ver detalle",
+    "ask": "Consultar",
+    "emptyTitle": "No encontramos lotes con esos filtros.",
+    "emptyDescription": "Probá quitar la búsqueda o cambiar el estado para ver más resultados.",
+    "showing": "Mostrando {{shown}} de {{filtered}} {{unitLabel}}",
+    "unitSingular": "unidad",
+    "unitPlural": "unidades",
+    "seeMore": "Ver más unidades",
+    "seeAll": "Ver todas las unidades"
+  },
+  "publicContact": {
+    "validation": {
+      "name": "Ingresa tu nombre",
+      "email": "Ingresa un email válido",
+      "phone": "Ingresa un teléfono válido",
+      "subject": "Selecciona un asunto",
+      "message": "El mensaje debe ser más descriptivo"
+    },
+    "successTitle": "¡Mensaje recibido!",
+    "successDescription": "Nuestro equipo revisará tu consulta y se pondrá en contacto pronto.",
+    "sendAnother": "Enviar otro mensaje",
+    "formTitle": "Dejanos tu mensaje",
+    "formDescription": "Establezcamos una línea directa de comunicación.",
+    "labels": {
+      "name": "Nombre / Empresa",
+      "phone": "Teléfono",
+      "email": "Correo Electrónico",
+      "subject": "Motivo de Contacto",
+      "message": "Mensaje"
+    },
+    "placeholders": {
+      "name": "Ej: Juan Pérez / Empresa S.A.",
+      "phone": "+54 9 11...",
+      "email": "tu@email.com",
+      "subject": "Selecciona un motivo...",
+      "message": "Contanos más sobre tu necesidad o proyecto..."
+    },
+    "subjects": {
+      "general": "Consulta General",
+      "publish": "Publicar un Desarrollo",
+      "alliance": "Alianza / B2B",
+      "vip": "Suscripción VIP",
+      "support": "Soporte Técnico"
+    },
+    "errors": {
+      "submit": "Ocurrió un error al enviar tu consulta.",
+      "connection": "Error de conexión. Intenta nuevamente."
+    },
+    "submit": "Enviar Mensaje",
+    "eyebrow": "Hablemos",
+    "title": "Contacto Directo",
+    "description": "SevenToop es el ecosistema ideal para impulsar ventas o encontrar grandes oportunidades. Estamos aquí para facilitarlo.",
+    "info": {
+      "generalTitle": "Consultas Generales",
+      "generalDescription": "Resolvemos tus dudas operativas.",
+      "alliancesTitle": "Alianzas y B2B",
+      "alliancesDescription": "Integración de grandes carteras, partners y desarrolladores.",
+      "emailTitle": "Email Directo"
+    }
+  },
+  "testimonialForm": {
+    "successTitle": "¡Gracias por tu opinión!",
+    "successDescription": "Tu testimonio ha sido enviado y será revisado por nuestro equipo antes de ser publicado.",
+    "sendAnother": "Enviar otro testimonio",
+    "title": "Déjanos tu opinión",
+    "description": "Tu experiencia nos ayuda a mejorar.",
+    "namePlaceholder": "Tu Nombre",
+    "roles": {
+      "user": "Soy Inversor / Comprador",
+      "company": "Soy Empresa / Partner"
+    },
+    "textPlaceholder": "Escribe aquí tu experiencia con nosotros...",
+    "changePhoto": "Cambiar foto",
+    "uploadPhoto": "Subir foto de perfil (Opcional)",
+    "submitting": "Enviando...",
+    "submit": "Enviar Testimonio"
+  },
+  "projectGallery": {
+    "title": "Explorá el proyecto",
+    "description": "Visualizá cada detalle a través de la galería cargada desde el dashboard del proyecto.",
+    "all": "Todas",
+    "viewImage": "Ver imagen",
+    "empty": "Aún no hay imágenes disponibles para este proyecto.",
+    "previousImage": "Imagen anterior",
+    "nextImage": "Imagen siguiente",
+    "uncategorized": "Sin categoría",
+    "categories": {
+      "RENDER": "Renders",
+      "AVANCE_OBRA": "Avance de Obra",
+      "MASTERPLAN": "Masterplan",
+      "INTERIOR": "Interiores",
+      "EXTERIOR": "Exteriores",
+      "PORTADA": "Portada",
+      "GALERIA": "Galería"
+    }
+  },
+  "projectPreview": {
+    "status": {
+      "available": "Disponible",
+      "reserved": "Reservado",
+      "sold": "Vendido"
+    },
+    "modes": {
+      "plan": "Plano",
+      "map": "Mapa"
+    },
+    "layers": {
+      "mode": "Modo",
+      "layers": "Capas",
+      "statuses": "Estados",
+      "infrastructure": "Infraestructura",
+      "images": "Imágenes"
+    },
+    "titles": {
+      "notAvailable": "No disponible para este proyecto",
+      "viewMode": "Ver en modo {{mode}}",
+      "noData": "No hay datos disponibles",
+      "toggleLayer": "Mostrar/ocultar {{layer}}"
+    },
+    "headerTitle": "Vista del proyecto",
+    "headerDescription": "Cambiá entre {{plan}} y {{map}}. Para ver detalle por lote, abrí el masterplan interactivo.",
+    "openMasterplan": "Ver masterplan interactivo",
+    "loadingMap": "Cargando mapa...",
+    "planAria": "Plano de {{projectName}}",
+    "emptyPlan": "Aún no hay plano cargado para este proyecto."
   }
 }

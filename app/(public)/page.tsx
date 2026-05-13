@@ -15,21 +15,41 @@ import { getBannersLanding } from "@/lib/actions/banners";
 import { getProyectosDestacados } from "@/lib/actions/proyectos";
 import { getSystemConfig } from "@/lib/actions/configuration";
 
+const HOME_DATA_TIMEOUT_MS = 1800;
+
+async function withHomeTimeout<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+        return await Promise.race([
+            promise,
+            new Promise<T>((resolve) => {
+                timeout = setTimeout(() => {
+                    console.warn(`[home] ${label} timed out after ${HOME_DATA_TIMEOUT_MS}ms`);
+                    resolve(fallback);
+                }, HOME_DATA_TIMEOUT_MS);
+            }),
+        ]);
+    } catch (error) {
+        console.warn(`[home] ${label} failed`, error);
+        return fallback;
+    } finally {
+        if (timeout) clearTimeout(timeout);
+    }
+}
+
 export const metadata: Metadata = {
     title: "SevenToop — Infraestructura para Comercialización Inmobiliaria",
     description: "Plataforma integral de gestión inmobiliaria para desarrollos, urbanizaciones y proyectos premium. Invertí con seguridad y tecnología.",
 };
 
 export default async function HomePage() {
-    const [bannersRes, proyectos] = await Promise.all([
-        getBannersLanding(),
-        getProyectosDestacados(),
-    ]);
-
-    const [heroTitle, heroSubtitle, ctaText] = await Promise.all([
-        getSystemConfig("HERO_TITLE"),
-        getSystemConfig("HERO_SUBTITLE"),
-        getSystemConfig("CTA_TEXT"),
+    const [bannersRes, proyectos, heroTitle, heroSubtitle, ctaText] = await Promise.all([
+        withHomeTimeout(getBannersLanding(), { success: false, data: [] }, "banners"),
+        withHomeTimeout(getProyectosDestacados(), [], "featured projects"),
+        withHomeTimeout(getSystemConfig("HERO_TITLE"), { success: false, value: null }, "hero title"),
+        withHomeTimeout(getSystemConfig("HERO_SUBTITLE"), { success: false, value: null }, "hero subtitle"),
+        withHomeTimeout(getSystemConfig("CTA_TEXT"), { success: false, value: null }, "cta text"),
     ]);
 
     const banners = bannersRes.success && bannersRes.data ? bannersRes.data : [];

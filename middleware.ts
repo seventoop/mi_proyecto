@@ -1,10 +1,13 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import type { NextFetchEvent, NextRequest } from "next/server";
+import type { NextRequestWithAuth } from "next-auth/middleware";
 import { checkRateLimit, getClientIp, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 
+// Cookie-only public preferences can bypass auth middleware; API rate limits stay active for the rest of /api.
+const PUBLIC_API_PATHS = new Set(["/api/set-language"]);
 
-
-export default withAuth(
+const authMiddleware = withAuth(
     async function middleware(req) {
         const token = req.nextauth.token;
         const { pathname } = req.nextUrl;
@@ -116,6 +119,14 @@ export default withAuth(
     }
 );
 
+export default function middleware(req: NextRequest, event: NextFetchEvent) {
+    if (PUBLIC_API_PATHS.has(req.nextUrl.pathname)) {
+        return NextResponse.next();
+    }
+
+    return authMiddleware(req as NextRequestWithAuth, event);
+}
+
 export const config = {
     matcher: [
         "/dashboard",
@@ -123,12 +134,6 @@ export const config = {
         "/onboarding/:path*",
         "/demo-expired",
         "/reset-password",
-        "/api/auth/signin",
-        "/api/auth/callback/credentials",
-        "/api/webhooks/:path*",
-        // Include authenticated API routes for GENERAL_API rate limiting.
-        // withAuth authorized callback returns true for API routes regardless of token
-        // so unauthenticated API calls are handled by individual route guards, not here.
         "/api/:path*",
     ],
 };

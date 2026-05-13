@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Camera, ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import Image from "next/image";
+import { useLanguage } from "@/components/providers/language-provider";
 
 interface ProyectoImagen {
     id: string;
@@ -16,19 +17,9 @@ interface PublicProjectGalleryProps {
     imagenes: ProyectoImagen[];
 }
 
-const CATEGORY_NAMES: Record<string, string> = {
-    RENDER: "Renders",
-    AVANCE_OBRA: "Avance de Obra",
-    MASTERPLAN: "Masterplan",
-    INTERIOR: "Interiores",
-    EXTERIOR: "Exteriores",
-    PORTADA: "Portada",
-    GALERIA: "Galería",
-};
-
-function formatCategoryLabel(category: string) {
-    if (!category) return "Sin categoría";
-    if (CATEGORY_NAMES[category]) return CATEGORY_NAMES[category];
+function formatCategoryLabel(category: string, labels: Record<string, string>, fallback: string) {
+    if (!category) return fallback;
+    if (labels[category]) return labels[category];
     return category
         .toLowerCase()
         .split(/[_\s-]+/)
@@ -38,6 +29,8 @@ function formatCategoryLabel(category: string) {
 }
 
 export default function PublicProjectGallery({ imagenes }: PublicProjectGalleryProps) {
+    const { dictionary: t } = useLanguage();
+    const copy = t.projectGallery;
     const [selectedCategory, setSelectedCategory] = useState<string>("TODOS");
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
@@ -88,9 +81,9 @@ export default function PublicProjectGallery({ imagenes }: PublicProjectGalleryP
         <section className="py-24 bg-background">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center mb-16">
-                    <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Explorá el proyecto</h2>
+                    <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">{copy.title}</h2>
                     <p className="text-lg text-muted-foreground leading-8 max-w-2xl mx-auto">
-                        Visualizá cada detalle a través de la galería cargada desde el dashboard del proyecto.
+                        {copy.description}
                     </p>
                 </div>
 
@@ -106,7 +99,7 @@ export default function PublicProjectGallery({ imagenes }: PublicProjectGalleryP
                                     : "bg-card border-border text-muted-foreground hover:border-brand-500 hover:text-foreground"
                             )}
                         >
-                            {cat === "TODOS" ? "Todas" : formatCategoryLabel(cat)}
+                            {cat === "TODOS" ? copy.all : formatCategoryLabel(cat, copy.categories, copy.uncategorized)}
                         </button>
                     ))}
                 </div>
@@ -123,7 +116,7 @@ export default function PublicProjectGallery({ imagenes }: PublicProjectGalleryP
                         >
                             <Image
                                 src={img.url}
-                                alt={formatCategoryLabel(img.categoria)}
+                                alt={formatCategoryLabel(img.categoria, copy.categories, copy.uncategorized)}
                                 fill
                                 className="object-cover transition-transform duration-700 group-hover:scale-110"
                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -132,10 +125,10 @@ export default function PublicProjectGallery({ imagenes }: PublicProjectGalleryP
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-8">
                                 <p className="text-brand-400 font-bold text-sm uppercase tracking-widest mb-2">
-                                    {formatCategoryLabel(img.categoria)}
+                                    {formatCategoryLabel(img.categoria, copy.categories, copy.uncategorized)}
                                 </p>
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-white font-bold text-xl">Ver imagen</h4>
+                                    <h4 className="text-white font-bold text-xl">{copy.viewImage}</h4>
                                     <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
                                         <Maximize2 className="w-5 h-5 text-white" />
                                     </div>
@@ -148,7 +141,7 @@ export default function PublicProjectGallery({ imagenes }: PublicProjectGalleryP
                 {imagenes.length === 0 && (
                     <div className="text-center py-20 border-2 border-dashed border-border rounded-3xl bg-card/40">
                         <Camera className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-lg text-muted-foreground">Aún no hay imágenes disponibles para este proyecto.</p>
+                        <p className="text-lg text-muted-foreground">{copy.empty}</p>
                     </div>
                 )}
             </div>
@@ -166,14 +159,14 @@ export default function PublicProjectGallery({ imagenes }: PublicProjectGalleryP
                             <button
                                 onClick={goPrev}
                                 className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all"
-                                aria-label="Imagen anterior"
+                                aria-label={copy.previousImage}
                             >
                                 <ChevronLeft className="w-6 h-6" />
                             </button>
                             <button
                                 onClick={goNext}
                                 className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all"
-                                aria-label="Imagen siguiente"
+                                aria-label={copy.nextImage}
                             >
                                 <ChevronRight className="w-6 h-6" />
                             </button>
@@ -184,7 +177,7 @@ export default function PublicProjectGallery({ imagenes }: PublicProjectGalleryP
                     </div>
                     <img
                         src={activeImage.url}
-                        alt={formatCategoryLabel(activeImage.categoria)}
+                        alt={formatCategoryLabel(activeImage.categoria, copy.categories, copy.uncategorized)}
                         className="max-w-full max-h-full object-contain rounded-xl shadow-2xl animate-fade-in"
                     />
                 </div>

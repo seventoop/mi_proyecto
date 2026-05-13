@@ -28,6 +28,8 @@
     "promote:superadmin:apply": "tsx scripts/promote-superadmin.ts --apply",
     "test": "vitest run",
     "test:watch": "vitest",
+    "i18n:audit": "node scripts/audit-i18n.mjs",
+    "i18n:audit:strict-hardcoded": "node scripts/audit-i18n.mjs --strict-hardcoded",
     "db:studio": "npx prisma studio",
     "postinstall": "prisma generate",
     "security:check": "node scripts/security-check.js"

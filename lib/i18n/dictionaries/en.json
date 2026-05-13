@@ -396,5 +396,198 @@
       "privacy": "Privacy Policy"
     },
     "rights": "All rights reserved."
+  },
+  "a11y": {
+    "mainNavigation": "Main navigation",
+    "switchToEnglish": "Switch to English",
+    "switchToSpanish": "Switch to Spanish",
+    "anonymousUser": "User"
+  },
+  "contactForm": {
+    "validation": {
+      "name": "Enter your full name",
+      "email": "Enter a valid email",
+      "phone": "Enter a valid phone number"
+    },
+    "selectedLot": "Selected lot",
+    "selectedLotMessage": "Hi, I am interested in lot {{lot}}. Can you send me updated availability and commercial terms?",
+    "lotPrefix": "[Inquiry about lot {{lot}}{{price}}]",
+    "removeLot": "Remove lot",
+    "successTitle": "Message sent!",
+    "successDescription": "An advisor will contact you shortly.",
+    "sendAnother": "Send another message",
+    "submit": "Send inquiry",
+    "labels": {
+      "name": "Full name",
+      "phone": "Phone",
+      "email": "Email",
+      "message": "Message (optional)"
+    },
+    "placeholders": {
+      "name": "Ex: John Doe",
+      "phone": "+1 234...",
+      "email": "john@example.com",
+      "message": "I am interested in this project..."
+    },
+    "errors": {
+      "submit": "An error occurred while sending",
+      "connection": "Connection error. Please try again."
+    }
+  },
+  "units": {
+    "filters": "Filters",
+    "unitsCount": "{{filtered}} of {{total}} units",
+    "searchLabel": "Search lot by code",
+    "searchPlaceholder": "Search by lot code...",
+    "sortLabel": "Sort",
+    "recommended": "Recommended",
+    "lotNumber": "Lot number",
+    "priceAsc": "Price: low to high",
+    "priceDesc": "Price: high to low",
+    "surfaceAsc": "Area: small to large",
+    "surfaceDesc": "Area: large to small",
+    "statuses": {
+      "all": "All",
+      "available": "Available",
+      "reserved": "Reserved",
+      "sold": "Sold",
+      "blocked": "Blocked",
+      "suspended": "Suspended",
+      "availableOne": "Available",
+      "reservedOne": "Reserved",
+      "soldOne": "Sold",
+      "blockedOne": "Blocked",
+      "suspendedOne": "Suspended"
+    },
+    "lot": "Lot",
+    "block": "Block {{block}}",
+    "surface": "Area",
+    "price": "Price",
+    "corner": "Corner",
+    "viewDetail": "View details",
+    "ask": "Ask",
+    "emptyTitle": "No lots match those filters.",
+    "emptyDescription": "Try clearing the search or changing the status to see more results.",
+    "showing": "Showing {{shown}} of {{filtered}} {{unitLabel}}",
+    "unitSingular": "unit",
+    "unitPlural": "units",
+    "seeMore": "See more units",
+    "seeAll": "See all units"
+  },
+  "publicContact": {
+    "validation": {
+      "name": "Enter your name",
+      "email": "Enter a valid email",
+      "phone": "Enter a valid phone number",
+      "subject": "Select a subject",
+      "message": "The message needs a little more detail"
+    },
+    "successTitle": "Message received!",
+    "successDescription": "Our team will review your inquiry and contact you soon.",
+    "sendAnother": "Send another message",
+    "formTitle": "Leave us your message",
+    "formDescription": "Let's establish a direct line of communication.",
+    "labels": {
+      "name": "Name / Company",
+      "phone": "Phone",
+      "email": "Email",
+      "subject": "Reason for Contact",
+      "message": "Message"
+    },
+    "placeholders": {
+      "name": "Ex: John Doe / Company Inc.",
+      "phone": "+1 234...",
+      "email": "you@email.com",
+      "subject": "Select a reason...",
+      "message": "Tell us more about your need or project..."
+    },
+    "subjects": {
+      "general": "General Inquiry",
+      "publish": "Publish a Development",
+      "alliance": "Alliance / B2B",
+      "vip": "VIP Subscription",
+      "support": "Technical Support"
+    },
+    "errors": {
+      "submit": "An error occurred while sending your inquiry.",
+      "connection": "Connection error. Please try again."
+    },
+    "submit": "Send Message",
+    "eyebrow": "Let's talk",
+    "title": "Direct Contact",
+    "description": "SevenToop is the ideal ecosystem to drive sales or find great opportunities. We are here to make it easier.",
+    "info": {
+      "generalTitle": "General Inquiries",
+      "generalDescription": "We answer your operational questions.",
+      "alliancesTitle": "Alliances and B2B",
+      "alliancesDescription": "Integration for large portfolios, partners, and developers.",
+      "emailTitle": "Direct Email"
+    }
+  },
+  "testimonialForm": {
+    "successTitle": "Thank you for your feedback!",
+    "successDescription": "Your testimonial has been submitted and will be reviewed by our team before publication.",
+    "sendAnother": "Send another testimonial",
+    "title": "Leave us your feedback",
+    "description": "Your experience helps us improve.",
+    "namePlaceholder": "Your Name",
+    "roles": {
+      "user": "I am an Investor / Buyer",
+      "company": "I am a Company / Partner"
+    },
+    "textPlaceholder": "Write your experience with us here...",
+    "changePhoto": "Change photo",
+    "uploadPhoto": "Upload profile photo (Optional)",
+    "submitting": "Sending...",
+    "submit": "Send Testimonial"
+  },
+  "projectGallery": {
+    "title": "Explore the project",
+    "description": "View every detail through the gallery uploaded from the project dashboard.",
+    "all": "All",
+    "viewImage": "View image",
+    "empty": "There are no images available for this project yet.",
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
+    "uncategorized": "Uncategorized",
+    "categories": {
+      "RENDER": "Renders",
+      "AVANCE_OBRA": "Construction Progress",
+      "MASTERPLAN": "Masterplan",
+      "INTERIOR": "Interiors",
+      "EXTERIOR": "Exteriors",
+      "PORTADA": "Cover",
+      "GALERIA": "Gallery"
+    }
+  },
+  "projectPreview": {
+    "status": {
+      "available": "Available",
+      "reserved": "Reserved",
+      "sold": "Sold"
+    },
+    "modes": {
+      "plan": "Plan",
+      "map": "Map"
+    },
+    "layers": {
+      "mode": "Mode",
+      "layers": "Layers",
+      "statuses": "Statuses",
+      "infrastructure": "Infrastructure",
+      "images": "Images"
+    },
+    "titles": {
+      "notAvailable": "Not available for this project",
+      "viewMode": "View in {{mode}} mode",
+      "noData": "No data available",
+      "toggleLayer": "Show/hide {{layer}}"
+    },
+    "headerTitle": "Project view",
+    "headerDescription": "Switch between {{plan}} and {{map}}. To see lot details, open the interactive masterplan.",
+    "openMasterplan": "View interactive masterplan",
+    "loadingMap": "Loading map...",
+    "planAria": "Plan for {{projectName}}",
+    "emptyPlan": "There is no plan loaded for this project yet."
   }
 }

@@ -51,6 +51,18 @@ jobs:
       - name: Security Guardrail Check
         run: npm run security:check
 
+  i18n-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: I18n audit
+        run: npm run i18n:audit
+
   build:
     runs-on: ubuntu-latest
     steps:

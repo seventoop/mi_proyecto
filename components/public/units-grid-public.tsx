@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Hash, MapPin, Maximize2, Search, SlidersHorizontal, Tag } from "lucide-react";
+import { useLanguage } from "@/components/providers/language-provider";
+import { formatCurrency, formatMessage, formatNumber } from "@/lib/i18n/format";
 
 export type PublicUnitItem = {
     id: string;
@@ -34,29 +36,13 @@ interface Props {
     seeAllHref?: string;
 }
 
-const ESTADO_TONE: Record<string, { dot: string; chip: string; label: string }> = {
-    DISPONIBLE: { dot: "bg-emerald-500", chip: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30", label: "Disponible" },
-    RESERVADA: { dot: "bg-amber-500", chip: "bg-amber-500/15 text-amber-600 border-amber-500/30", label: "Reservado" },
-    VENDIDA: { dot: "bg-rose-500", chip: "bg-rose-500/15 text-rose-600 border-rose-500/30", label: "Vendido" },
-    BLOQUEADA: { dot: "bg-slate-400", chip: "bg-slate-400/15 text-slate-500 border-slate-400/30", label: "Bloqueado" },
-    SUSPENDIDO: { dot: "bg-slate-500", chip: "bg-slate-500/15 text-slate-500 border-slate-500/30", label: "Suspendido" },
+const ESTADO_TONE: Record<string, { dot: string; chip: string; labelKey: "availableOne" | "reservedOne" | "soldOne" | "blockedOne" | "suspendedOne" }> = {
+    DISPONIBLE: { dot: "bg-emerald-500", chip: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30", labelKey: "availableOne" },
+    RESERVADA: { dot: "bg-amber-500", chip: "bg-amber-500/15 text-amber-600 border-amber-500/30", labelKey: "reservedOne" },
+    VENDIDA: { dot: "bg-rose-500", chip: "bg-rose-500/15 text-rose-600 border-rose-500/30", labelKey: "soldOne" },
+    BLOQUEADA: { dot: "bg-slate-400", chip: "bg-slate-400/15 text-slate-500 border-slate-400/30", labelKey: "blockedOne" },
+    SUSPENDIDO: { dot: "bg-slate-500", chip: "bg-slate-500/15 text-slate-500 border-slate-500/30", labelKey: "suspendedOne" },
 };
-
-function formatCurrency(value: number | null, currency = "USD") {
-    if (value == null || !Number.isFinite(value)) return "Consultar";
-    return new Intl.NumberFormat("es-AR", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-    }).format(value);
-}
-
-function formatSurface(value: number | null) {
-    if (value == null || !Number.isFinite(value)) return "Consultar";
-    const rounded = Math.round(value * 10) / 10;
-    const display = Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
-    return `${display.replace(".", ",")} m²`;
-}
 
 function naturalCompareCode(a: string, b: string) {
     return a.localeCompare(b, "es", { numeric: true, sensitivity: "base" });
@@ -69,13 +55,13 @@ export default function UnitsGridPublic({
     pageSize = 12,
     seeAllHref,
 }: Props) {
+    const { locale, dictionary: t } = useLanguage();
     const isCompact = mode === "compact";
     const [estado, setEstado] = useState<EstadoFilter>("TODOS");
     const [sort, setSort] = useState<SortKey>("default");
     const [query, setQuery] = useState("");
     const [visible, setVisible] = useState(pageSize);
 
-    // Reset pagination on any filter/sort/query change
     useEffect(() => {
         setVisible(pageSize);
     }, [estado, sort, query, pageSize]);
@@ -127,18 +113,16 @@ export default function UnitsGridPublic({
     const shown = isCompact ? filtered.slice(0, pageSize) : filtered.slice(0, visible);
     const hasMore = !isCompact && visible < filtered.length;
 
-    // Build dynamic filter buttons (always show DISPONIBLE/RESERVADA/VENDIDA;
-    // BLOQUEADA / SUSPENDIDO only if any exist)
     const filterButtons: Array<{ key: EstadoFilter; label: string; count: number; tone: string }> = [
-        { key: "TODOS", label: "Todos", count: units.length, tone: "bg-foreground" },
-        { key: "DISPONIBLE", label: "Disponibles", count: counts.DISPONIBLE, tone: "bg-emerald-500" },
-        { key: "RESERVADA", label: "Reservados", count: counts.RESERVADA, tone: "bg-amber-500" },
-        { key: "VENDIDA", label: "Vendidos", count: counts.VENDIDA, tone: "bg-rose-500" },
+        { key: "TODOS", label: t.units.statuses.all, count: units.length, tone: "bg-foreground" },
+        { key: "DISPONIBLE", label: t.units.statuses.available, count: counts.DISPONIBLE, tone: "bg-emerald-500" },
+        { key: "RESERVADA", label: t.units.statuses.reserved, count: counts.RESERVADA, tone: "bg-amber-500" },
+        { key: "VENDIDA", label: t.units.statuses.sold, count: counts.VENDIDA, tone: "bg-rose-500" },
     ];
     if (counts.BLOQUEADA > 0)
-        filterButtons.push({ key: "BLOQUEADA", label: "Bloqueados", count: counts.BLOQUEADA, tone: "bg-slate-400" });
+        filterButtons.push({ key: "BLOQUEADA", label: t.units.statuses.blocked, count: counts.BLOQUEADA, tone: "bg-slate-400" });
     if (counts.SUSPENDIDO > 0)
-        filterButtons.push({ key: "SUSPENDIDO", label: "Suspendidos", count: counts.SUSPENDIDO, tone: "bg-slate-500" });
+        filterButtons.push({ key: "SUSPENDIDO", label: t.units.statuses.suspended, count: counts.SUSPENDIDO, tone: "bg-slate-500" });
 
     const selectLote = (unit: PublicUnitItem) => {
         if (typeof window === "undefined") return;
@@ -156,6 +140,11 @@ export default function UnitsGridPublic({
         );
     };
 
+    const formatSurface = (value: number | null) => {
+        if (value == null || !Number.isFinite(value)) return t.units.ask;
+        return `${formatNumber(value, locale, 1)} m²`;
+    };
+
     return (
         <div className="space-y-6">
             {!isCompact && (
@@ -164,40 +153,40 @@ export default function UnitsGridPublic({
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <SlidersHorizontal className="h-4 w-4 text-brand-500" />
                             <span className="font-bold uppercase tracking-[0.18em] text-foreground">
-                                Filtros
+                                {t.units.filters}
                             </span>
                             <span className="text-xs">
-                                · {filtered.length} de {units.length} unidades
+                                · {formatMessage(t.units.unitsCount, { filtered: filtered.length, total: units.length })}
                             </span>
                         </div>
                         <div className="flex flex-1 flex-wrap items-center gap-2 lg:justify-end">
                             <div className="relative w-full sm:w-64">
                                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <label htmlFor="units-search" className="sr-only">
-                                    Buscar lote por código
+                                    {t.units.searchLabel}
                                 </label>
                                 <input
                                     id="units-search"
                                     type="search"
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Buscar por código de lote..."
-                                    aria-label="Buscar lote por código"
+                                    placeholder={t.units.searchPlaceholder}
+                                    aria-label={t.units.searchLabel}
                                     className="w-full rounded-xl border border-border bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                                 />
                             </div>
                             <select
                                 value={sort}
                                 onChange={(e) => setSort(e.target.value as SortKey)}
-                                aria-label="Ordenar"
+                                aria-label={t.units.sortLabel}
                                 className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                             >
-                                <option value="default">Recomendado</option>
-                                <option value="numero_asc">Número de lote</option>
-                                <option value="precio_asc">Precio: menor a mayor</option>
-                                <option value="precio_desc">Precio: mayor a menor</option>
-                                <option value="superficie_asc">Superficie: menor a mayor</option>
-                                <option value="superficie_desc">Superficie: mayor a menor</option>
+                                <option value="default">{t.units.recommended}</option>
+                                <option value="numero_asc">{t.units.lotNumber}</option>
+                                <option value="precio_asc">{t.units.priceAsc}</option>
+                                <option value="precio_desc">{t.units.priceDesc}</option>
+                                <option value="superficie_asc">{t.units.surfaceAsc}</option>
+                                <option value="superficie_desc">{t.units.surfaceDesc}</option>
                             </select>
                         </div>
                     </div>
@@ -241,7 +230,6 @@ export default function UnitsGridPublic({
                                 key={unit.id}
                                 className="group relative flex flex-col overflow-hidden rounded-3xl border-2 border-border/80 bg-card shadow-sm ring-1 ring-brand-500/10 transition-all duration-200 hover:-translate-y-1 hover:border-brand-500/50 hover:ring-brand-500/30 hover:shadow-xl hover:shadow-brand-500/15 dark:border-slate-700/80 dark:ring-brand-500/20"
                             >
-                                {/* Top accent bar (state color) */}
                                 <div className={`h-1.5 w-full ${tone.dot}`} aria-hidden="true" />
 
                                 <div className="flex flex-1 flex-col gap-4 p-5">
@@ -249,7 +237,7 @@ export default function UnitsGridPublic({
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-1.5 truncate text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                                                 <Hash className="h-3 w-3 shrink-0" />
-                                                <span className="truncate">{unit.etapaNombre || "Lote"}</span>
+                                                <span className="truncate">{unit.etapaNombre || t.units.lot}</span>
                                             </div>
                                             <p className="mt-1 truncate text-xl font-black tabular-nums text-foreground">
                                                 {unit.numero}
@@ -258,14 +246,14 @@ export default function UnitsGridPublic({
                                                 <p className="mt-1 truncate text-xs text-muted-foreground">
                                                     {/^manzana\s/i.test(unit.manzanaNombre)
                                                         ? unit.manzanaNombre
-                                                        : `Manzana ${unit.manzanaNombre}`}
+                                                        : formatMessage(t.units.block, { block: unit.manzanaNombre })}
                                                 </p>
                                             )}
                                         </div>
                                         <span
                                             className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${tone.chip}`}
                                         >
-                                            {tone.label}
+                                            {t.units.statuses[tone.labelKey]}
                                         </span>
                                     </div>
 
@@ -273,7 +261,7 @@ export default function UnitsGridPublic({
                                         <div>
                                             <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                                                 <Maximize2 className="h-3 w-3" />
-                                                Superficie
+                                                {t.units.surface}
                                             </div>
                                             <p className="mt-1 text-sm font-extrabold text-foreground">
                                                 {formatSurface(unit.superficie)}
@@ -282,10 +270,10 @@ export default function UnitsGridPublic({
                                         <div>
                                             <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                                                 <Tag className="h-3 w-3" />
-                                                Precio
+                                                {t.units.price}
                                             </div>
                                             <p className="mt-1 truncate text-sm font-extrabold text-foreground">
-                                                {formatCurrency(unit.precio, unit.moneda)}
+                                                {formatCurrency(unit.precio, locale, unit.moneda, t.units.ask)}
                                             </p>
                                         </div>
                                     </div>
@@ -293,7 +281,7 @@ export default function UnitsGridPublic({
                                     {(unit.orientacion || unit.esEsquina) && (
                                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <MapPin className="h-3 w-3 text-brand-500" />
-                                            {[unit.orientacion, unit.esEsquina ? "Esquina" : null]
+                                            {[unit.orientacion, unit.esEsquina ? t.units.corner : null]
                                                 .filter(Boolean)
                                                 .join(" · ")}
                                         </div>
@@ -304,14 +292,14 @@ export default function UnitsGridPublic({
                                             href={`/proyectos/${slug}/unidades/${unit.id}`}
                                             className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-center text-xs font-bold text-foreground transition-colors hover:bg-muted"
                                         >
-                                            Ver detalle
+                                            {t.units.viewDetail}
                                         </Link>
                                         <a
                                             href="#contacto"
                                             onClick={() => selectLote(unit)}
                                             className="flex-1 rounded-xl bg-brand-500 px-3 py-2 text-center text-xs font-bold text-white transition-colors hover:bg-brand-400"
                                         >
-                                            Consultar
+                                            {t.units.ask}
                                         </a>
                                     </div>
                                 </div>
@@ -321,18 +309,18 @@ export default function UnitsGridPublic({
                 </div>
             ) : (
                 <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
-                    <p className="font-bold text-foreground">No encontramos lotes con esos filtros.</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Probá quitar la búsqueda o cambiar el estado para ver más resultados.
-                    </p>
+                    <p className="font-bold text-foreground">{t.units.emptyTitle}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{t.units.emptyDescription}</p>
                 </div>
             )}
 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground">
-                    Mostrando <span className="font-bold text-foreground">{shown.length}</span> de{" "}
-                    <span className="font-bold text-foreground">{filtered.length}</span>{" "}
-                    {filtered.length === 1 ? "unidad" : "unidades"}
+                    {formatMessage(t.units.showing, {
+                        shown: shown.length,
+                        filtered: filtered.length,
+                        unitLabel: filtered.length === 1 ? t.units.unitSingular : t.units.unitPlural,
+                    })}
                 </p>
                 {hasMore && (
                     <button
@@ -340,7 +328,7 @@ export default function UnitsGridPublic({
                         onClick={() => setVisible((v) => v + pageSize)}
                         className="rounded-2xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-400"
                     >
-                        Ver más unidades
+                        {t.units.seeMore}
                     </button>
                 )}
                 {isCompact && seeAllHref && filtered.length > shown.length && (
@@ -348,7 +336,7 @@ export default function UnitsGridPublic({
                         href={seeAllHref}
                         className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-400"
                     >
-                        Ver todas las unidades <ArrowRight className="h-4 w-4" />
+                        {t.units.seeAll} <ArrowRight className="h-4 w-4" />
                     </Link>
                 )}
             </div>

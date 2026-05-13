@@ -1,8 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState } from "react";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/config";
+import { getClientDictionary } from "@/lib/i18n/client-dictionaries";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 interface LanguageContextType {
   locale: Locale;
@@ -22,12 +23,10 @@ export function LanguageProvider({
   initialDictionary: Dictionary;
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
-  const [dictionary] = useState<Dictionary>(initialDictionary);
+  const [dictionary, setDictionary] = useState<Dictionary>(initialDictionary);
 
   const setLanguage = async (newLocale: Locale) => {
     try {
-      setLocaleState(newLocale);
-
       const res = await fetch("/api/set-language", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -35,8 +34,8 @@ export function LanguageProvider({
       });
 
       if (res.ok) {
-        // Recargar la página asegura que todos los Server Components
-        // (como layout, page, meta) se vuelvan a generar con el nuevo idioma.
+        setLocaleState(newLocale);
+        setDictionary(getClientDictionary(newLocale));
         window.location.reload();
       }
     } catch (error) {

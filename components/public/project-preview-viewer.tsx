@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { computeSvgViewBox, svgPathToLatLng } from "@/lib/geo-projection";
 import { getInfraCategoryColor, type InfraestructuraCategoria } from "@/types/infraestructura";
+import { useLanguage } from "@/components/providers/language-provider";
+import { formatMessage } from "@/lib/i18n/format";
 
 // Same color values used in the dashboard reference (captura).
 const STATUS_COLORS: Record<string, string> = {
@@ -22,12 +24,6 @@ const STATUS_COLORS: Record<string, string> = {
     BLOQUEADA: "#94a3b8",
     SUSPENDIDO: "#64748b",
 };
-
-const STATUS_LEGEND: Array<[string, string]> = [
-    ["Disponible", "#22c55e"],
-    ["Reservado", "#f59e0b"],
-    ["Vendido", "#ef4444"],
-];
 
 const DARK_BG = "#1e1e1e";
 
@@ -108,6 +104,8 @@ export default function ProjectPreviewViewer({
     mapImages,
     infrastructures = [],
 }: ProjectPreviewViewerProps) {
+    const { dictionary: t } = useLanguage();
+    const copy = t.projectPreview;
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
     const estadosLayerRef = useRef<any>(null);
@@ -128,6 +126,11 @@ export default function ProjectPreviewViewer({
     const [showInfra, setShowInfra] = useState(false);
     const [showImagenes, setShowImagenes] = useState(true);
     const [ready, setReady] = useState(false);
+    const statusLegend: Array<[string, string]> = [
+        [copy.status.available, "#22c55e"],
+        [copy.status.reserved, "#f59e0b"],
+        [copy.status.sold, "#ef4444"],
+    ];
 
     // ?mode= después del mount (evita hydration mismatch).
     useEffect(() => {
@@ -333,7 +336,11 @@ export default function ProjectPreviewViewer({
                             ? "border-brand-500 bg-brand-500 text-white shadow-sm"
                             : "border-border bg-card text-foreground hover:bg-muted"
                 }`}
-                title={!available ? "No disponible para este proyecto" : `Ver en modo ${label.toLowerCase()}`}
+                title={
+                    !available
+                        ? copy.titles.notAvailable
+                        : formatMessage(copy.titles.viewMode, { mode: label.toLowerCase() })
+                }
             >
                 <Icon className="h-3.5 w-3.5" />
                 {label}
@@ -357,7 +364,11 @@ export default function ProjectPreviewViewer({
                     ? "cursor-not-allowed border-slate-700/60 bg-slate-800/40 text-slate-500"
                     : "cursor-pointer border-slate-700/60 bg-slate-800/60 text-slate-100 hover:border-brand-500/60"
             }`}
-            title={disabled ? "No hay datos disponibles" : `Mostrar/ocultar ${label.toLowerCase()}`}
+            title={
+                disabled
+                    ? copy.titles.noData
+                    : formatMessage(copy.titles.toggleLayer, { layer: label.toLowerCase() })
+            }
         >
             <Icon className={`h-3.5 w-3.5 ${disabled ? "opacity-50" : on ? "text-brand-400" : "text-slate-400"}`} />
             <span className="select-none">{label}</span>
@@ -388,10 +399,12 @@ export default function ProjectPreviewViewer({
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 bg-slate-900/95 px-5 py-4">
                 <div>
-                    <p className="text-sm font-bold text-white">Vista del proyecto</p>
+                    <p className="text-sm font-bold text-white">{copy.headerTitle}</p>
                     <p className="text-xs text-slate-300">
-                        Cambiá entre <strong className="text-white">Plano</strong> y{" "}
-                        <strong className="text-white">Mapa</strong>. Para ver detalle por lote, abrí el masterplan interactivo.
+                        {formatMessage(copy.headerDescription, {
+                            plan: copy.modes.plan,
+                            map: copy.modes.map,
+                        })}
                     </p>
                 </div>
                 <Link
@@ -399,23 +412,23 @@ export default function ProjectPreviewViewer({
                     className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
                 >
                     <Globe className="h-4 w-4" />
-                    Ver masterplan interactivo
+                    {copy.openMasterplan}
                     <ArrowRight className="h-4 w-4" />
                 </Link>
             </div>
 
             {/* Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 bg-slate-900/70 px-5 py-3">
-                <div role="group" aria-label="Modo" className="flex flex-wrap items-center gap-1.5">
-                    {modeButton("plano", "Plano", Layers, !!planAsset)}
-                    {modeButton("mapa", "Mapa", MapIcon, hasMap)}
+                <div role="group" aria-label={copy.layers.mode} className="flex flex-wrap items-center gap-1.5">
+                    {modeButton("plano", copy.modes.plan, Layers, !!planAsset)}
+                    {modeButton("mapa", copy.modes.map, MapIcon, hasMap)}
                 </div>
 
                 {/* Capas (sólo aplican en Mapa) */}
-                <div role="group" aria-label="Capas" className="flex flex-wrap items-center gap-1.5">
+                <div role="group" aria-label={copy.layers.layers} className="flex flex-wrap items-center gap-1.5">
                     {overlayButton(
                         "estados",
-                        "Estados",
+                        copy.layers.statuses,
                         Square,
                         showEstados,
                         toggle(setShowEstados),
@@ -423,7 +436,7 @@ export default function ProjectPreviewViewer({
                     )}
                     {overlayButton(
                         "infra",
-                        "Infraestructura",
+                        copy.layers.infrastructure,
                         Wrench,
                         showInfra,
                         toggle(setShowInfra),
@@ -431,7 +444,7 @@ export default function ProjectPreviewViewer({
                     )}
                     {overlayButton(
                         "imagenes",
-                        "Imágenes",
+                        copy.layers.images,
                         ImageIcon,
                         showImagenes,
                         toggle(setShowImagenes),
@@ -440,7 +453,7 @@ export default function ProjectPreviewViewer({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                    {STATUS_LEGEND.map(([label, color]) => (
+                    {statusLegend.map(([label, color]) => (
                         <span key={label} className="inline-flex items-center gap-1.5">
                             <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
                             {label}
@@ -458,7 +471,7 @@ export default function ProjectPreviewViewer({
                             <div className="absolute inset-0 z-[3] flex items-center justify-center" style={{ background: DARK_BG }}>
                                 <div className="flex flex-col items-center gap-3">
                                     <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-                                    <p className="text-sm font-bold text-slate-300">Cargando mapa…</p>
+                                    <p className="text-sm font-bold text-slate-300">{copy.loadingMap}</p>
                                 </div>
                             </div>
                         )}
@@ -471,7 +484,7 @@ export default function ProjectPreviewViewer({
                         {planSvgRaw ? (
                             <div
                                 className="relative h-full w-full"
-                                aria-label={`Plano de ${projectName}`}
+                                aria-label={formatMessage(copy.planAria, { projectName })}
                                 role="img"
                             >
                                 {/* SVG inline: respeta su propio viewBox, escala al contenedor
@@ -533,7 +546,7 @@ export default function ProjectPreviewViewer({
                                     backgroundPosition: "center",
                                     backgroundSize: "contain",
                                 }}
-                                aria-label={`Plano de ${projectName}`}
+                                aria-label={formatMessage(copy.planAria, { projectName })}
                                 role="img"
                             >
                                 {showEstados && planSvgViewBox && hasUnits && (
@@ -565,7 +578,7 @@ export default function ProjectPreviewViewer({
                             </div>
                         ) : (
                             <div className="flex h-full w-full items-center justify-center">
-                                <p className="text-sm text-slate-300">Aún no hay plano cargado para este proyecto.</p>
+                                <p className="text-sm text-slate-300">{copy.emptyPlan}</p>
                             </div>
                         )}
                     </div>

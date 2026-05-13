@@ -4,8 +4,11 @@ import { useState } from "react";
 import { Star, User, Briefcase, Send, CheckCircle, UploadCloud, X } from "lucide-react";
 import { createTestimonio } from "@/lib/actions/testimonios";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export default function TestimonioForm() {
+    const { dictionary: t } = useLanguage();
+    const copy = t.testimonialForm;
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
     const [form, setForm] = useState({
@@ -54,12 +57,12 @@ export default function TestimonioForm() {
                 <div className="w-16 h-16 bg-brand-orange text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-brand-orange/20">
                     <CheckCircle className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">¡Gracias por tu opinión!</h3>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{copy.successTitle}</h3>
                 <p className="text-slate-600 dark:text-slate-300">
-                    Tu testimonio ha sido enviado y será revisado por nuestro equipo antes de ser publicado.
+                    {copy.successDescription}
                 </p>
                 <button onClick={() => setSent(false)} className="mt-6 text-sm font-bold text-brand-orange hover:text-brand-orangeDark hover:underline transition-colors">
-                    Enviar otro testimonio
+                    {copy.sendAnother}
                 </button>
             </div>
         );
@@ -70,8 +73,8 @@ export default function TestimonioForm() {
             <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-orange via-brand-yellow to-brand-orangeDark" />
 
             <div className="mb-8">
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white">Déjanos tu opinión</h3>
-                <p className="text-slate-500 dark:text-slate-400 mt-1">Tu experiencia nos ayuda a mejorar.</p>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white">{copy.title}</h3>
+                <p className="text-slate-500 dark:text-slate-400 mt-1">{copy.description}</p>
             </div>
 
             <div className="space-y-5">
@@ -94,7 +97,7 @@ export default function TestimonioForm() {
                         <User className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
                         <input
                             required
-                            placeholder="Tu Nombre"
+                            placeholder={copy.namePlaceholder}
                             value={form.autorNombre}
                             onChange={(e) => setForm({ ...form, autorNombre: e.target.value })}
                             className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-brand-orange/20 focus:border-brand-orange/50 transition-all dark:text-white"
@@ -107,8 +110,8 @@ export default function TestimonioForm() {
                             onChange={(e) => setForm({ ...form, autorTipo: e.target.value })}
                             className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-brand-orange/20 focus:border-brand-orange/50 transition-all dark:text-white appearance-none cursor-pointer"
                         >
-                            <option value="USUARIO">Soy Inversor / Comprador</option>
-                            <option value="EMPRESA">Soy Empresa / Partner</option>
+                            <option value="USUARIO">{copy.roles.user}</option>
+                            <option value="EMPRESA">{copy.roles.company}</option>
                         </select>
                     </div>
                 </div>
@@ -116,7 +119,7 @@ export default function TestimonioForm() {
                 <textarea
                     required
                     rows={4}
-                    placeholder="Escribe aquí tu experiencia con nosotros..."
+                    placeholder={copy.textPlaceholder}
                     value={form.texto}
                     onChange={(e) => setForm({ ...form, texto: e.target.value })}
                     className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-brand-orange/20 focus:border-brand-orange/50 transition-all dark:text-white resize-none"
@@ -134,7 +137,7 @@ export default function TestimonioForm() {
                     <label className="flex-1 cursor-pointer group">
                         <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
                             <UploadCloud className="w-4 h-4" />
-                            {file ? "Cambiar foto" : "Subir foto de perfil (Opcional)"}
+                            {file ? copy.changePhoto : copy.uploadPhoto}
                         </div>
                         <input type="file" className="hidden" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
                     </label>
@@ -150,9 +153,9 @@ export default function TestimonioForm() {
                     disabled={loading}
                     className="w-full py-4 bg-brand-orange hover:bg-brand-orangeDark text-white font-black uppercase text-xs tracking-widest rounded-xl shadow-lg shadow-brand-orange/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                 >
-                    {loading ? "Enviando..." : (
+                    {loading ? copy.submitting : (
                         <>
-                            Enviar Testimonio <Send className="w-5 h-5" />
+                            {copy.submit} <Send className="w-5 h-5" />
                         </>
                     )}
                 </button>

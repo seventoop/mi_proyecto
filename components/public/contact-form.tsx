@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Send, CheckCircle, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { crearConsultaContacto } from "@/lib/actions/leads";
+import { useLanguage } from "@/components/providers/language-provider";
+import { formatCurrency, formatMessage } from "@/lib/i18n/format";
 
 type LoteSeleccionado = {
     id: string;
@@ -17,13 +19,6 @@ type LoteSeleccionado = {
     superficie?: number | null;
 };
 
-const formSchema = z.object({
-    nombre: z.string().min(2, "Ingresa tu nombre completo"),
-    email: z.string().email("Ingresa un email válido"),
-    telefono: z.string().min(6, "Ingresa un teléfono válido"),
-    mensaje: z.string().optional(),
-});
-
 interface ContactFormProps {
     proyectoId?: string;
     compact?: boolean;
@@ -32,9 +27,20 @@ interface ContactFormProps {
 }
 
 export default function ContactForm({ proyectoId, compact, className, origen }: ContactFormProps) {
+    const { locale, dictionary: t } = useLanguage();
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lote, setLote] = useState<LoteSeleccionado | null>(null);
+    const formSchema = useMemo(
+        () =>
+            z.object({
+                nombre: z.string().min(2, t.contactForm.validation.name),
+                email: z.string().email(t.contactForm.validation.email),
+                telefono: z.string().min(6, t.contactForm.validation.phone),
+                mensaje: z.string().optional(),
+            }),
+        [t],
+    );
 
     const {
         register,
@@ -50,20 +56,22 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
             const detail = (event as CustomEvent<LoteSeleccionado>).detail;
             if (!detail || !detail.numero) return;
             setLote(detail);
-            setValue(
-                "mensaje",
-                `Hola, me interesa el lote ${detail.numero}. ¿Pueden enviarme disponibilidad y condiciones comerciales actualizadas?`,
-            );
+            setValue("mensaje", formatMessage(t.contactForm.selectedLotMessage, { lot: detail.numero }));
         };
         window.addEventListener("seventoop:select-lote", handler as EventListener);
         return () => window.removeEventListener("seventoop:select-lote", handler as EventListener);
-    }, [setValue]);
+    }, [setValue, t]);
 
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
         setError(null);
         try {
             const lotePrefix = lote
-                ? `[Consulta sobre lote ${lote.numero}${lote.precio ? ` · ${lote.precio.toLocaleString("es-AR")} ${lote.moneda || ""}` : ""}]\n`
+                ? `${formatMessage(t.contactForm.lotPrefix, {
+                      lot: lote.numero,
+                      price: lote.precio
+                          ? ` · ${formatCurrency(lote.precio, locale, lote.moneda || "USD")}`
+                          : "",
+                  })}\n`
                 : "";
             const res = await crearConsultaContacto({
                 nombre: data.nombre,
@@ -83,10 +91,10 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
             if (res.success) {
                 setIsSuccess(true);
             } else {
-                setError(res.error || "Ocurrió un error al enviar");
+                setError(res.error || t.contactForm.errors.submit);
             }
         } catch {
-            setError("Error de conexión. Intenta nuevamente.");
+            setError(t.contactForm.errors.connection);
         }
     };
 
@@ -96,15 +104,15 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
                 <div className="w-16 h-16 bg-brand-orange rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-brand-orange/20">
                     <CheckCircle className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-foreground mb-2">¡Mensaje enviado!</h3>
+                <h3 className="text-2xl font-bold text-foreground mb-2">{t.contactForm.successTitle}</h3>
                 <p className="text-base text-muted-foreground max-w-xs mx-auto mb-6 leading-7">
-                    Un asesor se pondrá en contacto contigo a la brevedad.
+                    {t.contactForm.successDescription}
                 </p>
                 <button
                     onClick={() => setIsSuccess(false)}
                     className="text-base font-semibold text-brand-orange hover:text-brand-orangeDark hover:underline"
                 >
-                    Enviar otro mensaje
+                    {t.contactForm.sendAnother}
                 </button>
             </div>
         );
@@ -120,25 +128,19 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
                         </div>
                         <div className="min-w-0">
                             <p className="text-xs font-bold uppercase tracking-wider text-brand-orange">
-                                Lote seleccionado
+                                {t.contactForm.selectedLot}
                             </p>
                             <p className="text-sm font-bold text-foreground">
                                 {lote.numero}
                                 {lote.superficie ? ` · ${lote.superficie} m²` : ""}
-                                {lote.precio
-                                    ? ` · ${new Intl.NumberFormat("es-AR", {
-                                          style: "currency",
-                                          currency: lote.moneda || "USD",
-                                          maximumFractionDigits: 0,
-                                      }).format(lote.precio)}`
-                                    : ""}
+                                {lote.precio ? ` · ${formatCurrency(lote.precio, locale, lote.moneda || "USD")}` : ""}
                             </p>
                         </div>
                     </div>
                     <button
                         type="button"
                         onClick={() => setLote(null)}
-                        aria-label="Quitar lote"
+                        aria-label={t.contactForm.removeLot}
                         className="rounded-lg p-1 text-brand-orange hover:bg-brand-orange/10"
                     >
                         <X className="h-4 w-4" />
@@ -147,20 +149,20 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                    <label className="text-[15px] font-semibold text-foreground">Nombre completo</label>
+                    <label className="text-[15px] font-semibold text-foreground">{t.contactForm.labels.name}</label>
                     <input
                         {...register("nombre")}
-                        placeholder="Ej: Juan Pérez"
+                        placeholder={t.contactForm.placeholders.name}
                         className="w-full px-4 py-3.5 rounded-xl bg-background border border-border text-base text-foreground placeholder:text-base placeholder:text-muted-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all shadow-sm"
                     />
                     {errors.nombre && <p className="text-sm text-rose-500">{errors.nombre.message}</p>}
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="text-[15px] font-semibold text-foreground">Teléfono</label>
+                    <label className="text-[15px] font-semibold text-foreground">{t.contactForm.labels.phone}</label>
                     <input
                         {...register("telefono")}
-                        placeholder="+54 9 11..."
+                        placeholder={t.contactForm.placeholders.phone}
                         className="w-full px-4 py-3.5 rounded-xl bg-background border border-border text-base text-foreground placeholder:text-base placeholder:text-muted-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all shadow-sm"
                     />
                     {errors.telefono && <p className="text-sm text-rose-500">{errors.telefono.message}</p>}
@@ -168,22 +170,22 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
             </div>
 
             <div className="space-y-1.5">
-                <label className="text-[15px] font-semibold text-foreground">Email</label>
+                <label className="text-[15px] font-semibold text-foreground">{t.contactForm.labels.email}</label>
                 <input
                     {...register("email")}
                     type="email"
-                    placeholder="juan@ejemplo.com"
+                    placeholder={t.contactForm.placeholders.email}
                     className="w-full px-4 py-3.5 rounded-xl bg-background border border-border text-base text-foreground placeholder:text-base placeholder:text-muted-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all shadow-sm"
                 />
                 {errors.email && <p className="text-sm text-rose-500">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-1.5">
-                <label className="text-[15px] font-semibold text-foreground">Mensaje (opcional)</label>
+                <label className="text-[15px] font-semibold text-foreground">{t.contactForm.labels.message}</label>
                 <textarea
                     {...register("mensaje")}
                     rows={compact ? 2 : 4}
-                    placeholder="Estoy interesado en este proyecto..."
+                    placeholder={t.contactForm.placeholders.message}
                     className="w-full px-4 py-3.5 rounded-xl bg-background border border-border text-base text-foreground placeholder:text-base placeholder:text-muted-foreground focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all resize-none shadow-sm"
                 />
             </div>
@@ -203,7 +205,7 @@ export default function ContactForm({ proyectoId, compact, className, origen }: 
                     <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                     <>
-                        Enviar consulta <Send className="w-4 h-4" />
+                        {t.contactForm.submit} <Send className="w-4 h-4" />
                     </>
                 )}
             </button>

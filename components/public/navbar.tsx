@@ -224,7 +224,7 @@ export default function Navbar() {
                     />
                 </Link>
 
-                <nav className="hidden items-center gap-1 lg:flex" aria-label="Navegación principal">
+                <nav className="hidden items-center gap-1 lg:flex" aria-label={t.a11y.mainNavigation}>
                     {NAV_ITEMS.map((item) => {
                         const active = isItemActive(item);
                         const label = t.nav[item.key];
@@ -253,7 +253,7 @@ export default function Navbar() {
                             type="button"
                             onClick={() => changeLocale(locale === "es" ? "en" : "es")}
                             className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-[13px] font-bold text-foreground/70 transition-colors hover:bg-brand-orange/5 hover:text-brand-orange"
-                            aria-label={locale === "es" ? "Switch to English" : "Cambiar a Español"}
+                            aria-label={locale === "es" ? t.a11y.switchToEnglish : t.a11y.switchToSpanish}
                         >
                             <Globe className="h-4 w-4" />
                             <span>{t.common.languageShort}</span>
@@ -268,7 +268,7 @@ export default function Navbar() {
                         {session?.user ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold text-foreground transition-colors hover:bg-brand-orange/5 hover:text-brand-orange">
-                                    {session.user.name || "Usuario"}
+                                    {session.user.name || t.a11y.anonymousUser}
                                     <ChevronDown className="h-4 w-4" />
                                 </DropdownMenuTrigger>
 
@@ -402,7 +402,7 @@ export default function Navbar() {
                                 <div className="px-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                                     {t.common.hello},{" "}
                                     <span className="text-foreground">
-                                        {session.user.name || "Usuario"}
+                                        {session.user.name || t.a11y.anonymousUser}
                                     </span>
                                 </div>
 
