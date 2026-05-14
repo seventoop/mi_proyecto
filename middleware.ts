@@ -4,7 +4,7 @@ import type { NextFetchEvent, NextRequest } from "next/server";
 import type { NextRequestWithAuth } from "next-auth/middleware";
 import { checkRateLimit, getClientIp, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 
-// Cookie-only public preferences can bypass auth middleware; API rate limits stay active for the rest of /api.
+// Cookie-only public preferences can bypass auth middleware without widening API middleware coverage.
 const PUBLIC_API_PATHS = new Set(["/api/set-language"]);
 
 const authMiddleware = withAuth(
@@ -134,6 +134,9 @@ export const config = {
         "/onboarding/:path*",
         "/demo-expired",
         "/reset-password",
-        "/api/:path*",
+        "/api/auth/signin",
+        "/api/auth/callback/credentials",
+        "/api/webhooks/:path*",
+        "/api/set-language",
     ],
 };
