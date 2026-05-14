@@ -41,7 +41,7 @@ export async function getAiTasks(orgId: string) {
 
     try {
         const tasks = await db.logicToopAiTask.findMany({
-            where: { 
+            where: {
                 orgId,
                 status: { in: ["PENDING", "NEEDS_APPROVAL", "APPROVED", "REJECTED"] }
             },

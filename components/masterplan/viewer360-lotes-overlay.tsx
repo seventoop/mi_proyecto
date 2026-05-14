@@ -625,13 +625,13 @@ export default function Viewer360LotesOverlay({
          const [[swLat, swLng], [neLat, neLng]] = _bounds;
          const nx = (lng - swLng) / (neLng - swLng);
          const ny = (neLat - lat) / (neLat - swLat);
-         
+
          const cNW = manualCorners[0], cNE = manualCorners[1], cSE = manualCorners[2], cSW = manualCorners[3];
          const topX = cNW.x + nx * (cNE.x - cNW.x);
          const topY = cNW.y + nx * (cNE.y - cNW.y);
          const botX = cSW.x + nx * (cSE.x - cSW.x);
          const botY = cSW.y + nx * (cSE.y - cSW.y);
-         
+
          return {
             x: topX + ny * (botX - topX),
             y: topY + ny * (botY - topY)
@@ -650,7 +650,7 @@ export default function Viewer360LotesOverlay({
            const rotatedLatLngs = rawLatLngs.map(([lat, lng]) => transformGeoPoint(lat, lng));
            screenPts = rotatedLatLngs.map(([lat, lng]) => projectGeo(lat, lng));
         }
-        
+
         const visiblePts = screenPts.filter(Boolean) as ScreenPt[];
         if (visiblePts.length < 3) continue;
 
@@ -682,7 +682,7 @@ export default function Viewer360LotesOverlay({
       const adj = planCornerAdjustmentsRef.current || [];
       const getWarpedCorners = (): ScreenPt[] | null => {
         if (_mode === "manual" && manualCorners) return manualCorners;
-        
+
         const hull = finalHull;
         if (hull.length < 3) return null;
         const hMinX = Math.min(...hull.map(p => p.x)), hMinY = Math.min(...hull.map(p => p.y));
@@ -804,7 +804,7 @@ export default function Viewer360LotesOverlay({
           const w = naturalSize.w, h = naturalSize.h;
           const srcNodes = [{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}];
           const dstNodes = manualCorners;
-          
+
           const defs = svgEl("defs", {});
           svg.appendChild(defs);
 
@@ -813,12 +813,12 @@ export default function Viewer360LotesOverlay({
             const tri = indices[i];
             const srcTri = [srcNodes[tri[0]], srcNodes[tri[1]], srcNodes[tri[2]]];
             const dstTri = [dstNodes[tri[0]], dstNodes[tri[1]], dstNodes[tri[2]]];
-            
+
             const t = getInverseTransform(
                 srcTri[0].x, srcTri[0].y, srcTri[1].x, srcTri[1].y, srcTri[2].x, srcTri[2].y,
                 dstTri[0].x, dstTri[0].y, dstTri[1].x, dstTri[1].y, dstTri[2].x, dstTri[2].y
             );
-            
+
             if (t) {
               const clipId = `clip-tri-${i}`;
               const clipPath = svgEl("clipPath", { id: clipId });
@@ -826,10 +826,10 @@ export default function Viewer360LotesOverlay({
               defs.appendChild(clipPath);
 
               const matrix = [t[0], t[3], t[1], t[4], t[2], t[5]].join(" ");
-              svg.appendChild(svgEl("image", { 
-                href: overlayImageUrl, 
-                x: 0, y: 0, 
-                width: w, height: h, 
+              svg.appendChild(svgEl("image", {
+                href: overlayImageUrl,
+                x: 0, y: 0,
+                width: w, height: h,
                 transform: `matrix(${matrix})`,
                 "clip-path": `url(#${clipId})`
               }));

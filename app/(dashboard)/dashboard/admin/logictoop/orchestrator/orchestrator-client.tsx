@@ -160,7 +160,7 @@ export function OrchestratorClient({ initialData, orgs, activeOrgId, initialTab 
             </div>
 
             {/* Acceso a Bandeja de Aprobaciones IA */}
-            <div 
+            <div
               onClick={() => router.push(`/dashboard/admin/logictoop/orchestrator/approvals${activeOrgId ? `?orgId=${activeOrgId}` : ''}`)}
               className="glass-card p-6 border-l-4 border-brand-500 cursor-pointer hover:bg-white/5 transition-all group flex items-center justify-between"
             >

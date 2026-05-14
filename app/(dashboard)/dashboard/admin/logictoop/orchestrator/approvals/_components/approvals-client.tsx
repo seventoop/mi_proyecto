@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { 
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+import {
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -156,8 +156,8 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 {task.status === "PENDING" && (
-                                                    <Button 
-                                                        size="sm" 
+                                                    <Button
+                                                        size="sm"
                                                         variant="ghost"
                                                         className="text-blue-600 hover:bg-blue-50"
                                                         disabled={!canWrite || loadingId === task.id}
@@ -170,8 +170,8 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                                                 )}
                                                 {task.status === "NEEDS_APPROVAL" && (
                                                     <>
-                                                        <Button 
-                                                            size="sm" 
+                                                        <Button
+                                                            size="sm"
                                                             variant="outline"
                                                             className="text-red-600 hover:bg-red-50"
                                                             disabled={!canWrite || loadingId === task.id}
@@ -181,7 +181,7 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                                                             {loadingId === task.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 mr-1" />}
                                                             Rechazar
                                                         </Button>
-                                                        <Button 
+                                                        <Button
                                                             size="sm"
                                                             disabled={!canWrite || loadingId === task.id}
                                                             title={!canWrite ? "Modo Lectura Activo" : "Aprobar tarea"}
@@ -192,7 +192,7 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                                                         </Button>
                                                     </>
                                                 )}
-                                                <Button 
+                                                <Button
                                                     size="sm"
                                                     variant="secondary"
                                                     title="Ver detalle"
@@ -213,10 +213,10 @@ export function ApprovalsClient({ tasks: initialTasks, orgId, canWrite }: Approv
                 </CardContent>
             </Card>
 
-            <TaskDetailDialog 
-                taskId={selectedTaskId} 
-                open={detailOpen} 
-                onOpenChange={setDetailOpen} 
+            <TaskDetailDialog
+                taskId={selectedTaskId}
+                open={detailOpen}
+                onOpenChange={setDetailOpen}
             />
         </div>
     );

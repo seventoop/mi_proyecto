@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
         const file = formData.get("file");
         const projectId = formData.get("projectId");
 
-        const result = uploadSchema.safeParse({ 
-            file, 
-            projectId: projectId === "null" || !projectId ? undefined : projectId 
+        const result = uploadSchema.safeParse({
+            file,
+            projectId: projectId === "null" || !projectId ? undefined : projectId
         });
         if (!result.success) {
             return NextResponse.json({

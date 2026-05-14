@@ -2,10 +2,10 @@
 
 > **Estado**: Internal Agent Runner / Human-in-the-loop MVP (Fase 3A completada)
 > **Rama**: `dani-dev4`
-> **Últimos commits relevantes**: 
+> **Últimos commits relevantes**:
 > - `28f48b3 feat(ai): add internal logictoop task runner`
 > - `d14aac1 fix(ai): set approval timestamp explicitly`
-> 
+>
 > ⚠️ **Documento rector — no recortar ni reemplazar sin aprobación explícita.**
 
 ---

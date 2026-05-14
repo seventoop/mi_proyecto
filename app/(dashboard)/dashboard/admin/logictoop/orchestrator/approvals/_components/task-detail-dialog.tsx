@@ -117,7 +117,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                                     {JSON.stringify(task.inputPayload, null, 2)}
                                 </pre>
                             </div>
-                            
+
                             <div>
                                 <h3 className="font-semibold text-sm mb-2 text-muted-foreground">Output Result (Propuesta)</h3>
                                 <pre className="bg-slate-950 text-slate-50 p-4 rounded-md text-xs overflow-x-auto whitespace-pre-wrap max-h-[300px]">
