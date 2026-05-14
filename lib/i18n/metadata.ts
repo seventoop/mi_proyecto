@@ -3,9 +3,9 @@ import type { Locale } from "./config";
 
 const metadataByLocale = {
   es: {
-    title: "SevenToop - Gestion Inmobiliaria Elite",
+    title: "SevenToop - Gestión Inmobiliaria Elite",
     description:
-      "Plataforma integral de gestion inmobiliaria. Administracion de desarrollos, unidades, leads y portafolio de inversion con trazabilidad forense.",
+      "Plataforma integral de gestión inmobiliaria. Administración de desarrollos, unidades, leads y portafolio de inversión con trazabilidad forense.",
     openGraphDescription:
       "La plataforma definitiva para desarrolladores e inversores inmobiliarios.",
     ogLocale: "es_AR",
