@@ -1,18 +1,24 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { Locale } from "@/lib/i18n/config";
-import { formatCurrency as formatI18nCurrency, formatNumber, toIntlLocale } from "@/lib/i18n/format";
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency: string = "USD", locale: Locale = "es"): string {
-    return formatI18nCurrency(amount, locale, currency, "");
+export function formatCurrency(
+    amount: number,
+    currency: string = "USD"
+): string {
+    return new Intl.NumberFormat("es-AR", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(amount);
 }
 
-export function formatDate(date: Date | string, locale: Locale = "es"): string {
-    return new Intl.DateTimeFormat(toIntlLocale(locale), {
+export function formatDate(date: Date | string): string {
+    return new Intl.DateTimeFormat("es-AR", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -28,10 +34,13 @@ export function getInitials(name: string): string {
         .slice(0, 2);
 }
 
-export function formatArea(value: number | null | undefined, unit: string = "m²", locale: Locale = "es"): string {
+export function formatArea(value: number | null | undefined, unit: string = "m²"): string {
     if (value == null || Number.isNaN(value)) return "—";
 
-    const formatted = formatNumber(value, locale, 2);
+    const formatted = new Intl.NumberFormat("es-AR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    }).format(value);
 
     return `${formatted} ${unit}`;
 }

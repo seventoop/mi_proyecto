@@ -95,24 +95,10 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
                     select: { leads: true }
                 },
                 tours: {
-                    orderBy: { updatedAt: "desc" },
                     include: {
                         scenes: {
-                            orderBy: { order: "asc" },
                             include: {
-                                hotspots: {
-                                    include: {
-                                        unidad: {
-                                            select: {
-                                                id: true,
-                                                numero: true,
-                                                estado: true,
-                                                precio: true,
-                                                moneda: true,
-                                            }
-                                        }
-                                    }
-                                }
+                                hotspots: true
                             }
                         }
                     }

@@ -18,7 +18,6 @@ function dbScenestoCreatorScenes(tour: Tour): Scene[] {
         return tour.scenes.map((s: any) => ({
             id: s.id, title: s.title, imageUrl: s.imageUrl, isDefault: s.isDefault,
             category: normalizeTourMediaCategory(s),
-            masterplanOverlay: s.masterplanOverlay ?? undefined,
             hotspots: (s.hotspots || []).map((h: any) => ({
                 id: h.id, type: h.type?.toLowerCase() || 'info', pitch: h.pitch, yaw: h.yaw,
                 text: h.text || '', unidadId: h.unidadId || '', targetSceneId: h.targetSceneId,
@@ -92,8 +91,7 @@ export default function TourPage() {
             });
             const updatedTour = await res.json();
             if (!res.ok) throw new Error(updatedTour?.error || "Error al guardar la galería");
-            setTours((prev) => prev.map(t => t.id === updatedTour.id ? updatedTour : t));
-            setSelectedTour(updatedTour);
+            setTours(tours.map(t => t.id === updatedTour.id ? updatedTour : t));
             alert("Galería guardada correctamente");
             return true;
         } catch (error) {

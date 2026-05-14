@@ -5,9 +5,9 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Map as MapIcon, Layers as LayersIcon, Filter, ZoomIn, ZoomOut,
-    Crosshair, X, Search, MapPin, Check, Save, Camera, Grid3x3, Compass,
+    Crosshair, X, Search, MapPin, Check, Save, Camera, Grid3x3,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatArea } from "@/lib/utils";
 import {
     useMasterplanStore,
     useFilteredUnits,
@@ -28,7 +28,7 @@ const ImagenesMapaTool = dynamic(() => import("./imagenes-mapa-tool"), { ssr: fa
 // ─── Status colors ───
 const STATUS_COLORS: Record<string, string> = {
     DISPONIBLE: "#10b981",
-    BLOQUEADO: "#94a3b8",
+    BLOQUEADA: "#94a3b8",
     RESERVADA: "#f59e0b",
     VENDIDA: "#ef4444",
     SUSPENDIDO: "#64748b",
@@ -36,7 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
     DISPONIBLE: "Disponible",
-    BLOQUEADO: "Bloqueado",
+    BLOQUEADA: "Bloqueada",
     RESERVADA: "Reservada",
     VENDIDA: "Vendida",
     SUSPENDIDO: "Suspendido",
@@ -129,6 +129,7 @@ export default function MasterplanMap({
         comparisonIds, toggleComparison, clearComparison,
         showComparator, setShowComparator,
         showFilters, setShowFilters,
+        activePanel, setActivePanel,
     } = useMasterplanStore();
 
     const filteredUnits = useFilteredUnits();
@@ -137,7 +138,6 @@ export default function MasterplanMap({
     const [blueprintLoaded, setBlueprintLoaded] = useState(false);
     const [hasSavedBlueprint, setHasSavedBlueprint] = useState(false);
     const [blueprintMeta, setBlueprintMeta] = useState<BlueprintEmbeddedMeta | null>(null);
-    const [svgProjectionViewBox, setSvgProjectionViewBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
     const mapRef = useRef<HTMLDivElement>(null);
     const leafletMapRef = useRef<any>(null);
     const polygonsRef = useRef<Map<string, any>>(new Map());
@@ -172,8 +172,6 @@ export default function MasterplanMap({
     const [planSaved, setPlanSaved] = useState(false);
 
     // Active tool panel (mutually exclusive)
-    const [activePanel, setActivePanel] = useState<"infraestructura" | "imagenes" | null>(null);
-
     // Tour 360° preview card state
     const [tourPreview, setTourPreview] = useState<{
         tour: Tour360Marker;
@@ -184,11 +182,6 @@ export default function MasterplanMap({
     // Camera marker layers ref
     const cameraMarkersRef = useRef<Map<string, any>>(new Map());
 
-    // Map rotation state (0-360)
-    const [mapRotation, setMapRotation] = useState(0);
-    const rotationPluginLoadedRef = useRef(false);
-    const hasAttemptedRescueRef = useRef(false); // Verdent improvement: prevents infinite visual restoration loops
-
     const svgBlobUrlRef = useRef<string | null>(null);
     const autoOpenedOverlayRef = useRef(false);
     const [isLoadingPlan, setIsLoadingPlan] = useState(false);
@@ -196,7 +189,6 @@ export default function MasterplanMap({
     const overlayPreviewPayloadRef = useRef<{
         bounds: [[number, number], [number, number]];
         rotation: number;
-        corners: OverlayCorners | null;
     } | null>(null);
     const contentBoundsRef = useRef<any | null>(null);
     const hasAutoFitContentRef = useRef(false);
@@ -207,6 +199,7 @@ export default function MasterplanMap({
         hasAutoFitContentRef.current = false;
         contentBoundsRef.current = null;
         setSelectedUnitId(null);
+        setActivePanel(null);
         setHoveredUnitId(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [proyectoId]);
@@ -238,25 +231,6 @@ export default function MasterplanMap({
         loadPlanGallery();
     }, [loadPlanGallery]);
 
-    const extractSvgViewBox = useCallback((svgString: string | null | undefined) => {
-        if (!svgString || typeof window === "undefined") return null;
-        try {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(svgString, "image/svg+xml");
-            const svg = doc.documentElement;
-            if (!svg || svg.tagName.toLowerCase() !== "svg") return null;
-            const rawViewBox = svg.getAttribute("viewBox");
-            if (!rawViewBox) return null;
-            const values = rawViewBox.trim().split(/[\s,]+/).map(Number);
-            if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return null;
-            const [x, y, w, h] = values;
-            if (w <= 0 || h <= 0) return null;
-            return { x, y, w, h };
-        } catch {
-            return null;
-        }
-    }, []);
-
     const buildMapOverlaySvg = useCallback((svgString: string, meta: BlueprintEmbeddedMeta | null) => {
         if (typeof window === "undefined" || meta?.processingMode !== "detected-lots") {
             return svgString;
@@ -287,10 +261,10 @@ export default function MasterplanMap({
                 .map-overlay-root ellipse,
                 .map-overlay-root line {
                     paint-order: stroke fill markers;
-                    stroke: rgba(255,255,255,0.82) !important;
+                    stroke: rgba(255,255,255,0.96) !important;
                     stroke-linejoin: round;
                     stroke-linecap: round;
-                    filter: drop-shadow(0 0 1px rgba(0,0,0,0.32));
+                    filter: drop-shadow(0 0 2px rgba(0,0,0,0.95)) drop-shadow(0 0 5px rgba(0,0,0,0.7));
                     shape-rendering: geometricPrecision;
                 }
             `;
@@ -309,13 +283,13 @@ export default function MasterplanMap({
 
                 const currentStrokeWidth = parseFloat(node.getAttribute("stroke-width") || "0.8");
                 const nextStrokeWidth = Number.isFinite(currentStrokeWidth)
-                    ? Math.max(currentStrokeWidth * 1.15, 0.7)
-                    : 0.7;
+                    ? Math.max(currentStrokeWidth * 2.8, 1.8)
+                    : 1.8;
 
                 node.setAttribute("stroke-width", nextStrokeWidth.toFixed(2));
-                node.setAttribute("stroke-opacity", "0.9");
+                node.setAttribute("stroke-opacity", "1");
                 node.setAttribute("opacity", "1");
-                node.setAttribute("fill", isClosed ? "rgba(255,255,255,0.07)" : "none");
+                node.setAttribute("fill", isClosed ? "rgba(34,197,94,0.16)" : "none");
             });
 
             return new XMLSerializer().serializeToString(svg);
@@ -333,7 +307,6 @@ export default function MasterplanMap({
 
         const data = await readJsonResponse(res);
         setBlueprintMeta((data.blueprintMeta as BlueprintEmbeddedMeta | null) ?? null);
-        setSvgProjectionViewBox(extractSvgViewBox(data.masterplanSVG as string | null));
 
         if (!data.masterplanSVG) {
             setHasSavedBlueprint(false);
@@ -365,7 +338,7 @@ export default function MasterplanMap({
 
         if (openEditor) setIsEditingOverlay(true);
         return true;
-    }, [buildMapOverlaySvg, extractSvgViewBox, proyectoId, readJsonResponse]);
+    }, [buildMapOverlaySvg, proyectoId, readJsonResponse]);
 
     // Fetch blueprint data (units with SVG paths) — same source as Paso 3
     useEffect(() => {
@@ -412,13 +385,6 @@ export default function MasterplanMap({
                             opacity: prev?.opacity ?? cfg.opacity ?? 0.8,
                             corners: cfg.corners ?? prev?.corners ?? null,
                         }));
-                        // Bounds exist in DB: the user already positioned the plan.
-                        // Skip the auto-fitBounds in drawPolygons so the map keeps
-                        // the stored mapCenterLat/Lng/Zoom on every remount
-                        // (navigating away and back, or F5).
-                        if (cfg.bounds) {
-                            hasAutoFitContentRef.current = true;
-                        }
                     }
                 }
             } catch (err) {
@@ -448,26 +414,6 @@ export default function MasterplanMap({
             setIsEditingOverlay(true);
         }
     }, [hasSavedBlueprint, isEditingOverlay, isMapReady, modo, overlayConfig?.bounds, overlayConfig?.imageUrl]);
-
-    /**
-     * Verdent's Rescue Effect:
-     * If we have a saved blueprint and bounds, but NO imageUrl (e.g. after refresh),
-     * we should regenerate the visual blob ONLY if we haven't tried yet this session.
-     */
-    useEffect(() => {
-        if (
-            isMapReady &&
-            hasSavedBlueprint &&
-            overlayConfig?.bounds &&
-            !overlayConfig?.imageUrl &&
-            !isLoadingPlan &&
-            !hasAttemptedRescueRef.current
-        ) {
-            hasAttemptedRescueRef.current = true;
-            console.log("[Rescue] Georeferencing exists but visual blob is missing. Rehydrating...");
-            loadSavedBlueprintOverlay(false);
-        }
-    }, [hasSavedBlueprint, isMapReady, isLoadingPlan, loadSavedBlueprintOverlay, overlayConfig?.bounds, overlayConfig?.imageUrl]);
 
     // Initialize Leaflet map
     useEffect(() => {
@@ -500,65 +446,11 @@ export default function MasterplanMap({
             if (!mapRef.current) return;
 
             try {
-                const L = (await import("leaflet")).default;
-                (window as any).L = L; // Expose L to window so the plugin can find and patch it
-
-                // Load leaflet-rotate plugin if not loaded
-                if (!rotationPluginLoadedRef.current) {
-                    await new Promise<void>((resolve) => {
-                        const script = document.createElement("script");
-                        script.src = "https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js";
-                        script.async = true;
-                        script.onload = () => {
-                            rotationPluginLoadedRef.current = true;
-                            resolve();
-                        };
-                        document.head.appendChild(script);
-                    });
-                }
-
-                if (isCanceled) return;
-
-                const mapOptions: any = {
+                const map = L.map(mapRef.current, {
                     center: [centerLat, centerLng],
                     zoom: mapZoom,
-                    zoomSnap: 0.1,
-                    zoomDelta: 0.1,
                     zoomControl: false,
                     attributionControl: false,
-                    rotate: true,
-                    touchRotate: true,
-                    rotateControl: false,
-                };
-
-                const map = (L as any).map(mapRef.current, mapOptions);
-
-                // Listen for rotation changes to update UI
-                map.on("rotate", () => {
-                    setMapRotation((map as any).getBearing());
-                });
-
-                // Manual Alt + Drag rotation handler for PC (mobile feel)
-                map.on("mousedown", (e: any) => {
-                    if (e.originalEvent.altKey) {
-                        (map as any).dragging.disable();
-                        const startX = e.originalEvent.clientX;
-                        const startBearing = (map as any).getBearing();
-
-                        const onMouseMove = (moveEvent: MouseEvent) => {
-                            const deltaX = moveEvent.clientX - startX;
-                            (map as any).setBearing(startBearing + deltaX);
-                        };
-
-                        const onMouseUp = () => {
-                            window.removeEventListener("mousemove", onMouseMove);
-                            window.removeEventListener("mouseup", onMouseUp);
-                            (map as any).dragging.enable();
-                        };
-
-                        window.addEventListener("mousemove", onMouseMove);
-                        window.addEventListener("mouseup", onMouseUp);
-                    }
                 });
 
                 // Google satellite tile layer
@@ -640,7 +532,6 @@ export default function MasterplanMap({
 
     // ─── SVG viewBox computed from unit paths (needed for SVG→Geo transform) ──
     const svgViewBox = useMemo(() => {
-        if (svgProjectionViewBox) return svgProjectionViewBox;
         if (units.length === 0) return null;
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const u of units) {
@@ -661,7 +552,7 @@ export default function MasterplanMap({
         }
         if (minX === Infinity) return null;
         return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-    }, [svgProjectionViewBox, units]);
+    }, [units]);
 
     // Draw lot polygons on map
     useEffect(() => {
@@ -765,7 +656,7 @@ export default function MasterplanMap({
                     `<div style="font-family: Inter, sans-serif; padding: 2px 0;">
                         <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">Lote ${unit.numero}</div>
                         <div style="font-size: 11px; color: #94a3b8;">
-                            ${unit.superficie ? `${unit.superficie} m²` : ""}
+                            ${unit.superficie ? formatArea(unit.superficie) : ""}
                             ${unit.precio ? `• $${unit.precio.toLocaleString()}` : ""}
                         </div>
                         <div style="margin-top: 4px; font-size: 10px; font-weight: 600; color: ${color}; text-transform: uppercase;">
@@ -973,9 +864,8 @@ export default function MasterplanMap({
     const handleOverlayBoundsChange = useCallback((
         bounds: [[number, number], [number, number]],
         rotation: number,
-        corners: OverlayCorners | null,
     ) => {
-        overlayPreviewPayloadRef.current = { bounds, rotation, corners };
+        overlayPreviewPayloadRef.current = { bounds, rotation };
         if (overlayPreviewFrameRef.current != null) return;
 
         overlayPreviewFrameRef.current = window.requestAnimationFrame(() => {
@@ -986,10 +876,10 @@ export default function MasterplanMap({
             updatePolygonPositionsLive(
                 payload.bounds,
                 payload.rotation,
-                payload.corners,
+                overlayConfig?.corners ?? null,
             );
         });
-    }, [updatePolygonPositionsLive]);
+    }, [overlayConfig?.corners, updatePolygonPositionsLive]);
 
     useEffect(() => {
         return () => {
@@ -1081,7 +971,7 @@ export default function MasterplanMap({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    imageUrl: overlayConfig.imageUrl && !overlayConfig.imageUrl.startsWith("blob:") ? overlayConfig.imageUrl : null,
+                    imageUrl: overlayConfig.imageUrl,
                     bounds: overlayConfig.bounds,
                     corners: overlayConfig.corners ?? null,
                     rotation: overlayConfig.rotation ?? 0,
@@ -1101,38 +991,10 @@ export default function MasterplanMap({
         }
     }, [proyectoId, overlayConfig]);
 
-    // Delete overlay configuration from database
-    const handleDeleteOverlay = useCallback(async () => {
-        if (!window.confirm("¿Eliminar la posición del plano en el mapa? Esto no borra el plano ni las unidades; solo elimina la georreferenciación guardada.")) {
-            return;
-        }
-
-        try {
-            const res = await fetch(`/api/proyectos/${proyectoId}/overlay`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    imageUrl: null,
-                    bounds: null,
-                    corners: null,
-                    rotation: 0,
-                }),
-            });
-
-            if (res.ok) {
-                setOverlayConfig(null);
-                setIsEditingOverlay(false);
-                setPlanSaved(false);
-            }
-        } catch (error) {
-            console.error("Delete overlay failed:", error);
-        }
-    }, [proyectoId]);
-
     // Load masterplan SVG from paso 3 as overlay image
     const handleLoadPlanOverlay = useCallback(async () => {
         if (!leafletMapRef.current) return;
-
+        
         // If we already have the blob loaded, just open the editor
         if (overlayConfig?.imageUrl && overlayConfig.imageUrl.startsWith("blob:")) {
             setIsEditingOverlay(true);
@@ -1154,9 +1016,8 @@ export default function MasterplanMap({
 
     return (
         <div className="relative flex flex-col w-full h-full min-h-[400px] bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-b-2xl overflow-hidden">
-            {/* Leaflet CSS & Plugins */}
+            {/* Leaflet CSS */}
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-            <link rel="stylesheet" href="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.css" />
 
             {/* ── Admin toolbar (OUTSIDE the map, no overlap) ── */}
             {modo === "admin" && (
@@ -1260,7 +1121,7 @@ export default function MasterplanMap({
                         {/* SECTION 2: Polygon positioning */}
                         <button
                             onClick={handleLoadPlanOverlay}
-                            disabled={!isMapReady || isLoadingPlan || isLoadingOverlay || !blueprintLoaded}
+                            disabled={!isMapReady || isLoadingPlan || isLoadingOverlay}
                             className={cn(
                                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50",
                                 isEditingOverlay
@@ -1293,106 +1154,21 @@ export default function MasterplanMap({
                         <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />
 
                         {/* SECTION 3: Map controls — in toolbar so they don't overlap the side panel */}
-                        <div className="flex items-center gap-1 bg-slate-800/80 backdrop-blur-sm p-1 rounded-xl border border-slate-700/50">
-                            <button onClick={handleZoomIn} title="Acercar" className="w-8 h-8 rounded-lg hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">
-                                <ZoomIn className="w-4 h-4" />
-                            </button>
-                            <button onClick={handleZoomOut} title="Alejar" className="w-8 h-8 rounded-lg hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">
-                                <ZoomOut className="w-4 h-4" />
-                            </button>
-
-                            {/* Map Base Rotation Controls */}
-                            <div className="flex items-center gap-0.5 bg-slate-900/50 rounded-lg p-0.5 border border-slate-700/50 ml-1">
-                                <button
-                                    onClick={() => {
-                                        if (leafletMapRef.current) {
-                                            const current = (leafletMapRef.current as any).getBearing() || 0;
-                                            (leafletMapRef.current as any).setBearing(current - 5);
-                                        }
-                                    }}
-                                    title="Rotar izquierda (-5°)"
-                                    className="w-7 h-7 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors text-[9px] font-bold"
-                                >
-                                    -5°
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (leafletMapRef.current) {
-                                            const current = (leafletMapRef.current as any).getBearing() || 0;
-                                            (leafletMapRef.current as any).setBearing(current - 1);
-                                        }
-                                    }}
-                                    title="Rotar izquierda fino (-1°)"
-                                    className="w-7 h-7 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors text-[9px] font-bold"
-                                >
-                                    -1°
-                                </button>
-
-                                {/* Compass / Reset North */}
-                                <button
-                                    onClick={() => {
-                                        if (leafletMapRef.current) {
-                                            (leafletMapRef.current as any).setBearing(0);
-                                        }
-                                    }}
-                                    title="Resetear Norte (0°)"
-                                    className={cn(
-                                        "w-12 h-7 mx-1 rounded flex items-center justify-center gap-1 transition-all relative overflow-hidden",
-                                        Math.abs(mapRotation) > 0.5
-                                            ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-                                            : "hover:bg-slate-700 text-slate-400"
-                                    )}
-                                >
-                                    <div
-                                        className="transition-transform duration-300 ease-out flex-shrink-0"
-                                        style={{ transform: `rotate(${-mapRotation}deg)` }}
-                                    >
-                                        <div className="relative">
-                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[8px] font-bold text-red-500">N</div>
-                                            <Compass className="w-3.5 h-3.5" />
-                                        </div>
-                                    </div>
-                                    <span className="text-[10px] font-bold font-mono tracking-tighter">
-                                        {Math.abs(mapRotation) < 0.5 ? "0°" : `${mapRotation > 0 ? "+" : ""}${Math.round(mapRotation)}°`}
-                                    </span>
-                                </button>
-
-                                <button
-                                    onClick={() => {
-                                        if (leafletMapRef.current) {
-                                            const current = (leafletMapRef.current as any).getBearing() || 0;
-                                            (leafletMapRef.current as any).setBearing(current + 1);
-                                        }
-                                    }}
-                                    title="Rotar derecha fino (+1°)"
-                                    className="w-7 h-7 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors text-[9px] font-bold"
-                                >
-                                    +1°
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (leafletMapRef.current) {
-                                            const current = (leafletMapRef.current as any).getBearing() || 0;
-                                            (leafletMapRef.current as any).setBearing(current + 5);
-                                        }
-                                    }}
-                                    title="Rotar derecha (+5°)"
-                                    className="w-7 h-7 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors text-[9px] font-bold"
-                                >
-                                    +5°
-                                </button>
-                            </div>
-
-                            <button onClick={handleResetView} title="Centrar vista" className="w-8 h-8 rounded-lg hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">
-                                <Crosshair className="w-4 h-4" />
-                            </button>
-                        </div>
+                        <button onClick={handleZoomIn} title="Acercar" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition-colors flex-shrink-0">
+                            <ZoomIn className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={handleZoomOut} title="Alejar" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition-colors flex-shrink-0">
+                            <ZoomOut className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={handleResetView} title="Centrar vista" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition-colors flex-shrink-0">
+                            <Crosshair className="w-3.5 h-3.5" />
+                        </button>
 
                         {/* Separator */}
                         {overlayConfig?.bounds && <div className="h-5 w-px bg-slate-700/60 flex-shrink-0" />}
 
                         {/* SECTION 4: Save plan position */}
-                        {overlayConfig?.bounds && !isEditingOverlay && (
+                        {overlayConfig?.bounds && (
                             <button
                                 onClick={handleSavePlan}
                                 disabled={isSavingPlan}
@@ -1447,7 +1223,7 @@ export default function MasterplanMap({
                         <div className="flex items-center justify-between gap-3 mb-3">
                             <div>
                                 <p className="text-sm font-bold text-white">Galeria de planos</p>
-                                <p className="text-xs text-slate-400">Elegi cual queres usar en el mapa interactivo antes de posicionarlo.</p>
+                                <p className="text-xs text-slate-400">Elegí cuál querés usar en el mapa interactivo antes de posicionarlo.</p>
                             </div>
                             <button
                                 onClick={() => setShowPlanGallery(false)}
@@ -1608,12 +1384,12 @@ export default function MasterplanMap({
 
                 {/* Side Panel */}
                 <AnimatePresence>
-                    {selectedUnit && (
+                    {selectedUnit && activePanel === "lot" && (
                         <MasterplanSidePanel
                             unit={selectedUnit}
                             modo={modo}
                             canEdit={canEdit}
-                            onClose={() => setSelectedUnitId(null)}
+                            onClose={() => setActivePanel(null)}
                         />
                     )}
                 </AnimatePresence>
@@ -1642,17 +1418,13 @@ export default function MasterplanMap({
                                 setIsEditingOverlay(false);
                             }}
                             onCancel={() => {
-                                if (overlayConfig?.bounds) {
-                                    updatePolygonPositionsLive(
-                                        overlayConfig.bounds,
-                                        overlayConfig.rotation ?? 0,
-                                        overlayConfig.corners ?? null,
-                                    );
-                                }
                                 if (!overlayConfig?.bounds) setOverlayConfig(null);
                                 setIsEditingOverlay(false);
                             }}
-                            onDelete={handleDeleteOverlay}
+                            onDelete={() => {
+                                setOverlayConfig(null);
+                                setIsEditingOverlay(false);
+                            }}
                         />
                     )}
                 </AnimatePresence>
@@ -1770,4 +1542,5 @@ export default function MasterplanMap({
         </div>
     );
 }
+
 

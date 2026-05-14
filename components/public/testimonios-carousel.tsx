@@ -22,14 +22,26 @@ export default function TestimoniosCarousel() {
     const [testimonios, setTestimonios] = useState<Testimonio[]>([]);
 
     useEffect(() => {
+        if (locale === "en") {
+            setTestimonios([]);
+            return;
+        }
+
+        let isMounted = true;
+
         const load = async () => {
             const res = await getTestimonios();
-            if (res.success && res.data) {
+            if (isMounted && res.success && res.data) {
                 setTestimonios(res.data);
             }
         };
+
         load();
-    }, []);
+
+        return () => {
+            isMounted = false;
+        };
+    }, [locale]);
 
     const fallback = useMemo<Testimonio[]>(
         () =>

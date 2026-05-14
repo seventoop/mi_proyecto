@@ -7,7 +7,7 @@ import {
     ZoomIn, ZoomOut, Maximize, Maximize2, Minimize2, Filter, Layers as LayersIcon,
     GitCompare, X, FileSpreadsheet
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatArea } from "@/lib/utils";
 import {
     useMasterplanStore,
     useFilteredUnits,
@@ -19,6 +19,7 @@ import MasterplanFilters from "./masterplan-filters";
 import MasterplanComparator from "./masterplan-comparator";
 import { getProjectBlueprintData } from "@/lib/actions/unidades";
 import { getPusherClient, CHANNELS, EVENTS } from "@/lib/pusher";
+import { normalizeUnitEstado } from "@/lib/public-projects";
 
 // ─── Zoom wiring component (must live inside TransformWrapper to use useControls) ───
 function ZoomButtonWiring({
@@ -53,7 +54,7 @@ function ZoomButtonWiring({
 // ─── Status colors ───
 const STATUS_COLORS: Record<string, string> = {
     DISPONIBLE: "#10b981",
-    BLOQUEADO: "#94a3b8",
+    BLOQUEADA: "#94a3b8",
     RESERVADA: "#f59e0b",
     VENDIDA: "#ef4444",
     SUSPENDIDO: "#64748b",
@@ -61,7 +62,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
     DISPONIBLE: "Disponible",
-    BLOQUEADO: "Bloqueado",
+    BLOQUEADA: "Bloqueada",
     RESERVADA: "Reservada",
     VENDIDA: "Vendida",
     SUSPENDIDO: "Suspendido",
@@ -97,7 +98,7 @@ const Tooltip = memo(function Tooltip({ data }: { data: TooltipData | null }) {
                     </span>
                 </div>
                 <div className="space-y-0.5 text-xs text-slate-300">
-                    {unit.superficie && <p>Superficie: <span className="text-white font-medium">{unit.superficie} m²</span></p>}
+                    {unit.superficie && <p>Superficie: <span className="text-white font-medium">{formatArea(unit.superficie)}</span></p>}
                     {unit.precio && (
                         <p>Precio: <span className="text-white font-medium">${unit.precio.toLocaleString()} {unit.moneda}</span></p>
                     )}
@@ -280,6 +281,7 @@ export default function MasterplanViewer({
         showFilters, setShowFilters,
         layers, toggleLayer,
         zoom, setZoom,
+        activePanel, setActivePanel,
     } = useMasterplanStore();
 
     const units = useMasterplanStore(selectUnits);
@@ -328,19 +330,12 @@ export default function MasterplanViewer({
     // 1. Fetch real-world business data from DB
     useEffect(() => {
         const fetchProjectUnits = async () => {
-            // Priority to initialUnits if provided
-            if (initialUnits && initialUnits.length > 0) {
-                setUnits(initialUnits as any);
+            setLoading(true);
+            if (initialUnits.length > 0) {
+                setUnits(initialUnits);
                 setLoading(false);
                 return;
             }
-
-            // Only show loading skeleton if we don't have units yet
-            // This prevents flicker during background syncs
-            if (units.length === 0) {
-                setLoading(true);
-            }
-
             const res = await getProjectBlueprintData(proyectoId);
             if (res.success && res.data) {
                 setUnits(res.data as any);
@@ -348,7 +343,7 @@ export default function MasterplanViewer({
             setLoading(false);
         };
         fetchProjectUnits();
-    }, [proyectoId, setUnits, initialUnits]);
+    }, [initialUnits, proyectoId, setUnits]);
 
     // 2. Implementation of Real-time sync via Pusher
     useEffect(() => {
@@ -359,7 +354,7 @@ export default function MasterplanViewer({
         channel.bind(EVENTS.UNIDAD_STATUS_CHANGED, (data: { id: string; estado: MasterplanUnit["estado"]; proyectoId?: string }) => {
             // Only update if it belongs to this project
             if (!data.proyectoId || data.proyectoId === proyectoId) {
-                updateUnitState(data.id, { estado: data.estado });
+                updateUnitState(data.id, { estado: normalizeUnitEstado(data.estado) });
             }
         });
 
@@ -397,7 +392,7 @@ export default function MasterplanViewer({
                 try {
                     const c = JSON.parse((u as any).coordenadasMasterplan);
                     path = c.path;
-                } catch { }
+                } catch {}
             }
             if (!path) continue;
             const nums = path.match(/-?[\d.]+(?:e[+-]?\d+)?/gi);
@@ -444,7 +439,7 @@ export default function MasterplanViewer({
         writeFile(wb, `Inventario-${proyectoId}.xlsx`);
     };
 
-    if (loading && units.length === 0) {
+    if (loading) {
         return (
             <div className="w-full h-full min-h-[400px] flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl animate-pulse">
                 <div className="flex flex-col items-center gap-4">
@@ -484,14 +479,18 @@ export default function MasterplanViewer({
 
                 <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1" />
 
-                <button
-                    onClick={handleExportExcel}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg backdrop-blur-sm bg-emerald-500 text-white hover:bg-emerald-600 transition-all"
-                >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />Exportar Excel
-                </button>
+                {modo === "admin" && (
+                    <>
+                        <button
+                            onClick={handleExportExcel}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg backdrop-blur-sm bg-emerald-500 text-white hover:bg-emerald-600 transition-all"
+                        >
+                            <FileSpreadsheet className="w-3.5 h-3.5" />Exportar Excel
+                        </button>
 
-                <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1" />
+                        <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1" />
+                    </>
+                )}
                 <button ref={zoomInRef} title="Acercar" className="w-9 h-9 rounded-xl bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-all backdrop-blur-sm">
                     <ZoomIn className="w-4 h-4" />
                 </button>
@@ -541,8 +540,23 @@ export default function MasterplanViewer({
                                 <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-slate-700" />
                             </pattern>
                         </defs>
-                        {/* Grid covers the full computed viewBox — not a fixed 1000×800 */}
-                        <rect x={vbX} y={vbY} width={vbW} height={vbH} fill="url(#mp-grid)" />
+                        {backgroundAssetUrl && (
+                            <image
+                                href={backgroundAssetUrl}
+                                x={vbX}
+                                y={vbY}
+                                width={vbW}
+                                height={vbH}
+                                preserveAspectRatio="xMidYMid meet"
+                                opacity={0.55}
+                            />
+                        )}
+                        {/* Grid: solo se dibuja cuando NO hay plano de fondo, para
+                            evitar que parezca un "tercer plano" encima del plano técnico
+                            ya cargado y de los lotes coloreados (causa de triple render). */}
+                        {!backgroundAssetUrl && (
+                            <rect x={vbX} y={vbY} width={vbW} height={vbH} fill="url(#mp-grid)" />
+                        )}
 
                         {units.map((unit) => (
                             <UnitPolygon
@@ -572,12 +586,12 @@ export default function MasterplanViewer({
 
             {/* Side Panel */}
             <AnimatePresence>
-                {selectedUnit && (
+                {selectedUnit && activePanel === "lot" && (
                     <MasterplanSidePanel
                         unit={selectedUnit}
                         modo={modo}
                         canEdit={canEdit}
-                        onClose={() => setSelectedUnitId(null)}
+                        onClose={() => setActivePanel(null)}
                     />
                 )}
             </AnimatePresence>
@@ -680,3 +694,4 @@ export default function MasterplanViewer({
         </div>
     );
 }
+

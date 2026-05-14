@@ -18,29 +18,6 @@ import { getSystemConfig } from "@/lib/actions/configuration";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { resolveLocale } from "@/lib/i18n/format";
 
-const HOME_DATA_TIMEOUT_MS = 1800;
-
-async function withHomeTimeout<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-
-    try {
-        return await Promise.race([
-            promise,
-            new Promise<T>((resolve) => {
-                timeout = setTimeout(() => {
-                    console.warn(`[home] ${label} timed out after ${HOME_DATA_TIMEOUT_MS}ms`);
-                    resolve(fallback);
-                }, HOME_DATA_TIMEOUT_MS);
-            }),
-        ]);
-    } catch (error) {
-        console.warn(`[home] ${label} failed`, error);
-        return fallback;
-    } finally {
-        if (timeout) clearTimeout(timeout);
-    }
-}
-
 export async function generateMetadata(): Promise<Metadata> {
     const locale = resolveLocale(cookies().get("NEXT_LOCALE")?.value);
     const dictionary = await getDictionary(locale);
@@ -52,12 +29,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-    const [bannersRes, proyectos, heroTitle, heroSubtitle, ctaText] = await Promise.all([
-        withHomeTimeout(getBannersLanding(), { success: false, data: [] }, "banners"),
-        withHomeTimeout(getProyectosDestacados(), [], "featured projects"),
-        withHomeTimeout(getSystemConfig("HERO_TITLE"), { success: false, value: null }, "hero title"),
-        withHomeTimeout(getSystemConfig("HERO_SUBTITLE"), { success: false, value: null }, "hero subtitle"),
-        withHomeTimeout(getSystemConfig("CTA_TEXT"), { success: false, value: null }, "cta text"),
+    const [bannersRes, proyectos] = await Promise.all([
+        getBannersLanding(),
+        getProyectosDestacados(),
+    ]);
+
+    const [heroTitle, heroSubtitle, ctaText] = await Promise.all([
+        getSystemConfig("HERO_TITLE"),
+        getSystemConfig("HERO_SUBTITLE"),
+        getSystemConfig("CTA_TEXT"),
     ]);
 
     const banners = bannersRes.success && bannersRes.data ? bannersRes.data : [];

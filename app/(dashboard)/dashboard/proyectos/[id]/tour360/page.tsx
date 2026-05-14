@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import TourCreator, { Scene } from "@/components/tour360/tour-creator";
-import { Loader2, Plus, ArrowLeft, ImageIcon } from "lucide-react";
+import { Loader2, Plus, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { normalizeTourMediaCategory } from "@/lib/tour-media";
 
@@ -22,7 +22,6 @@ function dbScenestoCreatorScenes(tour: Tour): Scene[] {
             imageUrl: s.imageUrl,
             isDefault: s.isDefault,
             category: normalizeTourMediaCategory(s),
-            masterplanOverlay: s.masterplanOverlay ?? undefined,
             hotspots: (s.hotspots || []).map((h: any) => ({
                 id: h.id,
                 type: h.type?.toLowerCase() || 'info',
@@ -102,8 +101,7 @@ export default function TourPage() {
             });
             const updatedTour = await res.json();
             if (!res.ok) throw new Error(updatedTour?.error || "Error al guardar la galería");
-            setTours((prev) => prev.map(t => t.id === updatedTour.id ? updatedTour : t));
-            setSelectedTour(updatedTour);
+            setTours(tours.map(t => t.id === updatedTour.id ? updatedTour : t));
             alert("Galería guardada correctamente");
             return true;
         } catch (error) {
@@ -146,20 +144,12 @@ export default function TourPage() {
                     <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Galería de Imágenes</h1>
                     <p className="text-slate-500 mt-1">Organizá el Tour 360 y el resto del material visual del proyecto en un solo lugar.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setIsCreating(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors border border-slate-700"
-                    >
-                        <Plus className="w-4 h-4" /> Nueva Galería
-                    </button>
-                    <button
-                        onClick={() => setIsCreating(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors shadow-lg shadow-brand-500/20"
-                    >
-                        <ImageIcon className="w-4 h-4" /> Cargar imágenes
-                    </button>
-                </div>
+                <button
+                    onClick={() => setIsCreating(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors shadow-lg shadow-brand-500/20"
+                >
+                    <Plus className="w-4 h-4" /> Nueva Galería
+                </button>
             </div>
 
             {isCreating && (

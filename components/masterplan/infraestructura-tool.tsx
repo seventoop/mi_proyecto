@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import SharedSidePanel from "./shared-side-panel";
 import {
   InfraestructuraItem, InfraestructuraCategoria, InfraestructuraEstado,
   InfraestructuraGeometria, CATEGORIAS_INFRA, ESTADO_INFRA_CONFIG,
@@ -481,42 +482,26 @@ export default function InfraestructuraTool({ proyectoId, map, isOpen, onOpenCha
       {/* Panel */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, x: 320 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 320 }}
-            transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className="absolute top-0 right-0 bottom-0 z-[1100] w-80 bg-slate-950/95 backdrop-blur-sm border-l border-slate-700/60 flex flex-col"
+          <SharedSidePanel
+            title="Infraestructura"
+            subtitle={`${items.length} elementos`}
+            onClose={() => { onOpenChange(false); cancelDrawing(); setShowForm(false); setSelectedId(null); }}
+            tone="dark"
+            icon={(
+              <div className="rounded-xl bg-violet-500/15 p-2">
+                <Layers className="w-4 h-4 text-violet-400" />
+              </div>
+            )}
+            headerActions={!showForm && !drawingMode ? (
+              <button
+                onClick={() => { setShowForm(true); setEditingId(null); setDrawingPoints([]); setForm({ ...DEFAULT_FORM }); setSelectedId(null); }}
+                className="flex items-center gap-1 rounded-lg bg-violet-500 px-2.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-violet-600"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Agregar
+              </button>
+            ) : null}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { onOpenChange(false); cancelDrawing(); setShowForm(false); setSelectedId(null); }}
-                  className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors -ml-1 mr-1"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                <div className="p-1.5 bg-violet-500/20 rounded-lg">
-                  <Layers className="w-4 h-4 text-violet-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Infraestructura</h3>
-                  <p className="text-[10px] text-slate-400">{items.length} elementos</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                {!showForm && !drawingMode && (
-                  <button
-                    onClick={() => { setShowForm(true); setEditingId(null); setDrawingPoints([]); setForm({ ...DEFAULT_FORM }); setSelectedId(null); }}
-                    className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-bold rounded-lg transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Agregar
-                  </button>
-                )}
-              </div>
-            </div>
 
             <div className="flex-1 overflow-y-auto">
 
@@ -985,9 +970,12 @@ export default function InfraestructuraTool({ proyectoId, map, isOpen, onOpenCha
                 </div>
               )}
             </div>
-          </motion.div>
+          </SharedSidePanel>
         )}
       </AnimatePresence>
     </>
   );
 }
+
+
+

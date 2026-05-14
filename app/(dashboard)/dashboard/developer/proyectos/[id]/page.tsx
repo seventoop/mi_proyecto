@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-function forensicLog(msg: string) { try { const logPath = path.join(process.cwd(), "forensic_logs.txt"); const timestamp = new Date().toISOString(); fs.appendFileSync(logPath, `[${timestamp}] ${msg}\n`); } catch (e) {} }
 import prisma from "@/lib/db";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
@@ -75,7 +72,6 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
     const { proyecto: snapshot, relacion } = context;
 
     // Fetch full project data for UI (etapas, pagos, etc)
-    forensicLog(`PAGE-FETCH-DEV: Cargando proyecto ${params.id}`);
     const proyecto = await prisma.proyecto.findUnique({
         where: { id: params.id },
         include: {
@@ -85,34 +81,10 @@ export default async function ProyectoDetailPage({ params, searchParams }: PageP
             },
             pagos: true,
             documentacion: true,
-            tours: {
-                orderBy: { updatedAt: "desc" },
-                include: {
-                    scenes: {
-                        include: {
-                            hotspots: {
-                                include: {
-                                    unidad: {
-                                        select: {
-                                            id: true,
-                                            numero: true,
-                                            estado: true,
-                                            precio: true,
-                                            moneda: true,
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        orderBy: { order: "asc" }
-                    }
-                }
-            },
+            tours: true,
             _count: { select: { leads: true } }
         }
     }) as any;
-
-    console.log("[Tour360][ServerRender][Page]", { proyectoId: params.id, tours: proyecto?.tours?.map((t: any) => t.id) || [] });
 
     if (!proyecto) {
         return <div className="p-20 text-center"><h1 className="text-2xl font-bold">Proyecto no encontrado</h1><Link href="/dashboard/developer/proyectos" className="text-brand-500 mt-4 block">Volver</Link></div>;
