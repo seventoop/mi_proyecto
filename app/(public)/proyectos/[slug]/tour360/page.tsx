@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Share2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import TourViewer, { Scene, Hotspot } from "@/components/tour360/tour-viewer";
 import { computeSvgViewBox } from "@/lib/geo-projection";
 import type { MasterplanUnit } from "@/lib/masterplan-store";
 import { isTour360Category, normalizeTourMediaCategory } from "@/lib/tour-media";
 import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
+import { getRequestDictionary } from "@/lib/i18n/server";
 
 // ─── Data Fetching (Server-Side) ───
 
@@ -95,14 +96,20 @@ function dbTourToScenes(tour: any): Scene[] {
 
 // ─── Metadata ───
 
-export const metadata: Metadata = {
-    title: "Tour Virtual 360° | Seventoop",
-    description: "Recorre el proyecto con un tour virtual inmersivo 360°",
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const dictionary = await getRequestDictionary();
+
+    return {
+        title: dictionary.tour360Page.metadataTitle,
+        description: dictionary.tour360Page.metadataDescription,
+    };
+}
 
 // ─── Page Component ───
 
 export default async function PublicTour360Page({ params }: { params: { slug: string } }) {
+    const dictionary = await getRequestDictionary();
+    const copy = dictionary.tour360Page;
     const project = await getProjectWithTour(params.slug);
 
     // Security: Only published projects are accessible
@@ -137,7 +144,7 @@ export default async function PublicTour360Page({ params }: { params: { slug: st
                     </Link>
                     <div>
                         <h1 className="text-lg font-bold text-white">{project.nombre}</h1>
-                        <p className="text-xs text-slate-400">Tour Virtual 360°</p>
+                        <p className="text-xs text-slate-400">{copy.subtitle}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -145,7 +152,7 @@ export default async function PublicTour360Page({ params }: { params: { slug: st
                         href={`/proyectos/${params.slug}#contacto`}
                         className="px-4 py-2 rounded-lg gradient-brand text-white text-sm font-semibold shadow-glow"
                     >
-                        Consultar
+                        {copy.consult}
                     </Link>
                 </div>
             </div>

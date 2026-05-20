@@ -8,12 +8,20 @@ import MasterplanCanvas from "@/components/public/masterplan-canvas";
 import UnitsGridPublic, { type PublicUnitItem } from "@/components/public/units-grid-public";
 import ContactForm from "@/components/public/contact-form";
 import type { MasterplanUnit } from "@/lib/masterplan-store";
+import { getRequestDictionary } from "@/lib/i18n/server";
+import { formatMessage } from "@/lib/i18n/format";
 
-export const metadata: Metadata = {
-    title: "Masterplan | Seventoop",
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const dictionary = await getRequestDictionary();
+
+    return {
+        title: dictionary.masterplanPage.title,
+    };
+}
 
 export default async function PublicMasterplanPage({ params }: { params: { slug: string } }) {
+    const dictionary = await getRequestDictionary();
+    const copy = dictionary.masterplanPage;
     const project = await getPublicProjectShowcaseBySlug(params.slug);
     if (!project) notFound();
 
@@ -21,11 +29,7 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
     const hasTour360 = project.tours.some((tour) => tour.sceneCount > 0);
 
     // Single source of truth para el plano de fondo del canvas interactivo.
-    // Quitamos texto Y neutralizamos los rellenos del SVG: si dejáramos los
-    // fills nativos, los polígonos de estados que el viewer pinta encima se
-    // sumarían a los fills del SVG y aparecerían DOS capas de color sobre cada
-    // lote (la "superposición de planos"). Manteniendo sólo las líneas se
-    // garantiza UNA sola base + UNA sola capa de color (los polígonos).
+    // Strip labels and native fills so the canvas draws a single status layer.
     const cleanedSvg = stripSvgLabels(project.masterplanSvg, { neutralizeFills: true });
     const planAsset = cleanedSvg
         ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanedSvg)}`
@@ -69,16 +73,17 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
                             className="mb-3 inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
                         >
                             <ArrowLeft className="h-4 w-4" />
-                            Volver al proyecto
+                            {copy.backToProject}
                         </Link>
                         <p className="text-sm text-muted-foreground">{project.nombre}</p>
                         <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                            Masterplan interactivo
+                            {copy.title}
                         </h1>
                         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                            Cambiá entre <strong className="text-foreground">Plano</strong> y{" "}
-                            <strong className="text-foreground">Mapa</strong> para ver los lotes sobre el plano técnico
-                            o sobre la ubicación real. Hacé click en cualquier lote para consultar.
+                            {formatMessage(copy.description, {
+                                plan: dictionary.projectPreview.modes.plan,
+                                map: dictionary.projectPreview.modes.map,
+                            })}
                         </p>
                     </div>
                 </div>
@@ -98,13 +103,13 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
                 <section className="mt-14">
                     <div className="mb-6 max-w-2xl">
                         <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                            Lotes y unidades
+                            {copy.unitsEyebrow}
                         </p>
                         <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-                            Listado completo del proyecto
+                            {copy.unitsTitle}
                         </h2>
                         <p className="mt-2 text-sm text-muted-foreground">
-                            Filtrá por estado, buscá por código, ordená por precio o superficie y consultá el lote que te interese.
+                            {copy.unitsDescription}
                         </p>
                     </div>
                     <UnitsGridPublic
@@ -118,13 +123,13 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
                 <section id="contacto" className="mt-16 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
                     <div className="mb-6 max-w-2xl">
                         <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-400">
-                            Consultá un lote
+                            {copy.contactEyebrow}
                         </p>
                         <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-                            Hablemos de {project.nombre}
+                            {formatMessage(copy.contactTitle, { projectName: project.nombre })}
                         </h2>
                         <p className="mt-2 text-sm text-muted-foreground">
-                            Si seleccionás un lote desde el plano o la grilla, lo vamos a anclar acá automáticamente.
+                            {copy.contactDescription}
                         </p>
                     </div>
                     <ContactForm proyectoId={project.id} origen="WEB_MASTERPLAN" />

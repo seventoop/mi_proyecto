@@ -1,15 +1,23 @@
 import { getNoticias } from "@/lib/actions/noticias";
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, Calendar, ArrowRight, Tag, Sparkles } from "lucide-react";
-import MediaBanner from "@/components/public/media-banner";
+import { BookOpen, Calendar, ArrowRight, Sparkles } from "lucide-react";
+import { getRequestDictionary, getRequestLocale } from "@/lib/i18n/server";
+import { toIntlLocale } from "@/lib/i18n/format";
 
-export const metadata = {
-    title: "Blog | Seventoop",
-    description: "Noticias, tendencias y consejos sobre el sector inmobiliario y urbanismo digital.",
-};
+export async function generateMetadata() {
+    const dictionary = await getRequestDictionary();
+
+    return {
+        title: dictionary.blogPage.metadataTitle,
+        description: dictionary.blogPage.metadataDescription,
+    };
+}
 
 export default async function BlogPage() {
+    const locale = getRequestLocale();
+    const dictionary = await getRequestDictionary();
+    const copy = dictionary.blogPage;
     const res = await getNoticias({ pageSize: 20 });
     const noticias = res.success ? res.data : [];
 
@@ -24,10 +32,10 @@ export default async function BlogPage() {
                         </span>
                     </div>
                     <h1 className="text-4xl md:text-6xl font-black text-foreground tracking-tight">
-                        Blog de <span className="bg-gradient-to-r from-brand-orange to-brand-yellow bg-clip-text text-transparent">SevenToop</span>
+                        {copy.title}
                     </h1>
                     <p className="text-foreground/60 text-lg">
-                        Novedades, tendencias del sector y contenido estratégico para desarrolladores inmobiliarios.
+                        {copy.description}
                     </p>
                 </div>
 
@@ -50,7 +58,7 @@ export default async function BlogPage() {
                                 <div className="p-8">
                                     <div className="flex items-center gap-2 text-xs text-foreground/40 mb-4">
                                         <Calendar className="w-3.5 h-3.5" />
-                                        {new Date(post.createdAt).toLocaleDateString()}
+                                        {new Date(post.createdAt).toLocaleDateString(toIntlLocale(locale))}
                                     </div>
                                     <h2 className="text-2xl font-bold text-foreground mb-4 line-clamp-2 group-hover:text-brand-orange transition-colors leading-tight">
                                         <Link href={`/blog/${post.slug}`}>{post.titulo}</Link>
@@ -62,7 +70,7 @@ export default async function BlogPage() {
                                         href={`/blog/${post.slug}`}
                                         className="inline-flex items-center gap-2 text-sm font-bold text-brand-orange hover:gap-3 transition-all"
                                     >
-                                        Leer más <ArrowRight className="w-4 h-4" />
+                                        {copy.readMore} <ArrowRight className="w-4 h-4" />
                                     </Link>
                                 </div>
                             </article>
@@ -72,23 +80,22 @@ export default async function BlogPage() {
                             <div className="w-24 h-24 rounded-[2rem] bg-brand-orange/10 border border-brand-orange/20 flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-brand-orange/20">
                                 <Sparkles className="w-10 h-10 text-brand-orange animate-pulse" />
                             </div>
-                            <h3 className="text-3xl font-bold text-foreground mb-4">Próximamente</h3>
+                            <h3 className="text-3xl font-bold text-foreground mb-4">{copy.comingSoon}</h3>
                             <p className="text-foreground/50 max-w-md mx-auto text-lg leading-relaxed">
-                                Estamos preparando contenido exclusivo sobre urbanismo digital,
-                                lanzamientos inmobiliarios y estrategias de inversión.
+                                {copy.emptyDescription}
                             </p>
                             <div className="mt-12 flex justify-center gap-4">
                                 <Link
                                     href="/proyectos"
                                     className="px-8 py-3 rounded-2xl bg-brand-orange text-white font-bold hover:bg-brand-orangeDark transition-all shadow-glow"
                                 >
-                                    Ver Proyectos
+                                    {copy.viewProjects}
                                 </Link>
                                 <Link
                                     href="/contacto"
                                     className="px-8 py-3 rounded-2xl border-2 border-brand-orange text-brand-orange font-bold hover:bg-brand-orange hover:text-white transition-all"
                                 >
-                                    Contactar
+                                    {copy.contact}
                                 </Link>
                             </div>
                         </div>

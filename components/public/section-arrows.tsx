@@ -2,6 +2,7 @@
 
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/providers/language-provider";
 
 const HEADER_OFFSET = 96;
 
@@ -22,6 +23,7 @@ interface SectionArrowsProps {
 }
 
 export default function SectionArrows({ currentSection, className }: SectionArrowsProps) {
+    const { dictionary: t } = useLanguage();
     const currentIndex = SECTIONS.indexOf(currentSection);
     const hasPrev = currentIndex > 0;
     const hasNext = currentIndex < SECTIONS.length - 1;
@@ -34,7 +36,7 @@ export default function SectionArrows({ currentSection, className }: SectionArro
                 <button
                     type="button"
                     onClick={() => scrollToSection(SECTIONS[currentIndex - 1])}
-                    aria-label="Sección anterior"
+                    aria-label={t.floatingNav.previousSection}
                     className="relative z-10 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background/90 text-foreground/70 shadow-sm transition-all duration-200 hover:scale-105 hover:border-brand-orange/40 hover:text-brand-orange"
                 >
                     <ChevronUp className="h-5 w-5" />
@@ -44,7 +46,7 @@ export default function SectionArrows({ currentSection, className }: SectionArro
                 <button
                     type="button"
                     onClick={() => scrollToSection(SECTIONS[currentIndex + 1])}
-                    aria-label="Siguiente sección"
+                    aria-label={t.floatingNav.nextSection}
                     className="relative z-10 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background/90 text-foreground/70 shadow-sm transition-all duration-200 hover:scale-105 hover:border-brand-orange/40 hover:text-brand-orange"
                 >
                     <ChevronDown className="h-5 w-5" />

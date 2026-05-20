@@ -1,10 +1,15 @@
 import { Metadata } from "next";
 import ContactoLanding from "@/components/public/contacto-landing";
+import { getRequestDictionary } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-    title: "Contacto | SevenToop",
-    description: "Contactate con SevenToop para dudas o sugerencias.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const dictionary = await getRequestDictionary();
+
+    return {
+        title: dictionary.publicContact.title,
+        description: dictionary.publicContact.description,
+    };
+}
 
 export default function ContactPage() {
     return (

@@ -16,8 +16,6 @@ export default function Footer() {
 
     return (
         <footer id="contacto" className="bg-background text-foreground/70 border-t border-border pt-16 pb-8 relative overflow-hidden">
-            <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-brand-orange/5 blur-[120px] rounded-full pointer-events-none" />
-
             <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 xl:px-12 relative z-10">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 mb-12">
                     <div className="space-y-8">
@@ -96,7 +94,7 @@ export default function Footer() {
 
                 <div className="border-t border-border pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
                     <p className="text-xs font-medium text-muted-foreground">
-                        © {new Date().getFullYear()} <span className="text-foreground font-bold">SevenToop</span>. {t.footer.rights}
+                        &copy; {new Date().getFullYear()} <span className="text-foreground font-bold">SevenToop</span>. {t.footer.rights}
                     </p>
                     <div className="flex items-center gap-4 flex-wrap">
                         <span className="h-4 w-px bg-border hidden md:block mr-2" />

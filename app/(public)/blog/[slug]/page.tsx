@@ -1,19 +1,24 @@
 import { getNoticiaBySlug } from "@/lib/actions/noticias";
 import { notFound } from "next/navigation";
-import { Calendar, User, Tag, ArrowLeft, Share2 } from "lucide-react";
+import { Calendar, User, ArrowLeft, Share2 } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { getRequestDictionary, getRequestLocale } from "@/lib/i18n/server";
+import { toIntlLocale } from "@/lib/i18n/format";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
+    const dictionary = await getRequestDictionary();
     const res = await getNoticiaBySlug(params.slug);
-    if (!res.success || !res.data) return { title: "Artículo no encontrado" };
+    if (!res.success || !res.data) return { title: dictionary.blogPost.notFound };
     return {
-        title: `${res.data.titulo} | Seventoop`,
+        title: res.data.titulo,
         description: res.data.excerpt,
     };
 }
 
 export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+    const locale = getRequestLocale();
+    const dictionary = await getRequestDictionary();
+    const copy = dictionary.blogPost;
     const res = await getNoticiaBySlug(params.slug);
     if (!res.success || !res.data) notFound();
 
@@ -25,7 +30,7 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
                 {/* Back Link */}
                 <Link href="/blog" className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors mb-12 text-sm font-bold group">
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                    Volver al Blog
+                    {copy.back}
                 </Link>
 
                 {/* Header */}
@@ -36,7 +41,7 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
                         </span>
                         <div className="flex items-center gap-2 text-xs text-slate-500">
                             <Calendar className="w-3.5 h-3.5" />
-                            {new Date(post.createdAt).toLocaleDateString()}
+                            {new Date(post.createdAt).toLocaleDateString(toIntlLocale(locale))}
                         </div>
                     </div>
 
@@ -58,11 +63,14 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
                                 )}
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-white">{post.autor?.nombre || "Gention Team"}</p>
-                                <p className="text-xs text-slate-500">Autor</p>
+                                <p className="text-sm font-bold text-white">{post.autor?.nombre || copy.fallbackAuthor}</p>
+                                <p className="text-xs text-slate-500">{copy.author}</p>
                             </div>
                         </div>
-                        <button className="p-3 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-colors">
+                        <button
+                            className="p-3 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-colors"
+                            aria-label={copy.share}
+                        >
                             <Share2 className="w-5 h-5" />
                         </button>
                     </div>
@@ -94,9 +102,9 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
                             )}
                         </div>
                         <div className="space-y-2">
-                            <h4 className="text-xl font-bold text-white">{post.autor?.nombre || "Gention Team"}</h4>
+                            <h4 className="text-xl font-bold text-white">{post.autor?.nombre || copy.fallbackAuthor}</h4>
                             <p className="text-slate-400 text-sm italic leading-relaxed">
-                                {post.autor?.bio || "Expertos en desarrollo urbano y tecnología inmobiliaria dedicados a crear espacios vitales inteligentes."}
+                                {post.autor?.bio || copy.fallbackBio}
                             </p>
                         </div>
                     </div>

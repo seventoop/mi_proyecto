@@ -56,13 +56,13 @@ export interface PreviewInfraItem {
 export interface ProjectPreviewViewerProps {
     slug: string;
     projectName: string;
-    /** SVG con sus fills nativos (Plano). Data URL para uso como background-image (fallback raster). */
+    /** SVG with native fills for plan mode. */
     planAsset: string | null;
-    /** SVG crudo (markup) para render inline en Plano. Si está presente, prevalece sobre planAsset. */
+    /** Raw SVG markup for inline plan rendering. */
     planSvgRaw?: string | null;
-    /** SVG con fills neutralizados (no se usa en Mapa para evitar la "alfombra"). */
+    /** SVG with neutralized fills. */
     mapOverlayAsset?: string | null;
-    /** viewBox real del SVG, para proyectar polígonos en Mapa. */
+    /** Real SVG viewBox for projecting polygons. */
     planSvgViewBox?: { x: number; y: number; w: number; h: number } | null;
     mapCenterLat: number | null;
     mapCenterLng: number | null;
@@ -77,17 +77,11 @@ export interface ProjectPreviewViewerProps {
 type ViewMode = "plano" | "mapa";
 
 /**
- * Visor PÚBLICO del proyecto.
+ * Public project viewer.
  *
- *   PLANO  → solo el SVG del masterplan (que ya viene con sus fills coloreados
- *            desde el dashboard, mismo estilo que la referencia visual).
- *   MAPA   → satélite con polígonos coloreados por estado encima
- *            (estilo captura de referencia), opcional infraestructura y fotos.
- *            En Mapa NO se monta el SVG, así no compite con los polígonos
- *            (eso era el origen de la "alfombra" anterior).
- *
- * La interacción avanzada (hover/click/detalle por lote, IDs) vive en
- * `/proyectos/[slug]/masterplan`.
+ * Plan mode renders the masterplan SVG/raster. Map mode renders satellite
+ * tiles with status polygons and optional infrastructure/photos.
+ * Advanced lot interactions live in `/proyectos/[slug]/masterplan`.
  */
 export default function ProjectPreviewViewer({
     slug,
@@ -119,10 +113,7 @@ export default function ProjectPreviewViewer({
 
     const [mode, setMode] = useState<ViewMode>(hasMap ? "mapa" : "plano");
     const [showEstados, setShowEstados] = useState(true);
-    // Infra arranca OFF: muchos proyectos tienen polígonos de "areas_verdes"
-    // (plaza/parque) en verde #22c55e — el MISMO verde de DISPONIBLE — que en
-    // el mapa parecen "bloques verdes enormes" superpuestos a los lotes.
-    // El usuario la prende sólo si quiere verla.
+    // Infrastructure starts off because some projects contain broad green areas.
     const [showInfra, setShowInfra] = useState(false);
     const [showImagenes, setShowImagenes] = useState(true);
     const [ready, setReady] = useState(false);
@@ -132,7 +123,7 @@ export default function ProjectPreviewViewer({
         [copy.status.sold, "#ef4444"],
     ];
 
-    // ?mode= después del mount (evita hydration mismatch).
+    // Read ?mode= after mount to avoid hydration mismatch.
     useEffect(() => {
         const q = new URLSearchParams(window.location.search).get("mode");
         if (q === "plano" && planAsset) setMode("plano");
@@ -149,14 +140,13 @@ export default function ProjectPreviewViewer({
         return null;
     }, [overlayBounds]);
 
-    // Single source of truth para alinear los polígonos con el satélite:
-    // viewBox real del SVG (fallback al bounding box derivado de las unidades).
+    // Single source of truth for aligning polygons with satellite tiles.
     const svgViewBox = useMemo(() => {
         if (planSvgViewBox) return { x: planSvgViewBox.x, y: planSvgViewBox.y, w: planSvgViewBox.w, h: planSvgViewBox.h };
         return computeSvgViewBox(units as any);
     }, [planSvgViewBox, units]);
 
-    // ── Montar Leaflet sólo en Mapa ───────────────────────────────────────
+    // Mount Leaflet only in map mode.
     useEffect(() => {
         if (mode !== "mapa" || !hasMap) {
             if (mapRef.current) {
@@ -197,15 +187,13 @@ export default function ProjectPreviewViewer({
             });
             mapRef.current = map;
 
-            // Base: satélite Google.
+            // Google satellite base.
             L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
                 maxZoom: 22,
                 subdomains: ["mt0", "mt1", "mt2", "mt3"],
             }).addTo(map);
 
-            // ── ESTADOS: polígonos coloreados estilo dashboard ──────────────
-            // Sólo polígonos, sin SVG debajo, para evitar que el verde nativo
-            // del SVG se sume al verde de Disponible y genere la "alfombra".
+            // Status polygons only, without the SVG below.
             const estadosGroup = L.layerGroup();
             estadosLayerRef.current = estadosGroup;
             if (svgViewBox && parsedBounds) {
@@ -229,7 +217,7 @@ export default function ProjectPreviewViewer({
                 });
             }
 
-            // ── INFRAESTRUCTURA: polígonos / líneas / puntos georreferenciados ─
+            // Georeferenced infrastructure shapes.
             const infraGroup = L.layerGroup();
             infraLayerRef.current = infraGroup;
             infrastructures.forEach((it) => {
@@ -267,7 +255,7 @@ export default function ProjectPreviewViewer({
                 }
             });
 
-            // ── IMÁGENES: marcadores ────────────────────────────────────────
+            // Image markers.
             const imagesGroup = L.layerGroup();
             imagesLayerRef.current = imagesGroup;
             mapImages.forEach((img) => {
@@ -395,10 +383,10 @@ export default function ProjectPreviewViewer({
     const toggle = (set: React.Dispatch<React.SetStateAction<boolean>>) => () => set((v) => !v);
 
     return (
-        <div className="overflow-hidden rounded-3xl border-2 border-slate-700/60 bg-slate-950 shadow-lg">
+        <div className="overflow-hidden rounded-2xl border-2 border-slate-700/60 bg-slate-950 shadow-lg sm:rounded-3xl">
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 bg-slate-900/95 px-5 py-4">
-                <div>
+            <div className="flex flex-col gap-3 border-b border-slate-700/60 bg-slate-900/95 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="min-w-0">
                     <p className="text-sm font-bold text-white">{copy.headerTitle}</p>
                     <p className="text-xs text-slate-300">
                         {formatMessage(copy.headerDescription, {
@@ -409,7 +397,7 @@ export default function ProjectPreviewViewer({
                 </div>
                 <Link
                     href={`/proyectos/${slug}/masterplan`}
-                    className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-bold text-white shadow-glow transition-all hover:scale-[1.02] hover:bg-brand-400 sm:w-auto"
                 >
                     <Globe className="h-4 w-4" />
                     {copy.openMasterplan}
@@ -418,13 +406,13 @@ export default function ProjectPreviewViewer({
             </div>
 
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 bg-slate-900/70 px-5 py-3">
+            <div className="flex flex-col gap-3 border-b border-slate-700/60 bg-slate-900/70 px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
                 <div role="group" aria-label={copy.layers.mode} className="flex flex-wrap items-center gap-1.5">
                     {modeButton("plano", copy.modes.plan, Layers, !!planAsset)}
                     {modeButton("mapa", copy.modes.map, MapIcon, hasMap)}
                 </div>
 
-                {/* Capas (sólo aplican en Mapa) */}
+                {/* Layers, only available in map mode */}
                 <div role="group" aria-label={copy.layers.layers} className="flex flex-wrap items-center gap-1.5">
                     {overlayButton(
                         "estados",
@@ -463,7 +451,7 @@ export default function ProjectPreviewViewer({
             </div>
 
             {/* Viewer */}
-            <div className="relative h-[640px] w-full" style={{ background: DARK_BG }}>
+            <div className="relative h-[420px] w-full sm:h-[540px] lg:h-[640px]" style={{ background: DARK_BG }}>
                 {mode === "mapa" && hasMap ? (
                     <>
                         <div ref={containerRef} className="absolute inset-0" />
@@ -477,22 +465,15 @@ export default function ProjectPreviewViewer({
                         )}
                     </>
                 ) : (
-                    /* PLANO: SVG del dashboard como fondo + (si Estados está
-                       activo y hay viewBox real) polígonos coloreados encima
-                       alineados al MISMO viewBox del SVG. */
-                    <div className="absolute inset-0 p-6">
+                    /* Plan background plus optional status polygons. */
+                    <div className="absolute inset-0 p-3 sm:p-6">
                         {planSvgRaw ? (
                             <div
                                 className="relative h-full w-full"
                                 aria-label={formatMessage(copy.planAria, { projectName })}
                                 role="img"
                             >
-                                {/* SVG inline: respeta su propio viewBox, escala al contenedor
-                                    y evita los problemas de decodificación que tiene
-                                    background-image:url(data:image/svg+xml,...) con SVGs grandes.
-                                    Forzamos width/height al 100% inyectándolos en el tag <svg>
-                                    porque algunos planos generados desde DXF no traen esos atributos
-                                    (sólo viewBox), y sin ellos el navegador renderiza a 300x150. */}
+                                {/* Inline SVG keeps its viewBox and scales safely for large plans. */}
                                 <div
                                     className="absolute inset-0 overflow-hidden [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
                                     // The SVG comes from our own DB (uploaded by the project owner in the

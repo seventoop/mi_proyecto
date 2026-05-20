@@ -179,7 +179,7 @@ export default function UnitsGridPublic({
                                 value={sort}
                                 onChange={(e) => setSort(e.target.value as SortKey)}
                                 aria-label={t.units.sortLabel}
-                                className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 sm:w-auto"
                             >
                                 <option value="default">{t.units.recommended}</option>
                                 <option value="numero_asc">{t.units.lotNumber}</option>
@@ -287,7 +287,7 @@ export default function UnitsGridPublic({
                                         </div>
                                     )}
 
-                                    <div className="mt-auto flex items-center gap-2 pt-1">
+                                     <div className="mt-auto grid grid-cols-1 gap-2 pt-1 min-[420px]:grid-cols-2">
                                         <Link
                                             href={`/proyectos/${slug}/unidades/${unit.id}`}
                                             className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-center text-xs font-bold text-foreground transition-colors hover:bg-muted"

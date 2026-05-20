@@ -19,10 +19,11 @@
     "hello": "Hola",
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú",
+    "toggleTheme": "Cambiar tema",
     "goHome": "Ir al inicio"
   },
   "homeMetadata": {
-    "title": "SevenToop - Infraestructura para Comercialización Inmobiliaria",
+    "title": "Infraestructura para Comercialización Inmobiliaria",
     "description": "Plataforma integral de gestión inmobiliaria para desarrollos, urbanizaciones y proyectos premium. Invertí con seguridad y tecnología."
   },
   "hero": {
@@ -39,6 +40,7 @@
     "provinceLabel": "Provincia",
     "provinceAll": "Todas",
     "provinceCaba": "Capital Federal",
+    "provinceCordoba": "Córdoba",
     "cityLabel": "Ciudad",
     "cityPlaceholder": "Ej: Pilar",
     "zoneLabel": "Zona",
@@ -103,7 +105,7 @@
         "lote": {
           "abierto": "Barrio abierto",
           "privado": "Barrio privado",
-          "country": "Country",
+          "country": "Campo",
           "club": "Club de campo",
           "quinta": "Lote de quinta"
         },
@@ -355,6 +357,7 @@
   },
   "projects": {
     "badge": "Desarrollos Verificados",
+    "metadataTitle": "Proyectos",
     "title": "Proyectos en SevenToop",
     "description": "Cada desarrollo publicado cuenta con masterplan interactivo, tours 360°, ficha técnica verificada y acceso desde la comunidad.",
     "cta": {
@@ -397,7 +400,27 @@
     "title": "Noticias",
     "titleHighlight": "del sector",
     "description": "Últimas novedades sobre desarrollos, tecnología y oportunidades del mercado inmobiliario.",
-    "readMore": "Leer más"
+    "readMore": "Leer más",
+    "items": [
+      {
+        "date": "2026-04-08",
+        "title": "Barrio Capinota alcanza el 70% de ocupación en preventa",
+        "description": "El desarrollo ubicado en Cochabamba superó las expectativas de comercialización con su masterplan interactivo y tours 360° integrados.",
+        "tag": "Hito"
+      },
+      {
+        "date": "2026-03-22",
+        "title": "SevenToop integra tecnología de planos AI para desarrolladores",
+        "description": "Nuestro procesador de planos con inteligencia artificial permite detectar geometrías y generar loteos automáticamente desde archivos DXF y SVG.",
+        "tag": "Tecnología"
+      },
+      {
+        "date": "2026-03-10",
+        "title": "Comunidad VIP: acceso anticipado a 3 nuevos desarrollos",
+        "description": "Los miembros de la comunidad VIP ya pueden explorar los masterplans de tres desarrollos exclusivos antes de su lanzamiento público.",
+        "tag": "Comunidad"
+      }
+    ]
   },
   "floatingNav": {
     "navigation": "Navegación entre secciones",
@@ -621,5 +644,340 @@
     "loadingMap": "Cargando mapa...",
     "planAria": "Plano de {{projectName}}",
     "emptyPlan": "Aún no hay plano cargado para este proyecto."
+  },
+  "developersPage": {
+    "metadataTitle": "Para Desarrolladores - Infraestructura para Lanzamientos Inmobiliarios",
+    "metadataDescription": "Publicá tu desarrollo con infraestructura profesional, visibilidad estratégica y comunidad activa. Masterplan, tours 360, CRM, reservas y acompañamiento comercial.",
+    "badge": "Para Desarrolladores",
+    "titlePrefix": "La infraestructura que tu",
+    "titleHighlight": "lanzamiento necesita",
+    "description": "Publicación profesional, visibilidad ante una comunidad activa, herramientas interactivas y acompañamiento comercial. Todo en una sola plataforma.",
+    "primaryCta": "Publicar mi Desarrollo",
+    "secondaryCta": "Ver Planes",
+    "finalTitle": "Publicá tu desarrollo con infraestructura profesional",
+    "finalDescription": "Masterplan interactivo, tours 360, CRM, reservas y comunidad activa desde el primer día.",
+    "finalCta": "Quiero publicar mi desarrollo",
+    "finalNote": "Sin intermediación en compraventa · Suscripción mensual · Control total del proceso comercial."
+  },
+  "developerInfrastructure": {
+    "badge": "Para Desarrolladores",
+    "title": "Infraestructura Comercial",
+    "titleHighlight": "para Desarrolladores",
+    "description": "No vendemos por vos. Te damos la estructura, la tecnología y la visibilidad para que tu lanzamiento funcione desde el primer día. Todo integrado. Todo profesional.",
+    "services": [
+      {
+        "title": "Publicación Profesional",
+        "description": "Tu desarrollo con ficha completa, galería, documentación y presencia en la plataforma desde el primer día."
+      },
+      {
+        "title": "Espacio Publicitario Dinámico",
+        "description": "Banner premium debajo del navbar: imagen por 20s, video con audio por 30s, rotación automática. Tu proyecto frente a la comunidad en cada visita."
+      },
+      {
+        "title": "Exposición ante Comunidad Activa",
+        "description": "Acceso directo a una audiencia segmentada e interesada en desarrollos inmobiliarios. Visibilidad real, no tráfico genérico."
+      },
+      {
+        "title": "Grupo VIP Segmentado",
+        "description": "Comunidad exclusiva de WhatsApp con acceso anticipado a lanzamientos. Tu desarrollo llega primero a quienes más importan."
+      },
+      {
+        "title": "Masterplan Interactivo",
+        "description": "Tu loteo sobre el mapa real con estado de cada unidad en vivo. El cliente selecciona, consulta y avanza sin fricciones."
+      },
+      {
+        "title": "Tours 360 Inmersivos",
+        "description": "Recorridos virtuales del desarrollo desde cualquier dispositivo. Hotspots con contenido, navegación libre y experiencia premium."
+      },
+      {
+        "title": "CRM Comercial Completo",
+        "description": "Gestión de leads, tablero Kanban, seguimiento de oportunidades, historial de contacto y asistente inteligente integrado."
+      },
+      {
+        "title": "Gestión de Reservas",
+        "description": "Flujo estructurado con countdown, generación de documentos, seguimiento de seña y trazabilidad de cada operación."
+      },
+      {
+        "title": "Acompañamiento Estratégico",
+        "description": "Soporte en la planificación y ejecución del lanzamiento. Estrategia comercial, timing y coordinación para maximizar resultados."
+      }
+    ],
+    "highlightsTitle": "Todo lo que necesitás,",
+    "highlightsTitleHighlight": "en un solo lugar",
+    "highlights": [
+      "Visibilidad premium incluida en el paquete",
+      "Suscripción mensual · Sin intermediación en compraventa",
+      "Control total del proceso comercial",
+      "Soporte estratégico personalizado"
+    ],
+    "cta": "Quiero publicar mi desarrollo"
+  },
+  "launchSystem": {
+    "badge": "Método",
+    "title": "El Sistema de Lanzamiento",
+    "titleHighlight": "SevenToop",
+    "description": "Un método estructurado que coordina tecnología, visibilidad y comunidad para que cada lanzamiento tenga orden, alcance y resultados medibles.",
+    "steps": [
+      {
+        "title": "Validación y Estructuración",
+        "description": "Revisión del proyecto, verificación documental y armado de la ficha técnica completa dentro de la plataforma. Solo ingresan desarrollos verificados."
+      },
+      {
+        "title": "Producción Visual Premium",
+        "description": "Masterplan interactivo sobre mapa real, tours 360 inmersivos y banner dinámico de alta visibilidad: imagen 20s, video con audio 30s, rotación automática."
+      },
+      {
+        "title": "Activación en Comunidad Abierta",
+        "description": "Publicación coordinada en la comunidad de WhatsApp. El desarrollo se presenta ante una audiencia segmentada e interesada desde el primer momento."
+      },
+      {
+        "title": "Acceso Anticipado - Grupo VIP",
+        "description": "Los miembros VIP reciben la información antes que la comunidad abierta: planos, condiciones, disponibilidad y canal directo con el desarrollador."
+      },
+      {
+        "title": "Apertura Comercial Pública",
+        "description": "El proyecto queda disponible en la plataforma con masterplan activo, tours navegables, ficha completa y banner en rotación frente a cada visitante."
+      },
+      {
+        "title": "Reservas y Seguimiento Comercial",
+        "description": "Gestión estructurada de reservas con countdown, documentación automática, seguimiento de leads por CRM y trazabilidad completa de cada operación."
+      }
+    ],
+    "note": "Cada paso está diseñado para maximizar la exposición y profesionalizar el proceso comercial.",
+    "cta": "Quiero lanzar mi desarrollo"
+  },
+  "servicePlans": {
+    "badge": "Servicios",
+    "title": "Modelos de",
+    "titleHighlight": "Servicio",
+    "description": "Tres niveles diseñados para acompañar a cada desarrollador según la etapa y el alcance de su proyecto.",
+    "featuredLabel": "Más completo",
+    "plans": [
+      {
+        "name": "Infraestructura",
+        "tagline": "La base operativa para gestionar tu desarrollo de forma profesional.",
+        "features": [
+          "Publicación profesional del desarrollo",
+          "Dashboard desarrollador completo",
+          "CRM comercial con gestión de leads",
+          "Gestión de reservas estructurada",
+          "Verificación documental (KYC)",
+          "Soporte técnico"
+        ],
+        "cta": "Solicitar Información"
+      },
+      {
+        "name": "Visibilidad Premium",
+        "tagline": "Infraestructura + exposición directa frente a una audiencia segmentada.",
+        "includes": "Todo lo de Infraestructura más:",
+        "features": [
+          "Espacio publicitario dinámico en landing (20s imagen / 30s video con audio)",
+          "Rotación automática cada 30 segundos",
+          "Masterplan interactivo sobre mapa real",
+          "Tours 360 inmersivos",
+          "Exposición ante comunidad abierta"
+        ],
+        "cta": "Solicitar Información"
+      },
+      {
+        "name": "Lanzamiento Estratégico",
+        "tagline": "El servicio completo: tecnología, visibilidad y acompañamiento comercial coordinado.",
+        "includes": "Todo lo de Visibilidad Premium más:",
+        "features": [
+          "Activación coordinada en comunidad",
+          "Acceso anticipado al Grupo VIP",
+          "Estrategia estructurada de lanzamiento",
+          "Acompañamiento comercial estratégico",
+          "Honorarios variables opcionales bajo acuerdo"
+        ],
+        "cta": "Hablar con el Equipo"
+      }
+    ],
+    "disclaimer": "Los modelos de servicio son orientativos. Las condiciones finales se acuerdan directamente con cada desarrollador según el alcance del proyecto. SevenToop no intermedia operaciones de compraventa."
+  },
+  "projectDetail": {
+    "metadataFallback": "Conocé {{projectName}}{{location}}.",
+    "locationJoiner": " en {{location}}",
+    "available": "{{count}} disponibles",
+    "locationPending": "Ubicación a confirmar",
+    "openMasterplan": "Ver masterplan interactivo",
+    "consultProject": "Consultar proyecto",
+    "commercialSummary": "Resumen comercial",
+    "generalInfo": "Información general",
+    "defaultDescription": "Este proyecto ya está publicado y listo para recibir consultas desde la experiencia pública.",
+    "inventory": "Inventario",
+    "unitsPublished": "Unidades publicadas",
+    "unitPriceFrom": "Precio desde",
+    "unitSurfaceFrom": "Superficie desde",
+    "inventoryStatuses": {
+      "available": "Disponibles",
+      "reserved": "Reservados",
+      "sold": "Vendidos",
+      "blocked": "No disponibles"
+    },
+    "totalUnits": "{{count}} unidades publicadas en total.",
+    "previewEyebrow": "El proyecto, implantado en su ubicación",
+    "previewTitle": "Vista previa del proyecto",
+    "previewDescription": "Un único visor combina el mapa real, el plano del masterplan, los lotes coloreados por estado y las imágenes vinculadas. Activá o desactivá cada capa según lo que quieras ver.",
+    "infrastructureEyebrow": "Infraestructura",
+    "infrastructureTitle": "Avance de obras",
+    "progress": "Avance",
+    "nextEyebrow": "Cómo seguir",
+    "nextTitle": "Explorá el proyecto",
+    "nextDescription": "Atajos directos a cada experiencia: masterplan interactivo, lotes destacados, galería y ubicación.",
+    "masterplanCardTitle": "Masterplan interactivo",
+    "masterplanCardDescription": "Plano completo, zoom y estado de cada lote.",
+    "open": "Abrir",
+    "lotsCardTitle": "Ver lotes",
+    "lotsCardDescription": "{{count}} unidades publicadas con precio y superficie.",
+    "goToList": "Ir al listado",
+    "galleryTitle": "Ver galería",
+    "galleryDescription": "Imágenes y material visual del proyecto.",
+    "galleryCta": "Ver imágenes",
+    "directionsTitle": "Cómo llegar",
+    "directionsDescription": "Abrí la ruta en Google Maps desde tu ubicación.",
+    "routeCta": "Ver ruta",
+    "lotsEyebrow": "Lotes y unidades",
+    "featuredUnitsEyebrow": "Selección destacada",
+    "featuredUnitsDescription": "Una vista rápida del inventario. Para filtrar, ordenar o consultar lote por lote, abrí el masterplan.",
+    "allUnitsCta": "Explorar todas las unidades",
+    "documentsTitle": "Documentación",
+    "testimonialsTitle": "Testimonios",
+    "galleryEyebrow": "Galería",
+    "visualMaterialTitle": "Material visual del proyecto",
+    "commercialCtaEyebrow": "CTA comercial",
+    "contactTitle": "Consultá por {{projectName}}",
+    "contactDescription": "Completá el formulario para recibir disponibilidad, precios actualizados y asesoramiento comercial.",
+    "projectLabel": "Proyecto",
+    "visibleInventory": "Inventario visible",
+    "inventorySummary": "{{available}} disponibles, {{reserved}} reservados y {{sold}} vendidos."
+  },
+  "masterplanPage": {
+    "backToProject": "Volver al proyecto",
+    "title": "Masterplan interactivo",
+    "description": "Cambiá entre {{plan}} y {{map}} para ver los lotes sobre el plano técnico o sobre la ubicación real. Hacé click en cualquier lote para consultar.",
+    "unitsEyebrow": "Lotes y unidades",
+    "unitsTitle": "Listado completo del proyecto",
+    "unitsDescription": "Filtrá por estado, buscá por código, ordená por precio o superficie y consultá el lote que te interese.",
+    "contactEyebrow": "Consultá un lote",
+    "contactTitle": "Hablemos de {{projectName}}",
+    "contactDescription": "Si seleccionás un lote desde el plano o la grilla, lo vamos a anclar acá automáticamente."
+  },
+  "unitDetail": {
+    "metadataNotFound": "Unidad no encontrada",
+    "metadataTitle": "Unidad {{unitNumber}} - {{projectName}}",
+    "metadataDescription": "Detalles de la unidad {{unitNumber}} en {{projectName}}. Superficie: {{surface}} m2. Precio: {{price}} {{currency}}.",
+    "backToMasterplan": "Volver al Masterplan",
+    "unit": "Unidad {{number}}",
+    "lot": "Lote",
+    "apartment": "Departamento",
+    "surface": "Superficie",
+    "price": "Precio",
+    "delivery": "Entrega",
+    "immediate": "Inmediata",
+    "orientation": "Orientación",
+    "features": "Características",
+    "front": "Frente",
+    "depth": "Fondo",
+    "corner": "Esquina",
+    "yes": "Sí",
+    "no": "No",
+    "currency": "Moneda",
+    "internalLocation": "Ubicación Interna",
+    "stage": "Etapa",
+    "tour360": "Tour 360",
+    "availableValue": "Disponible",
+    "askValue": "Consultar",
+    "status": "Estado",
+    "seeMore": "Ver más sobre {{projectName}}",
+    "listPrice": "Precio de Lista",
+    "consultUnit": "Consultar por esta unidad",
+    "termsNotice": "Al enviar estás aceptando nuestros términos y condiciones."
+  },
+  "tour360Page": {
+    "metadataTitle": "Tour Virtual 360",
+    "metadataDescription": "Recorré el proyecto con un tour virtual inmersivo 360.",
+    "subtitle": "Tour Virtual 360",
+    "consult": "Consultar"
+  },
+  "blogPage": {
+    "metadataTitle": "Blog",
+    "metadataDescription": "Noticias, tendencias y consejos sobre el sector inmobiliario y urbanismo digital.",
+    "title": "Blog de SevenToop",
+    "description": "Novedades, tendencias del sector y contenido estratégico para desarrolladores inmobiliarios.",
+    "readMore": "Leer más",
+    "comingSoon": "Próximamente",
+    "emptyDescription": "Estamos preparando contenido exclusivo sobre urbanismo digital, lanzamientos inmobiliarios y estrategias de inversión.",
+    "viewProjects": "Ver Proyectos",
+    "contact": "Contactar"
+  },
+  "blogPost": {
+    "notFound": "Artículo no encontrado",
+    "back": "Volver al Blog",
+    "author": "Autor",
+    "fallbackAuthor": "Equipo SevenToop",
+    "fallbackBio": "Expertos en desarrollo urbano y tecnología inmobiliaria dedicados a crear espacios vitales inteligentes.",
+    "share": "Compartir artículo"
+  },
+  "financingSimulator": {
+    "title": "Simulador de Financiación",
+    "description": "Personalizá tu plan de pagos",
+    "downPayment": "Anticipo",
+    "installments": "Cuotas",
+    "suggestedTerm": "Plazo sugerido",
+    "months": "meses",
+    "estimatedInstallment": "Valor estimado de cuota",
+    "disclaimer": "*Valores estimados sujetos a aprobación crediticia."
+  },
+  "legalPages": {
+    "updatedAt": "Última actualización: 24 de Febrero, 2026",
+    "terms": {
+      "metadataTitle": "Términos y Condiciones",
+      "metadataDescription": "Términos y condiciones de uso de la plataforma SevenToop.",
+      "title": "Términos y Condiciones",
+      "sections": [
+        {
+          "title": "1. Aceptación de los términos",
+          "body": "Al acceder y utilizar la plataforma SevenToop, usted acepta quedar vinculado por estos términos y condiciones. Si no está de acuerdo con alguna parte de estos términos, no podrá utilizar nuestros servicios."
+        },
+        {
+          "title": "2. Uso de la plataforma",
+          "body": "SevenToop es una herramienta tecnológica para la gestión de desarrollos inmobiliarios. Usted se compromete a proporcionar información veraz y a mantener la confidencialidad de su cuenta."
+        },
+        {
+          "title": "3. Privacidad",
+          "body": "El uso de sus datos personales se rige por nuestra Política de Privacidad, la cual se incorpora por referencia a estos términos."
+        }
+      ],
+      "footer": "SevenToop - Gestión Inmobiliaria Inteligente."
+    },
+    "privacy": {
+      "metadataTitle": "Política de Privacidad",
+      "metadataDescription": "Política de privacidad y protección de datos de SevenToop.",
+      "title": "Política de Privacidad",
+      "sections": [
+        {
+          "title": "1. Información que recolectamos",
+          "body": "Recolectamos información personal que usted nos proporciona voluntariamente, como nombre, email y datos de contacto, para brindarle acceso a la plataforma y mejorar nuestros servicios."
+        },
+        {
+          "title": "2. Uso de la información",
+          "body": "Sus datos se utilizan exclusivamente para la gestión de su cuenta, comunicaciones relevantes sobre proyectos y optimización de la experiencia en SevenToop."
+        },
+        {
+          "title": "3. Seguridad",
+          "body": "Implementamos medidas de seguridad técnicas y organizativas para proteger sus datos personales contra acceso no autorizado, alteración o divulgación."
+        }
+      ],
+      "footer": "SevenToop - Su privacidad es nuestra prioridad."
+    },
+    "draft": "Documento en elaboración. Para consultas escribinos a hola@seventoop.com"
+  },
+  "demoExpired": {
+    "title": "Demo Expirado",
+    "description": "Tu período de demo ha expirado. Completá tu verificación KYC para continuar usando la plataforma y mantener acceso a tus proyectos.",
+    "cta": "Completar KYC ahora",
+    "helpPrefix": "¿Necesitás ayuda?",
+    "helpCta": "Contactanos"
   }
 }

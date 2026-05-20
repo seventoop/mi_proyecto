@@ -1,14 +1,18 @@
+"use client";
+
 import { Mail, Phone } from "lucide-react";
 import ContactForm from "@/components/public/contact-form";
 import ContactActions from "./contact-actions";
 import ScrollAnimationWrapper from "./scroll-animation-wrapper";
-
-const contactInfo = [
-    { icon: Mail, label: "Email", value: "contacto@seventoop.com", sub: "Respuesta en 24hs" },
-    { icon: Phone, label: "Teléfono", value: "+54 9 11 1234-5678", sub: "Lun a Vie, 9hs a 18hs" },
-];
+import { useLanguage } from "@/components/providers/language-provider";
 
 export default function ContactSection() {
+    const { dictionary: t } = useLanguage();
+    const contactInfo = [
+        { icon: Mail, label: "Email", value: "contacto@seventoop.com", sub: t.publicContact.info.generalDescription },
+        { icon: Phone, label: t.publicContact.labels.phone, value: "+54 9 11 1234-5678", sub: t.publicContact.info.alliancesDescription },
+    ];
+
     return (
         <section id="contacto" className="py-20 px-6 bg-slate-50/80 dark:bg-white/[0.02] relative overflow-hidden border-t border-slate-200/60 dark:border-white/5">
             {/* Background */}
@@ -20,16 +24,16 @@ export default function ContactSection() {
                     <ScrollAnimationWrapper direction="right" className="space-y-8">
                         <div className="space-y-4">
                             <span className="text-brand-orange font-black tracking-widest text-xs uppercase">
-                                Contacto
+                                {t.nav.contacto}
                             </span>
                             <h2 className="text-4xl md:text-5xl font-black text-foreground leading-[1.1] tracking-tight">
-                                Estamos para{" "}
+                                {t.publicContact.eyebrow}{" "}
                                 <span className="bg-gradient-to-r from-brand-orange to-brand-yellow bg-clip-text text-transparent">
-                                    ayudarte
+                                    {t.publicContact.title}
                                 </span>
                             </h2>
                             <p className="text-foreground/60 text-lg max-w-md leading-relaxed">
-                                Completá el formulario y un asesor se comunicará con vos a la brevedad.
+                                {t.publicContact.description}
                             </p>
                         </div>
 
@@ -55,7 +59,7 @@ export default function ContactSection() {
                     <ScrollAnimationWrapper direction="left" className="relative">
                         <div className="absolute inset-0 bg-gradient-to-tr from-brand-orange/10 to-brand-yellow/10 blur-[80px] rounded-full z-0" />
                         <div className="bg-white dark:bg-[#111116]/80 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-xl relative z-10">
-                            <h3 className="text-xl font-bold text-foreground mb-6">Envianos un mensaje</h3>
+                            <h3 className="text-xl font-bold text-foreground mb-6">{t.publicContact.formTitle}</h3>
                             <ContactForm />
                         </div>
                     </ScrollAnimationWrapper>
