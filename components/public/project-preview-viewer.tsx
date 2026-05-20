@@ -56,10 +56,8 @@ export interface PreviewInfraItem {
 export interface ProjectPreviewViewerProps {
     slug: string;
     projectName: string;
-    /** SVG with native fills for plan mode. */
+    /** SVG/raster asset for plan mode. SVGs are rendered as images, never inline markup. */
     planAsset: string | null;
-    /** Raw SVG markup for inline plan rendering. */
-    planSvgRaw?: string | null;
     /** SVG with neutralized fills. */
     mapOverlayAsset?: string | null;
     /** Real SVG viewBox for projecting polygons. */
@@ -87,7 +85,6 @@ export default function ProjectPreviewViewer({
     slug,
     projectName,
     planAsset,
-    planSvgRaw,
     planSvgViewBox,
     mapCenterLat,
     mapCenterLng,
@@ -467,58 +464,7 @@ export default function ProjectPreviewViewer({
                 ) : (
                     /* Plan background plus optional status polygons. */
                     <div className="absolute inset-0 p-3 sm:p-6">
-                        {planSvgRaw ? (
-                            <div
-                                className="relative h-full w-full"
-                                aria-label={formatMessage(copy.planAria, { projectName })}
-                                role="img"
-                            >
-                                {/* Inline SVG keeps its viewBox and scales safely for large plans. */}
-                                <div
-                                    className="absolute inset-0 overflow-hidden [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
-                                    // The SVG comes from our own DB (uploaded by the project owner in the
-                                    // dashboard) and is already label-stripped on the server.
-                                    dangerouslySetInnerHTML={{
-                                        __html: planSvgRaw.replace(
-                                            /<svg\b([^>]*)>/i,
-                                            (_m, attrs) => {
-                                                let a = attrs as string;
-                                                if (!/\swidth\s*=/.test(a)) a += ' width="100%"';
-                                                if (!/\sheight\s*=/.test(a)) a += ' height="100%"';
-                                                if (!/preserveAspectRatio\s*=/.test(a)) a += ' preserveAspectRatio="xMidYMid meet"';
-                                                return `<svg${a}>`;
-                                            },
-                                        ),
-                                    }}
-                                />
-                                {showEstados && planSvgViewBox && hasUnits && (
-                                    <svg
-                                        viewBox={`${planSvgViewBox.x} ${planSvgViewBox.y} ${planSvgViewBox.w} ${planSvgViewBox.h}`}
-                                        preserveAspectRatio="xMidYMid meet"
-                                        className="pointer-events-none absolute inset-0 h-full w-full"
-                                    >
-                                        {units.map((u) => {
-                                            if (!u.coordenadasMasterplan) return null;
-                                            let path: string | undefined;
-                                            try { path = JSON.parse(u.coordenadasMasterplan).path; } catch {}
-                                            if (!path) return null;
-                                            const color = STATUS_COLORS[u.estado] || "#94a3b8";
-                                            return (
-                                                <path
-                                                    key={u.id}
-                                                    d={path}
-                                                    fill={color}
-                                                    fillOpacity={0.65}
-                                                    stroke="#ffffff"
-                                                    strokeWidth={1}
-                                                    vectorEffect="non-scaling-stroke"
-                                                />
-                                            );
-                                        })}
-                                    </svg>
-                                )}
-                            </div>
-                        ) : planAsset ? (
+                        {planAsset ? (
                             <div
                                 className="relative h-full w-full"
                                 style={{
