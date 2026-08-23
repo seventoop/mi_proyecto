@@ -29,6 +29,17 @@ export async function POST(
         const body = await request.json().catch(() => ({}));
         const entityId: string | undefined = typeof body.entityId === "string" ? body.entityId : undefined;
 
+        if (entityId) {
+            const lead = await prisma.lead.findFirst({
+                where: { id: entityId, orgId: workflow.orgId },
+                select: { id: true },
+            });
+
+            if (!lead) {
+                return NextResponse.json({ error: "Entidad no encontrada para este workflow" }, { status: 404 });
+            }
+        }
+
         const result = await runWorkflow(workflow.id, "MANUAL", entityId);
 
         const run = await prisma.workflowRun.findUnique({

@@ -75,6 +75,7 @@ export async function executeLeadReception(input: LeadReceptionInput): Promise<L
         if (!input.orgId) {
             throw new Error(`orgId es obligatorio para procesar el lead. Source: ${input.sourceType}`);
         }
+        const resolvedOrgId = input.orgId;
 
         // 2. Persist Lead
         const lead = await prisma.lead.create({
@@ -161,7 +162,7 @@ export async function executeLeadReception(input: LeadReceptionInput): Promise<L
                     }
 
                     // 5. Fire AI Lead Scoring
-                    await aiLeadScoring(lead.id).catch(err => {
+                    await aiLeadScoring(lead.id, resolvedOrgId).catch(err => {
                         console.error("[Pipeline] AI Scoring failed:", err.message);
                     });
 

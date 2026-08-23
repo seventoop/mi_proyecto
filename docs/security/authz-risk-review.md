@@ -17,7 +17,7 @@ No functional code was modified. No secrets were inspected or exposed.
 |---|---|---|---|
 | A | Unguarded project stages API allows unauthenticated reads and creates | `CRITICA` | `FIX IMPLEMENTADO / PENDIENTE DE PUSH` |
 | B | Debug API routes are deployable and protected only by query-string token | `ALTA` | `FIX IMPLEMENTADO / PENDIENTE DE COMMIT` |
-| C | Workflow/AI lead scoring can process arbitrary `entityId` without lead org validation | `ALTA` | `CONFIRMADO` |
+| C | Workflow/AI lead scoring can process arbitrary `entityId` without lead org validation | `ALTA` | `FIX IMPLEMENTADO / PENDIENTE DE COMMIT` |
 | D | Unguarded news mutations exist but no current caller was found | `MEDIA` | `CONDICIONAL` |
 
 ## A. Project Stages API
@@ -166,9 +166,24 @@ Severity: `ALTA`
 
 [`../../lib/actions/ai-lead-scoring.ts`](../../lib/actions/ai-lead-scoring.ts) reads a lead by arbitrary ID and reads all projects without org scoping. A confirmed caller path, `POST /api/workflows/[id]/run`, validates access to the workflow but does not validate that `body.entityId` belongs to the same Organization before calling `runWorkflow(...)`.
 
-Status: `CONFIRMADO`
+Status: `FIX IMPLEMENTADO / PENDIENTE DE COMMIT`
 
 Severity: `ALTA`
+
+### Local Fix Applied
+
+- Fixed in [`../../lib/workflow-engine.ts`](../../lib/workflow-engine.ts), [`../../lib/actions/ai-lead-scoring.ts`](../../lib/actions/ai-lead-scoring.ts), [`../../app/api/workflows/[id]/run/route.ts`](../../app/api/workflows/%5Bid%5D/run/route.ts), and [`../../lib/crm-pipeline.ts`](../../lib/crm-pipeline.ts).
+- `runWorkflow` now creates a minimal execution context with `workflowOrgId` and resolves supported entities as `LEAD` scoped by `id + workflow.orgId` before sensitive nodes run.
+- The tenant boundary applies even for `ADMIN` and `SUPERADMIN`: once a workflow has `orgId`, the entity must belong to that Organization.
+- Sensitive node queries now use the validated context or scoped writes:
+  - `AI_ACTION` calls tenant-scoped `aiLeadScoring(leadId, orgId)`.
+  - `UPDATE_LEAD` uses `updateMany({ where: { id, orgId } })` and checks that one row changed.
+  - `CONDITION` reads from the already validated Lead context instead of a global lookup.
+  - `WEBHOOK` sends only the already validated Lead context and does not call `fetch` if the entity fails tenant validation.
+- `aiLeadScoring` now receives explicit `orgId`, reads Lead by `id + orgId`, reads only projects from that Organization, and updates Lead by `id + orgId`.
+- Manual workflow execution performs fail-fast validation for `entityId`, while the engine remains the central enforcement point.
+- `WAIT` still works without `entityId`; `SEND_EMAIL` and unknown nodes keep the existing `SKIPPED` behavior.
+- Focused tests were added in [`../../__tests__/workflow-engine-tenant-scope.test.ts`](../../__tests__/workflow-engine-tenant-scope.test.ts), [`../../__tests__/ai-lead-scoring-tenant-scope.test.ts`](../../__tests__/ai-lead-scoring-tenant-scope.test.ts), [`../../__tests__/api/workflows-run-route.test.ts`](../../__tests__/api/workflows-run-route.test.ts), and [`../../__tests__/crm-pipeline-workflow-tenant.test.ts`](../../__tests__/crm-pipeline-workflow-tenant.test.ts).
 
 ### Evidence
 

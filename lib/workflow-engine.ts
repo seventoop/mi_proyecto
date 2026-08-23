@@ -16,6 +16,22 @@ interface NodeConfig {
     // WAIT — no extra config
 }
 
+type WorkflowEntityType = "LEAD";
+
+type WorkflowExecutionEntity = {
+    type: WorkflowEntityType;
+    id: string;
+    orgId: string;
+    data: Record<string, unknown>;
+};
+
+type WorkflowExecutionContext = {
+    workflowId: string;
+    workflowOrgId: string;
+    trigger: string;
+    entity?: WorkflowExecutionEntity;
+};
+
 export interface WorkflowResult {
     runId: string;
     estado: string;
@@ -38,6 +54,12 @@ function evalCondition(fieldVal: unknown, operator: string, expected: unknown): 
     }
 }
 
+const ENTITY_NODE_TYPES = new Set(["AI_ACTION", "UPDATE_LEAD", "CONDITION", "WEBHOOK"]);
+
+function workflowNeedsEntity(nodos: { tipo: string }[]): boolean {
+    return nodos.some((nodo) => ENTITY_NODE_TYPES.has(nodo.tipo));
+}
+
 // ─── Main executor ────────────────────────────────────────────────────────────
 
 export async function runWorkflow(
@@ -57,6 +79,32 @@ export async function runWorkflow(
         });
 
         if (!workflow) throw new Error(`Workflow ${workflowId} not found`);
+
+        let context: WorkflowExecutionContext = {
+            workflowId: workflow.id,
+            workflowOrgId: workflow.orgId,
+            trigger,
+        };
+
+        if (entityId && workflowNeedsEntity(workflow.nodos)) {
+            const lead = await prisma.lead.findFirst({
+                where: { id: entityId, orgId: workflow.orgId },
+            });
+
+            if (!lead) {
+                throw new Error("Entity not found for workflow organization");
+            }
+
+            context = {
+                ...context,
+                entity: {
+                    type: "LEAD",
+                    id: lead.id,
+                    orgId: lead.orgId!,
+                    data: lead as unknown as Record<string, unknown>,
+                },
+            };
+        }
 
         let running = true;
         let runEstado = "SUCCESS";
@@ -78,18 +126,24 @@ export async function runWorkflow(
             try {
                 switch (nodo.tipo) {
                     case "AI_ACTION": {
-                        if (!entityId) throw new Error("entityId required for AI_ACTION");
-                        await aiLeadScoring(entityId);
-                        output = { scored: true, entityId };
+                        if (!context.entity) throw new Error("entityId required for AI_ACTION");
+                        await aiLeadScoring(context.entity.id, context.workflowOrgId);
+                        output = { scored: true, entityId: context.entity.id };
                         break;
                     }
 
                     case "UPDATE_LEAD": {
-                        if (!entityId) throw new Error("entityId required for UPDATE_LEAD");
+                        if (!context.entity) throw new Error("entityId required for UPDATE_LEAD");
                         if (!cfg.fields || Object.keys(cfg.fields).length === 0) {
                             throw new Error("UPDATE_LEAD requires config.fields");
                         }
-                        await prisma.lead.update({ where: { id: entityId }, data: cfg.fields });
+                        const updated = await prisma.lead.updateMany({
+                            where: { id: context.entity.id, orgId: context.workflowOrgId },
+                            data: cfg.fields,
+                        });
+                        if (updated.count !== 1) {
+                            throw new Error("Lead not found for workflow organization");
+                        }
                         output = { updated: cfg.fields };
                         break;
                     }
@@ -99,13 +153,10 @@ export async function runWorkflow(
                             throw new Error("CONDITION requires config.field and config.operator");
                         }
                         let passed = false;
-                        if (entityId) {
-                            const lead = await prisma.lead.findUnique({ where: { id: entityId } });
-                            if (lead) {
-                                const fieldVal = (lead as Record<string, unknown>)[cfg.field];
-                                passed = evalCondition(fieldVal, cfg.operator, cfg.value);
-                                output = { field: cfg.field, fieldVal, operator: cfg.operator, expected: cfg.value, passed };
-                            }
+                        if (context.entity) {
+                            const fieldVal = context.entity.data[cfg.field];
+                            passed = evalCondition(fieldVal, cfg.operator, cfg.value);
+                            output = { field: cfg.field, fieldVal, operator: cfg.operator, expected: cfg.value, passed };
                         }
                         if (!passed) {
                             running = false;
@@ -129,13 +180,13 @@ export async function runWorkflow(
                     case "WEBHOOK": {
                         if (!cfg.url) throw new Error("WEBHOOK requires config.url");
                         let entityData: unknown = {};
-                        if (entityId) {
-                            entityData = await prisma.lead.findUnique({ where: { id: entityId } });
+                        if (context.entity) {
+                            entityData = context.entity.data;
                         }
                         const res = await fetch(cfg.url, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ trigger, entityId, entityData }),
+                            body: JSON.stringify({ trigger: context.trigger, entityId: context.entity?.id ?? entityId, entityData }),
                         });
                         output = { status: res.status, ok: res.ok };
                         if (!res.ok) throw new Error(`Webhook responded ${res.status}`);

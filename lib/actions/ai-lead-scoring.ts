@@ -10,15 +10,15 @@ interface ScoringResult {
     proyectosRecomendados: string[];
 }
 
-export async function aiLeadScoring(leadId: string): Promise<void> {
+export async function aiLeadScoring(leadId: string, orgId: string): Promise<void> {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
         console.warn("[aiLeadScoring] ANTHROPIC_API_KEY not configured — skipping");
         return;
     }
 
-    const lead = await prisma.lead.findUnique({
-        where: { id: leadId },
+    const lead = await prisma.lead.findFirst({
+        where: { id: leadId, orgId },
         select: {
             nombre: true,
             email: true,
@@ -42,11 +42,12 @@ export async function aiLeadScoring(leadId: string): Promise<void> {
     });
 
     if (!lead) {
-        console.warn(`[aiLeadScoring] Lead ${leadId} not found`);
+        console.warn(`[aiLeadScoring] Lead ${leadId} not found for org ${orgId}`);
         return;
     }
 
     const proyectos = await prisma.proyecto.findMany({
+        where: { orgId },
         select: {
             id: true,
             nombre: true,
@@ -95,8 +96,8 @@ Devuelve SOLO un objeto JSON válido (sin markdown, sin texto extra) con esta es
     const text = response.content[0].type === "text" ? response.content[0].text : "";
     const result: ScoringResult = JSON.parse(text);
 
-    await prisma.lead.update({
-        where: { id: leadId },
+    await prisma.lead.updateMany({
+        where: { id: leadId, orgId },
         data: {
             aiQualificationScore: Math.min(100, Math.max(0, result.score)),
             lastAiSummary: result.resumen,
