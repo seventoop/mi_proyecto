@@ -1,12 +1,27 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { handleApiGuardError, requireProjectOwnership } from "@/lib/guards";
+import { idSchema } from "@/lib/validations";
+import { z } from "zod";
+
+const etapaCreateBodySchema = z.object({
+    nombre: z.string().min(1, "Nombre de etapa requerido").max(100),
+    estado: z.string().min(1).max(50).optional(),
+});
 
 // GET /api/proyectos/[id]/etapas
 export async function GET(
-    request: Request,
+    _request: Request,
     { params }: { params: { id: string } }
 ) {
     try {
+        const idParsed = idSchema.safeParse(params.id);
+        if (!idParsed.success) {
+            return NextResponse.json({ error: "ID de proyecto inválido" }, { status: 400 });
+        }
+
+        await requireProjectOwnership(params.id);
+
         const etapas = await prisma.etapa.findMany({
             where: { proyectoId: params.id },
             include: {
@@ -21,10 +36,7 @@ export async function GET(
 
         return NextResponse.json(etapas);
     } catch (error) {
-        return NextResponse.json(
-            { error: "Error al obtener etapas" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }
 
@@ -34,7 +46,22 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     try {
+        const idParsed = idSchema.safeParse(params.id);
+        if (!idParsed.success) {
+            return NextResponse.json({ error: "ID de proyecto inválido" }, { status: 400 });
+        }
+
+        await requireProjectOwnership(params.id);
+
         const body = await request.json();
+        const parsed = etapaCreateBodySchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: parsed.error.issues[0]?.message || "Datos inválidos" },
+                { status: 400 }
+            );
+        }
+        const data = parsed.data;
 
         // Get max orden
         const maxOrden = await prisma.etapa.findFirst({
@@ -46,17 +73,14 @@ export async function POST(
         const etapa = await prisma.etapa.create({
             data: {
                 proyectoId: params.id,
-                nombre: body.nombre,
+                nombre: data.nombre,
                 orden: (maxOrden?.orden || 0) + 1,
-                estado: body.estado || "PENDIENTE",
+                estado: data.estado || "PENDIENTE",
             },
         });
 
         return NextResponse.json(etapa, { status: 201 });
     } catch (error) {
-        return NextResponse.json(
-            { error: "Error al crear etapa" },
-            { status: 500 }
-        );
+        return handleApiGuardError(error);
     }
 }

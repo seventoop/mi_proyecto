@@ -15,7 +15,7 @@ No functional code was modified. No secrets were inspected or exposed.
 
 | ID | Finding | Severity | Status |
 |---|---|---|---|
-| A | Unguarded project stages API allows unauthenticated reads and creates | `CRITICA` | `CONFIRMADO` |
+| A | Unguarded project stages API allows unauthenticated reads and creates | `CRITICA` | `FIX IMPLEMENTADO / PENDIENTE DE PUSH` |
 | B | Debug API routes are deployable and protected only by query-string token | `ALTA` | `CONFIRMADO` |
 | C | Workflow/AI lead scoring can process arbitrary `entityId` without lead org validation | `ALTA` | `CONFIRMADO` |
 | D | Unguarded news mutations exist but no current caller was found | `MEDIA` | `CONDICIONAL` |
@@ -26,9 +26,18 @@ No functional code was modified. No secrets were inspected or exposed.
 
 [`../../app/api/proyectos/[id]/etapas/route.ts`](../../app/api/proyectos/[id]/etapas/route.ts) exposes `GET` and `POST` without authentication, role checks, project ownership checks, or Organization filtering.
 
-Status: `CONFIRMADO`
+Status: `FIX IMPLEMENTADO / PENDIENTE DE PUSH`
 
 Severity: `CRITICA`
+
+### Local Fix Applied
+
+- Fixed in [`../../app/api/proyectos/[id]/etapas/route.ts`](../../app/api/proyectos/[id]/etapas/route.ts).
+- `GET` and `POST` now validate `params.id` with `idSchema`.
+- Both handlers call `requireProjectOwnership(params.id)` before any sensitive Prisma read/write.
+- Guard errors are returned through `handleApiGuardError`.
+- `POST` validates request body with a route-local schema compatible with the existing API contract (`nombre`, optional `estado`).
+- Focused route tests were added in [`../../__tests__/api/proyectos-etapas-route.test.ts`](../../__tests__/api/proyectos-etapas-route.test.ts) for unauthenticated access, valid project access, cross-org/no-access rejection, and ADMIN/SUPERADMIN allowed paths.
 
 ### Evidence
 
