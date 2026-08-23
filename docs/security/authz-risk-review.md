@@ -16,7 +16,7 @@ No functional code was modified. No secrets were inspected or exposed.
 | ID | Finding | Severity | Status |
 |---|---|---|---|
 | A | Unguarded project stages API allows unauthenticated reads and creates | `CRITICA` | `FIX IMPLEMENTADO / PENDIENTE DE PUSH` |
-| B | Debug API routes are deployable and protected only by query-string token | `ALTA` | `CONFIRMADO` |
+| B | Debug API routes are deployable and protected only by query-string token | `ALTA` | `FIX IMPLEMENTADO / PENDIENTE DE COMMIT` |
 | C | Workflow/AI lead scoring can process arbitrary `entityId` without lead org validation | `ALTA` | `CONFIRMADO` |
 | D | Unguarded news mutations exist but no current caller was found | `MEDIA` | `CONDICIONAL` |
 
@@ -93,9 +93,21 @@ Severity: `CRITICA`
 
 Three debug routes exist under [`../../app/api/debug`](../../app/api/debug). They are not conditioned by `NODE_ENV`; they are protected only by `DEBUG_DB_TOKEN` supplied as `?token=...`.
 
-Status: `CONFIRMADO`
+Status: `FIX IMPLEMENTADO / PENDIENTE DE COMMIT`
 
 Severity: `ALTA`
+
+### Local Fix Applied
+
+- Fixed in [`../../app/api/debug/db-users/route.ts`](../../app/api/debug/db-users/route.ts), [`../../app/api/debug/oauth-links/route.ts`](../../app/api/debug/oauth-links/route.ts), and [`../../app/api/debug/db-counts/route.ts`](../../app/api/debug/db-counts/route.ts).
+- Added shared helper [`../../app/api/debug/_utils.ts`](../../app/api/debug/_utils.ts).
+- In `NODE_ENV === "production"`, all three endpoints now return `404` before any Prisma query.
+- In local/development use, `DEBUG_DB_TOKEN` is accepted only through the `x-debug-db-token` header; `?token=` no longer authenticates.
+- Header comparison uses a timing-safe comparison. If `DEBUG_DB_TOKEN` is missing, requests are blocked.
+- `db-users` no longer returns user emails, per-user password metadata, per-user Google metadata, or account creation timestamps; it returns aggregate user counts by role and account-link counts.
+- `oauth-links` no longer returns emails or provider-account metadata; it returns only the count of Google-linked users.
+- `db-counts` no longer returns database host/provider metadata.
+- Focused tests were added in [`../../__tests__/api/debug-routes.test.ts`](../../__tests__/api/debug-routes.test.ts) for production 404, missing/invalid header rejection, query-token rejection, successful development access by header, consistent behavior across the three routes, and response minimization.
 
 ### Inventory
 
