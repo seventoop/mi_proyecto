@@ -14,6 +14,16 @@
 | Server Actions Security (Priority) | `lib/actions/{reservas,testimonios,notifications}.ts` | CRÍTICA | 🟢 Resuelto |
 | Sentry Integration (DSN) | `sentry.*.config.ts` | ALTA | 🟢 Resuelto |
 | ESLint Warnings: `no-unused-vars` | Global | BAJA | 🟡 Pendiente |
+| Typecheck: `roleChangeRequest` no existe en Prisma Client | `app/api/role-change-requests/[requestId]/route.ts`, `app/api/role-change-requests/me/route.ts`, `app/api/role-change-requests/route.ts` | ALTA | 🟡 Pendiente |
+| Auditoría npm: 39 vulnerabilidades reportadas por `npm ci` (2 low, 15 moderate, 20 high, 2 critical) | `package-lock.json`, dependencias npm | ALTA | 🟡 Pendiente |
+| Workflow `SEND_EMAIL` aceptado por schema/API pero no implementado por el engine; actualmente queda `SKIPPED` | `app/api/workflows/route.ts`, `lib/workflow-engine.ts` | MEDIA | 🟡 Pendiente |
+| `WorkflowRun` persiste `entityId` sin `entityType` ni `orgId`; enforcement tenant existe en runtime, pero falta observabilidad/extensibilidad | `prisma/schema.prisma`, `lib/workflow-engine.ts` | MEDIA | 🟡 Pendiente |
+
+## Notas de sesión 2026-08-23
+
+- El fallo de typecheck en `role-change-requests` es preexistente y no fue introducido por los fixes de autorización de esta sesión.
+- No se ejecutó `npm audit fix`; las vulnerabilidades npm requieren una auditoría separada de dependencias.
+- La deuda de `WorkflowRun` sin `entityType`/`orgId` queda registrada como observabilidad/extensibilidad futura, no como vulnerabilidad activa después del fix cross-tenant del Workflow Engine.
 
 ## Leyenda
 - **Prioridad**: CRÍTICA > ALTA > MEDIA > BAJA

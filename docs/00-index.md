@@ -9,6 +9,7 @@ Use this page as the entry point before browsing the rest of the vault. Obsidian
 - [`../REPO_RULES.md`](../REPO_RULES.md) - mandatory source of truth for local environment, Docker, ports, environment files, Prisma datasource expectations, and Vercel environment separation.
 - [`../README.md`](../README.md) - local quick start and environment summary.
 - [`../CLAUDE.md`](../CLAUDE.md) - current agent-facing architecture and command guide.
+- [`../TECH_DEBT.md`](../TECH_DEBT.md) - technical debt tracker for known pending issues and follow-up audits.
 - [`documentation-map.md`](documentation-map.md) / [[documentation-map]] - inventory of current documentation and known gaps.
 - [`architecture/system-overview.md`](architecture/system-overview.md) / [[system-overview]] - high-level architecture overview based on current repository evidence.
 
@@ -68,4 +69,4 @@ The following areas need dedicated or consolidated documentation. They are liste
 - Realtime notifications and channel policy.
 - Deployment and environment operations beyond the current runbooks.
 - ADRs / architectural decisions.
-- Technical debt index linked to verified findings.
+- Consolidation between the technical debt tracker and historical audit findings.
