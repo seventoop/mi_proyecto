@@ -15,6 +15,9 @@ Use this page as the entry point before browsing the rest of the vault. Obsidian
 ## Architecture
 
 - [`architecture/system-overview.md`](architecture/system-overview.md) - high-level system overview.
+- [`architecture/auth-and-authorization.md`](architecture/auth-and-authorization.md) / [[auth-and-authorization]] - verified authentication, session, guard, and authorization flow.
+- [`architecture/roles-and-permissions.md`](architecture/roles-and-permissions.md) / [[roles-and-permissions]] - verified roles, configurable permissions, and project-level permissions.
+- [`architecture/multi-tenancy.md`](architecture/multi-tenancy.md) / [[multi-tenancy]] - verified Organization scoping, tenant isolation patterns, and cross-tenant risk areas.
 - [`architecture/mutation-and-lead-ingestion-rules.md`](architecture/mutation-and-lead-ingestion-rules.md) - architectural rules for domain mutations and lead ingestion.
 
 ## Security
@@ -55,8 +58,6 @@ Use this page as the entry point before browsing the rest of the vault. Obsidian
 The following areas need dedicated or consolidated documentation. They are listed as gaps, not as existing documents:
 
 - Data model overview across Prisma entities.
-- Roles and permissions matrix.
-- Multi-tenancy and organization scoping.
 - CRM and leads lifecycle.
 - Reservations lifecycle.
 - Investments and escrow concepts.

@@ -25,6 +25,9 @@ This map inventories the current Seventoop documentation. Status labels are cons
 | [`00-index.md`](00-index.md) | Main vault index. | `FUENTE ACTUAL` | Entry point for repository documentation and Obsidian navigation. |
 | [`documentation-map.md`](documentation-map.md) | Inventory of current docs and gaps. | `FUENTE ACTUAL` | Should be updated when documentation is added, consolidated, or reclassified. |
 | [`architecture/system-overview.md`](architecture/system-overview.md) | High-level architecture overview based on repository evidence. | `FUENTE ACTUAL` | Connects root guides, Prisma, route groups, docs, tests, and CI. |
+| [`architecture/auth-and-authorization.md`](architecture/auth-and-authorization.md) | Authentication, session contents, middleware, guard families, and authorization surfaces. | `FUENTE ACTUAL` | Verified against NextAuth config, middleware, guards, API routes, and existing auth docs. |
+| [`architecture/roles-and-permissions.md`](architecture/roles-and-permissions.md) | Role vocabulary, configurable permission matrix, project-level permissions, and KYC/demo access. | `FUENTE ACTUAL` | Verified against Prisma, role constants, permission helpers, and project access helpers. |
+| [`architecture/multi-tenancy.md`](architecture/multi-tenancy.md) | Organization scoping, tenant enforcement patterns, IDOR defenses, and cross-tenant risk areas. | `FUENTE ACTUAL` | Verified against Prisma, guards, project access helpers, API routes, and security docs. |
 
 ## Architecture
 
@@ -32,6 +35,9 @@ This map inventories the current Seventoop documentation. Status labels are cons
 |---|---|---|---|
 | [`architecture/mutation-and-lead-ingestion-rules.md`](architecture/mutation-and-lead-ingestion-rules.md) | Rules for domain mutations and lead ingestion. | `REFERENCIA` | Related to CRM/leads, public forms, and Server Actions. Verify current entry points before changing ingestion. |
 | [`architecture/system-overview.md`](architecture/system-overview.md) | Overall stack, route groups, auth, data, integrations, tests, CI. | `FUENTE ACTUAL` | High-level index, not a replacement for code inspection. |
+| [`architecture/auth-and-authorization.md`](architecture/auth-and-authorization.md) | Current auth flow and authorization layers. | `FUENTE ACTUAL` | Documents confirmed behavior and drift versus older auth docs. |
+| [`architecture/roles-and-permissions.md`](architecture/roles-and-permissions.md) | Current roles and permission systems. | `FUENTE ACTUAL` | Separates role strings, runtime permission overrides, and project relation permissions. |
+| [`architecture/multi-tenancy.md`](architecture/multi-tenancy.md) | Current Organization isolation model. | `FUENTE ACTUAL` | Documents positive patterns and risk areas for cross-tenant access. |
 
 ## Security
 
@@ -92,8 +98,6 @@ These are gaps, not existing files:
 | Area | Need |
 |---|---|
 | Data model overview | A concise map of core Prisma entities and relationships beyond the schema file. |
-| Roles and permissions | A verified matrix of roles, route access, guard behavior, and admin bypass rules. |
-| Multi-tenancy | A current guide to `orgId`, `orgFilter`, ownership checks, and exceptions. |
 | CRM and leads | Lead lifecycle, ingestion paths, assignment, pipeline stages, and notifications. |
 | Reservations | Reservation lifecycle, transaction/locking expectations, payments, and state transitions. |
 | Investments | Investor flow, escrow concepts, price history, and project funding fields. |
