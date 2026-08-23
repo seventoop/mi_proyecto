@@ -45,6 +45,7 @@ This map inventories the current Seventoop documentation. Status labels are cons
 |---|---|---|---|
 | [`security/security-guardrails.md`](security/security-guardrails.md) | Security guardrail system and prohibited patterns. | `REFERENCIA` | Related to `npm run security:check` and CI. Verify guardrail implementation before relying on coverage. |
 | [`security/security-architecture.md`](security/security-architecture.md) | Rate limiting strategy and storage phases. | `REFERENCIA` | Related to [`audits/fix-a4.md`](audits/fix-a4.md) and `lib/rate-limit.ts`. |
+| [`security/authz-risk-review.md`](security/authz-risk-review.md) | Focused authorization risk review for project stages, debug routes, workflow AI scoring, and news actions. | `FUENTE ACTUAL` | Created from code audit after `35385c5`; documents findings only, without fixes. |
 | [`security/pull-request-security-checklist.md`](security/pull-request-security-checklist.md) | PR security checklist. | `REFERENCIA` | Useful for review; should be applied proportionally to risky changes. |
 | [`security/id-strategy.md`](security/id-strategy.md) | Identifier strategy / enumeration defense. | `REFERENCIA` | Related to Prisma IDs and security audit findings. |
 

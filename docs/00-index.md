@@ -24,6 +24,7 @@ Use this page as the entry point before browsing the rest of the vault. Obsidian
 
 - [`security/security-guardrails.md`](security/security-guardrails.md) - security guardrail system.
 - [`security/security-architecture.md`](security/security-architecture.md) - rate limiting strategy.
+- [`security/authz-risk-review.md`](security/authz-risk-review.md) / [[authz-risk-review]] - focused authorization risk review for confirmed and conditional authz findings.
 - [`security/pull-request-security-checklist.md`](security/pull-request-security-checklist.md) - PR security checklist.
 - [`security/id-strategy.md`](security/id-strategy.md) - identifier strategy and enumeration defense.
 
