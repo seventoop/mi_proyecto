@@ -16,10 +16,16 @@ Use this page as the entry point before browsing the rest of the vault. Obsidian
 ## Architecture
 
 - [`architecture/system-overview.md`](architecture/system-overview.md) - high-level system overview.
+- [`architecture/data-model.md`](architecture/data-model.md) / [[data-model]] - verified core Prisma data model and relationships.
 - [`architecture/auth-and-authorization.md`](architecture/auth-and-authorization.md) / [[auth-and-authorization]] - verified authentication, session, guard, and authorization flow.
 - [`architecture/roles-and-permissions.md`](architecture/roles-and-permissions.md) / [[roles-and-permissions]] - verified roles, configurable permissions, and project-level permissions.
 - [`architecture/multi-tenancy.md`](architecture/multi-tenancy.md) / [[multi-tenancy]] - verified Organization scoping, tenant isolation patterns, and cross-tenant risk areas.
 - [`architecture/mutation-and-lead-ingestion-rules.md`](architecture/mutation-and-lead-ingestion-rules.md) - architectural rules for domain mutations and lead ingestion.
+
+## Modules
+
+- [`modules/projects.md`](modules/projects.md) / [[projects]] - Proyecto lifecycle, state flags, ownership, and related modules.
+- [`modules/units-and-inventory.md`](modules/units-and-inventory.md) / [[units-and-inventory]] - Etapa, Manzana, Unidad, inventory states, reservations, and map/tour links.
 
 ## Security
 
