@@ -1,0 +1,14 @@
+{
+  "project_name": "Seventoop",
+  "active_profile": "autonomo",
+  "current_objective": "Auditar datos de proyectos, flujo de creacion y preparacion de ejemplos seguros.",
+  "current_branch": "HEAD detached in Codex worktree",
+  "last_cycle_summary": "Supabase Seventoop tiene schema compatible, una organizacion, pero cero usuarios, proyectos, unidades, imagenes, tours, leads y reservas. El problema visible no parece ser un filtro publico sino falta de datos cargados en la base conectada. El auditor read-only ya corre, pero DATABASE_URL local falla autenticacion P1000; el seed dry-run funciona y no escribe.",
+  "open_risks": [
+    "No escribir en Supabase/Vercel/produccion sin confirmacion explicita adicional.",
+    "Usar nombres fisicos de tablas desde Prisma @@map o information_schema, no nombres de modelos inferidos.",
+    "Crear rama nombrada antes de cambios funcionales de producto."
+  ],
+  "next_recommendation": "Corregir o reemplazar la credencial local de DATABASE_URL, volver a correr audit:elpampa-projects, y luego decidir explicitamente si los ejemplos se aplican a una base local o a Supabase.",
+  "decision_needed": true
+}
