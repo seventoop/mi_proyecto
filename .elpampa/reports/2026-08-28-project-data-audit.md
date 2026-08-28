@@ -91,3 +91,9 @@ Se agregaron dos herramientas locales:
 Se agregaron los comandos `audit:elpampa-projects`, `seed:elpampa-projects:dry-run` y `seed:elpampa-projects:apply` en `package.json`.
 
 En el ciclo siguiente se instalaron las dependencias desde `package-lock.json` y el dry-run del seed ejecuto correctamente, sin escrituras. El auditor tambien ejecuto correctamente hasta la conexion, pero `DATABASE_URL` de `.env.local` fue rechazado por Supabase con `P1000` (credenciales invalidas para `postgres`). Esto confirma que el bloqueo actual es de credencial local, no de nombres de tablas ni del script. El typecheck sigue fallando solo por el problema preexistente de `roleChangeRequest` documentado en `TECH_DEBT.md`; el auditor nuevo ya no agrega errores de tipos. No se aplico ningun seed.
+
+## Carga De Ejemplos Y Vercel
+
+Con autorizacion explicita del usuario, se cargaron en el proyecto Supabase `Seventoop` dos ejemplos idempotentes: `Valles del Pino - Demo` con 3 etapas, 6 manzanas y 36 unidades, y `Campo La Reserva - Demo` con 2 etapas, 4 manzanas y 24 unidades. Ambos quedaron en estado `EN_VENTA`, visibilidad `PUBLICADO`, con imagen, masterplan SVG, infraestructura y tour de prueba.
+
+Vercel esta vinculado al repositorio correcto y tiene un deploy de `main` en estado listo. La inspeccion de runtime detecto `DATABASE_URL` vacia y `NEXTAUTH_SECRET` ausente en el deploy anterior. Se regenero `NEXTAUTH_SECRET` para Production y Preview. Falta configurar una credencial valida para `DATABASE_URL` y hacer un nuevo deploy; por eso la verificacion visual de las paginas publicas todavia no puede considerarse completa.
