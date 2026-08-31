@@ -3,11 +3,12 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
+import { parseMasterplanOverlayBounds } from "@/lib/masterplan-geo";
+import { buildPublicMasterplanUnits } from "@/lib/public-masterplan-units";
 import { stripSvgLabels } from "@/lib/svg-strip-labels";
 import MasterplanCanvas from "@/components/public/masterplan-canvas";
 import UnitsGridPublic, { type PublicUnitItem } from "@/components/public/units-grid-public";
 import ContactForm from "@/components/public/contact-form";
-import type { MasterplanUnit } from "@/lib/masterplan-store";
 
 export const metadata: Metadata = {
     title: "Masterplan | Seventoop",
@@ -31,20 +32,8 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
         ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanedSvg)}`
         : project.overlayUrl || null;
 
-    const initialUnits: MasterplanUnit[] = project.units.map((unit): MasterplanUnit => {
-        let parsed: any = null;
-        if (unit.coordenadasMasterplan) {
-            try { parsed = JSON.parse(unit.coordenadasMasterplan); } catch {}
-        }
-        return {
-            ...unit,
-            estado: unit.estado as MasterplanUnit["estado"],
-            path: parsed?.path,
-            cx: parsed?.cx ?? parsed?.center?.x,
-            cy: parsed?.cy ?? parsed?.center?.y,
-            geoJSON: unit.coordenadasMasterplan,
-        };
-    });
+    const initialUnits = buildPublicMasterplanUnits(project.units);
+    const overlayBounds = parseMasterplanOverlayBounds(project.overlayBounds);
 
     const gridUnits: PublicUnitItem[] = project.units.map((u) => ({
         id: u.id,
@@ -90,6 +79,9 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
                     mapCenterLat={project.mapCenterLat}
                     mapCenterLng={project.mapCenterLng}
                     mapZoom={project.mapZoom}
+                    overlayBounds={overlayBounds.bounds}
+                    overlayCorners={overlayBounds.corners}
+                    overlayRotation={project.overlayRotation}
                     hasMap={hasMap}
                     hasTour360={hasTour360}
                     slug={params.slug}

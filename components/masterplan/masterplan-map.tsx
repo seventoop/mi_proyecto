@@ -21,6 +21,12 @@ import Tour360Viewer from "./tour360-viewer";
 import { getProjectBlueprintData } from "@/lib/actions/unidades";
 import { BlueprintEmbeddedMeta } from "@/lib/blueprint-utils";
 import PlanGalleryPicker, { type PlanGalleryItem } from "@/components/plan-gallery/plan-gallery-picker";
+import {
+    parseMasterplanGeoJSON,
+    parseVisualMasterplanCoordinates,
+    svgPathHasPolygonGeometry,
+    type OverlayCorners,
+} from "@/lib/masterplan-geo";
 
 const InfraestructuraTool = dynamic(() => import("./infraestructura-tool"), { ssr: false });
 const ImagenesMapaTool = dynamic(() => import("./imagenes-mapa-tool"), { ssr: false });
@@ -59,13 +65,14 @@ interface MasterplanMapProps {
     canEdit?: boolean;
     initialUnits?: MasterplanUnit[];
     overlayImageUrl?: string;
+    initialOverlayBounds?: [[number, number], [number, number]] | null;
+    initialOverlayCorners?: OverlayCorners | null;
+    initialOverlayRotation?: number | null;
     centerLat?: number;
     centerLng?: number;
     mapZoom?: number;
     tours360?: Tour360Marker[];
 }
-
-type OverlayCorners = [[number, number], [number, number], [number, number], [number, number]];
 
 function projectSvgPointToGeo(
     nx: number,
@@ -117,6 +124,9 @@ export default function MasterplanMap({
     canEdit = false,
     initialUnits = [],
     overlayImageUrl,
+    initialOverlayBounds = null,
+    initialOverlayCorners = null,
+    initialOverlayRotation = 0,
     centerLat = -34.6037,
     centerLng = -58.3816,
     mapZoom = 15,
@@ -146,9 +156,29 @@ export default function MasterplanMap({
     const [isMapReady, setIsMapReady] = useState(false);
     const [mapView, setMapView] = useState<"satellite" | "street">("satellite");
     const [tooltip, setTooltip] = useState<{ x: number; y: number; unit: MasterplanUnit } | null>(null);
+    const [drawnPolygonCount, setDrawnPolygonCount] = useState(0);
 
     // Overlay editor state (bounds only — no image overlay)
-    const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
+    const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(() => (
+        overlayImageUrl || initialOverlayBounds
+            ? {
+                imageUrl: overlayImageUrl ?? null,
+                bounds: initialOverlayBounds,
+                rotation: initialOverlayRotation ?? 0,
+                opacity: 0.8,
+                corners: initialOverlayCorners,
+            }
+            : null
+    ));
+    const hasAnyMappableGeometry = useMemo(() => (
+        units.some((unit) => {
+            const visualPath = unit.path ?? parseVisualMasterplanCoordinates((unit as any).coordenadasMasterplan)?.path;
+            return (
+                Boolean(parseMasterplanGeoJSON(unit.geoJSON)) ||
+                (Boolean(overlayConfig?.bounds || overlayConfig?.corners) && svgPathHasPolygonGeometry(visualPath))
+            );
+        })
+    ), [overlayConfig?.bounds, overlayConfig?.corners, units]);
     const [isEditingOverlay, setIsEditingOverlay] = useState(false);
     const [isLoadingOverlay, setIsLoadingOverlay] = useState(false);
     const [planGalleryItems, setPlanGalleryItems] = useState<PlanGalleryItem[]>([]);
@@ -228,8 +258,9 @@ export default function MasterplanMap({
     }, [proyectoId, readJsonResponse]);
 
     useEffect(() => {
+        if (modo !== "admin") return;
         loadPlanGallery();
-    }, [loadPlanGallery]);
+    }, [loadPlanGallery, modo]);
 
     const buildMapOverlaySvg = useCallback((svgString: string, meta: BlueprintEmbeddedMeta | null) => {
         if (typeof window === "undefined" || meta?.processingMode !== "detected-lots") {
@@ -343,6 +374,13 @@ export default function MasterplanMap({
     // Fetch blueprint data (units with SVG paths) — same source as Paso 3
     useEffect(() => {
         const fetchBlueprint = async () => {
+            if (modo === "public") {
+                setUnits(initialUnits ?? []);
+                setHasSavedBlueprint(Boolean(overlayImageUrl));
+                setBlueprintLoaded(true);
+                return;
+            }
+
             // Fast-path: if caller already provided units, use them
             if (initialUnits && initialUnits.length > 0) {
                 setUnits(initialUnits);
@@ -365,10 +403,12 @@ export default function MasterplanMap({
         };
         fetchBlueprint();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialUnits, loadSavedBlueprintOverlay, proyectoId, setUnits]);
+    }, [initialUnits, loadSavedBlueprintOverlay, modo, overlayImageUrl, proyectoId, setUnits]);
 
     // Load saved overlay config from API
     useEffect(() => {
+        if (modo === "public") return;
+
         const loadOverlay = async () => {
             setIsLoadingOverlay(true);
             try {
@@ -394,7 +434,7 @@ export default function MasterplanMap({
             }
         };
         loadOverlay();
-    }, [proyectoId]);
+    }, [modo, proyectoId]);
 
     // Note: the overlay IMAGE is not auto-loaded on mount.
     // overlayConfig.bounds is used for polygon geo-transformation.
@@ -537,7 +577,7 @@ export default function MasterplanMap({
         for (const u of units) {
             let path = u.path;
             if (!path && (u as any).coordenadasMasterplan) {
-                try { const c = JSON.parse((u as any).coordenadasMasterplan); path = c.path; } catch {}
+                path = parseVisualMasterplanCoordinates((u as any).coordenadasMasterplan)?.path;
             }
             if (!path) continue;
             const nums = path.match(/-?[\d.]+(?:e[+-]?\d+)?/gi);
@@ -595,27 +635,25 @@ export default function MasterplanMap({
             // Clear old polygons
             polygonsRef.current.forEach((poly) => map.removeLayer(poly));
             polygonsRef.current.clear();
+            let nextDrawnPolygonCount = 0;
 
             units.forEach((unit) => {
                 let coords: [number, number][] | null = null;
 
                 // Option 1: native geoJSON (explicit lat/lng array stored in DB)
                 if (unit.geoJSON) {
-                    try { coords = JSON.parse(unit.geoJSON); } catch {}
+                    coords = parseMasterplanGeoJSON(unit.geoJSON);
                 }
 
                 // Option 2: SVG path → geo via saved overlay transform
-                if (!coords && svgViewBox && overlayConfig?.bounds) {
+                if (!coords && svgViewBox && (overlayConfig?.bounds || overlayConfig?.corners)) {
                     let svgPath = unit.path;
                     if (!svgPath && (unit as any).coordenadasMasterplan) {
-                        try {
-                            const c = JSON.parse((unit as any).coordenadasMasterplan);
-                            svgPath = c.path;
-                        } catch {}
+                        svgPath = parseVisualMasterplanCoordinates((unit as any).coordenadasMasterplan)?.path;
                     }
-                    if (svgPath) {
+                    if (svgPathHasPolygonGeometry(svgPath)) {
                         const nums = svgPath.match(/-?[\d.]+(?:e[+-]?\d+)?/g);
-                        if (nums && nums.length >= 4) {
+                        if (nums && nums.length >= 6) {
                             const pts: [number, number][] = [];
                             for (let i = 0; i + 1 < nums.length; i += 2) {
                                 const sx = parseFloat(nums[i]), sy = parseFloat(nums[i + 1]);
@@ -679,16 +717,15 @@ export default function MasterplanMap({
 
                 polygon.addTo(map);
                 polygonsRef.current.set(unit.id, polygon);
+                nextDrawnPolygonCount += 1;
 
                 // Add label — centered exactly on the polygon
                 if (isFiltered) {
                     // Prefer internalId (clean number), then numeric-only extraction
                     let labelText = unit.numero;
                     if ((unit as any).coordenadasMasterplan) {
-                        try {
-                            const c = JSON.parse((unit as any).coordenadasMasterplan);
-                            if (c.internalId != null) labelText = String(c.internalId);
-                        } catch {}
+                        const visualCoordinates = parseVisualMasterplanCoordinates((unit as any).coordenadasMasterplan);
+                        if (visualCoordinates?.internalId != null) labelText = String(visualCoordinates.internalId);
                     }
                     if (!/^\d+$/.test(labelText)) {
                         const numMatch = labelText.match(/\d+/);
@@ -743,6 +780,7 @@ export default function MasterplanMap({
                 }
             });
 
+            setDrawnPolygonCount(nextDrawnPolygonCount);
             contentBoundsRef.current = contentBounds.isValid() ? contentBounds : null;
             if (!hasAutoFitContentRef.current && contentBounds.isValid()) {
                 hasAutoFitContentRef.current = true;
@@ -830,7 +868,7 @@ export default function MasterplanMap({
 
             let svgPath: string | undefined = unit.path;
             if (!svgPath && (unit as any).coordenadasMasterplan) {
-                try { const c = JSON.parse((unit as any).coordenadasMasterplan); svgPath = c.path; } catch {}
+                svgPath = parseVisualMasterplanCoordinates((unit as any).coordenadasMasterplan)?.path;
             }
             if (!svgPath) return;
 
@@ -1331,6 +1369,12 @@ export default function MasterplanMap({
                             <MapPin className="w-3.5 h-3.5 text-brand-400 shrink-0" />
                             Ya hay un plano guardado. Ajustalo sobre el mapa para ubicarlo y posicionarlo.
                         </div>
+                    </div>
+                )}
+
+                {isMapReady && units.length > 0 && drawnPolygonCount === 0 && !hasAnyMappableGeometry && (
+                    <div className="absolute bottom-16 left-1/2 z-[999] w-[min(92%,420px)] -translate-x-1/2 rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-3 text-xs font-medium text-amber-950 shadow-xl dark:border-amber-500/40 dark:bg-amber-950/90 dark:text-amber-100">
+                        No hay poligonos geograficos ni paths visuales validos para ubicar unidades en el mapa.
                     </div>
                 )}
 

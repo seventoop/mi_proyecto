@@ -26,10 +26,12 @@ export interface MasterplanUnit {
     tour360Url?: string | null;
     imagenes?: string[];
     responsable?: string | null;
-    // Geometric data (usually stored as JSON in coordenadasMasterplan)
+    // Visual SVG geometry stored in coordenadasMasterplan.
+    coordenadasMasterplan?: string | null;
     path?: string;
     cx?: number;
     cy?: number;
+    // Geographic polygon data stored in Unidad.geoJSON.
     geoJSON?: string | null;
 }
 

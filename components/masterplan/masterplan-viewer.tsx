@@ -20,6 +20,7 @@ import MasterplanComparator from "./masterplan-comparator";
 import { getProjectBlueprintData } from "@/lib/actions/unidades";
 import { getPusherClient, CHANNELS, EVENTS } from "@/lib/pusher";
 import { normalizeUnitEstado } from "@/lib/public-projects";
+import { parseVisualMasterplanCoordinates, svgPathHasPolygonGeometry } from "@/lib/masterplan-geo";
 
 // ─── Zoom wiring component (must live inside TransformWrapper to use useControls) ───
 function ZoomButtonWiring({
@@ -143,20 +144,16 @@ const UnitPolygon = memo(function UnitPolygon({
     let path = unit.path;
     let cx = unit.cx;
     let cy = unit.cy;
-    let internalId: number | undefined;
+    let internalId: string | number | undefined;
     let lotLabel: string | undefined;
 
     if (!path && (unit as any).coordenadasMasterplan) {
-        try {
-            const coords = JSON.parse((unit as any).coordenadasMasterplan);
-            path = coords.path;
-            cx = coords.center?.x;
-            cy = coords.center?.y;
-            internalId = coords.internalId;
-            lotLabel = coords.lotLabel ?? undefined;
-        } catch (e) {
-            return null;
-        }
+        const coords = parseVisualMasterplanCoordinates((unit as any).coordenadasMasterplan);
+        path = coords?.path;
+        cx = coords?.cx ?? coords?.center?.x;
+        cy = coords?.cy ?? coords?.center?.y;
+        internalId = coords?.internalId;
+        lotLabel = coords?.lotLabel;
     }
 
     if (!path) return null;
@@ -201,7 +198,7 @@ const UnitPolygon = memo(function UnitPolygon({
     // the rendered width constant in screen pixels at any zoom level.
     const strokeWidth = isSelected ? 1.5 : isComparing ? 1.2 : isHovered ? 1.0 : 0.5;
     const strokeColor = isSelected ? "#fff" : isComparing ? "#6366f1" : isHovered ? "#fff" : "rgba(255,255,255,0.35)";
-    const labelText = internalId != null ? String(internalId) : (unit.numero.split("-")[1] || unit.numero);
+    const labelText = internalId != null ? String(internalId) : lotLabel ?? (unit.numero.split("-")[1] || unit.numero);
     // Sanitize unit.id for use as an XML ID (UUIDs contain hyphens — replace with underscores)
     const clipId = `lp_${unit.id.replace(/[^a-zA-Z0-9]/g, "_")}`;
 
@@ -381,6 +378,13 @@ export default function MasterplanViewer({
     }, [setHoveredUnitId]);
 
     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
+    const hasInteractiveGeometry = useMemo(
+        () => units.some((unit) => (
+            svgPathHasPolygonGeometry(unit.path) ||
+            Boolean(parseVisualMasterplanCoordinates((unit as any).coordenadasMasterplan)?.path)
+        )),
+        [units],
+    );
 
     // ─── Dynamic viewBox: computed from actual unit geometry ─────────────────
     const svgViewBox = useMemo(() => {
@@ -389,10 +393,7 @@ export default function MasterplanViewer({
         for (const u of units) {
             let path = u.path;
             if (!path && (u as any).coordenadasMasterplan) {
-                try {
-                    const c = JSON.parse((u as any).coordenadasMasterplan);
-                    path = c.path;
-                } catch {}
+                path = parseVisualMasterplanCoordinates((u as any).coordenadasMasterplan)?.path;
             }
             if (!path) continue;
             const nums = path.match(/-?[\d.]+(?:e[+-]?\d+)?/gi);
@@ -522,6 +523,12 @@ export default function MasterplanViewer({
                     ))}
                 </div>
             </div>
+
+            {!hasInteractiveGeometry && (
+                <div className="absolute bottom-4 right-4 z-20 max-w-sm rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-3 text-xs font-medium text-amber-950 shadow-lg dark:border-amber-500/40 dark:bg-amber-950/90 dark:text-amber-100">
+                    El plano base esta disponible, pero este proyecto todavia no tiene geometria interactiva de unidades.
+                </div>
+            )}
 
             {/* SVG Canvas with Zoom/Pan */}
             <TransformWrapper

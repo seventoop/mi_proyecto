@@ -84,6 +84,7 @@ export type ProjectShowcaseData = {
         orientacion: string | null;
         precio: number | null;
         moneda: string;
+        geoJSON: string | null;
         coordenadasMasterplan: string | null;
         manzanaId: string;
         manzanaNombre: string;
@@ -337,6 +338,7 @@ export async function getProjectShowcasePayload(options: {
                                     fondo: true,
                                     esEsquina: true,
                                     orientacion: true,
+                                    geoJSON: true,
                                     coordenadasMasterplan: true,
                                     tour360Url: true,
                                 },
@@ -420,6 +422,7 @@ export async function getProjectShowcasePayload(options: {
                 estado: normalizeUnitEstado(unit.estado),
                 superficie: toNumber(unit.superficie),
                 precio: toNumber(unit.precio),
+                geoJSON: unit.geoJSON,
                 coordenadasMasterplan: unit.coordenadasMasterplan,
                 tour360Url: unit.tour360Url,
                 manzanaId: block.id,

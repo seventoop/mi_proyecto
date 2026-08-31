@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { Camera, Globe, LayoutTemplate } from "lucide-react";
 import Link from "next/link";
 import type { MasterplanUnit } from "@/lib/masterplan-store";
+import type { OverlayCorners } from "@/lib/masterplan-geo";
+import { getPublicMasterplanGeometryState } from "@/lib/public-masterplan-units";
 
 const MasterplanViewer = dynamic(
     () => import("@/components/masterplan/masterplan-viewer"),
@@ -41,6 +43,9 @@ export interface MasterplanCanvasProps {
     mapCenterLat: number | null;
     mapCenterLng: number | null;
     mapZoom: number | null;
+    overlayBounds: [[number, number], [number, number]] | null;
+    overlayCorners: OverlayCorners | null;
+    overlayRotation: number | null;
     hasMap: boolean;
     hasTour360: boolean;
     slug: string;
@@ -53,11 +58,19 @@ export default function MasterplanCanvas({
     mapCenterLat,
     mapCenterLng,
     mapZoom,
+    overlayBounds,
+    overlayCorners,
+    overlayRotation,
     hasMap,
     hasTour360,
     slug,
 }: MasterplanCanvasProps) {
     const [view, setView] = useState<"plano" | "mapa">("plano");
+    const geometryState = getPublicMasterplanGeometryState(
+        units,
+        { bounds: overlayBounds, corners: overlayCorners },
+        Boolean(planAsset),
+    );
 
     return (
         <div className="space-y-5">
@@ -138,6 +151,9 @@ export default function MasterplanCanvas({
                             canEdit={false}
                             initialUnits={units}
                             overlayImageUrl={planAsset || undefined}
+                            initialOverlayBounds={overlayBounds}
+                            initialOverlayCorners={overlayCorners}
+                            initialOverlayRotation={overlayRotation}
                             centerLat={mapCenterLat ?? undefined}
                             centerLng={mapCenterLng ?? undefined}
                             mapZoom={mapZoom ?? undefined}
@@ -145,6 +161,12 @@ export default function MasterplanCanvas({
                     )}
                 </div>
             </div>
+
+            {!geometryState.hasInteractiveGeometry && geometryState.hasBaseSvg && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950">
+                    El masterplan base esta disponible. La seleccion interactiva de lotes se habilitara cuando existan poligonos o paths de unidades.
+                </div>
+            )}
         </div>
     );
 }
