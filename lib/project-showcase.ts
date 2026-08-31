@@ -10,6 +10,21 @@ import { normalizeTourMediaCategory } from "@/lib/tour-media";
 const fallbackImage =
     "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop";
 
+function sanitizeDiagnosticError(error: unknown) {
+    const errorRecord = typeof error === "object" && error !== null ? error as Record<string, unknown> : null;
+    const rawMessage = error instanceof Error ? error.message : typeof error === "string" ? error : undefined;
+    const safeMessage = rawMessage
+        ?.split("\n")[0]
+        ?.replace(/[a-z][a-z0-9+.-]*:\/\/[^\s)]+/gi, "[redacted-url]")
+        ?.replace(/(?:password|token|secret|cookie|authorization|api[_-]?key)=\S+/gi, "$1=[redacted]");
+
+    return {
+        errorClass: error instanceof Error ? error.name : typeof error,
+        errorCode: errorRecord && "code" in errorRecord ? errorRecord.code : undefined,
+        errorMessage: safeMessage,
+    };
+}
+
 export type ProjectShowcaseData = {
     id: string;
     slug: string;
@@ -696,33 +711,90 @@ export async function getPublicProjectShowcaseBySlug(
 }
 
 export async function listPublicProjectShowcases(): Promise<PublicProjectShowcase[]> {
-    const projects = await db.proyecto.findMany({
-        where: buildPublicProjectWhere(),
-        orderBy: { createdAt: "desc" },
-        select: { id: true },
-    });
+    const startedAt = Date.now();
+    let idCount = 0;
 
-    const payloads = await Promise.all(
-        projects.map((project) => getPublicProjectShowcaseBySlug(project.id))
-    );
+    try {
+        const projects = await db.proyecto.findMany({
+            where: buildPublicProjectWhere(),
+            orderBy: { createdAt: "desc" },
+            select: { id: true },
+        });
+        idCount = projects.length;
 
-    return payloads.filter((project): project is PublicProjectShowcase => project !== null);
+        console.info("[public-project-loader]", {
+            event: "public_project_showcases_ids_loaded",
+            route: "/proyectos",
+            function: "listPublicProjectShowcases",
+            count: idCount,
+            durationMs: Date.now() - startedAt,
+        });
+
+        const payloads = await Promise.all(
+            projects.map((project) => getPublicProjectShowcaseBySlug(project.id))
+        );
+
+        const result = payloads.filter((project): project is PublicProjectShowcase => project !== null);
+        console.info("[public-project-loader]", {
+            event: "public_project_showcases_loaded",
+            route: "/proyectos",
+            function: "listPublicProjectShowcases",
+            count: result.length,
+            durationMs: Date.now() - startedAt,
+        });
+        return result;
+    } catch (error) {
+        console.error("[public-project-loader]", {
+            event: "public_project_showcases_error",
+            route: "/proyectos",
+            function: "listPublicProjectShowcases",
+            count: idCount,
+            durationMs: Date.now() - startedAt,
+            ...sanitizeDiagnosticError(error),
+        });
+        throw error;
+    }
 }
 
 export async function listPublicProjectCards(): Promise<PublicProjectCard[]> {
-    const projects = await listPublicProjectShowcases();
+    const startedAt = Date.now();
+    let showcaseCount = 0;
 
-    return projects.map((project) => ({
-        id: project.id,
-        slug: project.slug,
-        nombre: project.nombre,
-        descripcion: project.descripcion,
-        ubicacion: project.ubicacion,
-        tipo: project.tipo,
-        estado: project.estado,
-        imageUrl: project.imageUrl,
-        inventoryPreview: project.inventoryPreview,
-        availableUnits: project.stats.availableUnits,
-        publicPath: `/proyectos/${project.id}`,
-    }));
+    try {
+        const projects = await listPublicProjectShowcases();
+        showcaseCount = projects.length;
+
+        const result = projects.map((project) => ({
+            id: project.id,
+            slug: project.slug,
+            nombre: project.nombre,
+            descripcion: project.descripcion,
+            ubicacion: project.ubicacion,
+            tipo: project.tipo,
+            estado: project.estado,
+            imageUrl: project.imageUrl,
+            inventoryPreview: project.inventoryPreview,
+            availableUnits: project.stats.availableUnits,
+            publicPath: `/proyectos/${project.id}`,
+        }));
+
+        console.info("[public-project-loader]", {
+            event: "public_project_cards_loaded",
+            route: "/proyectos",
+            function: "listPublicProjectCards",
+            count: showcaseCount,
+            durationMs: Date.now() - startedAt,
+        });
+        return result;
+    } catch (error) {
+        console.error("[public-project-loader]", {
+            event: "public_project_cards_error",
+            route: "/proyectos",
+            function: "listPublicProjectCards",
+            count: showcaseCount,
+            durationMs: Date.now() - startedAt,
+            ...sanitizeDiagnosticError(error),
+        });
+        throw error;
+    }
 }

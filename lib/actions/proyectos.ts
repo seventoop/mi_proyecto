@@ -9,6 +9,21 @@ import { audit } from "@/lib/actions/audit";
 import { flagsFromEstado } from "@/lib/project-access";
 import { buildPublicProjectWhere } from "@/lib/public-projects";
 
+function sanitizeDiagnosticError(error: unknown) {
+    const errorRecord = typeof error === "object" && error !== null ? error as Record<string, unknown> : null;
+    const rawMessage = error instanceof Error ? error.message : typeof error === "string" ? error : undefined;
+    const safeMessage = rawMessage
+        ?.split("\n")[0]
+        ?.replace(/[a-z][a-z0-9+.-]*:\/\/[^\s)]+/gi, "[redacted-url]")
+        ?.replace(/(?:password|token|secret|cookie|authorization|api[_-]?key)=\S+/gi, "$1=[redacted]");
+
+    return {
+        errorClass: error instanceof Error ? error.name : typeof error,
+        errorCode: errorRecord && "code" in errorRecord ? errorRecord.code : undefined,
+        errorMessage: safeMessage,
+    };
+}
+
 // ─── Scemas ───
 
 // Regla de negocio: SOLO `nombre` y `ubicacion` son obligatorios.
@@ -617,6 +632,13 @@ export async function setMainProyectoImagen(id: string, proyectoId: string) {
 // --- LANDING PÚBLICA ---
 
 export async function getProyectosDestacados() {
+    const startedAt = Date.now();
+    console.info("[public-project-loader]", {
+        event: "public_projects_featured_query_start",
+        route: "/",
+        function: "getProyectosDestacados",
+    });
+
     try {
         const proyectos = await prisma.proyecto.findMany({
             where: buildPublicProjectWhere(),
@@ -633,7 +655,7 @@ export async function getProyectosDestacados() {
             orderBy: { createdAt: "desc" },
             take: 6,
         });
-        return proyectos.map((p) => ({
+        const result = proyectos.map((p) => ({
             id: p.id,
             nombre: p.nombre,
             slug: p.slug,
@@ -643,8 +665,22 @@ export async function getProyectosDestacados() {
             ubicacion: p.ubicacion,
             precioDesde: p.precioM2Mercado ? Number(p.precioM2Mercado) : null,
         }));
+        console.info("[public-project-loader]", {
+            event: "public_projects_featured_query_success",
+            route: "/",
+            function: "getProyectosDestacados",
+            count: result.length,
+            durationMs: Date.now() - startedAt,
+        });
+        return result;
     } catch (error) {
-        console.error("[getProyectosDestacados] failed:", error);
+        console.error("[public-project-loader]", {
+            event: "public_projects_featured_query_error",
+            route: "/",
+            function: "getProyectosDestacados",
+            durationMs: Date.now() - startedAt,
+            ...sanitizeDiagnosticError(error),
+        });
         return [];
     }
 }
