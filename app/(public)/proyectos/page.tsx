@@ -4,6 +4,8 @@ import { Building2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { listPublicProjectCards } from "@/lib/project-showcase";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
     title: "Desarrollos | SevenToop — Infraestructura para Lanzamientos Inmobiliarios",
     description:
@@ -14,6 +16,13 @@ async function getProjects() {
     try {
         return await listPublicProjectCards();
     } catch (error) {
+        console.error("[public-projects] project query failed", {
+            event: "public_project_query_failed",
+            route: "/proyectos",
+            query: "getProjects",
+            errorName: error instanceof Error ? error.name : typeof error,
+            prismaCode: typeof error === "object" && error !== null && "code" in error ? error.code : undefined,
+        });
         return [];
     }
 }

@@ -12,13 +12,56 @@ import Noticias from "@/components/public/noticias";
 import FloatingNav from "@/components/public/floating-nav";
 
 import { getBannersLanding } from "@/lib/actions/banners";
-import { getProyectosDestacados } from "@/lib/actions/proyectos";
 import { getSystemConfig } from "@/lib/actions/configuration";
+import prisma from "@/lib/db";
+import { buildPublicProjectWhere } from "@/lib/public-projects";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
     title: "SevenToop — Infraestructura para Comercialización Inmobiliaria",
     description: "Plataforma integral de gestión inmobiliaria para desarrollos, urbanizaciones y proyectos premium. Invertí con seguridad y tecnología.",
 };
+
+async function getProyectosDestacados() {
+    try {
+        const proyectos = await prisma.proyecto.findMany({
+            where: buildPublicProjectWhere(),
+            select: {
+                id: true,
+                nombre: true,
+                slug: true,
+                estado: true,
+                tipo: true,
+                imagenPortada: true,
+                ubicacion: true,
+                precioM2Mercado: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 6,
+        });
+
+        return proyectos.map((p) => ({
+            id: p.id,
+            nombre: p.nombre,
+            slug: p.slug,
+            estado: p.estado,
+            tipo: p.tipo,
+            imagenPortada: p.imagenPortada,
+            ubicacion: p.ubicacion,
+            precioDesde: p.precioM2Mercado ? Number(p.precioM2Mercado) : null,
+        }));
+    } catch (error) {
+        console.error("[public-home] project query failed", {
+            event: "public_project_query_failed",
+            route: "/",
+            query: "getProyectosDestacados",
+            errorName: error instanceof Error ? error.name : typeof error,
+            prismaCode: typeof error === "object" && error !== null && "code" in error ? error.code : undefined,
+        });
+        return [];
+    }
+}
 
 export default async function HomePage() {
     const [bannersRes, proyectos] = await Promise.all([
