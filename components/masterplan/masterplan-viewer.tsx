@@ -21,7 +21,7 @@ import { getProjectBlueprintData } from "@/lib/actions/unidades";
 import { getPusherClient, CHANNELS, EVENTS } from "@/lib/pusher";
 import { normalizeUnitEstado } from "@/lib/public-projects";
 import { parseVisualMasterplanCoordinates, svgPathHasPolygonGeometry } from "@/lib/masterplan-geo";
-import { getRawMasterplanSvgViewBox, normalizeRawMasterplanSvg } from "@/lib/masterplan-svg";
+import { getRawMasterplanSvgViewBox, svgToDataUri } from "@/lib/masterplan-svg";
 
 // ─── Zoom wiring component (must live inside TransformWrapper to use useControls) ───
 function ZoomButtonWiring({
@@ -379,15 +379,15 @@ export default function MasterplanViewer({
     }, [setHoveredUnitId]);
 
     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
-    const rawBackgroundSvg = useMemo(
-        () => normalizeRawMasterplanSvg(backgroundAssetUrl),
+    const rawBackgroundDataUri = useMemo(
+        () => svgToDataUri(backgroundAssetUrl),
         [backgroundAssetUrl],
     );
     const rawBackgroundViewBox = useMemo(
         () => getRawMasterplanSvgViewBox(backgroundAssetUrl),
         [backgroundAssetUrl],
     );
-    const backgroundImageUrl = rawBackgroundSvg ? null : backgroundAssetUrl;
+    const backgroundImageUrl = rawBackgroundDataUri ?? backgroundAssetUrl;
     const hasInteractiveGeometry = useMemo(
         () => units.some((unit) => (
             svgPathHasPolygonGeometry(unit.path) ||
@@ -558,12 +558,6 @@ export default function MasterplanViewer({
                                 <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-slate-700" />
                             </pattern>
                         </defs>
-                        {rawBackgroundSvg && (
-                            <g
-                                className="pointer-events-none"
-                                dangerouslySetInnerHTML={{ __html: rawBackgroundSvg }}
-                            />
-                        )}
                         {backgroundImageUrl && (
                             <image
                                 href={backgroundImageUrl}
@@ -572,13 +566,14 @@ export default function MasterplanViewer({
                                 width={vbW}
                                 height={vbH}
                                 preserveAspectRatio="xMidYMid meet"
+                                pointerEvents="none"
                                 opacity={0.55}
                             />
                         )}
                         {/* Grid: solo se dibuja cuando NO hay plano de fondo, para
                             evitar que parezca un "tercer plano" encima del plano técnico
                             ya cargado y de los lotes coloreados (causa de triple render). */}
-                        {!rawBackgroundSvg && !backgroundImageUrl && (
+                        {!backgroundImageUrl && (
                             <rect x={vbX} y={vbY} width={vbW} height={vbH} fill="url(#mp-grid)" />
                         )}
 

@@ -3,6 +3,7 @@ import {
     getRawMasterplanSvgViewBox,
     isRawSvgString,
     normalizeRawMasterplanSvg,
+    svgToDataUri,
 } from "@/lib/masterplan-svg";
 
 describe("masterplan SVG rendering helpers", () => {
@@ -24,5 +25,16 @@ describe("masterplan SVG rendering helpers", () => {
         expect(normalized).toContain('preserveAspectRatio="xMidYMid meet"');
         expect(normalized).toContain("<rect");
         expect(normalized).toContain("<text");
+    });
+
+    it("converts raw SVG markup into a valid SVG data URI", () => {
+        const svg = `<svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="50" fill="#fff" /></svg>`;
+
+        const dataUri = svgToDataUri(svg);
+
+        expect(dataUri).toBeTruthy();
+        expect(dataUri).toMatch(/^data:image\/svg\+xml;charset=utf-8,/);
+        expect(dataUri).not.toContain("<svg");
+        expect(decodeURIComponent(dataUri!.replace("data:image/svg+xml;charset=utf-8,", ""))).toBe(svg);
     });
 });
