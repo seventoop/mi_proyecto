@@ -6,6 +6,7 @@ import { getPublicProjectShowcaseBySlug } from "@/lib/project-showcase";
 import { parseMasterplanOverlayBounds } from "@/lib/masterplan-geo";
 import { buildPublicMasterplanUnits } from "@/lib/public-masterplan-units";
 import { stripSvgLabels } from "@/lib/svg-strip-labels";
+import { svgToDataUri } from "@/lib/masterplan-svg";
 import MasterplanCanvas from "@/components/public/masterplan-canvas";
 import UnitsGridPublic, { type PublicUnitItem } from "@/components/public/units-grid-public";
 import ContactForm from "@/components/public/contact-form";
@@ -21,16 +22,9 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
     const hasMap = project.mapCenterLat != null && project.mapCenterLng != null;
     const hasTour360 = project.tours.some((tour) => tour.sceneCount > 0);
 
-    // Single source of truth para el plano de fondo del canvas interactivo.
-    // Quitamos texto Y neutralizamos los rellenos del SVG: si dejáramos los
-    // fills nativos, los polígonos de estados que el viewer pinta encima se
-    // sumarían a los fills del SVG y aparecerían DOS capas de color sobre cada
-    // lote (la "superposición de planos"). Manteniendo sólo las líneas se
-    // garantiza UNA sola base + UNA sola capa de color (los polígonos).
-    const cleanedSvg = stripSvgLabels(project.masterplanSvg, { neutralizeFills: true });
-    const planAsset = cleanedSvg
-        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanedSvg)}`
-        : project.overlayUrl || null;
+    const cleanedMapOverlaySvg = stripSvgLabels(project.masterplanSvg, { neutralizeFills: true });
+    const planAsset = project.masterplanSvg || project.overlayUrl || null;
+    const mapOverlayAsset = svgToDataUri(cleanedMapOverlaySvg) || project.overlayUrl || null;
 
     const initialUnits = buildPublicMasterplanUnits(project.units);
     const overlayBounds = parseMasterplanOverlayBounds(project.overlayBounds);
@@ -76,6 +70,7 @@ export default async function PublicMasterplanPage({ params }: { params: { slug:
                     proyectoId={project.id}
                     units={initialUnits}
                     planAsset={planAsset}
+                    mapOverlayAsset={mapOverlayAsset}
                     mapCenterLat={project.mapCenterLat}
                     mapCenterLng={project.mapCenterLng}
                     mapZoom={project.mapZoom}

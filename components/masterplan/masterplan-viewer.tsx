@@ -21,6 +21,7 @@ import { getProjectBlueprintData } from "@/lib/actions/unidades";
 import { getPusherClient, CHANNELS, EVENTS } from "@/lib/pusher";
 import { normalizeUnitEstado } from "@/lib/public-projects";
 import { parseVisualMasterplanCoordinates, svgPathHasPolygonGeometry } from "@/lib/masterplan-geo";
+import { getRawMasterplanSvgViewBox, normalizeRawMasterplanSvg } from "@/lib/masterplan-svg";
 
 // ─── Zoom wiring component (must live inside TransformWrapper to use useControls) ───
 function ZoomButtonWiring({
@@ -378,6 +379,15 @@ export default function MasterplanViewer({
     }, [setHoveredUnitId]);
 
     const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
+    const rawBackgroundSvg = useMemo(
+        () => normalizeRawMasterplanSvg(backgroundAssetUrl),
+        [backgroundAssetUrl],
+    );
+    const rawBackgroundViewBox = useMemo(
+        () => getRawMasterplanSvgViewBox(backgroundAssetUrl),
+        [backgroundAssetUrl],
+    );
+    const backgroundImageUrl = rawBackgroundSvg ? null : backgroundAssetUrl;
     const hasInteractiveGeometry = useMemo(
         () => units.some((unit) => (
             svgPathHasPolygonGeometry(unit.path) ||
@@ -388,6 +398,7 @@ export default function MasterplanViewer({
 
     // ─── Dynamic viewBox: computed from actual unit geometry ─────────────────
     const svgViewBox = useMemo(() => {
+        if (rawBackgroundViewBox) return rawBackgroundViewBox;
         if (units.length === 0) return "0 0 1000 800";
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const u of units) {
@@ -412,7 +423,7 @@ export default function MasterplanViewer({
         const h = maxY - minY || 800;
         const pad = Math.max(w, h) * 0.06;
         return `${minX - pad} ${minY - pad} ${w + pad * 2} ${h + pad * 2}`;
-    }, [units]);
+    }, [rawBackgroundViewBox, units]);
 
     // Parse viewBox for use in grid rect
     const vbParts = svgViewBox.split(" ").map(parseFloat);
@@ -547,9 +558,15 @@ export default function MasterplanViewer({
                                 <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-slate-700" />
                             </pattern>
                         </defs>
-                        {backgroundAssetUrl && (
+                        {rawBackgroundSvg && (
+                            <g
+                                className="pointer-events-none"
+                                dangerouslySetInnerHTML={{ __html: rawBackgroundSvg }}
+                            />
+                        )}
+                        {backgroundImageUrl && (
                             <image
-                                href={backgroundAssetUrl}
+                                href={backgroundImageUrl}
                                 x={vbX}
                                 y={vbY}
                                 width={vbW}
@@ -561,7 +578,7 @@ export default function MasterplanViewer({
                         {/* Grid: solo se dibuja cuando NO hay plano de fondo, para
                             evitar que parezca un "tercer plano" encima del plano técnico
                             ya cargado y de los lotes coloreados (causa de triple render). */}
-                        {!backgroundAssetUrl && (
+                        {!rawBackgroundSvg && !backgroundImageUrl && (
                             <rect x={vbX} y={vbY} width={vbW} height={vbH} fill="url(#mp-grid)" />
                         )}
 

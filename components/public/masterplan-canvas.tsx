@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { MasterplanUnit } from "@/lib/masterplan-store";
 import type { OverlayCorners } from "@/lib/masterplan-geo";
 import { getPublicMasterplanGeometryState } from "@/lib/public-masterplan-units";
+import { isRawSvgString } from "@/lib/masterplan-svg";
 
 const MasterplanViewer = dynamic(
     () => import("@/components/masterplan/masterplan-viewer"),
@@ -40,6 +41,7 @@ export interface MasterplanCanvasProps {
     proyectoId: string;
     units: MasterplanUnit[];
     planAsset: string | null;
+    mapOverlayAsset?: string | null;
     mapCenterLat: number | null;
     mapCenterLng: number | null;
     mapZoom: number | null;
@@ -55,6 +57,7 @@ export default function MasterplanCanvas({
     proyectoId,
     units,
     planAsset,
+    mapOverlayAsset,
     mapCenterLat,
     mapCenterLng,
     mapZoom,
@@ -71,6 +74,7 @@ export default function MasterplanCanvas({
         { bounds: overlayBounds, corners: overlayCorners },
         Boolean(planAsset),
     );
+    const mapPlanAsset = mapOverlayAsset ?? (isRawSvgString(planAsset) ? null : planAsset);
 
     return (
         <div className="space-y-5">
@@ -150,7 +154,7 @@ export default function MasterplanCanvas({
                             modo="public"
                             canEdit={false}
                             initialUnits={units}
-                            overlayImageUrl={planAsset || undefined}
+                            overlayImageUrl={mapPlanAsset || undefined}
                             initialOverlayBounds={overlayBounds}
                             initialOverlayCorners={overlayCorners}
                             initialOverlayRotation={overlayRotation}
